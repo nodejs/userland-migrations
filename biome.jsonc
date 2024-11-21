@@ -1,0 +1,28 @@
+{
+  "formatter": {
+    "indentStyle": "tab",
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+			"semicolons": "always",
+      "quoteStyle": "single",
+      "trailingCommas": "all"
+    },
+		"linter": {
+			"style": {
+				"useImportType": true
+			}
+		}
+  },
+  "json": {
+    "formatter": {
+      "enabled": false
+    }
+  },
+	"markdown": {
+    "formatter": {
+      "enabled": false
+    }
+  }
+}

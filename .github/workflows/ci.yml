@@ -1,0 +1,47 @@
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
+
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  Lint:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [23.x]
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    - run: npm ci
+    - run: npm run test:lint
+    - run: npm run test:types
+
+  Test:
+    runs-on:
+      macos-latest
+      ubuntu-latest
+      windows-latest
+
+    strategy:
+      matrix:
+        node-version: [23.x, 22.x, 20.x]
+        fail-fast: false
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    - run: npm ci
+    - run: npm run test:unit
+    - run: npm run test:e2e
