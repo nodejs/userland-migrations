@@ -8,7 +8,23 @@
   "linter": {
     "rules": {
       "style": {
-        "useImportType": "error"
+        "useImportType": "error",
+        "useNodeAssertStrict": "error",
+        "useNodejsImportProtocol": "error"
+      },
+      "suspicious": {
+        "noExplicitAny": "error",
+        "noEmptyBlock": "error",
+        "noDuplicateAtImportRules": "error",
+        "noDuplicateObjectKeys": "error"
+      },
+      "correctness": {
+        "noUnusedVariables": "error",
+        "useArrayLiterals": "off",
+        "noUnknownFunction": "error"
+      },
+      "nursery": {
+        "noEnum": "error"
       }
     }
   },
