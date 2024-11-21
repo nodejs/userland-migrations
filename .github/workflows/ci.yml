@@ -9,7 +9,7 @@ on:
     branches: ["main"]
 
 jobs:
-  OS-independent:
+  lint-and-types:
     runs-on: ubuntu-latest
 
     strategy:
@@ -24,7 +24,7 @@ jobs:
     - run: npm run lint
     - run: npm run test:types
 
-  OS-dependent:
+  tests:
     strategy:
       fail-fast: false
       matrix:
