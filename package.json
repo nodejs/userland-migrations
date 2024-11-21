@@ -2,7 +2,6 @@
   "name": "userland-migrations",
   "version": "1.0.0",
   "description": "A collection of migration recipes for userland code.",
-  "main": "index.js",
   "scripts": {
     "test:e2e": "node --no-warnings --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=./coverage.lcov --test-reporter=spec --test-reporter-destination=stdout --import './build/snapshots.ts' -test --test-coverage-include='recipes/**/*' --test-coverage-exclude='**/*.e2e.m(j|t)s' './packages/*/*.e2e.m(j|t)s'",
     "test:lint": "biome lint ./recipes",
