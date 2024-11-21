@@ -18,7 +18,7 @@ CI will run lint & type checking and all included test files against all PRs.
 New recipes are added under `./recipes` in their own folder, succinctly named for what it does. General-purpose recipes have simple names like `correct-ts-specifiers`. A suite of migrations has a name like `migrate from 18 to 20`, and more specific migrations are named like `migrate fs.readFile from 18 to 20`.
 
 
-## Before pushign a commit
+## Before pushing a commit
 
 - Do `node --run lint:fix` to fix linting issues
 - Do `node --run format:fix` to format code
