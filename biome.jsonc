@@ -1,8 +1,18 @@
 {
+  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
   "formatter": {
     "indentStyle": "tab",
     "lineWidth": 100
   },
+  // Rules for the linter
+  "linter": {
+    "rules": {
+      "style": {
+        "useImportType": "error"
+      }
+    }
+  },
+  // Language specific settings
   "javascript": {
     "formatter": {
 			"semicolons": "always",
@@ -10,14 +20,17 @@
       "trailingCommas": "all"
     },
 		"linter": {
-			"style": {
-				"useImportType": true
-			}
-		}
+      "enabled": true
+    }
   },
   "json": {
     "formatter": {
       "enabled": false
     }
+  },
+  // VSC specific settings
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git"
   }
 }
