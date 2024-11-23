@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "description": "A collection of migration recipes for userland code.",
   "scripts": {
-    "test:e2e": "node --no-warnings --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=./coverage.lcov --test-reporter=spec --test-reporter-destination=stdout --import './build/snapshots.ts' --test --test-coverage-include='recipes/**/*' --test-coverage-exclude='**/*.e2e.m(j|t)s' './packages/*/*.e2e.m(j|t)s'",
-    "lint": "biome lint ./",
-    "lint:fix": "biome lint --fix ./",
-    "format": "biome format ./",
     "format:fix": "biome format --fix ./",
+    "format": "biome format ./",
+    "lint:fix": "biome lint --fix ./",
+    "lint": "biome lint ./",
+    "test:e2e": "node --no-warnings --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=./coverage.lcov --test-reporter=spec --test-reporter-destination=stdout --import './build/snapshots.ts' --test --test-coverage-include='recipes/**/*' --test-coverage-exclude='**/*.e2e.m(j|t)s' './packages/*/*.e2e.m(j|t)s'",
     "test:types": "tsc",
     "test:unit": "node --no-warnings --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=./coverage.lcov --test-reporter=spec --test-reporter-destination=stdout --experimental-test-module-mocks --import './build/snapshots.ts' --test --test-coverage-include='recipes/**/*' --test-coverage-exclude='**/*.spec.m(j|t)s' --test-coverage-lines=0.8 './packages/*/*.spec.m(j|t)s'"
   },
