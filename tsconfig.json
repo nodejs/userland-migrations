@@ -1,13 +1,14 @@
 {
   "compilerOptions": {
+    "baseUrl": "./",
+    "rootDir": "./",
+
     "target": "ESNext",
     // "moduleDetection": "force",
 
     /* Modules */
     "module": "NodeNext",
-    "rootDir": "./recipes/",
     "moduleResolution": "nodenext",
-    "baseUrl": "./recipes/",
     "allowImportingTsExtensions": true,
     "resolvePackageJsonExports": true,
     "resolvePackageJsonImports": true,
@@ -35,5 +36,9 @@
 
     /* Completeness */
     "skipLibCheck": true
-  }
+  },
+  "include": [
+    "./build/",
+    "./recipes/"
+  ]
 }
