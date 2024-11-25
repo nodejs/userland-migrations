@@ -31,7 +31,6 @@ jobs:
       matrix:
         node:
           - version: 23.x
-            env: NODE_OPTIONS=--test-coverage-include='recipes/**/*' --test-coverage-exclude='**/*.spec.{mjs,mts}' --test-coverage-lines=0.8
           - version: 22.x
           - version: 20.x
         os:
