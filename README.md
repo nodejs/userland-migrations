@@ -22,4 +22,4 @@ See the [codemod CLI doc](https://go.codemod.com/cli-docs) for a full list of av
 
 ## Available codemods
 
-All Node.js codemods are also available in the [Codemod Registry](https://codemod.com/registry?framework=node.js).
+All Node.js codemods are also available in the [Codemod Registry](https://codemod.link/nodejs-official).
