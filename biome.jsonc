@@ -1,0 +1,52 @@
+{
+  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "formatter": {
+    "indentStyle": "tab",
+    "lineWidth": 100
+  },
+  // Rules for the linter
+  "linter": {
+    "rules": {
+      "style": {
+        "useImportType": "error",
+        "useNodeAssertStrict": "error",
+        "useNodejsImportProtocol": "error"
+      },
+      "suspicious": {
+        "noExplicitAny": "error",
+        "noEmptyBlock": "error",
+        "noDuplicateAtImportRules": "error",
+        "noDuplicateObjectKeys": "error"
+      },
+      "correctness": {
+        "noUnusedVariables": "error",
+        "useArrayLiterals": "off",
+        "noUnknownFunction": "error"
+      },
+      "nursery": {
+        "noEnum": "error"
+      }
+    }
+  },
+  // Language specific settings
+  "javascript": {
+    "formatter": {
+			"semicolons": "always",
+      "quoteStyle": "single",
+      "trailingCommas": "all"
+    },
+		"linter": {
+      "enabled": true
+    }
+  },
+  "json": {
+    "formatter": {
+      "enabled": false
+    }
+  },
+  // VSC specific settings
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git"
+  }
+}
