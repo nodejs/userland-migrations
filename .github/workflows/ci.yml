@@ -16,7 +16,7 @@ jobs:
       matrix:
         node-version: [23.x]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # 4.2.2
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
@@ -32,7 +32,7 @@ jobs:
         node:
           - version: 23.x
           - version: 22.x
-          # glob support is not backported below 22.x
+          # glob is not backported below 22.x
         os:
           - macos-latest
           - ubuntu-latest
@@ -41,9 +41,9 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # 4.2.2
     - name: Set up Node.js ${{ matrix.node.version }}
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # 4.1.0
       with:
         node-version: ${{ matrix.node.version }}
         cache: 'npm'
