@@ -25,24 +25,14 @@ jobs:
     - run: npm run format
     - run: npm run test:types
 
-  matrix:
-    runs-on: ubuntu-22.04
-    outputs:
-      latest: ${{ steps.set-matrix.outputs.requireds }}
-    steps:
-      - uses: ljharb/actions/node/matrix@6f6460d952d0fa896c91a56c2e450cb8c9fd1a21 # main
-        id: set-matrix
-        with:
-          versionsAsRoot: true
-          type: majors
-          preset: '>= 22' # glob is not backported below 22.x
-
   tests:
-    needs: [matrix]
     strategy:
       fail-fast: false
       matrix:
-        node: ${{ fromJson(needs.matrix.outputs.latest) }}
+        node:
+          - version: 23.x
+          - version: 22.x
+          # glob is not backported below 22.x
         os:
           - macos-latest
           - ubuntu-latest
