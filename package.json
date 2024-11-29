@@ -1,0 +1,38 @@
+{
+  "name": "userland-migrations",
+  "version": "1.0.0",
+  "description": "A collection of migration recipes for userland code.",
+  "scripts": {
+    "format:fix": "biome format --fix ./",
+    "format": "biome format ./",
+    "lint:fix": "biome lint --fix ./",
+    "lint": "biome lint ./",
+    "pre-commit": "node --run lint:fix; node --run format:fix; node --run test:types; node --run test:unit; node --run test:e2e",
+    "test:e2e": "node --no-warnings --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=./coverage.lcov --test-reporter=spec --test-reporter-destination=stdout --import './build/snapshots.ts' --test --test-coverage-include='recipes/**/*' --test-coverage-exclude='**/*.e2e.{mjs,mts}' './packages/*/*.e2e.{mjs,mts}'",
+    "test:types": "tsc",
+    "test:unit": "node --no-warnings --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=./coverage.lcov --test-reporter=spec --test-reporter-destination=stdout --experimental-test-module-mocks --import './build/snapshots.ts' --test --test-coverage-include='recipes/**/*' --test-coverage-exclude='**/*.spec.{mjs,mts}' --test-coverage-lines=0.8 './packages/*/*.spec.{mjs,mts}'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nodejs/userland-migrations"
+  },
+  "keywords": [
+    "automation",
+    "codemod",
+    "migrations",
+    "node.js"
+  ],
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "homepage": "https://nodejs.org/learn/userland-migrations",
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^22.9.1",
+    "typescript": "^5.7.2"
+  },
+  "workspaces": [
+    "./recipes/*"
+  ]
+}
