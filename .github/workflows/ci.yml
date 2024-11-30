@@ -29,6 +29,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        options: >-
+          --test-coverage-lines=0.8
+          --test-reporter-destination=./coverage.lcov
+          --test-reporter=lcov
         node:
           - version: 23.x
           - version: 22.x
@@ -46,6 +50,7 @@ jobs:
       uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # 4.1.0
       with:
         node-version: ${{ matrix.node.version }}
+        env: NODE_OPTIONS=${{ matrix.node.options }}
         cache: 'npm'
     - run: npm ci
     - run: npm run test:unit
