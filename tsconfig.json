@@ -4,7 +4,7 @@
     "rootDir": "./",
 
     "target": "ESNext",
-    // "moduleDetection": "force",
+    "lib": ["ESNext"],
 
     /* Modules */
     "module": "NodeNext",
@@ -24,7 +24,7 @@
 
     /* Interop Constraints */
     "verbatimModuleSyntax": true,
-    "allowSyntheticDefaultImports": false,
+    "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
 
@@ -40,5 +40,24 @@
   "include": [
     "./build/",
     "./recipes/"
-  ]
+  ],
+  "exclude": [
+    "node_modules",
+    "**/build/**",
+    "**/fixtures/**",
+    "**/test/**",
+    "**/*.fixture.mjs",
+    "**/*.fixture.mts",
+    "**/*.fixture.js",
+    "**/*.fixture.ts",
+    "**/*.mock.mjs",
+    "**/*.e2e.mjs",
+    "**/*.e2e.mts",
+    "**/*.e2e.js",
+    "**/*.e2e.ts",
+    "**/*.spec.mjs",
+    "**/*.spec.mts",
+    "**/*.spec.js",
+    "**/*.spec.ts",
+  ],
 }

@@ -5,8 +5,22 @@ A recipe generally has a few things:
 * A `README.md` explaining its purpose and use (including any options, and required and optional
 files).
 * Tests via node's test runner (min coverage: 80%)
-  * unit tests  (file extension: `.spec.mjs` or `.spec.mts`)
-  * end-to-end test(s) for accepted use-cases (file extension: `.e2e.mjs` or `.e2e.mts`)
+  * unit tests ; there must be a `"test:unit"` command within it package.json's like:
+    ```json
+    {
+      "scripts": {
+        "test:unit": "node --test './src/**/*.spec.ts"
+      }
+    }
+    ```
+  * end-to-end test(s) for accepted use-cases; there must be a `"test:e2e"` command within it package.json's like:
+    ```json
+    {
+      "scripts": {
+        "test:e2e": "node --test './src/**/*.e2e.ts"
+      }
+    }
+    ```
 * Code comments (js docs, etc)
 * Types (either via typescript or jsdoc)
 
