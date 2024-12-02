@@ -1,0 +1,11 @@
+{
+	"compilerOptions": {
+		"baseUrl": "./",
+		"allowImportingTsExtensions": true,
+		"module": "nodenext",
+		"noEmit": true,
+		"paths": {
+			"…/*": ["./*"]
+		}
+	}
+}
