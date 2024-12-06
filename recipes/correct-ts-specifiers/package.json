@@ -1,0 +1,39 @@
+{
+  "name": "correct-ts-specifiers",
+  "version": "1.0.0-rc.1",
+  "description": "Replace erroneous 'js' or omitted file extensions of import specifiers in TypeScript files.",
+  "type": "module",
+  "main": "./src/workflow.ts",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node --no-warnings --experimental-import-meta-resolve --experimental-strip-types ./src/workflow.ts",
+    "test": "node --no-warnings --experimental-import-meta-resolve --experimental-test-module-mocks --experimental-test-snapshots --experimental-strip-types --test --experimental-test-coverage --test-coverage-include='src/**/*' --test-coverage-exclude='**/*.test.ts' './**/*.test.ts'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JakobJingleheimer/correct-ts-specifiers.git"
+  },
+  "keywords": [
+    "codemod",
+    "esm",
+    "typescript"
+  ],
+  "author": "Jacob Smith",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/JakobJingleheimer/correct-ts-specifiers/issues"
+  },
+  "homepage": "https://github.com/JakobJingleheimer/correct-ts-specifiers#readme",
+  "devDependencies": {
+    "@types/lodash.get": "^4.4.9",
+    "@types/node": "^22.3.0",
+    "nodejs-loaders": "^1.0.0",
+    "type-fest": "^4.26.1"
+  },
+  "dependencies": {
+    "@codemod.com/workflow": "^0.0.28",
+    "lodash.get": "^4.4.2"
+  }
+}
