@@ -24,7 +24,7 @@ jobs:
     - run: npm ci
     - run: node --run lint
     - run: node --run format
-    - run: node --run test:types
+    - run: node --run type-check
 
   tests:
     strategy:
@@ -51,8 +51,6 @@ jobs:
       uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # 4.1.0
       with:
         node-version: ${{ matrix.node.version }}
-        env: NODE_OPTIONS="${{ matrix.node.options }}"
         cache: 'npm'
     - run: npm ci
-    - run: node --run test:unit
-    - run: node --run test:e2e
+    - run: node --run test ${{ matrix.node.options }}
