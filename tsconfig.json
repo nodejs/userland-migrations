@@ -59,5 +59,9 @@
     "**/*.spec.mts",
     "**/*.spec.js",
     "**/*.spec.ts",
+    "**/*.test.mjs",
+    "**/*.test.mts",
+    "**/*.test.js",
+    "**/*.test.ts",
   ],
 }
