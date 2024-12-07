@@ -13,7 +13,7 @@ describe('workflow', () => {
 		await spawnPromisified(
 			execPath,
 			[
-				'--loader=nodejs-loaders/dev/alias',
+				'--loader=@nodejs-loaders/alias',
 				'--no-warnings',
 				'--experimental-strip-types',
 				'--experimental-import-meta-resolve',
