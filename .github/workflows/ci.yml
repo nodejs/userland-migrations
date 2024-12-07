@@ -7,10 +7,11 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
-    if: github.event.pull_request.draft == false
 
 jobs:
   lint-and-types:
+    if: github.event.pull_request.draft == false
+
     runs-on: ubuntu-latest
 
     strategy:
@@ -27,6 +28,8 @@ jobs:
     - run: node --run type-check
 
   tests:
+    if: github.event.pull_request.draft == false
+
     strategy:
       fail-fast: false
       matrix:
