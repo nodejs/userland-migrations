@@ -18,7 +18,7 @@ const bird = new Bird('Tweety');
 const cat = new Cat('Milo');
 const dog = new Dog('Otis');
 
-export const makeLink = (path: URL) => new URL(path, baseUrl).href;
+export const makeLink = (path: URL) => (new URL(path, baseUrl)).href;
 
 console.log('bird:', bird);
 console.log('cat:', cat);
