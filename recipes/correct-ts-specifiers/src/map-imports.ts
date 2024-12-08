@@ -28,7 +28,7 @@ export const mapImports = async (
 				'warn',
 				[
 					`Import specifier "${specifier}" contains a JS extension AND a file`,
-					`with the corresponding TS extension exists. Cannot disambiguate (skipping).`,
+					'with the corresponding TS extension exists. Cannot disambiguate (skipping).',
 				].join(' '),
 			);
 

@@ -34,7 +34,7 @@ describe('fexists', () => {
 				resolveSpecifier,
 			},
 		});
-		mock__resolveSpecifier.mockImplementation(function MOCK__resolveSpecifier(pp, specifier) {
+		mock__resolveSpecifier.mockImplementation(function MOCK__resolveSpecifier(_pp, specifier) {
 			return specifier;
 		});
 	});

@@ -32,7 +32,7 @@ describe('Resolve specifier', () => {
 
 	describe('own modules', () => {
 		it('should resolve and return a file path', () => {
-			const resolvedSpecifier = resolveSpecifier(`${fixturesDir}/test.ts`, `./Cat.ts`);
+			const resolvedSpecifier = resolveSpecifier(`${fixturesDir}/test.ts`, './Cat.ts');
 
 			assert.equal(resolvedSpecifier, catSpecifier);
 		});

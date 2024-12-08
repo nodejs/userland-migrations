@@ -4,7 +4,6 @@ import { fileURLToPath } from 'node:url';
 
 import { dExts } from './exts.ts';
 
-type MockModuleContext = ReturnType<typeof mock.module>;
 
 type Logger = typeof import('./logger.ts').logger;
 type MapImports = typeof import('./map-imports.ts').mapImports;
@@ -12,13 +11,12 @@ type MapImports = typeof import('./map-imports.ts').mapImports;
 describe('Map Imports', () => {
 	const originatingFilePath = fileURLToPath(import.meta.resolve('./test.ts'));
 	let mock__log: Mock<Logger>['mock'];
-	let mock__logger: MockModuleContext;
 	let mapImports: MapImports;
 
 	before(async () => {
 		const logger = mock.fn<Logger>();
 		({ mock: mock__log } = logger);
-		mock__logger = mock.module('./logger.ts', {
+		mock.module('./logger.ts', {
 			namedExports: { logger },
 		});
 

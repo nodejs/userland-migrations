@@ -57,7 +57,7 @@ describe('Correcting ts file extensions', () => {
 		describe('declaration files', () => {
 			describe('ambiguous match', () => {
 				it('should skip and log error', async () => {
-					const base = `./fixtures/d/ambiguous/index`;
+					const base = './fixtures/d/ambiguous/index';
 					const output = await replaceJSExtWithTSExt(originatingFilePath, `${base}.js`);
 
 					assert.equal(output.replacement, null);

@@ -19,7 +19,7 @@ export function isIgnorableSpecifier(parentPath: FSAbsolutePath, specifier: stri
 	const ext = extname(specifier);
 	// @ts-ignore not worth the trouble to get TS to realise this is okay
 	if (tsExts.includes(ext)) return true;
-	else if (ext) return false; // there is an extension and it's not TS → suspect
+	if (ext) return false; // there is an extension and it's not TS → suspect
 
 	if (specifier[0] === '@') return true; // namespaced node module
 
@@ -39,6 +39,8 @@ export function isIgnorableSpecifier(parentPath: FSAbsolutePath, specifier: stri
 
 		resolvedSpecifier = getNotFoundUrl(err);
 	} finally {
+		/* biome-ignore lint/correctness/noUnsafeFinally: This does not blindly override the control
+		flow the rule is meant to protect */
 		if (resolvesToNodeModule(resolvedSpecifier!, parentPath)) return true;
 	}
 

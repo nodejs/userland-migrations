@@ -20,7 +20,7 @@ export async function isDir(parentPath: FSAbsolutePath | ResolvedSpecifier, spec
 	try {
 		const stat = await lstat(resolvedSpecifier!);
 		return stat.isDirectory();
-	} catch (err) {
+	} catch {
 		return null;
 	}
 }

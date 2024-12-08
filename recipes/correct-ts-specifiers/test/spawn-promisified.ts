@@ -5,12 +5,12 @@ export function spawnPromisified(...args: Parameters<typeof spawn>) {
 	let stdout = '';
 
 	const child = spawn(...args);
-	child.stderr!.setEncoding('utf8');
-	child.stderr!.on('data', (data) => {
+	child.stderr?.setEncoding('utf8');
+	child.stderr?.on('data', (data) => {
 		stderr += data;
 	});
-	child.stdout!.setEncoding('utf8');
-	child.stdout!.on('data', (data) => {
+	child.stdout?.setEncoding('utf8');
+	child.stdout?.on('data', (data) => {
 		stdout += data;
 	});
 
