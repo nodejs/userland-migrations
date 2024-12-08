@@ -9,15 +9,22 @@
     "indentStyle": "tab",
     "lineWidth": 100
   },
+  "organizeImports": {
+    "enabled": false
+  },
   // Rules for the linter
   "linter": {
     "rules": {
       "style": {
+        "noNonNullAssertion": "off",
+        "noParameterAssign": "off",
+        "noYodaExpression": "error",
         "useImportType": "error",
         "useNodeAssertStrict": "error",
         "useNodejsImportProtocol": "error"
       },
       "suspicious": {
+        "noAssignInExpressions": "off",
         "noExplicitAny": "error",
         "noEmptyBlock": "error",
         "noDuplicateAtImportRules": "error",
@@ -30,12 +37,16 @@
       },
       "nursery": {
         "noEnum": "error"
+      },
+      "performance": {
+        "recommended": true
       }
     }
   },
   // Language specific settings
   "javascript": {
     "formatter": {
+      "arrowParentheses": "always",
 			"semicolons": "always",
       "quoteStyle": "single",
       "trailingCommas": "all"
