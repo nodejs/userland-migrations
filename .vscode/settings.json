@@ -1,6 +1,11 @@
 {
     "editor.formatOnSave": true,
-    "editor.defaultFormatter": "biomejs.biome",
     "javascript.updateImportsOnFileMove.enabled": "always",
-    "typescript.updateImportsOnFileMove.enabled": "always"
+    "typescript.updateImportsOnFileMove.enabled": "always",
+    "editor.formatOnPaste": true,
+    "editor.wordWrap": "wordWrapColumn",
+    "editor.wordWrapColumn": 100,
+    "[markdown]": {
+        "editor.wordWrap": "off"
+    }
 }
