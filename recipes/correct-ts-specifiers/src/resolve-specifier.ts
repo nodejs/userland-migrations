@@ -35,7 +35,7 @@ export function resolveSpecifier(
 	try {
 		const interimResolvedUrl = import.meta.resolve(specifier, parentUrl) as ResolvedSpecifier;
 
-		if (resolvesToNodeModule(interimResolvedUrl, parentUrl)) return specifier;
+		if (resolvesToNodeModule(interimResolvedUrl, parentUrl)) return specifier as NodeModSpecifier;
 
 		resolvedSpecifierUrl = interimResolvedUrl; // ! let continue to `fileURLToPath` below
 	} catch (err) {
@@ -45,7 +45,7 @@ export function resolveSpecifier(
 			(err as NodeError).code === 'ERR_MODULE_NOT_FOUND' &&
 			resolvesToNodeModule(getNotFoundUrl(err), parentUrl)
 		) {
-			return specifier;
+			return specifier as NodeModSpecifier;
 		}
 
 		if (!resolvedSpecifierUrl) {

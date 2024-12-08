@@ -1,10 +1,16 @@
 import { lstat } from 'node:fs/promises';
 
-import type { FSAbsolutePath, NodeError, ResolvedSpecifier, Specifier } from './index.d.ts';
+import type {
+	FSAbsolutePath,
+	NodeError,
+	NodeModSpecifier,
+	ResolvedSpecifier,
+	Specifier,
+} from './index.d.ts';
 import { resolveSpecifier } from './resolve-specifier.ts';
 
 export async function isDir(parentPath: FSAbsolutePath | ResolvedSpecifier, specifier: Specifier) {
-	let resolvedSpecifier: ResolvedSpecifier;
+	let resolvedSpecifier: ResolvedSpecifier | NodeModSpecifier;
 	try {
 		resolvedSpecifier = resolveSpecifier(parentPath, specifier);
 	} catch (err) {

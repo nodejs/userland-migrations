@@ -72,7 +72,7 @@ const composeReplacement = (
  * matches).
  */
 async function checkSet<Ext extends DExt | JSExt | TSExt>(
-	parentPath: FSAbsolutePath,
+	parentPath: FSAbsolutePath | ResolvedSpecifier,
 	specifier: Specifier,
 	oExt: JSExt,
 	exts: Array<Ext>,
