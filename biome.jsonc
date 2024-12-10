@@ -1,18 +1,26 @@
 {
   "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
-  "formatter": {
-    "indentStyle": "tab",
-    "lineWidth": 100
+  "files": {
+    "ignore": [
+      "**/*.snap.cjs"
+    ]
+  },
+  "organizeImports": {
+    "enabled": false
   },
   // Rules for the linter
   "linter": {
     "rules": {
       "style": {
+        "noNonNullAssertion": "off",
+        "noParameterAssign": "off",
+        "noYodaExpression": "error",
         "useImportType": "error",
         "useNodeAssertStrict": "error",
         "useNodejsImportProtocol": "error"
       },
       "suspicious": {
+        "noAssignInExpressions": "off",
         "noExplicitAny": "error",
         "noEmptyBlock": "error",
         "noDuplicateAtImportRules": "error",
@@ -25,12 +33,16 @@
       },
       "nursery": {
         "noEnum": "error"
+      },
+      "performance": {
+        "recommended": true
       }
     }
   },
   // Language specific settings
   "javascript": {
     "formatter": {
+      "arrowParentheses": "always",
 			"semicolons": "always",
       "quoteStyle": "single",
       "trailingCommas": "all"
@@ -41,7 +53,8 @@
   },
   "json": {
     "formatter": {
-      "enabled": false
+      "enabled": true,
+      "indentStyle": "space"
     }
   },
   // VSC specific settings
