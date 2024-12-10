@@ -5,11 +5,6 @@
       "**/*.snap.cjs"
     ]
   },
-  // "formatter": {
-  //   "indentStyle": "tab",
-  //   "lineWidth": 100,
-  //   "useEditorconfig": true
-  // },
   "organizeImports": {
     "enabled": false
   },
