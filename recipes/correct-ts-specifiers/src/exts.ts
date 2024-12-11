@@ -7,6 +7,7 @@ export const jsToTSExts = {
 	'.js': '.ts',
 	'.jsx': '.tsx',
 } as const;
+
 /**
  * File extensions that potentially need to be corrected
  */
@@ -14,6 +15,7 @@ export const suspectExts = {
 	'': '.js',
 	...jsToTSExts,
 } as const;
+
 export type SuspectExt = keyof typeof suspectExts;
 export type JSExt = keyof typeof jsToTSExts;
 export const jsExts = Object.keys(jsToTSExts) as Array<JSExt>;

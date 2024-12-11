@@ -3,13 +3,14 @@ import { type Mock, before, describe, it, mock, afterEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { dExts } from './exts.ts';
+import type { FSAbsolutePath } from './index.d.ts';
 
 
 type Logger = typeof import('./logger.ts').logger;
 type MapImports = typeof import('./map-imports.ts').mapImports;
 
 describe('Map Imports', () => {
-	const originatingFilePath = fileURLToPath(import.meta.resolve('./test.ts'));
+	const originatingFilePath = fileURLToPath(import.meta.resolve('./test.ts')) as FSAbsolutePath;
 	let mock__log: Mock<Logger>['mock'];
 	let mapImports: MapImports;
 
@@ -58,6 +59,7 @@ describe('Map Imports', () => {
 		assert.notEqual(output.isType, true);
 
 		const { 0: sourcePath, 2: msg } = mock__log.calls[0].arguments;
+
 		assert.match(sourcePath, new RegExp(originatingFilePath));
 		assert.match(msg, /no match/i);
 		assert.match(msg, new RegExp(specifier));

@@ -43,7 +43,7 @@ describe('fexists', () => {
 		let fexists: FExists;
 
 		before(async () => {
-			mock__access.mockImplementation(async function MOCK_access() {});
+			mock__access.mockImplementation(async function MOCK_access() { });
 
 			({ fexists } = await import('./fexists.ts'));
 		});
@@ -64,12 +64,14 @@ describe('fexists', () => {
 
 		it('should return `true` for a relative specifier', async () => {
 			const specifier = 'exists.js';
+
 			assert.equal(await fexists(parentPath, specifier), true);
 			assert.equal(mock__access.calls[0].arguments[0], specifier, RESOLVED_SPECIFIER_ERR);
 		});
 
 		it('should return `true` for specifier with a query parameter', async () => {
 			const specifier = 'exists.js?v=1';
+
 			assert.equal(await fexists(parentPath, specifier), true);
 			assert.equal(mock__access.calls[0].arguments[0], specifier, RESOLVED_SPECIFIER_ERR);
 		});
@@ -110,24 +112,28 @@ describe('fexists', () => {
 
 		it('should return `false` for a relative specifier', async () => {
 			const specifier = 'noexists.js';
+
 			assert.equal(await fexists(parentPath, specifier), false);
 			assert.equal(mock__access.calls[0].arguments[0], specifier, RESOLVED_SPECIFIER_ERR);
 		});
 
 		it('should return `false` for a relative specifier', async () => {
 			const specifier = 'noexists.js?v=1';
+
 			assert.equal(await fexists(parentPath, specifier), false);
 			assert.equal(mock__access.calls[0].arguments[0], specifier, RESOLVED_SPECIFIER_ERR);
 		});
 
 		it('should return `false` for an absolute specifier', async () => {
 			const specifier = '/tmp/foo/noexists.js';
+
 			assert.equal(await fexists(parentPath, specifier), false);
 			assert.equal(mock__access.calls[0].arguments[0], specifier, RESOLVED_SPECIFIER_ERR);
 		});
 
 		it('should return `false` for a URL specifier', async () => {
 			const specifier = 'file://localhost/foo/noexists.js';
+
 			assert.equal(await fexists(parentPath, specifier), false);
 			assert.equal(mock__access.calls[0].arguments[0], specifier, RESOLVED_SPECIFIER_ERR);
 		});

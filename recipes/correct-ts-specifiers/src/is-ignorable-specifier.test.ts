@@ -41,6 +41,7 @@ describe('Is ignorable specifier', () => {
 		const parentPath = fileURLToPath(
 			import.meta.resolve('./fixtures/e2e/e2e.ts'),
 		) as FSAbsolutePath;
+
 		assert.equal(isIgnorableSpecifier(parentPath, 'foo'), true);
 	});
 
@@ -48,6 +49,7 @@ describe('Is ignorable specifier', () => {
 		const parentPath = fileURLToPath(
 			import.meta.resolve('./fixtures/e2e/e2e.ts'),
 		) as FSAbsolutePath;
+
 		assert.equal(isIgnorableSpecifier(parentPath, 'animal-features'), true);
 	});
 
