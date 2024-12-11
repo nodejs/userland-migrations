@@ -1,6 +1,6 @@
 # Node.js userland migrations
 
-This repository contains codemodes (automated migrations) for "userland" code. These are intended to facilitate adopting new features and upgrading source-code affected by breaking changes.
+This repository contains codemods (automated migrations) for "userland" code. These are intended to facilitate adopting new features and upgrading source-code affected by breaking changes.
 
 ## Usage
 
