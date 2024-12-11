@@ -1,7 +1,5 @@
 # Correct TypeScript Specifiers
 
-![tests](https://github.com/JakobJingleheimer/correct-ts-specifiers/actions/workflows/ci.yml/badge.svg)
-
 This package transforms import specifiers in source-code from the broken state TypeScript's compiler (`tsc`) required (prior TypeScript v5.7 RC) into proper ones. This is useful when source-code is processed by standards-compliant software like Node.js. This is a one-and-done process, and the updated source-code should be committed to your version control (ex git); thereafter, source-code import statements should be authored compliant with the ECMAScript (JavaScript) standard.
 
 > [!TIP]
