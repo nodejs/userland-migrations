@@ -75,7 +75,7 @@ async function checkSet<Ext extends DExt | JSExt | TSExt>(
 	parentPath: FSAbsolutePath | ResolvedSpecifier,
 	specifier: Specifier,
 	oExt: JSExt,
-	exts: Array<Ext>,
+	exts: ReadonlyArray<Ext>,
 ) {
 	let replacement: Specifier;
 
