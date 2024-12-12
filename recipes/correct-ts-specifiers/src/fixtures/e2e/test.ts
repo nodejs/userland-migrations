@@ -3,16 +3,16 @@ import { URL } from 'node:url';
 import { bar } from '@dep/bar';
 import { foo } from 'foo';
 
-import { Bird } from './Bird/index.ts';
+import { Bird } from './Bird';
 import { Cat } from './Cat.ts';
-import { Dog } from '…/Dog/index.mts';
+import { Dog } from '…/Dog/index.mjs';
 import { baseUrl } from '#config.js';
 
-export type { Zed } from './zed.d.ts';
+export { Zed } from './zed';
 
 // should be unchanged
 
-const nil = await import('./nil.ts');
+const nil = await import('./nil.js');
 
 const bird = new Bird('Tweety');
 const cat = new Cat('Milo');
