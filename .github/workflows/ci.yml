@@ -59,9 +59,10 @@ jobs:
           node-version: ${{ matrix.node.version }}
           cache: 'npm'
       - run: npm ci
-      - run: |
-          node \
-            --run test \
-            --test-coverage-lines=0.8 \
-            --test-reporter-destination=./coverage.lcov \
-            --test-reporter=lcov
+      - name: Run recipe tests
+        run: >-
+          node
+          --run test
+          --test-coverage-lines=0.8
+          --test-reporter-destination=./coverage.lcov
+          --test-reporter=lcov
