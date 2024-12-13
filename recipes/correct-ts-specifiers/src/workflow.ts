@@ -1,8 +1,12 @@
+import module from 'node:module';
+
 import { type Api, api } from '@codemod.com/workflow';
 import type { Helpers } from '@codemod.com/workflow/dist/jsFam.d.ts';
 
 import { mapImports } from './map-imports.ts';
 import type { FSAbsolutePath } from './index.d.ts';
+
+module.register('@nodejs-loaders/alias', import.meta.url);
 
 export async function workflow({ contexts, files }: Api) {
 	await files(globPattern).jsFam(processModule);

@@ -19,16 +19,9 @@ This package does not just blindly find & replace file extensions within specifi
 > This will change your source-code. Commit any unsaved changes before running this package.
 
 ```sh
-npx codemod@latest correct-ts-specifiers
-```
-
-If you're using `tsconfig`'s `paths`, you will need a loader like [`@nodejs-loaders/alias`](https://github.com/JakobJingleheimer/nodejs-loaders/blob/main/packages/alias?tab=readme-ov-file)
-
-
-```sh
 npm i @nodejs-loaders/alias
 
-NODE_OPTIONS="--loader=@nodejs-loaders/alias" \
+NODE_OPTIONS="--experimental-import-meta-resolve" \
 npx codemod@latest correct-ts-specifiers
 ```
 
@@ -38,7 +31,8 @@ npx codemod@latest correct-ts-specifiers
 * `.cjs` → `.cts`, `.mjs` → `.mts`, `.js` → `.ts`
 * `.js` → `.d.cts`, `.d.mts`, or `.d.ts`
 * [Package.json subimports](https://nodejs.org/api/packages.html#subpath-imports)
-* [tsconfig paths](https://www.typescriptlang.org/tsconfig/#paths) (requires a loader)
+* [tsconfig paths](https://www.typescriptlang.org/tsconfig/#paths) (via [`@nodejs-loaders/alias`](https://github.com/JakobJingleheimer/nodejs-loaders/blob/main/packages/alias?tab=readme-ov-file))
+  * In order to subsequently run code via node, you will need to add this (or another) loader to your own project. Or, switch to [subimports](https://nodejs.org/api/packages.html#subpath-imports).
 * Commonjs-like directory specifiers
 
 Before:
