@@ -25,6 +25,26 @@ NODE_OPTIONS="--experimental-import-meta-resolve" \
 npx codemod@latest correct-ts-specifiers
 ```
 
+### Monorepos
+
+For best results, run this _within_ each workspace of the monorepo.
+
+```text
+project-root/
+  ├ workspaces/
+    ├ foo/ ←--------- RUN HERE
+      ├ …
+      ├ package.json
+      └ tsconfig.json
+    └ bar/ ←--------- RUN HERE
+      ├ …
+      ├ package.json
+      └ tsconfig.json
+  └ utils/ ←--------- RUN HERE
+    ├ qux.js
+    └ zed.js
+```
+
 ## Supported cases
 
 * no file extension → `.cts`, `.mts`, `.js`, `.ts`, `.d.cts`, `.d.mts`, or `.d.ts`
