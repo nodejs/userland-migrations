@@ -19,8 +19,6 @@ This package does not just blindly find & replace file extensions within specifi
 > This will change your source-code. Commit any unsaved changes before running this package.
 
 ```sh
-npm i @nodejs-loaders/alias
-
 NODE_OPTIONS="--experimental-import-meta-resolve" \
 npx codemod@latest correct-ts-specifiers
 ```
