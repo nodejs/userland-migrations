@@ -5,8 +5,16 @@ name: CI
 on:
   push:
     branches: ["main"]
+    paths:
+      - "recipes/**"
+      - "package.json"
+      - "package-lock.json"
   pull_request:
     branches: ["main"]
+    paths:
+      - "recipes/**"
+      - "package.json"
+      - "package-lock.json"
     types:
       - opened
       - ready_for_review
