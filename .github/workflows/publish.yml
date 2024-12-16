@@ -5,9 +5,9 @@ on:
     branches: ["main"]
     paths: ["recipes/**"]
   pull_request:
-    types: [closed]
-    paths: ["recipes/**"]
     branches: ["main"]
+    paths: ["recipes/**"]
+    types: [closed]
 
 jobs:
   publish:
@@ -39,10 +39,11 @@ jobs:
         with:
           node-version: node
           cache: 'npm'
-      - name: Install "codemod" binary
-        run: npm install codemod
 
-      - name: Run publish codemod
+      - name: Install dependencies
+        run: npm ci --include="optional"
+
+      - name: Generate bundle & publish to codemod registry
         run: |
           if [ -n "$CODEMOD_STATUS" ]; then
             echo "Modified files: $CODEMOD_FILES"
@@ -51,6 +52,7 @@ jobs:
               DIR=$(dirname "$FILE")
               echo "Checking codemod: $DIR"
               cd "$ROOT_DIR/$DIR"
+              npx esbuild --bundle --platform=node --outfile=bundle.js
               npx codemod publish
               echo "Codemod published"
             done
