@@ -13,7 +13,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/JakobJingleheimer/correct-ts-specifiers.git"
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/correct-ts-specifiers"
   },
   "keywords": [
     "codemod",
@@ -23,9 +24,9 @@
   "author": "Jacob Smith",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/JakobJingleheimer/correct-ts-specifiers/issues"
+    "url": "https://github.com/nodejs/userland-migrations/issues"
   },
-  "homepage": "https://github.com/JakobJingleheimer/correct-ts-specifiers#readme",
+  "homepage": "https://github.com/nodejs/userland-migrations/tree/main/correct-ts-specifiers#readme",
   "devDependencies": {
     "@types/lodash.get": "^4.4.9",
     "@types/node": "^22.3.0",
