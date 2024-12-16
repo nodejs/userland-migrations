@@ -29,6 +29,10 @@
     "@types/node": "^22.10.1",
     "typescript": "^5.7.2"
   },
+  "optionalDependencies": {
+    "codemod": "~0.14.0",
+    "esbuild": "~0.24.0"
+  },
   "workspaces": [
     "./recipes/*"
   ]
