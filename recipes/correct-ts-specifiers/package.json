@@ -16,6 +16,11 @@
     "url": "git+https://github.com/nodejs/userland-migrations.git",
     "directory": "recipes/correct-ts-specifiers"
   },
+  "files": [
+    "README.md",
+    ".codemodrc.json",
+    "bundle.js"
+  ],
   "keywords": [
     "codemod",
     "esm",
