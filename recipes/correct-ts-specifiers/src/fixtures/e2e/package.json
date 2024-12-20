@@ -1,0 +1,8 @@
+{
+	"name": "e2e",
+	"type": "module",
+	"main": "e2e.ts",
+	"imports": {
+		"#*": "./*"
+	}
+}
