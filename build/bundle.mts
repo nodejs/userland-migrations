@@ -1,33 +1,44 @@
 import path from 'node:path';
-import { cwd } from 'node:process';
 
 import { build, type BuildOptions } from 'esbuild';
 
 
-const pjson = await import(path.join(cwd(), 'package.json'), { with: { type: 'json' } }).then(pluckDefault);
-const recipeOptions = await import(path.join(cwd(), 'esbuild.config.ts'))
-	.then(pluckDefault)
-	.catch((err) => {
-		if (err.code !== 'ERR_MODULE_NOT_FOUND') throw err;
-		return {};
-	});
-const options: BuildOptions = {
-	...recipeOptions,
-	bundle: true,
-	entryPoints: [pjson.main],
-	loader: {
-		// '.node': 'file',
-	},
-	outfile: 'bundle.js',
-	platform: 'node',
-	target: 'node20',
-};
+export const outfile = 'bundle.js';
 
-console.debug('Generating bundle with options');
-console.debug(options);
+export async function bundle(recipeAbsPath: string) {
+	const pjson = await import(path.join(recipeAbsPath, 'package.json'), jsonImportAttrs)
+		.then(pluckDefault);
+	const recipeOptions = await import(path.join(recipeAbsPath, 'esbuild.config.ts'))
+		.then(pluckDefault)
+		.catch(handleImportErr);
+	const options: BuildOptions = {
+		...recipeOptions,
+		bundle: true,
+		entryPoints: [pjson.main],
+		loader: {
+			// '.node': 'file',
+		},
+		minify: true,
+		outfile: 'bundle.js',
+		outdir: recipeAbsPath,
+		platform: 'node',
+		sourcemap: 'inline',
+		target: 'node20',
+	};
 
-await build(options);
+	console.debug(`Generating bundle for ${pjson.name} with options`);
+	console.debug(options);
 
-console.log('Bundle generated successfully');
+	await build(options);
 
-function pluckDefault(mod) { return mod.default }
+	console.log(`Bundle for ${pjson.name} generated successfully`);
+}
+
+function pluckDefault(mod) {
+	return mod.default;
+}
+function handleImportErr(err: NodeJS.ErrnoException) {
+	if (err.code !== 'ERR_MODULE_NOT_FOUND') throw err;
+	return {};
+}
+const jsonImportAttrs: ImportCallOptions = { with: { type: 'json' } };

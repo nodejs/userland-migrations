@@ -28,34 +28,23 @@ jobs:
             codemods:
               - '**/.codemodrc.json'
 
-      - name: export files
+      - name: Collate updates
         run: |
           echo "Modified files: ${{steps.filter.outputs.codemods_files}}"
-          echo "CODEMOD_FILES=${{steps.filter.outputs.codemods_files}}" >> $GITHUB_ENV
           echo "Modified status: ${{steps.filter.outputs.codemods}}"
-          echo "CODEMOD_STATUS=${{steps.filter.outputs.codemods}}" >> $GITHUB_ENV
 
       - uses: actions/setup-node@v4
         with:
-          node-version: node
+          node-version-file: '.nvmrc'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci --include="optional"
 
       - name: Generate bundle & publish to codemod registry
-        run: |
-          if [ -n "$CODEMOD_STATUS" ]; then
-            echo "Modified files: $CODEMOD_FILES"
-            ROOT_DIR=$(pwd)
-            for FILE in $CODEMOD_FILES; do
-              DIR=$(dirname "$FILE")
-              echo "Checking codemod: $DIR"
-              cd "$ROOT_DIR/$DIR"
-              npx esbuild --bundle --platform=node --outfile=bundle.js
-              npx codemod publish
-              echo "Codemod published"
-            done
-          else
-            echo "No codemods found"
-          fi
+        run: >-
+          node
+          --experimental-strip=types
+          --recipes=${{steps.filter.outputs.codemods_files}}
+          --status=${{steps.filter.outputs.codemods}}
+          ./build/publish.mts
