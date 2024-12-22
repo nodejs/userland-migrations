@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { spawnPromisified } from '../test/spawn-promisified.ts';
+import { spawnPromisified } from '../../../build/spawn-promisified.ts';
 
 describe('workflow', () => {
 	it('should update bad specifiers and ignore good ones', async (t) => {
