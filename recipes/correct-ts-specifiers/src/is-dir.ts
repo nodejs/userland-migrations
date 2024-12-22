@@ -2,7 +2,6 @@ import { lstat } from 'node:fs/promises';
 
 import type {
 	FSAbsolutePath,
-	NodeError,
 	NodeModSpecifier,
 	ResolvedSpecifier,
 	Specifier,
@@ -14,7 +13,7 @@ export async function isDir(parentPath: FSAbsolutePath | ResolvedSpecifier, spec
 	try {
 		resolvedSpecifier = resolveSpecifier(parentPath, specifier);
 	} catch (err) {
-		if ((err as NodeError).code === 'ERR_MODULE_NOT_FOUND') return null;
+		if ((err as NodeJS.ErrnoException).code === 'ERR_MODULE_NOT_FOUND') return null;
 	}
 
 	try {
