@@ -16,7 +16,7 @@ describe('workflow', () => {
 				'--no-warnings',
 				'--experimental-strip-types',
 				'--experimental-import-meta-resolve',
-				'../../workflow.ts',
+				'../../main.ts',
 			],
 			{
 				cwd: e2eFixtPath,
