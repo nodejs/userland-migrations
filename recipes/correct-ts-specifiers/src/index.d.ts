@@ -20,9 +20,3 @@ export type Specifier = URL['pathname'] | ResolvedSpecifier;
  * @example 'foo/bar'
  */
 export type NodeModSpecifier = string | `${string}/${string}`;
-
-export type NodeError = Error &
-	Partial<{
-		code: string;
-		url: FSAbsolutePath;
-	}>;
