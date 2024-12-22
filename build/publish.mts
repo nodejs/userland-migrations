@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { argv, cwd, exit } from 'node:process';
+import { argv, cwd } from 'node:process';
 import { parseArgs } from 'node:util';
 
 import { publish } from 'codemod';
@@ -11,6 +11,7 @@ const {
 	recipes,
 	status,
 } = parseArgs({
+	allowPositionals: true,
 	args: argv,
 	options: {
 		recipes: { type: 'string' },
@@ -29,12 +30,12 @@ for (let r = n - 1; r > -1; r--) {
 	const recipeRelPath = recipeRelPaths[r];
 	const recipeAbsPath = path.join(rootPath, recipeRelPath);
 
-	publications[r] = bundle[r](recipeAbsPath)
+	publications[r] = bundle(recipeAbsPath)
 		.then(() => publish(path.join(recipeAbsPath, outfile)));
 }
 
 Promise.allSettled(publications)
 	.then(
 		() => console.log('Publishing complete'),
-		() => console.log('Publishing failed'),
+		() => console.error('Publishing failed'),
 	);

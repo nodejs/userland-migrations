@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execPath } from 'node:process';
+import { cwd, argv } from 'node:process';
 import {
 	before,
 	describe,
@@ -7,15 +7,16 @@ import {
 	mock,
 } from 'node:test';
 
-import { spawnPromisified } from './spawn-promisified.ts';
-
 
 type Mock = ReturnType<typeof mock.fn>['mock'];
 
 describe('Publishing', () => {
-	const cwd = '/test';
+	const CWD = cwd();
+	const outfile = 'out.js';
 	let mock__bundle: Mock;
 	let mock__publish: Mock;
+	let mock__consoleErr: Mock;
+	let mock__consoleLog: Mock;
 
 	before(async () => {
 		const bundle = mock.fn();
@@ -31,40 +32,32 @@ describe('Publishing', () => {
 		mock.module('./bundle.mts', {
 			namedExports: {
 				bundle,
+				outfile,
 			},
 		});
+		// mock.method(console, 'error');
+		// mock.method(console, 'log');
 	});
 
 	it('should', async () => {
-		mock__bundle.mockImplementationOnce(Promise.resolve);
-		mock__publish.mockImplementationOnce(Promise.resolve);
+		mock__bundle.mockImplementation(async () => { });
+		mock__publish.mockImplementation(() => { });
 
-		const { code, stderr, stdout } = await spawnPromisified(
-			execPath,
-			[
-				'--no-warnings',
-				'--experimental-strip-types',
-				'--recipes=("a" "b")',
-				'--status=true',
-				'./publish.mts',
-			],
-			{
-				cwd,
-			},
-		);
+		argv[2] = '--recipes=("a" "b")';
+		argv[3] = '--status';
 
-		assert.equal(stderr, '');
-		assert.equal(code, 0);
-		assert.match(stdout, /Publishing complete/);
+		await import('./publish.mts');
 
 		assert.deepEqual(mock__bundle.calls, [
-			{ arguments: [`${cwd}/a`] },
-			{ arguments: [`${cwd}/b`] },
+			{ arguments: [`${CWD}/a`] },
+			{ arguments: [`${CWD}/b`] },
 		]);
 
 		assert.deepEqual(mock__publish.calls, [
-			{ arguments: [`${cwd}/a`] },
-			{ arguments: [`${cwd}/b`] },
+			{ arguments: [`${CWD}/a`] },
+			{ arguments: [`${CWD}/b`] },
 		]);
+
+		assert.match(mock__consoleLog.calls[0].arguments[0], /Publishing complete/);
 	});
 });

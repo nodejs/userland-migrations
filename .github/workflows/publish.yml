@@ -44,7 +44,8 @@ jobs:
       - name: Generate bundle & publish to codemod registry
         run: >-
           node
-          --experimental-strip=types
+          --no-warnings
+          --experimental-strip-types
+          ./build/publish.mts
           --recipes=${{steps.filter.outputs.codemods_files}}
           --status=${{steps.filter.outputs.codemods}}
-          ./build/publish.mts
