@@ -6,7 +6,9 @@ import type { Helpers } from '@codemod.com/workflow/dist/jsFam.d.ts';
 import { mapImports } from './map-imports.ts';
 import type { FSAbsolutePath } from './types.ts';
 
-module.register('@nodejs-loaders/alias', import.meta.url);
+import * as aliasLoader from '@nodejs-loaders/alias';
+
+module.registerHooks(aliasLoader);
 
 export async function workflow({ contexts, files }: Api) {
 	await files(globPattern).jsFam(processModule);
