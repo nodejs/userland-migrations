@@ -4,7 +4,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 /* node:coverage disable */
 import type {
 	FSAbsolutePath,
-	NodeError,
 	NodeModSpecifier,
 	ResolvedSpecifier,
 	Specifier,
@@ -42,7 +41,7 @@ export function resolveSpecifier(
 		if (!(err instanceof Error)) throw err;
 
 		if (
-			(err as NodeError).code === 'ERR_MODULE_NOT_FOUND' &&
+			(err as NodeJS.ErrnoException).code === 'ERR_MODULE_NOT_FOUND' &&
 			resolvesToNodeModule(getNotFoundUrl(err), parentUrl)
 		) {
 			return specifier as NodeModSpecifier;
