@@ -1,4 +1,4 @@
-import type { FSAbsolutePath, Specifier } from './index.d.ts';
+import type { FSAbsolutePath, Specifier } from './types.ts';
 import { fexists } from './fexists.ts';
 import { logger } from './logger.ts';
 import { isDir } from './is-dir.ts';

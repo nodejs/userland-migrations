@@ -1,6 +1,6 @@
 import { extname } from 'node:path';
 
-import type { FSAbsolutePath, NodeModSpecifier, ResolvedSpecifier, Specifier } from './index.d.ts';
+import type { FSAbsolutePath, NodeModSpecifier, ResolvedSpecifier, Specifier } from './types.ts';
 import { type DExt, type JSExt, type TSExt, extSets, suspectExts } from './exts.ts';
 import { fexists } from './fexists.ts';
 import { logger } from './logger.ts';

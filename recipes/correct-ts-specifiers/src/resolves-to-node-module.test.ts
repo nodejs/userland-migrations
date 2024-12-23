@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
-import type { FSAbsolutePath } from './index.d.ts';
+import type { FSAbsolutePath } from './types.ts';
 
 import { resolvesToNodeModule } from './resolves-to-node-module.ts';
 

@@ -5,7 +5,7 @@ import type {
 	NodeModSpecifier,
 	ResolvedSpecifier,
 	Specifier,
-} from './index.d.ts';
+} from './types.ts';
 import { resolveSpecifier } from './resolve-specifier.ts';
 
 export async function isDir(parentPath: FSAbsolutePath | ResolvedSpecifier, specifier: Specifier) {

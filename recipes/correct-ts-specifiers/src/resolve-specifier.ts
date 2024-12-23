@@ -7,7 +7,7 @@ import type {
 	NodeModSpecifier,
 	ResolvedSpecifier,
 	Specifier,
-} from './index.d.ts';
+} from './types.ts';
 /* node:coverage enable */
 import { getNotFoundUrl } from './get-not-found-url.ts';
 import { resolvesToNodeModule } from './resolves-to-node-module.ts';

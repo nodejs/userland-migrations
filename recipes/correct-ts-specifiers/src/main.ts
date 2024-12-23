@@ -4,7 +4,7 @@ import { type Api, api } from '@codemod.com/workflow';
 import type { Helpers } from '@codemod.com/workflow/dist/jsFam.d.ts';
 
 import { mapImports } from './map-imports.ts';
-import type { FSAbsolutePath } from './index.d.ts';
+import type { FSAbsolutePath } from './types.ts';
 
 module.register('@nodejs-loaders/alias', import.meta.url);
 

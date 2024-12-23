@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { type Mock, afterEach, before, describe, it, mock } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import type { FSAbsolutePath } from './index.d.ts';
+import type { FSAbsolutePath } from './types.ts';
 
 type FSAccess = typeof import('node:fs/promises').access;
 type FExists = typeof import('./fexists.ts').fexists;
