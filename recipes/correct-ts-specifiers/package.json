@@ -1,9 +1,9 @@
 {
   "name": "correct-ts-specifiers",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0",
   "description": "Replace erroneous 'js' or omitted file extensions of import specifiers in TypeScript files.",
   "type": "module",
-  "main": "./src/main.ts",
+  "main": "./src/index.ts",
   "engines": {
     "node": ">=22.6.0"
   },

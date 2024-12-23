@@ -5,7 +5,7 @@
   "engine": "workflow",
   "private": false,
   "arguments": [],
-  "entry": "./src/main.ts",
+  "entry": "./src/index.ts",
   "meta": {
     "git": "https://github.com/nodejs/userland-migrations/tree/main/recipes/correct-ts-specifiers",
     "tags": [
