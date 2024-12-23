@@ -14,13 +14,12 @@ export async function bundle(recipeAbsPath: string) {
 	const options: BuildOptions = {
 		...recipeOptions,
 		bundle: true,
-		entryPoints: [pjson.main],
+		entryPoints: [path.join(recipeAbsPath, pjson.main)],
 		loader: {
-			// '.node': 'file',
+			'.node': 'file',
 		},
 		minify: true,
-		outfile: 'bundle.js',
-		outdir: recipeAbsPath,
+		outfile: path.join(recipeAbsPath, 'bundle.js'),
 		platform: 'node',
 		sourcemap: 'inline',
 		target: 'node20',
