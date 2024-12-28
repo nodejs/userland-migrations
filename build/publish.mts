@@ -2,14 +2,14 @@ import path from 'node:path';
 import { argv, cwd } from 'node:process';
 import { parseArgs } from 'node:util';
 
-import { publish } from 'codemod';
+// import { publish } from 'codemod';
 
 import { bundle, outfile } from './bundle.mts';
 
 
 const {
 	recipes,
-	status,
+	// status,
 } = parseArgs({
 	allowPositionals: true,
 	args: argv,
@@ -18,9 +18,9 @@ const {
 		status: { type: 'boolean' },
 	},
 }).values;
-const recipeRelPaths: string[] = recipes?.slice(1, -1).split(' ') ?? [];
+const recipeRelPaths: string[] = recipes?.split(' ') ?? [];
 
-if (!status) throw new Error(`Unexpected status: ${status}`);
+// if (!status) throw new Error(`Unexpected status: ${status}`);
 
 const rootPath = cwd();
 
@@ -31,7 +31,7 @@ for (let r = n - 1; r > -1; r--) {
 	const recipeAbsPath = path.join(rootPath, recipeRelPath);
 
 	publications[r] = bundle(recipeAbsPath)
-		.then(() => publish(path.join(recipeAbsPath, outfile)));
+	// .then(() => publish(path.join(recipeAbsPath, outfile)));
 }
 
 Promise.allSettled(publications)
