@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "@codemod.com/workflow": "^0.0.28",
-    "@nodejs-loaders/alias": "^1.0.0",
+    "@nodejs-loaders/alias": "^1.1.0",
     "lodash.get": "^4.4.2"
   }
 }
