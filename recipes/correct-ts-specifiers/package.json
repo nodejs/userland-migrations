@@ -38,7 +38,7 @@
     "type-fest": "^4.26.1"
   },
   "dependencies": {
-    "@codemod.com/workflow": "^0.0.28",
+    "@codemod.com/workflow": "^0.0.31",
     "@nodejs-loaders/alias": "^1.1.1",
     "lodash.get": "^4.4.2"
   }
