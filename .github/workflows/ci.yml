@@ -44,12 +44,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # 4.2.2
+      - uses: actions/checkout@v4
         with:
           persist-credentials: false
           show-progress: false
       - name: Set up Node.js LTS
-        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # 4.1.0
+        uses: actions/setup-node@v4
         with:
           node-version-file: ".nvmrc"
           cache: "npm"
@@ -73,12 +73,12 @@ jobs:
           - windows-latest
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # 4.2.2
+      - uses: actions/checkout@v4
         with:
           persist-credentials: false
           show-progress: false
       - name: Set up Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # 4.1.0
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
