@@ -6,17 +6,19 @@ name: CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["*"]
     paths:
       - "recipes/**"
       - "package.json"
       - "package-lock.json"
+      - ".github/workflows/*.yml"
   pull_request:
-    branches: ["main"]
+    branches: ["*"]
     paths:
       - "recipes/**"
       - "package.json"
       - "package-lock.json"
+      - ".github/workflows/*.yml"
     types:
       - opened
       - ready_for_review
@@ -24,50 +26,62 @@ on:
       - synchronize
 
 jobs:
+  get-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      latest: ${{ steps.set-matrix.outputs.requireds }}
+    steps:
+      - uses: ljharb/actions/node/matrix@main
+        id: set-matrix
+        with:
+          versionsAsRoot: true
+          type: majors
+          preset: ">= 22" # glob is not backported below 22.x
+
   lint-and-types:
-    if: github.event.pull_request.draft == false
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
 
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node:
-          - version: 23.x
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # 4.2.2
-      - name: Set up Node.js ${{ matrix.node.version }}
-        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # 4.1.0
+      - uses: actions/checkout@v4
         with:
-          node-version: ${{ matrix.node.version }}
-          cache: 'npm'
+          persist-credentials: false
+          show-progress: false
+      - name: Set up Node.js LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
       - run: npm ci
       - run: node --run lint
       - run: node --run type-check
 
   tests:
-    if: github.event.pull_request.draft == false
+    needs: [get-matrix]
+    runs-on: ${{ matrix.os }}
+
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
 
     strategy:
       fail-fast: false
       matrix:
-        node:
-          - version: 23.x
-          - version: 22.x
-          # glob is not backported below 22.x
+        node-version: ${{ fromJson(needs.get-matrix.outputs.latest) }}
         os:
           - macos-latest
           - ubuntu-latest
           - windows-latest
 
-    runs-on: ${{ matrix.os }}
-
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # 4.2.2
-      - name: Set up Node.js ${{ matrix.node.version }}
-        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # 4.1.0
+      - uses: actions/checkout@v4
         with:
-          node-version: ${{ matrix.node.version }}
-          cache: 'npm'
+          persist-credentials: false
+          show-progress: false
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
       - run: npm ci
       - name: Run recipe tests
         run: >-
