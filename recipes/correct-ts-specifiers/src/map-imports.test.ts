@@ -3,7 +3,7 @@ import { type Mock, before, describe, it, mock, afterEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { dExts } from './exts.ts';
-import type { FSAbsolutePath } from './index.d.ts';
+import type { FSAbsolutePath } from './types.ts';
 
 
 type Logger = typeof import('./logger.ts').logger;

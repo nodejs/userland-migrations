@@ -4,7 +4,7 @@ import { type Mock, after, afterEach, before, describe, it, mock } from 'node:te
 import { fileURLToPath } from 'node:url';
 
 import { dExts, jsExts, suspectExts, tsExts } from './exts.ts';
-import type { FSAbsolutePath } from './index.d.ts';
+import type { FSAbsolutePath } from './types.ts';
 
 type MockModuleContext = ReturnType<typeof mock.module>;
 

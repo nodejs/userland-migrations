@@ -4,7 +4,7 @@ import type {
 	FSAbsolutePath,
 	ResolvedSpecifier,
 	Specifier,
-} from './index.d.ts';
+} from './types.ts';
 import { resolveSpecifier } from './resolve-specifier.ts';
 
 export function fexists(

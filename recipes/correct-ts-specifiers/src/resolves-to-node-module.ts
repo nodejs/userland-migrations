@@ -1,7 +1,7 @@
 import { isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import type { FSAbsolutePath, ResolvedSpecifier } from './index.d.ts';
+import type { FSAbsolutePath, ResolvedSpecifier } from './types.ts';
 
 export function resolvesToNodeModule(
 	resolvedUrl: ResolvedSpecifier,

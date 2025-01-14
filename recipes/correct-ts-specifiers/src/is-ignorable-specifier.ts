@@ -3,7 +3,7 @@ import { extname, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { tsExts } from './exts.ts';
-import type { FSAbsolutePath, ResolvedSpecifier, Specifier } from './index.d.ts';
+import type { FSAbsolutePath, ResolvedSpecifier, Specifier } from './types.ts';
 import { resolvesToNodeModule } from './resolves-to-node-module.ts';
 import { getNotFoundUrl } from './get-not-found-url.ts';
 

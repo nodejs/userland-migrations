@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { tsExts } from './exts.ts';
 import { isIgnorableSpecifier } from './is-ignorable-specifier.ts';
-import type { FSAbsolutePath } from './index.d.ts';
+import type { FSAbsolutePath } from './types.ts';
 
 describe('Is ignorable specifier', () => {
 	const parentPath = '/tmp/test.ts';

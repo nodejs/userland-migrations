@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Publish to codemod registry
+
+on:
+  push:
+    branches: ["main"]
+    paths: ["recipes/**"]
+  pull_request:
+    branches: ["main"]
+    paths: ["recipes/**"]
+    types: [closed]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        name: Filter codemods
+        with:
+          list-files: shell
+          filters: |
+            codemods:
+              - '**/.codemodrc.json'
+
+      - name: Collate updates
+        run: |
+          echo "Modified files: ${{steps.filter.outputs.codemods_files}}"
+          echo "Modified status: ${{steps.filter.outputs.codemods}}"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --include="optional"
+
+      - name: Generate bundle & publish to codemod registry
+        run: >-
+          node
+          --no-warnings
+          --experimental-strip-types
+          ./build/publish.mts
+          --recipes=${{steps.filter.outputs.codemods_files}}
+          --status=${{steps.filter.outputs.codemods}}
