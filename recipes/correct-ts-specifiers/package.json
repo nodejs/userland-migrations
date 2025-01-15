@@ -35,7 +35,7 @@
   "devDependencies": {
     "@types/lodash.get": "^4.4.9",
     "@types/node": "^22.10.6",
-    "type-fest": "^4.31.0"
+    "type-fest": "^4.32.0"
   },
   "dependencies": {
     "@codemod.com/workflow": "^0.0.31",
