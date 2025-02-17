@@ -34,7 +34,7 @@
   "homepage": "https://github.com/nodejs/userland-migrations/tree/main/correct-ts-specifiers#readme",
   "devDependencies": {
     "@types/lodash.get": "^4.4.9",
-    "@types/node": "^22.13.1",
+    "@types/node": "^22.13.4",
     "type-fest": "^4.33.0"
   },
   "dependencies": {
