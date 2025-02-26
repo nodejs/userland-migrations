@@ -1,6 +1,8 @@
 # Correct TypeScript Specifiers
 
-This package transforms import specifiers in source-code from the broken state TypeScript's compiler (`tsc`) required (prior TypeScript v5.7 RC) into proper ones. This is useful when source-code is processed by standards-compliant software like Node.js. This is a one-and-done process, and the updated source-code should be committed to your version control (ex git); thereafter, source-code import statements should be authored compliant with the ECMAScript (JavaScript) standard.
+This package transforms import specifiers from the old `tsc` (TypeScript's compiler) requirement of using `.js` file extensions in source-code to import files that are actually typescript; the corrected specifiers enable source-code to be runnable by standards-compliant software like Node.js.
+
+This is a one-and-done process, and the updated source-code should be committed to your version control (eg git); thereafter, source-code import statements should be authored compliant with the ECMAScript (JavaScript) standard.
 
 > [!TIP]
 > Those using `tsc` to compile will need to enable [`rewriteRelativeImportExtensions`](https://www.typescriptlang.org/tsconfig/#rewriteRelativeImportExtensions); using `tsc` for only type-checking (ex via a lint/test step like `npm run test:types`) needs [`allowImportingTsExtensions`](https://www.typescriptlang.org/tsconfig/#allowImportingTsExtensions) (and some additional compile options—see the cited documentation);
