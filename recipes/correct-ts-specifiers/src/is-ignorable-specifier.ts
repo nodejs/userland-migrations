@@ -44,7 +44,7 @@ export function isIgnorableSpecifier(parentPath: FSAbsolutePath, specifier: stri
 	} finally {
 		/* biome-ignore lint/correctness/noUnsafeFinally: This does not blindly override the control
 		flow the rule is meant to protect */
-		if (resolvesToNodeModule(resolvedSpecifier!, parentPath)) return true;
+		if (resolvesToNodeModule(resolvedSpecifier!, parentPath, specifier)) return true;
 	}
 
 	return false;
