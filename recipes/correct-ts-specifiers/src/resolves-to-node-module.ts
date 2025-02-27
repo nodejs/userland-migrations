@@ -6,8 +6,15 @@ import type { FSAbsolutePath, ResolvedSpecifier } from './index.d.ts';
 export function resolvesToNodeModule(
 	resolvedUrl: ResolvedSpecifier,
 	parentLocus: FSAbsolutePath | ResolvedSpecifier,
+	ogSpecifier: string,
 ) {
-	if (!URL.canParse(resolvedUrl)) throw new TypeError('resolvedUrl must be a file url string');
+	if (!resolvedUrl) throw new TypeError('Specifier resolved to nothing.', {
+		cause: `'${ogSpecifier}' in ${parentLocus}`,
+	});
+
+	if (!URL.canParse(resolvedUrl)) throw new TypeError(`resolvedUrl from '${parentLocus}' must be a file url string: ${resolvedUrl}`, {
+		cause: `'${ogSpecifier}' in ${parentLocus}`,
+	});
 
 	const parentUrl = isAbsolute(parentLocus) ? pathToFileURL(parentLocus).href : parentLocus;
 
