@@ -62,9 +62,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -72,20 +69,19 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get install libsecret-1-dev
-          pnpm install -g codemod
+          npm install -g codemod
 
       - name: Test codemod
         run: |
           DIR=$(dirname "${{ matrix.file }}")
           echo "Testing codemod in: $DIR"
-          pnpm install
-          pnpm run build
           cd "$DIR"
-          pnpm run --if-present test
+          npm install
+          npm run --if-present test
 
       - name: Publish codemod
         run: |
           DIR=$(dirname "${{ matrix.file }}")
           echo "Publishing codemod in: $DIR"
           cd "$DIR"
-          pnpx codemod publish
+          npx codemod publish
