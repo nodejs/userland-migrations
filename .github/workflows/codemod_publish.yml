@@ -9,16 +9,27 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   paths-filter:
+    permissions:
+      contents: read
+      pull-requests: read
     name: Check for .codemodrc.json files changes
     runs-on: ubuntu-latest
     outputs:
       codemods: ${{ steps.filter.outputs.codemods }}
       codemods_files: ${{ steps.filter.outputs.codemods_files }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
         id: filter
         name: Filter codemods
         with:
@@ -35,8 +46,13 @@ jobs:
     outputs:
       codemod_files: ${{ steps.set-matrix.outputs.codemod_files }}
     steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf
+        with:
+          egress-policy: audit
+
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
 
@@ -57,12 +73,17 @@ jobs:
     env:
       CODEMOD_API_KEY: ${{ secrets.CODEMOD_API_KEY }}
     steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf
+        with:
+          egress-policy: audit
+
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e
         with:
           node-version-file: ".nvmrc"
 
