@@ -36,7 +36,7 @@ export const replaceJSExtWithTSExt = async (
 
 	const oExt = extname(specifier) as JSExt;
 
-	const replacement = composeReplacement(specifier, oExt, rExt ?? suspectExts[oExt]);
+	const replacement = composeReplacement(specifier, oExt, rExt ?? suspectExts[oExt] ?? '');
 
 	if (await fexists(parentPath, replacement)) return { replacement, isType: false };
 
