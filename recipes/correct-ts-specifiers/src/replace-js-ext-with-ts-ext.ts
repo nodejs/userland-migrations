@@ -58,7 +58,7 @@ export const replaceJSExtWithTSExt = async (
 const composeReplacement = (
 	specifier: Specifier,
 	oExt: JSExt,
-	rExt: DExt | JSExt | TSExt,
+	rExt: DExt | JSExt | TSExt | '',
 ): Specifier => (oExt ? specifier.replace(oExt, rExt) : `${specifier}${rExt}`);
 
 /**
