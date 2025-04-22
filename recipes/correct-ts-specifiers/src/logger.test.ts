@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 
 import { spawnPromisified } from '../test/spawn-promisified.ts';
 
-describe('logger', () => {
+describe('logger', { concurrency: true }, () => {
 	it('should emit non-error entries to standard out, collated by source module', async (t) => {
 		const { code, stdout } = await spawnPromisified(
 			execPath,
