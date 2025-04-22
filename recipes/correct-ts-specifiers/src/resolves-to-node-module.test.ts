@@ -9,29 +9,45 @@ import { resolvesToNodeModule } from './resolves-to-node-module.ts';
 describe('Resolves to a node module', () => {
 	const base = '/tmp/foo';
 	const fileBase = `file://${base}`;
-	const node_mod = 'node_modules/bar/whatever.ext';
+	const specifier = 'bar';
+	const node_mod = `node_modules/${specifier}/whatever.ext`;
 
-	it('should error when arguments are invalid', () => {
-		assert.throws(() =>
+	it('should error when resolvedUrl is invalid', () => {
+		const resolvedUrl = path.join(base, node_mod) as FSAbsolutePath;
+		const parentLocus = 'foobar';
+		let err: Error;
+		try {
 			resolvesToNodeModule(
 				// @ts-ignore that's the point of this test
-				path.join(base, node_mod) as FSAbsolutePath,
-				'', // doesn't mattter
-			),
-		);
+				resolvedUrl,
+				parentLocus, // doesn't mattter
+				specifier,
+			);
+		} catch (e) {
+			err = e as Error;
+		}
+		assert.ok(err!);
+		assert.match(err.message, /resolvedUrl/);
+		assert.match(err.message, new RegExp(resolvedUrl));
+		assert.match(err.message, new RegExp(parentLocus));
 	});
 
 	it('should accepted an fs path for parentLocus & signal `true` when resolved is an immediate node module', () => {
 		const isNodeModule = resolvesToNodeModule(
 			`${fileBase}/${node_mod}`,
 			path.join(base, 'main.js') as FSAbsolutePath,
+			specifier,
 		);
 
 		assert.equal(isNodeModule, true);
 	});
 
 	it('should accepted a file url for parentLocus & signal `true` when resolved is an immediate node module', () => {
-		const isNodeModule = resolvesToNodeModule(`${fileBase}/${node_mod}`, `${fileBase}/main.js`);
+		const isNodeModule = resolvesToNodeModule(
+			`${fileBase}/${node_mod}`,
+			`${fileBase}/main.js`,
+			specifier,
+		);
 
 		assert.equal(isNodeModule, true);
 	});
@@ -40,6 +56,7 @@ describe('Resolves to a node module', () => {
 		const isNodeModule = resolvesToNodeModule(
 			`${fileBase}/${node_mod}`,
 			path.join(base, 'qux/zed/main.js') as FSAbsolutePath,
+			specifier,
 		);
 
 		assert.equal(isNodeModule, true);
@@ -49,6 +66,7 @@ describe('Resolves to a node module', () => {
 		const isNodeModule = resolvesToNodeModule(
 			`${fileBase}/beta/${node_mod}`,
 			path.join(base, 'qux/zed/main.js') as FSAbsolutePath,
+			specifier,
 		);
 
 		assert.equal(isNodeModule, false);
