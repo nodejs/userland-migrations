@@ -10,7 +10,7 @@ type ResolveSpecifier = typeof import('./resolve-specifier.ts').resolveSpecifier
 
 const RESOLVED_SPECIFIER_ERR = 'Resolved specifier did not match expected';
 
-describe('fexists', { concurrency: true }, () => {
+describe('fexists', { concurrency: false /* concurrency clobbers `before`s */ }, () => {
 	const parentPath = '/tmp/test.ts';
 	const constants = { F_OK: null };
 
