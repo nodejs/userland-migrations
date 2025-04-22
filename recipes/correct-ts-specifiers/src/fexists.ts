@@ -11,7 +11,12 @@ export function fexists(
 	parentPath: FSAbsolutePath | ResolvedSpecifier,
 	specifier: Specifier,
 ) {
-	const resolvedSpecifier = resolveSpecifier(parentPath, specifier) as FSAbsolutePath;
+	let resolvedSpecifier = '' as FSAbsolutePath;
+	try {
+		resolvedSpecifier = resolveSpecifier(parentPath, specifier) as FSAbsolutePath;
+	} catch (err) {
+		if ((err as NodeJS.ErrnoException).code !== 'ERR_MODULE_NOT_FOUND') throw err;
+	}
 
 	return fexistsResolved(resolvedSpecifier);
 }
