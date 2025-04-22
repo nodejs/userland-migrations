@@ -11,7 +11,7 @@ export function fexists(
 	parentPath: FSAbsolutePath | ResolvedSpecifier,
 	specifier: Specifier,
 ) {
-	let resolvedSpecifier;
+	let resolvedSpecifier: FSAbsolutePath;
 	try {
 		resolvedSpecifier = resolveSpecifier(parentPath, specifier) as FSAbsolutePath;
 	} catch (err) {
