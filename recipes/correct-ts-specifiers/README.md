@@ -20,9 +20,12 @@ This package does not just blindly find & replace file extensions within specifi
 > [!CAUTION]
 > This will change your source-code. Commit any unsaved changes before running this package.
 
-```sh
-NODE_OPTIONS="--experimental-import-meta-resolve" \
-npx codemod@latest correct-ts-specifiers
+> [!IMPORTANT]
+> [`--experimental-import-meta-resolve`](https://nodejs.org/api/cli.html#--experimental-import-meta-resolve) MUST be enabled; the feature is not really experimental—it's nonstandard because it's not relevant for browsers.
+
+```console
+$ NODE_OPTIONS="--experimental-import-meta-resolve" \
+  npx codemod@latest correct-ts-specifiers
 ```
 
 ### Monorepos
