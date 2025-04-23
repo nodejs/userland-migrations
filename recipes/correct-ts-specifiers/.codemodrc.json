@@ -1,9 +1,10 @@
 {
   "$schema": "https://codemod-utils.s3.us-west-1.amazonaws.com/configuration_schema.json",
-  "name": "correct-ts-specifiers",
+  "name": "@nodejs/correct-ts-specifiers",
   "version": "1.0.0",
   "engine": "workflow",
   "private": false,
+  "entry": "./src/workflow.ts",
   "arguments": [],
   "meta": {
     "git": "https://github.com/nodejs/userland-migrations/tree/main/recipes/correct-ts-specifiers",
