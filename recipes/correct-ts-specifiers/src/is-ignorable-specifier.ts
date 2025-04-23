@@ -2,8 +2,8 @@ import { isBuiltin } from 'node:module';
 import { extname, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { tsExts } from './exts.ts';
-import type { FSAbsolutePath, ResolvedSpecifier, Specifier } from './index.d.ts';
+import { jsExts, tsExts } from './exts.ts';
+import type { FSAbsolutePath, ResolvedSpecifier } from './index.d.ts';
 import { resolvesToNodeModule } from './resolves-to-node-module.ts';
 import { getNotFoundUrl } from './get-not-found-url.ts';
 
@@ -17,9 +17,11 @@ export function isIgnorableSpecifier(parentPath: FSAbsolutePath, specifier: stri
 	if (specifier.startsWith('data:')) return true;
 
 	const ext = extname(specifier);
-	// @ts-ignore not worth the trouble to get TS to realise this is okay
+	// @ts-expect-error
 	if (tsExts.includes(ext)) return true;
-	if (ext) return false; // there is an extension and it's not TS → suspect
+	// @ts-expect-error
+	if (jsExts.includes(ext)) return false;
+	if (ext) return true; // There is an extension and it's not TS or suspect
 
 	if (specifier[0] === '@') return true; // namespaced node module
 
