@@ -27,7 +27,9 @@ on:
 
 jobs:
   get-matrix:
+    name: Configure Node LTS environment matrix
     runs-on: ubuntu-latest
+
     outputs:
       latest: ${{ steps.set-matrix.outputs.requireds }}
     steps:
@@ -39,6 +41,8 @@ jobs:
           preset: ">= 22" # glob is not backported below 22.x
 
   lint-and-types:
+    name: Lint & types
+
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
 
     runs-on: ubuntu-latest
@@ -59,10 +63,12 @@ jobs:
       - run: node --run type-check
 
   tests:
-    needs: [get-matrix]
-    runs-on: ${{ matrix.os }}
+    name: Unit, e2e, and coverage
 
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+
+    needs: [get-matrix]
+    runs-on: ${{ matrix.os }}
 
     strategy:
       fail-fast: false
@@ -81,8 +87,9 @@ jobs:
       - name: Set up Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
           cache: "npm"
+          check-latest: true
+          node-version: ${{ matrix.node-version }}
       - run: npm ci
       - name: Run recipe tests
         run: >-
