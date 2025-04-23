@@ -63,7 +63,7 @@ jobs:
       - run: node --run type-check
 
   tests:
-    name: Unit, e2e, and coverage
+    name: Unit, e2e, coverage
 
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
 
