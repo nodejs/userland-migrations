@@ -5,7 +5,7 @@ import { describe, it } from 'node:test';
 import type { FSAbsolutePath } from './index.d.ts';
 import { resolveSpecifier } from './resolve-specifier.ts';
 
-describe('Resolve specifier', () => {
+describe('Resolve specifier', { concurrency: true }, () => {
 	const fixturesDir = path.join(import.meta.dirname, 'fixtures/e2e') as FSAbsolutePath;
 	const catSpecifier = `${fixturesDir}/Cat.ts` as FSAbsolutePath;
 

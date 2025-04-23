@@ -5,7 +5,7 @@ type LStat = typeof import('node:fs/promises').lstat;
 type ResolveSpecifier = typeof import('./is-dir.ts').isDir;
 type IsDir = typeof import('./resolve-specifier.ts').resolveSpecifier;
 
-describe('Is a directory', () => {
+describe('Is a directory', { concurrency: true }, () => {
 	let mock_lstat: Mock<LStat>['mock'];
 	let mock_resolveSpecifier: Mock<ResolveSpecifier>['mock'];
 	let isDir: IsDir;

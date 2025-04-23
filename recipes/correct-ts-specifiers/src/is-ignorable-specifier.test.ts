@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { tsExts } from './exts.ts';
+import { jsExts, tsExts } from './exts.ts';
 import { isIgnorableSpecifier } from './is-ignorable-specifier.ts';
 import type { FSAbsolutePath } from './index.d.ts';
 
-describe('Is ignorable specifier', () => {
+describe('Is ignorable specifier', { concurrency: true }, () => {
 	const parentPath = '/tmp/test.ts';
 
 	it('should ignore node builtins', () => {
@@ -35,6 +35,12 @@ describe('Is ignorable specifier', () => {
 			assert.equal(isIgnorableSpecifier(parentPath, `tmp/foo${tsExt}`), true);
 			assert.equal(isIgnorableSpecifier(parentPath, `@tmp/foo${tsExt}`), true);
 		}
+	});
+
+	it('should ignore unrecognised file extensions', () => {
+		assert.equal(isIgnorableSpecifier(parentPath, 'tmp.ext'), true);
+		assert.equal(isIgnorableSpecifier(parentPath, 'tmp.json'), true);
+		assert.equal(isIgnorableSpecifier(parentPath, 'tmp.wasm'), true);
 	});
 
 	it('should ignore node_modules', () => {
@@ -67,10 +73,12 @@ describe('Is ignorable specifier', () => {
 		assert.equal(isIgnorableSpecifier(parentPath, 'file:///tmp/foo.js'), false);
 	});
 
-	it('should NOT ignore anything with a file extension', () => {
-		assert.equal(isIgnorableSpecifier(parentPath, 'tmp.js'), false);
-		assert.equal(isIgnorableSpecifier(parentPath, 'tmp/foo.js'), false);
-		assert.equal(isIgnorableSpecifier(parentPath, '@tmp/foo.js'), false);
+	it('should NOT ignore any JavaScript file extensions', () => {
+		for (const jsExt of jsExts) {
+			assert.equal(isIgnorableSpecifier(parentPath, `tmp${jsExt}`), false);
+			assert.equal(isIgnorableSpecifier(parentPath, `tmp/foo${jsExt}`), false);
+			assert.equal(isIgnorableSpecifier(parentPath, `@tmp/foo${jsExt}`), false);
+		}
 	});
 
 	it('should NOT ignore possibly unsuffixed paths', () => {

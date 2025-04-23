@@ -10,7 +10,7 @@ type ResolveSpecifier = typeof import('./resolve-specifier.ts').resolveSpecifier
 
 const RESOLVED_SPECIFIER_ERR = 'Resolved specifier did not match expected';
 
-describe('fexists', () => {
+describe('fexists', { concurrency: false /* concurrency clobbers `before`s */ }, () => {
 	const parentPath = '/tmp/test.ts';
 	const constants = { F_OK: null };
 
@@ -136,6 +136,14 @@ describe('fexists', () => {
 
 			assert.equal(await fexists(parentPath, specifier), false);
 			assert.equal(mock__access.calls[0].arguments[0], specifier, RESOLVED_SPECIFIER_ERR);
+		});
+
+		it('should return `false` when the specifier can’t be resolved', async () => {
+			mock__resolveSpecifier.mockImplementationOnce(function MOCK__resolveSpecifier(_pp, _specifier) {
+				throw Object.assign(new Error('ERR_MODULE_NOT_FOUND'), { code: 'ERR_MODULE_NOT_FOUND' });
+			});
+
+			assert.equal(await fexists(parentPath, 'noexists'), false);
 		});
 	});
 });

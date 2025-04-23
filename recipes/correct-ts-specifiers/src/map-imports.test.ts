@@ -9,7 +9,7 @@ import type { FSAbsolutePath } from './index.d.ts';
 type Logger = typeof import('./logger.ts').logger;
 type MapImports = typeof import('./map-imports.ts').mapImports;
 
-describe('Map Imports', () => {
+describe('Map Imports', { concurrency: true }, () => {
 	const originatingFilePath = fileURLToPath(import.meta.resolve('./test.ts')) as FSAbsolutePath;
 	let mock__log: Mock<Logger>['mock'];
 	let mapImports: MapImports;

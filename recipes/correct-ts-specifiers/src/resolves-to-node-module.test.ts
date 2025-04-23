@@ -6,7 +6,7 @@ import type { FSAbsolutePath } from './index.d.ts';
 
 import { resolvesToNodeModule } from './resolves-to-node-module.ts';
 
-describe('Resolves to a node module', () => {
+describe('Resolves to a node module', { concurrency: true }, () => {
 	const base = '/tmp/foo';
 	const fileBase = `file://${base}`;
 	const specifier = 'bar';
@@ -18,7 +18,7 @@ describe('Resolves to a node module', () => {
 		let err: Error;
 		try {
 			resolvesToNodeModule(
-				// @ts-ignore that's the point of this test
+				// @ts-expect-error
 				resolvedUrl,
 				parentLocus, // doesn't mattter
 				specifier,
@@ -30,6 +30,23 @@ describe('Resolves to a node module', () => {
 		assert.match(err.message, /resolvedUrl/);
 		assert.match(err.message, new RegExp(resolvedUrl));
 		assert.match(err.message, new RegExp(parentLocus));
+	});
+
+	it('should error when resolvedUrl is missing/empty', () => {
+		const parentLocus = 'foobar';
+		let err: Error;
+		try {
+			resolvesToNodeModule(
+				// @ts-expect-error
+				undefined,
+				parentLocus, // doesn't mattter
+				specifier,
+			);
+		} catch (e) {
+			err = e as Error;
+		}
+		assert.ok(err!);
+		assert.equal(err.cause, `'${specifier}' in ${parentLocus}`);
 	});
 
 	it('should accepted an fs path for parentLocus & signal `true` when resolved is an immediate node module', () => {
