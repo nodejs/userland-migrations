@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 
 import { getNotFoundUrl } from './get-not-found-url.ts';
 
-describe('Get module not found url', () => {
+describe('Get module not found url', { concurrency: true }, () => {
 	const errPath = '/tmp/foo.js';
 	const errUrl = `file://${errPath}`;
 	function makeError(setUrlProp = false) {

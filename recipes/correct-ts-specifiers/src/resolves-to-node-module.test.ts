@@ -6,7 +6,7 @@ import type { FSAbsolutePath } from './index.d.ts';
 
 import { resolvesToNodeModule } from './resolves-to-node-module.ts';
 
-describe('Resolves to a node module', () => {
+describe('Resolves to a node module', { concurrency: true }, () => {
 	const base = '/tmp/foo';
 	const fileBase = `file://${base}`;
 	const specifier = 'bar';

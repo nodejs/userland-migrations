@@ -6,7 +6,7 @@ import { tsExts } from './exts.ts';
 import { isIgnorableSpecifier } from './is-ignorable-specifier.ts';
 import type { FSAbsolutePath } from './index.d.ts';
 
-describe('Is ignorable specifier', () => {
+describe('Is ignorable specifier', { concurrency: true }, () => {
 	const parentPath = '/tmp/test.ts';
 
 	it('should ignore node builtins', () => {

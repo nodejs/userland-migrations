@@ -11,7 +11,7 @@ type MockModuleContext = ReturnType<typeof mock.module>;
 type Logger = typeof import('./logger.ts').logger;
 type ReplaceJSExtWithTSExt = typeof import('./replace-js-ext-with-ts-ext.ts').replaceJSExtWithTSExt;
 
-describe('Correcting ts file extensions', () => {
+describe('Correcting ts file extensions', { concurrency: true }, () => {
 	const originatingFilePath = fileURLToPath(import.meta.resolve('./test.ts')) as FSAbsolutePath;
 	const fixturesDir = path.join(import.meta.dirname, 'fixtures/e2e') as FSAbsolutePath;
 	const catSpecifier = path.join(fixturesDir, 'Cat.ts') as FSAbsolutePath;
