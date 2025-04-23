@@ -32,7 +32,7 @@ export function isIgnorableSpecifier(parentPath: FSAbsolutePath, specifier: stri
 		resolvedSpecifier = import.meta.resolve(
 			specifier,
 			pathToFileURL(parentPath).href,
-		) as ResolvedSpecifier; // [1]
+		) as ResolvedSpecifier;  // This requires `--experimental-import-meta-resolve`
 	} catch (err) {
 		if (
 			!(err instanceof Error)
@@ -54,5 +54,3 @@ const IGNORABLE_RESOLVE_ERRORS = new Set([
 	'ERR_MODULE_NOT_FOUND',
 	'ERR_PACKAGE_PATH_NOT_EXPORTED', // This is a problem with the node_module itself
 ]);
-
-// [1] The second argument of `import.meta.resolve()` requires `--experimental-import-meta-resolve`
