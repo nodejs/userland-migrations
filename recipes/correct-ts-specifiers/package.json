@@ -31,11 +31,12 @@
   "license": "MIT",
   "homepage": "https://github.com/nodejs/userland-migrations/tree/main/correct-ts-specifiers#readme",
   "devDependencies": {
-    "@types/node": "^22.14.1",
-    "type-fest": "^4.36.0"
+    "@types/lodash.get": "^4.4.9",
+    "@types/node": "^22.15.3",
+    "type-fest": "^4.40.1"
   },
   "dependencies": {
     "@codemod.com/workflow": "^0.0.31",
-    "@nodejs-loaders/alias": "^2.1.0"
+    "@nodejs-loaders/alias": "^2.1.1"
   }
 }
