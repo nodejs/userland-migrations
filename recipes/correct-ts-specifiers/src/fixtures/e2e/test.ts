@@ -7,10 +7,11 @@ import { Bird } from './Bird';
 import { Cat } from './Cat.ts';
 import { Dog } from '…/Dog/index.mjs';
 import { baseUrl } from '#config.js';
+import { qux } from './qux.js';
 
 export { Zed } from './zed';
 
-// should be unchanged
+// should.js be unchanged
 
 const nil = await import('./nil.js');
 
