@@ -20,6 +20,7 @@ describe('workflow', () => {
 			],
 			{
 				cwd: e2eFixtPath,
+				stdio: 'inherit',
 			},
 		);
 
