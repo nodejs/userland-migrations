@@ -161,4 +161,14 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 			}
 		});
 	});
+
+	describe('specifier contains a directory with a file extension', () => {
+		it('should replace only the file extension', async () => {
+			const originalSpecifier = './fixtures/e2e/qux.js';
+			const { isType, replacement } = await replaceJSExtWithTSExt(originatingFilePath, originalSpecifier);
+
+			assert.equal(isType, false);
+			assert.equal(replacement, `${originalSpecifier}/index.ts`);
+		});
+	});
 });

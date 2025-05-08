@@ -59,7 +59,7 @@ const composeReplacement = (
 	specifier: Specifier,
 	oExt: JSExt,
 	rExt: DExt | JSExt | TSExt | '',
-): Specifier => (oExt ? replaceExt(specifier, oExt, rExt) : `${specifier}${rExt}`);
+): Specifier => (oExt ? replaceFileExt(specifier, oExt, rExt) : `${specifier}${rExt}`);
 
 /**
  * Replace a file extension within a potentially complex fs path or specifier.
@@ -70,7 +70,7 @@ const composeReplacement = (
  * @example replaceExt('./qux.js/index.js', '.js', '.ts') → './qux.js/index.ts'
  * @example replaceExt('./qux.cjs/index.cjs', '.cjs', '.cts') → './qux.cjs/index.cts'
  */
-function replaceExt(str: string, oExt: JSExt, rExt: DExt | JSExt | TSExt | '') {
+function replaceFileExt(str: string, oExt: JSExt, rExt: DExt | JSExt | TSExt | '') {
 	const i = str.lastIndexOf(oExt);
 	return `${str.slice(0, i)}${rExt}${str.slice(i + rExt.length)}`;
 }
