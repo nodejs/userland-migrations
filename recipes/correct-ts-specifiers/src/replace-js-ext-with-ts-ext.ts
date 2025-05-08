@@ -59,7 +59,21 @@ const composeReplacement = (
 	specifier: Specifier,
 	oExt: JSExt,
 	rExt: DExt | JSExt | TSExt | '',
-): Specifier => (oExt ? specifier.replace(oExt, rExt) : `${specifier}${rExt}`);
+): Specifier => (oExt ? replaceExt(specifier, oExt, rExt) : `${specifier}${rExt}`);
+
+/**
+ * Replace a file extension within a potentially complex fs path or specifier.
+ * @param specifier The specifier to update.
+ * @param oExt The original/current extension.
+ * @param rExt The replacement extension.
+ *
+ * @example replaceExt('./qux.js/index.js', '.js', '.ts') → './qux.js/index.ts'
+ * @example replaceExt('./qux.cjs/index.cjs', '.cjs', '.cts') → './qux.cjs/index.cts'
+ */
+function replaceExt(str: string, oExt: JSExt, rExt: DExt | JSExt | TSExt | '') {
+	const i = str.lastIndexOf(oExt);
+	return `${str.slice(0, i)}${rExt}${str.slice(i + rExt.length)}`;
+}
 
 /**
  * Check whether the specifier has matches for a particular group of file extensions. This validates
