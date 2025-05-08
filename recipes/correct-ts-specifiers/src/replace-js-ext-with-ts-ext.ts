@@ -72,7 +72,7 @@ const composeReplacement = (
  */
 function replaceFileExt(str: string, oExt: JSExt, rExt: DExt | JSExt | TSExt | '') {
 	const i = str.lastIndexOf(oExt);
-	return `${str.slice(0, i)}${rExt}${str.slice(i + rExt.length)}`;
+	return `${str.slice(0, i)}${rExt}${str.slice(i + oExt.length)}`;
 }
 
 /**
