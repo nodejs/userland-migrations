@@ -36,7 +36,7 @@ export function resolveSpecifier(
 
 		if (resolvesToNodeModule(interimResolvedUrl, parentUrl, specifier)) return specifier as NodeModSpecifier;
 
-		resolvedSpecifierUrl = interimResolvedUrl; // ! let continue to `fileURLToPath` below
+		resolvedSpecifierUrl = interimResolvedUrl; //! let continue to `fileURLToPath` below
 	} catch (err) {
 		if (!(err instanceof Error)) throw err;
 
