@@ -13,7 +13,13 @@ This package does not just blindly find & replace file extensions within specifi
 > This package does not confirm that imported modules contain the desired export(s). This _shouldn't_ actually ever result in a problem because ambiguous cases are skipped (so if there is a problem, it existed before the migration started). Merely running your source-code after the mirgration completes will confirm all is well (if there are problems, node will error, citing the problems).
 
 > [!TIP]
-> Node.js requires the `type` keyword be present on type imports. For own code, this package usually handles that. However, in some cases and for node modules, it does not. Robust tooling already exists that will automatically fix this, such as [`consistent-type-imports` via typescript-lint](https://typescript-eslint.io/rules/consistent-type-imports) and [`use-import-type` via biome](https://biomejs.dev/linter/rules/use-import-type/). If your source code needs that, first run this codemod and then one of those fixers.
+> Node.js requires the `type` keyword be present on type imports. For own code, this package usually handles that. However, in some cases and for node modules, it does not. Robust tooling already exists that will automatically fix this, such as
+>
+> * [`use-import-type` via biome](https://biomejs.dev/linter/rules/use-import-type/)
+> * [`typescript/no-import-type-side-effects` via oxlint](https://oxc.rs/docs/guide/usage/linter/rules/typescript/no-import-type-side-effects)
+> * [`consistent-type-imports` via typescript-lint](https://typescript-eslint.io/rules/consistent-type-imports)
+>
+> If your source code needs that, first run this codemod and then one of those fixers.
 
 ## Running
 

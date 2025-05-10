@@ -1,11 +1,11 @@
 {
-  "name": "correct-ts-specifiers",
-  "version": "1.0.0-rc.1",
+  "name": "@nodejs/correct-ts-specifiers",
+  "version": "1.0.0",
   "description": "Replace erroneous 'js' or omitted file extensions of import specifiers in TypeScript files.",
   "type": "module",
   "main": "./src/workflow.ts",
   "engines": {
-    "node": ">=22.6.0"
+    "node": ">=22.15.0"
   },
   "scripts": {
     "start": "node --no-warnings --experimental-import-meta-resolve --experimental-strip-types ./src/workflow.ts",
@@ -14,7 +14,8 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nodejs/userland-migrations.git",
-    "directory": "recipes/correct-ts-specifiers"
+    "directory": "recipes/correct-ts-specifiers",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
   },
   "files": [
     "README.md",
@@ -28,9 +29,6 @@
   ],
   "author": "Jacob Smith",
   "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/nodejs/userland-migrations/issues"
-  },
   "homepage": "https://github.com/nodejs/userland-migrations/tree/main/correct-ts-specifiers#readme",
   "devDependencies": {
     "@types/lodash.get": "^4.4.9",
@@ -39,7 +37,6 @@
   },
   "dependencies": {
     "@codemod.com/workflow": "^0.0.31",
-    "@nodejs-loaders/alias": "^2.1.1",
-    "lodash.get": "^4.4.2"
+    "@nodejs-loaders/alias": "^2.1.1"
   }
 }
