@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execPath } from 'node:process';
 import { describe, it } from 'node:test';
 
-import { spawnPromisified } from '../test/spawn-promisified.ts';
+import { spawnPromisified } from '../../../test/spawn-promisified.ts';
 
 describe('logger', { concurrency: true }, () => {
 	it('should emit non-error entries to standard out, collated by source module', async (t) => {
