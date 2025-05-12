@@ -13,7 +13,13 @@ This package does not just blindly find & replace file extensions within specifi
 > This package does not confirm that imported modules contain the desired export(s). This _shouldn't_ actually ever result in a problem because ambiguous cases are skipped (so if there is a problem, it existed before the migration started). Merely running your source-code after the mirgration completes will confirm all is well (if there are problems, node will error, citing the problems).
 
 > [!TIP]
-> Node.js requires the `type` keyword be present on type imports. For own code, this package usually handles that. However, in some cases and for node modules, it does not. Robust tooling already exists that will automatically fix this, such as [`consistent-type-imports` via typescript-lint](https://typescript-eslint.io/rules/consistent-type-imports) and [`use-import-type` via biome](https://biomejs.dev/linter/rules/use-import-type/). If your source code needs that, first run this codemod and then one of those fixers.
+> Node.js requires the `type` keyword be present on type imports. For own code, this package usually handles that. However, in some cases and for node modules, it does not. Robust tooling already exists that will automatically fix this, such as
+>
+> * [`use-import-type` via biome](https://biomejs.dev/linter/rules/use-import-type/)
+> * [`typescript/no-import-type-side-effects` via oxlint](https://oxc.rs/docs/guide/usage/linter/rules/typescript/no-import-type-side-effects)
+> * [`consistent-type-imports` via typescript-lint](https://typescript-eslint.io/rules/consistent-type-imports)
+>
+> If your source code needs that, first run this codemod and then one of those fixers.
 
 ## Running
 
@@ -53,9 +59,10 @@ project-root/
 * no file extension → `.cts`, `.mts`, `.js`, `.ts`, `.d.cts`, `.d.mts`, or `.d.ts`
 * `.cjs` → `.cts`, `.mjs` → `.mts`, `.js` → `.ts`
 * `.js` → `.d.cts`, `.d.mts`, or `.d.ts`
-* [Package.json subimports](https://nodejs.org/api/packages.html#subpath-imports)
+* [Package.json subpath imports](https://nodejs.org/api/packages.html#subpath-imports)
 * [tsconfig paths](https://www.typescriptlang.org/tsconfig/#paths) (via [`@nodejs-loaders/alias`](https://github.com/JakobJingleheimer/nodejs-loaders/blob/main/packages/alias?tab=readme-ov-file))
   * In order to subsequently run code via node, you will need to add this (or another) loader to your own project. Or, switch to [subimports](https://nodejs.org/api/packages.html#subpath-imports).
+  * ⚠️ Using `subpath imports` along side `tsconfig paths` can lead to interference (it's better to use one or the other, not both).
 * Commonjs-like directory specifiers
 
 Before:
