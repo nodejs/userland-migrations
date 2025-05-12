@@ -4,8 +4,9 @@
     "rootDir": "./",
 
     "target": "ESNext",
-    "lib": ["ESNext"],
-
+    "lib": [
+      "ESNext"
+    ],
     /* Modules */
     "module": "NodeNext",
     "moduleResolution": "nodenext",
@@ -25,6 +26,7 @@
     /* Interop Constraints */
     "verbatimModuleSyntax": true,
     "allowSyntheticDefaultImports": true,
+    "erasableSyntaxOnly": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
 
@@ -39,7 +41,8 @@
   },
   "include": [
     "./build/",
-    "./recipes/"
+    "./recipes/",
+    "./test",
   ],
   "exclude": [
     "node_modules",
