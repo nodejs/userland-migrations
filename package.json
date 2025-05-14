@@ -2,11 +2,12 @@
   "name": "userland-migrations",
   "version": "1.0.0",
   "description": "A collection of migration recipes for userland code.",
+  "type": "module",
   "scripts": {
     "lint:fix": "biome lint --fix ./",
     "lint": "biome lint ./",
     "pre-commit": "node --run lint:fix; node --run type-check; node --run test",
-    "test": "npm run test --workspaces -- --no-warnings --import='./test/snapshots.ts' --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout",
+    "test": "npm run test --workspaces -- --import='./test/snapshots.ts' --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout",
     "type-check": "tsc"
   },
   "repository": {
