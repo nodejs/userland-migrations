@@ -95,6 +95,7 @@ async function checkSet<Ext extends DExt | JSExt | TSExt>(
 
 	const found = new Set<Specifier>();
 	for (const ext of exts) {
+		if (ext === oExt) continue;
 		const potential = composeReplacement(specifier, oExt, ext);
 		if (await fexists(parentPath, potential)) found.add((replacement = potential));
 	}

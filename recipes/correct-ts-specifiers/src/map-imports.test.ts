@@ -69,7 +69,7 @@ describe('Map Imports', { concurrency: true }, () => {
 		const specifier = './fixtures/bar.js';
 		const output = await mapImports(originatingFilePath, specifier);
 
-		assert.equal(output.replacement, specifier);
+		assert.equal(output.replacement, undefined);
 		assert.notEqual(output.isType, true);
 	});
 
