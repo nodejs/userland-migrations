@@ -3,17 +3,17 @@ import { URL } from 'node:url';
 import { bar } from '@dep/bar';
 import { foo } from 'foo';
 
-import { Bird } from './Bird';
+import { Bird } from './Bird/index.ts';
 import { Cat } from './Cat.ts';
-import { Dog } from '…/Dog/index.mjs';
+import { Dog } from '…/Dog/index.mts';
 import { baseUrl } from '#config.js';
-import { qux } from './qux.js';
+import { qux } from './qux.js/index.ts';
 
-export { Zed } from './zed';
+export type { Zed } from './zed.d.ts';
 
 // should.js be unchanged
 
-const nil = await import('./nil.js');
+const nil = await import('./nil.ts');
 
 const bird = new Bird('Tweety');
 const cat = new Cat('Milo');
