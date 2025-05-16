@@ -62,7 +62,6 @@ project-root/
 * [Package.json subpath imports](https://nodejs.org/api/packages.html#subpath-imports)
 * [tsconfig paths](https://www.typescriptlang.org/tsconfig/#paths) (via [`@nodejs-loaders/alias`](https://github.com/JakobJingleheimer/nodejs-loaders/blob/main/packages/alias?tab=readme-ov-file))
   * In order to subsequently run code via node, you will need to add this (or another) loader to your own project. Or, switch to [subimports](https://nodejs.org/api/packages.html#subpath-imports).
-  * ⚠️ Using `subpath imports` along side `tsconfig paths` can lead to interference (it's better to use one or the other, not both).
 * Commonjs-like directory specifiers
 
 Before:
