@@ -1,11 +1,16 @@
 {
-	"compilerOptions": {
-		"baseUrl": "./",
-		"allowImportingTsExtensions": true,
-		"module": "nodenext",
-		"noEmit": true,
-		"paths": {
-			"…/*": ["./*"]
-		}
-	}
+  "compilerOptions": {
+    "baseUrl": "./",
+    "allowImportingTsExtensions": true,
+    "module": "nodenext",
+    "noEmit": true,
+    "paths": {
+      "…/*": [
+        "./*",
+      ],
+      "*": [
+        "./*",
+      ],
+    }
+  }
 }
