@@ -31,7 +31,7 @@ This package does not just blindly find & replace file extensions within specifi
 
 ```console
 $ NODE_OPTIONS="--experimental-import-meta-resolve" \
-  npx codemod@latest correct-ts-specifiers
+  npx codemod@latest @nodejs/correct-ts-specifiers
 ```
 
 ### Monorepos
