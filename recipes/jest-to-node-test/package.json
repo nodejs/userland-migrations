@@ -1,0 +1,43 @@
+{
+  "name": "jest-to-node-test",
+  "version": "1.0.0-rc.1",
+  "description": "Convert Jest tests to node:test tests",
+  "type": "module",
+  "main": "./src/workflow.ts",
+  "engines": {
+    "node": ">=22.6.0"
+  },
+  "scripts": {
+    "start": "node --no-warnings --experimental-import-meta-resolve --experimental-strip-types ./src/workflow.ts",
+    "test": "node --no-warnings --experimental-import-meta-resolve --experimental-test-module-mocks --experimental-test-snapshots --experimental-strip-types --import='../../test/snapshots.ts' --test --experimental-test-coverage --test-coverage-include='src/**/*' --test-coverage-exclude='**/*.test.ts' './**/*.test.ts'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/jest-to-node-test-runner"
+  },
+  "files": [
+    "README.md",
+    ".codemodrc.json",
+    "bundle.js"
+  ],
+  "keywords": [
+    "codemod",
+    "esm",
+    "typescript"
+  ],
+  "author": "Carlos Espa",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "homepage": "https://github.com/nodejs/userland-migrations/tree/main/jest-to-node-test-runner#readme",
+  "devDependencies": {
+    "@jest/globals": "^29.7.0",
+    "@types/node": "^22.15.5",
+    "expect": "^29.7.0"
+  },
+  "dependencies": {
+    "@ast-grep/napi": "^0.38.1"
+  }
+}
