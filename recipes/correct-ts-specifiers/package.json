@@ -32,7 +32,7 @@
   "homepage": "https://github.com/nodejs/userland-migrations/tree/main/correct-ts-specifiers#readme",
   "devDependencies": {
     "@types/lodash.get": "^4.4.9",
-    "@types/node": "^22.15.21",
+    "@types/node": "^22.15.29",
     "type-fest": "^4.41.0"
   },
   "dependencies": {
