@@ -1,0 +1,42 @@
+{
+  "name": "@nodejs/import-assertions-to-attributes",
+  "version": "1.0.0",
+  "description": "Replace `assert` import attribute to the `with` ECMAScript import attribute.",
+  "type": "module",
+  "main": "./src/workflow.ts",
+  "engines": {
+    "node": ">=22.15.0"
+  },
+  "scripts": {
+    "start": "node --no-warnings --experimental-strip-types ./src/workflow.ts",
+    "test": "node --no-warnings --experimental-test-snapshots --experimental-strip-types --import='../../test/snapshots.ts' --test './**/*.test.ts'",
+    "test:coverage": "node --no-warnings --experimental-test-snapshots --experimental-strip-types --import='../../test/snapshots.ts' --test --experimental-test-coverage --test-coverage-include='src/**/*' --test-coverage-exclude='**/*.test.ts' './**/*.test.ts'",
+    "test:update-snapshots": "node --no-warnings --experimental-test-snapshots --experimental-strip-types --import='../../test/snapshots.ts' --test --test-update-snapshots './**/*.test.ts'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/import-assertions-to-attributes",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "files": [
+    "README.md",
+    ".codemodrc.json",
+    "bundle.js"
+  ],
+  "keywords": [
+    "codemod",
+    "esm",
+    "import attributes",
+    "json module"
+  ],
+  "author": "Augustin Mauroy",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/tree/main/import-assertions-to-attributes#readme",
+  "devDependencies": {
+    "@types/node": "^24.0.3"
+  },
+  "dependencies": {
+    "@codemod.com/workflow": "^0.0.31"
+  }
+}
