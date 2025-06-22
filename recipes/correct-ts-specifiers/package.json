@@ -33,5 +33,8 @@
   "dependencies": {
     "@codemod.com/workflow": "^0.0.31",
     "@nodejs-loaders/alias": "^2.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.3"
   }
 }
