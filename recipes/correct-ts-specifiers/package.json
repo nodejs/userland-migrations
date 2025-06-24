@@ -30,13 +30,11 @@
   "author": "Jacob Smith",
   "license": "MIT",
   "homepage": "https://github.com/nodejs/userland-migrations/tree/main/correct-ts-specifiers#readme",
-  "devDependencies": {
-    "@types/lodash.get": "^4.4.9",
-    "@types/node": "^24.0.3",
-    "type-fest": "^4.41.0"
-  },
   "dependencies": {
     "@codemod.com/workflow": "^0.0.31",
     "@nodejs-loaders/alias": "^2.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.3"
   }
 }
