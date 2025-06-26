@@ -6,7 +6,7 @@ import { spawnPromisified } from './spawn-promisified.ts';
 const skipWindows = platform === 'win32';
 
 describe('Logger', { skip: skipWindows, concurrency: true }, () => {
-  it('should log info messages', async (t) => {
+	it('should log info messages', async (t) => {
 		const { code, stdout } = await spawnPromisified(
 			execPath,
 			[
@@ -20,6 +20,9 @@ describe('Logger', { skip: skipWindows, concurrency: true }, () => {
 			],
 			{
 				cwd: import.meta.dirname,
+				env: {
+					FORCE_COLOR: 'true',
+				},
 			},
 		);
 
@@ -27,7 +30,7 @@ describe('Logger', { skip: skipWindows, concurrency: true }, () => {
 		t.assert.snapshot(stdout);
 	});
 
-	  it('should log warning messages', async (t) => {
+	it('should log warning messages', async (t) => {
 		const { code, stdout, stderr } = await spawnPromisified(
 			execPath,
 			[
@@ -41,6 +44,9 @@ describe('Logger', { skip: skipWindows, concurrency: true }, () => {
 			],
 			{
 				cwd: import.meta.dirname,
+				env: {
+					FORCE_COLOR: 'true',
+				},
 			},
 		);
 
@@ -63,6 +69,9 @@ describe('Logger', { skip: skipWindows, concurrency: true }, () => {
 			],
 			{
 				cwd: import.meta.dirname,
+				env: {
+					FORCE_COLOR: 'true',
+				},
 			},
 		);
 
@@ -86,8 +95,9 @@ describe('Logger', { skip: skipWindows, concurrency: true }, () => {
 			{
 				cwd: import.meta.dirname,
 				env: {
-					DEBUG: 'true'
-				}
+					DEBUG: 'true',
+					FORCE_COLOR: 'true',
+				},
 			},
 		);
 
@@ -109,6 +119,9 @@ describe('Logger', { skip: skipWindows, concurrency: true }, () => {
 			],
 			{
 				cwd: import.meta.dirname,
+				env: {
+					FORCE_COLOR: 'true',
+				},
 			},
 		);
 

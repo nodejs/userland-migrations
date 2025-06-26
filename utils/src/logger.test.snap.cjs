@@ -1,5 +1,5 @@
 exports[`Logger > should log debug messages 1`] = `
-"[This is a debug message]\\n"
+"\\u001b[1m\\u001b[35m[This is a debug message]\\u001b[39m\\u001b[22m\\n"
 `;
 
 exports[`Logger > should log error messages 1`] = `
