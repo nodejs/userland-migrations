@@ -14,7 +14,7 @@
     }
   },
   "scripts": {
-    "test": "node --test-update-snapshots --no-warnings --experimental-test-snapshots --experimental-strip-types --import='./src/snapshots.ts' --test --experimental-test-coverage --test-coverage-include='src/**/*' --test-coverage-exclude='**/*.test.ts' './**/*.test.ts'"
+    "test": "node --no-warnings --experimental-test-snapshots --experimental-strip-types --import='./src/snapshots.ts' --test --experimental-test-coverage --test-coverage-include='src/**/*' --test-coverage-exclude='**/*.test.ts' './**/*.test.ts'"
   },
   "author": "Augustin Maurouy",
   "license": "MIT",

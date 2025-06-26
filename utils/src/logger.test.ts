@@ -10,6 +10,8 @@ describe('Logger', { skip: skipWindows, concurrency: true }, () => {
 		const { code, stdout } = await spawnPromisified(
 			execPath,
 			[
+				'--no-warnings',
+				'--experimental-strip-types',
 				'-e',
 				`
 				import { info } from './logger.ts';
@@ -29,6 +31,8 @@ describe('Logger', { skip: skipWindows, concurrency: true }, () => {
 		const { code, stdout, stderr } = await spawnPromisified(
 			execPath,
 			[
+				'--no-warnings',
+				'--experimental-strip-types',
 				'-e',
 				`
 				import { warn } from './logger.ts';
@@ -49,6 +53,8 @@ describe('Logger', { skip: skipWindows, concurrency: true }, () => {
 		const { code, stdout, stderr } = await spawnPromisified(
 			execPath,
 			[
+				'--no-warnings',
+				'--experimental-strip-types',
 				'-e',
 				`
 				import { error } from './logger.ts';
@@ -69,6 +75,8 @@ describe('Logger', { skip: skipWindows, concurrency: true }, () => {
 		const { code, stdout } = await spawnPromisified(
 			execPath,
 			[
+				'--no-warnings',
+				'--experimental-strip-types',
 				'-e',
 				`
 				import { debug } from './logger.ts';
@@ -91,6 +99,8 @@ describe('Logger', { skip: skipWindows, concurrency: true }, () => {
 		const { code, stdout } = await spawnPromisified(
 			execPath,
 			[
+				'--no-warnings',
+				'--experimental-strip-types',
 				'-e',
 				`
 				import { debug } from './logger.ts';
