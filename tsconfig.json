@@ -40,9 +40,9 @@
     "skipLibCheck": true
   },
   "include": [
-    "./build/",
     "./recipes/",
     "./test",
+    "utils"
   ],
   "exclude": [
     "node_modules",

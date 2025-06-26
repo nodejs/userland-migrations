@@ -3,7 +3,7 @@ import { extname } from 'node:path';
 import type { FSAbsolutePath, NodeModSpecifier, ResolvedSpecifier, Specifier } from './index.d.ts';
 import { type DExt, type JSExt, type TSExt, extSets, suspectExts } from './exts.ts';
 import { fexists } from './fexists.ts';
-import { logger } from './logger.ts';
+import logger from '@nodejs/utils/logger'
 import { isDir } from './is-dir.ts';
 
 /**
@@ -103,10 +103,9 @@ async function checkSet<Ext extends DExt | JSExt | TSExt>(
 	if (found.size) {
 		if (found.size === 1) return { isType: exts[0].startsWith('.d'), replacement: replacement! };
 
-		logger(
-			parentPath,
-			'error',
+		logger.error(
 			[
+				parentPath,
 				`"${specifier}" appears to resolve to multiple files. Cannot disambiguate between`,
 				`"${Array.from(found).join('", "')}"`,
 				'(skipping).',

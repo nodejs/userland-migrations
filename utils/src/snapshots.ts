@@ -2,12 +2,12 @@ import { basename, dirname, extname, join } from 'node:path';
 import { snapshot } from 'node:test';
 
 snapshot.setResolveSnapshotPath(generateSnapshotPath);
+
 /**
  * @param {string} testFilePath `'/tmp/foo.test.js'`
  * @returns `'/tmp/foo.test.snap.cjs'`
- * @type {Parameters<snapshot.setResolveSnapshotPath>[0]}
  */
-function generateSnapshotPath(testFilePath) {
+function generateSnapshotPath(testFilePath: string | undefined): string {
 	if (!testFilePath) return '';
 
 	const ext = extname(testFilePath);

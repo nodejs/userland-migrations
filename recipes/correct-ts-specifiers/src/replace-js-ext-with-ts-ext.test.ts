@@ -8,7 +8,7 @@ import type { FSAbsolutePath } from './index.d.ts';
 
 type MockModuleContext = ReturnType<typeof mock.module>;
 
-type Logger = typeof import('./logger.ts').logger;
+type Logger = typeof import('@nodejs/utils/logger').default;
 type ReplaceJSExtWithTSExt = typeof import('./replace-js-ext-with-ts-ext.ts').replaceJSExtWithTSExt;
 
 describe('Correcting ts file extensions', { concurrency: true }, () => {
@@ -16,15 +16,21 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 	const fixturesDir = path.join(import.meta.dirname, 'fixtures/e2e') as FSAbsolutePath;
 	const catSpecifier = path.join(fixturesDir, 'Cat.ts') as FSAbsolutePath;
 
-	let mock__log: Mock<Logger>['mock'];
+	let mock__log: Mock<Logger['error']>['mock'];
 	let mock__logger: MockModuleContext;
 	let replaceJSExtWithTSExt: ReplaceJSExtWithTSExt;
 
 	before(async () => {
-		const logger = mock.fn<Logger>();
-		({ mock: mock__log } = logger);
-		mock__logger = mock.module('./logger.ts', {
-			namedExports: { logger },
+		const errorMock = mock.fn<Logger['error']>();
+		const logger = {
+			error: errorMock,
+			warn: mock.fn<Logger['warn']>(),
+			info: mock.fn<Logger['info']>(),
+			debug: mock.fn<Logger['debug']>()
+		};
+		mock__log = errorMock.mock;
+		mock__logger = mock.module('@nodejs/utils/logger', {
+			defaultExport: logger,
 		});
 
 		({ replaceJSExtWithTSExt } = await import('./replace-js-ext-with-ts-ext.ts'));
@@ -62,9 +68,10 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 
 					assert.equal(output.replacement, null);
 
-					const { 2: msg } = mock__log.calls[0].arguments;
-					assert.match(msg, /disambiguate/);
-					for (const dExt of dExts) assert.match(msg, new RegExp(`${base}${dExt}`));
+					assert.equal(mock__log.calls.length, 1, 'Expected exactly one error log call');
+					const [errorMessage] = mock__log.calls[0].arguments as [string];
+					assert.match(errorMessage, /disambiguate/);
+					for (const dExt of dExts) assert.match(errorMessage, new RegExp(`${base}${dExt}`));
 				});
 			});
 

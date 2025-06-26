@@ -1,0 +1,28 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { spawnPromisified } from "./spawn-promisified.ts";
+
+describe("spawnPromisified", () => {
+  it("should spawn a process and return its output", async () => {
+	const { code, stdout, stderr } = await spawnPromisified(
+	  "echo",
+	  ["Hello, World!"],
+	  {
+		cwd: import.meta.dirname,
+	  }
+	);
+
+	assert.strictEqual(code, 0);
+	assert.strictEqual(stdout.trim(), "Hello, World!");
+	assert.strictEqual(stderr, "");
+  });
+
+  it("should handle errors in the spawned process", async () => {
+	try {
+	  // @ts-ignore
+	  await spawnPromisified("nonexistent-command");
+	} catch (error) {
+	  assert.strictEqual(error.error.code, "ENOENT");
+	}
+  });
+});

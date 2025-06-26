@@ -6,19 +6,25 @@ import { dExts } from './exts.ts';
 import type { FSAbsolutePath } from './index.d.ts';
 
 
-type Logger = typeof import('./logger.ts').logger;
+type Logger = typeof import('@nodejs/utils/logger').default;
 type MapImports = typeof import('./map-imports.ts').mapImports;
 
 describe('Map Imports', { concurrency: true }, () => {
 	const originatingFilePath = fileURLToPath(import.meta.resolve('./test.ts')) as FSAbsolutePath;
-	let mock__log: Mock<Logger>['mock'];
+	let mock__log: Mock<Logger['error']>['mock'];
 	let mapImports: MapImports;
 
 	before(async () => {
-		const logger = mock.fn<Logger>();
-		({ mock: mock__log } = logger);
-		mock.module('./logger.ts', {
-			namedExports: { logger },
+		const errorMock = mock.fn<Logger['error']>();
+		const logger = {
+			error: errorMock,
+			warn: mock.fn<Logger['warn']>(),
+			info: mock.fn<Logger['info']>(),
+			debug: mock.fn<Logger['debug']>()
+		};
+		mock__log = errorMock.mock;
+		mock.module('@nodejs/utils/logger', {
+			defaultExport: logger,
 		});
 
 		({ mapImports } = await import('./map-imports.ts'));
@@ -58,11 +64,12 @@ describe('Map Imports', { concurrency: true }, () => {
 		assert.equal(output.replacement, undefined);
 		assert.notEqual(output.isType, true);
 
-		const { 0: sourcePath, 2: msg } = mock__log.calls[0].arguments;
+		assert.equal(mock__log.calls.length, 1, 'Expected exactly one error log call');
+		const [errorMessage] = mock__log.calls[0].arguments as [string];
 
-		assert.match(sourcePath, new RegExp(originatingFilePath));
-		assert.match(msg, /no match/i);
-		assert.match(msg, new RegExp(specifier));
+		assert.match(errorMessage, new RegExp(originatingFilePath));
+		assert.match(errorMessage, /No matching file found/i);
+		assert.match(errorMessage, new RegExp(specifier));
 	});
 
 	it('unambiguous: should not change the file extension when JS file DOES exist & TS file does NOT exist', async () => {
