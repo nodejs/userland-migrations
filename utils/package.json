@@ -3,15 +3,7 @@
   "version": "0.0.0",
   "description": "Some utilities for Node.js userland migrations.",
   "exports": {
-    "./logger": {
-      "import": "./src/logger.ts"
-    },
-    "./spawn-promisified": {
-      "import": "./src/spawn-promisified.ts"
-    },
-    "./snapshots": {
-      "import": "./src/snapshots.ts"
-    }
+    "./*": ["./*.ts"]
   },
   "scripts": {
     "test": "node --no-warnings --experimental-test-snapshots --experimental-strip-types --import='./src/snapshots.ts' --test --experimental-test-coverage --test-coverage-include='src/**/*' --test-coverage-exclude='**/*.test.ts' './**/*.test.ts'"
