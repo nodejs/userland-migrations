@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "description": "Some utilities for Node.js userland migrations.",
   "exports": {
-    "./*": ["./*.ts"]
+    "./*": ["./src/*.ts"]
   },
   "scripts": {
     "test": "node --no-warnings --experimental-test-snapshots --experimental-strip-types --import='./src/snapshots.ts' --test --experimental-test-coverage --test-coverage-include='src/**/*' --test-coverage-exclude='**/*.test.ts' './**/*.test.ts'"
