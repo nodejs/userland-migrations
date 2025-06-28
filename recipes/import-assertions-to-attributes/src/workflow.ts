@@ -10,6 +10,7 @@ const globPattern = '**/*.{cjs,mjs,js,jsx,?(d.)cts,?(d.)mts,?(d.)ts,tsx}';
 
 /**
  * Utility function to log warnings with consistent formatting
+ * @see https://github.com/nodejs/userland-migrations/pull/93
  */
 function logWarning(message: string, filePath: string, nodeText: string) {
 	console.warn(
@@ -127,6 +128,7 @@ async function processImportStatements(astGrep: Api['astGrep'], contexts: Api['c
 	}).replace(({ getNode }) => {
 		const node = getNode();
 		const edits = handleImportStatement(node, contexts);
+
 		return edits ? node.commitEdits(edits) : undefined;
 	});
 }
@@ -145,6 +147,7 @@ async function processCallExpressions(astGrep: Api['astGrep']) {
 	}).replace(({ getNode }) => {
 		const node = getNode();
 		const edits = handleCallExpression(node);
+
 		return node.commitEdits(edits);
 	});
 }
@@ -176,7 +179,6 @@ export async function workflow({ files, contexts }: Api) {
 	const filesToProcess = await files(globPattern).astGrep;
 
 	try {
-		// Process import statements and call expressions separately
 		await processImportStatements(filesToProcess, contexts);
 		await processCallExpressions(filesToProcess);
 	} catch (error: unknown) {
@@ -191,6 +193,5 @@ export async function workflow({ files, contexts }: Api) {
 		`${styleText(["bold", "blue"], "[Codemod:  import-assertions-to-attributes]")}: Finished modifying import attributes`,
 	);
 };
-
 
 workflow(api);
