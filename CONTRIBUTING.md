@@ -22,4 +22,4 @@ New recipes are added under `./recipes` in their own folder, succinctly named fo
 A convenient superset of checks is available via `node --run pre-commit`, which automatically fixes formatting and linting issues (that are safe to fix), checks types, and runs tests. Changes resulting from this should be committed.
 
 > [!WARNING]
-> Some test modify fixture dude to running the recipe, so you must not commit those changes.
+> Some integration tests modify fixtures because they run the entire codemod. Remember to use the `git restore` command to restore these files before pushing a commit.
