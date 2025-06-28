@@ -17,14 +17,12 @@ describe('Map Imports', { concurrency: true }, () => {
 	before(async () => {
 		const error = mock.fn<LoggerFunction>();
 		const warn = mock.fn<LoggerFunction>();
-		const info = mock.fn<LoggerFunction>();
-		const debug = mock.fn<LoggerFunction>();
 
 		mock__error = error;
 		mock__warn = warn;
 
 		mock.module('@nodejs/codemod-utils/logger', {
-			defaultExport: { error, warn, info, debug },
+			defaultExport: { error, warn },
 		});
 
 		({ mapImports } = await import('./map-imports.ts'));
@@ -67,9 +65,9 @@ describe('Map Imports', { concurrency: true }, () => {
 
 		const { 0: message } = mock__error.mock.calls[0].arguments;
 
-		assert.match(message as string, new RegExp(originatingFilePath));
-		assert.match(message as string, /no match/i);
-		assert.match(message as string, new RegExp(specifier));
+		assert.match(message, new RegExp(originatingFilePath));
+		assert.match(message, /no match/i);
+		assert.match(message, new RegExp(specifier));
 	});
 
 	it('unambiguous: should not change the file extension when JS file DOES exist & TS file does NOT exist', async () => {

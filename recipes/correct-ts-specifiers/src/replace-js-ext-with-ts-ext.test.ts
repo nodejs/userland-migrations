@@ -22,13 +22,10 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 
 	before(async () => {
 		const error = mock.fn<LoggerFunction>();
-		const warn = mock.fn<LoggerFunction>();
-		const info = mock.fn<LoggerFunction>();
-		const debug = mock.fn<LoggerFunction>();
 
 		mock__error = error;
 		mock__logger = mock.module('@nodejs/codemod-utils/logger', {
-			defaultExport: { error, warn, info, debug },
+			defaultExport: { error },
 		});
 
 		({ replaceJSExtWithTSExt } = await import('./replace-js-ext-with-ts-ext.ts'));
