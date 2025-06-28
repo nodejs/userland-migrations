@@ -6,8 +6,9 @@ snapshot.setResolveSnapshotPath(generateSnapshotPath);
 /**
  * @param {string} testFilePath `'/tmp/foo.test.js'`
  * @returns `'/tmp/foo.test.snap.cjs'`
+ * @type {Parameters<snapshot.setResolveSnapshotPath>[0]}
  */
-function generateSnapshotPath(testFilePath: string | undefined): string {
+function generateSnapshotPath(testFilePath) {
 	if (!testFilePath) return '';
 
 	const ext = extname(testFilePath);
