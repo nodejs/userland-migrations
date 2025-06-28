@@ -1,5 +1,5 @@
 {
-  "name": "@nodejs/utils",
+  "name": "@node-core/codemod-utils",
   "version": "0.0.0",
   "description": "Some utilities for Node.js userland migrations.",
   "exports": {
