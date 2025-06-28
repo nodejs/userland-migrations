@@ -42,7 +42,7 @@
   "include": [
     "./recipes/",
     "./test",
-    "utils"
+    "./utils"
   ],
   "exclude": [
     "node_modules",
