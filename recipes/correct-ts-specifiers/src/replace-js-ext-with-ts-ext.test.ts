@@ -32,12 +32,10 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 	});
 
 	afterEach(() => {
-		// TODO delete me
 		mock__error.mock.resetCalls();
 	});
 
 	after(() => {
-		// TODO delete me
 		mock__logger.restore();
 	});
 

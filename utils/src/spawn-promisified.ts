@@ -28,9 +28,9 @@ export function spawnPromisified(...args: Parameters<typeof spawn>) {
 				stdout,
 			});
 		});
-		child.on('error', (err) => {
+		child.on('error', (error) => {
 			reject({
-				error: err,
+				error,
 				stderr,
 				stdout,
 			});
