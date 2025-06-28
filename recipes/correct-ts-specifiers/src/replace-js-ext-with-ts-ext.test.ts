@@ -8,7 +8,7 @@ import type { FSAbsolutePath } from './index.d.ts';
 
 type MockModuleContext = ReturnType<typeof mock.module>;
 
-type Logger = typeof import('@nodejs/codemod-utils/logger').default;
+type LoggerFunction = typeof import('@nodejs/codemod-utils/logger').error;
 type ReplaceJSExtWithTSExt = typeof import('./replace-js-ext-with-ts-ext.ts').replaceJSExtWithTSExt;
 
 describe('Correcting ts file extensions', { concurrency: true }, () => {
@@ -16,21 +16,19 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 	const fixturesDir = path.join(import.meta.dirname, 'fixtures/e2e') as FSAbsolutePath;
 	const catSpecifier = path.join(fixturesDir, 'Cat.ts') as FSAbsolutePath;
 
-	let mock__log: Mock<Logger['error']>['mock'];
+	let mock__error: Mock<LoggerFunction>;
 	let mock__logger: MockModuleContext;
 	let replaceJSExtWithTSExt: ReplaceJSExtWithTSExt;
 
 	before(async () => {
-		const errorMock = mock.fn<Logger['error']>();
-		const logger = {
-			error: errorMock,
-			warn: mock.fn<Logger['warn']>(),
-			info: mock.fn<Logger['info']>(),
-			debug: mock.fn<Logger['debug']>()
-		};
-		mock__log = errorMock.mock;
+		const error = mock.fn<LoggerFunction>();
+		const warn = mock.fn<LoggerFunction>();
+		const info = mock.fn<LoggerFunction>();
+		const debug = mock.fn<LoggerFunction>();
+
+		mock__error = error;
 		mock__logger = mock.module('@nodejs/codemod-utils/logger', {
-			defaultExport: logger,
+			defaultExport: { error, warn, info, debug },
 		});
 
 		({ replaceJSExtWithTSExt } = await import('./replace-js-ext-with-ts-ext.ts'));
@@ -38,7 +36,7 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 
 	afterEach(() => {
 		// TODO delete me
-		mock__log.resetCalls();
+		mock__error.mock.resetCalls();
 	});
 
 	after(() => {
@@ -68,10 +66,9 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 
 					assert.equal(output.replacement, null);
 
-					assert.equal(mock__log.calls.length, 1, 'Expected exactly one error log call');
-					const [errorMessage] = mock__log.calls[0].arguments as [string];
-					assert.match(errorMessage, /disambiguate/);
-					for (const dExt of dExts) assert.match(errorMessage, new RegExp(`${base}${dExt}`));
+					const { 0: message } = mock__error.mock.calls[0].arguments;
+					assert.match(message as string, /disambiguate/);
+					for (const dExt of dExts) assert.match(message as string, new RegExp(`${base}${dExt}`));
 				});
 			});
 

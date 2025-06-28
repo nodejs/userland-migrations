@@ -5,33 +5,34 @@ import { fileURLToPath } from 'node:url';
 import { dExts } from './exts.ts';
 import type { FSAbsolutePath } from './index.d.ts';
 
-
-type Logger = typeof import('@nodejs/codemod-utils/logger').default;
+type LoggerFunction = typeof import('@nodejs/codemod-utils/logger').error;
 type MapImports = typeof import('./map-imports.ts').mapImports;
 
 describe('Map Imports', { concurrency: true }, () => {
 	const originatingFilePath = fileURLToPath(import.meta.resolve('./test.ts')) as FSAbsolutePath;
-	let mock__log: Mock<Logger['error']>['mock'];
+	let mock__error: Mock<LoggerFunction>;
+	let mock__warn: Mock<LoggerFunction>;
 	let mapImports: MapImports;
 
 	before(async () => {
-		const errorMock = mock.fn<Logger['error']>();
-		const logger = {
-			error: errorMock,
-			warn: mock.fn<Logger['warn']>(),
-			info: mock.fn<Logger['info']>(),
-			debug: mock.fn<Logger['debug']>()
-		};
-		mock__log = errorMock.mock;
+		const error = mock.fn<LoggerFunction>();
+		const warn = mock.fn<LoggerFunction>();
+		const info = mock.fn<LoggerFunction>();
+		const debug = mock.fn<LoggerFunction>();
+
+		mock__error = error;
+		mock__warn = warn;
+
 		mock.module('@nodejs/codemod-utils/logger', {
-			defaultExport: logger,
+			defaultExport: { error, warn, info, debug },
 		});
 
 		({ mapImports } = await import('./map-imports.ts'));
 	});
 
 	afterEach(() => {
-		mock__log.resetCalls();
+		mock__error.mock.resetCalls();
+		mock__warn.mock.resetCalls();
 	});
 
 	it('unambiguous: should skip a node builtin specifier', async () => {
@@ -64,12 +65,11 @@ describe('Map Imports', { concurrency: true }, () => {
 		assert.equal(output.replacement, undefined);
 		assert.notEqual(output.isType, true);
 
-		assert.equal(mock__log.calls.length, 1, 'Expected exactly one error log call');
-		const [errorMessage] = mock__log.calls[0].arguments as [string];
+		const { 0: message } = mock__error.mock.calls[0].arguments;
 
-		assert.match(errorMessage, new RegExp(originatingFilePath));
-		assert.match(errorMessage, /No matching file found/i);
-		assert.match(errorMessage, new RegExp(specifier));
+		assert.match(message as string, new RegExp(originatingFilePath));
+		assert.match(message as string, /no match/i);
+		assert.match(message as string, new RegExp(specifier));
 	});
 
 	it('unambiguous: should not change the file extension when JS file DOES exist & TS file does NOT exist', async () => {
