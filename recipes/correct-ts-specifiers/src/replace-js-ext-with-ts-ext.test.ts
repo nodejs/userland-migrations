@@ -8,7 +8,7 @@ import type { FSAbsolutePath } from './index.d.ts';
 
 type MockModuleContext = ReturnType<typeof mock.module>;
 
-type Logger = typeof import('@nodejs/utils/logger').default;
+type Logger = typeof import('@nodejs/codemod-utils/logger').default;
 type ReplaceJSExtWithTSExt = typeof import('./replace-js-ext-with-ts-ext.ts').replaceJSExtWithTSExt;
 
 describe('Correcting ts file extensions', { concurrency: true }, () => {
@@ -29,7 +29,7 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 			debug: mock.fn<Logger['debug']>()
 		};
 		mock__log = errorMock.mock;
-		mock__logger = mock.module('@nodejs/utils/logger', {
+		mock__logger = mock.module('@nodejs/codemod-utils/logger', {
 			defaultExport: logger,
 		});
 

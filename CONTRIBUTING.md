@@ -8,7 +8,7 @@ files).
   * unit tests
   * end-to-end test(s) for accepted use-cases
   * a `test` command in `package.json`; there may be sub-commands like `test:unit` & `test:e2e`, but there must be a parent that combines them.
-    * Include `--import='@nodejs/utils/snapshots` to standardise the filename (`${original_base_name}.snap.cjs`) across recipes.
+    * Include `--import='@nodejs/codemod-utils/snapshots` to standardise the filename (`${original_base_name}.snap.cjs`) across recipes.
     * Ensure `--test-coverage-include` and `--test-coverage-exclude` are set correctly for the recipe's workspace. The root repo handles setting coverage rules like minimum line coverage.
 * Code comments (js docs, etc)
 * Types (either via typescript or jsdoc)

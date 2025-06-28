@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { execPath, platform } from 'node:process';
+import dedent from "dedent";
 import { spawnPromisified } from './spawn-promisified.ts';
 
 const skipWindows = platform === 'win32';
@@ -13,10 +14,9 @@ describe('Logger', { skip: skipWindows, concurrency: true }, () => {
 				'--no-warnings',
 				'--experimental-strip-types',
 				'-e',
-				`
+				dedent`
 				import { info } from './logger.ts';
-				info('This is an info message');
-			`,
+				info('This is an info message');`,
 			],
 			{
 				cwd: import.meta.dirname,
@@ -37,10 +37,9 @@ describe('Logger', { skip: skipWindows, concurrency: true }, () => {
 				'--no-warnings',
 				'--experimental-strip-types',
 				'-e',
-				`
+				dedent`
 				import { warn } from './logger.ts';
-				warn('This is a warning message');
-			`,
+				warn('This is a warning message');`,
 			],
 			{
 				cwd: import.meta.dirname,
@@ -62,10 +61,9 @@ describe('Logger', { skip: skipWindows, concurrency: true }, () => {
 				'--no-warnings',
 				'--experimental-strip-types',
 				'-e',
-				`
+				dedent`
 				import { error } from './logger.ts';
-				error('This is an error message');
-			`,
+				error('This is an error message');`,
 			],
 			{
 				cwd: import.meta.dirname,
@@ -87,10 +85,9 @@ describe('Logger', { skip: skipWindows, concurrency: true }, () => {
 				'--no-warnings',
 				'--experimental-strip-types',
 				'-e',
-				`
+				dedent`
 				import { debug } from './logger.ts';
-				debug('This is a debug message');
-			`,
+				debug('This is a debug message');`,
 			],
 			{
 				cwd: import.meta.dirname,
@@ -112,10 +109,9 @@ describe('Logger', { skip: skipWindows, concurrency: true }, () => {
 				'--no-warnings',
 				'--experimental-strip-types',
 				'-e',
-				`
+				dedent`
 				import { debug } from './logger.ts';
-				debug('This debug message should not appear');
-			`,
+				debug('This debug message should not appear');`,
 			],
 			{
 				cwd: import.meta.dirname,

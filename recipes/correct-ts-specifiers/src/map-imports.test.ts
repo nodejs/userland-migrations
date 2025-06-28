@@ -6,7 +6,7 @@ import { dExts } from './exts.ts';
 import type { FSAbsolutePath } from './index.d.ts';
 
 
-type Logger = typeof import('@nodejs/utils/logger').default;
+type Logger = typeof import('@nodejs/codemod-utils/logger').default;
 type MapImports = typeof import('./map-imports.ts').mapImports;
 
 describe('Map Imports', { concurrency: true }, () => {
@@ -23,7 +23,7 @@ describe('Map Imports', { concurrency: true }, () => {
 			debug: mock.fn<Logger['debug']>()
 		};
 		mock__log = errorMock.mock;
-		mock.module('@nodejs/utils/logger', {
+		mock.module('@nodejs/codemod-utils/logger', {
 			defaultExport: logger,
 		});
 

@@ -1,22 +1,33 @@
 import { styleText } from "node:util";
 
-export function info(codemodName: string, ...args: unknown[]) {
-  console.info(styleText(["bold", 'cyan'], `[${codemodName}]`), ...args);
+type LogLevel = "info" | "warn" | "error" | "debug";
+type LogColor = "cyan" | "yellow" | "red" | "magenta";
+
+const LOGLEVELS: Record<LogLevel, number> = {
+	error: 0,
+	warn: 1,
+	info: 2,
+	debug: 3,
+};
+
+const currentLogLevel = LOGLEVELS[process.env.LOGLEVEL as LogLevel] ?? LOGLEVELS.info;
+
+function createLogFunction(
+	colors: Array<LogColor>,
+	level: LogLevel
+) {
+	return (codemodName: string, ...args: unknown[]) => {
+		if (LOGLEVELS[level] <= currentLogLevel) {
+			const logMethod = console[level] || console.log;
+			logMethod(styleText(["bold", ...colors], `[${codemodName}]`), ...args);
+		}
+	};
 }
 
-export function warn(codemodName: string, ...args: unknown[]) {
-	  console.warn(styleText(["bold", 'yellow'], `[${codemodName}]`), ...args);
-}
-
-export function error(codemodName: string, ...args: unknown[]) {
-  console.error(styleText(["bold", 'red'], `[${codemodName}]`), ...args);
-}
-
-export function debug(codemodName: string, ...args: unknown[]) {
-  if (process.env.DEBUG) {
-	console.debug(styleText(["bold", 'magenta'], `[${codemodName}]`), ...args);
-  }
-}
+export const info = createLogFunction(["cyan"], "info");
+export const warn = createLogFunction(["yellow"], "warn");
+export const error = createLogFunction(["red"], "error");
+export const debug = createLogFunction(["magenta"], "debug");
 
 const logger = {
 	info,

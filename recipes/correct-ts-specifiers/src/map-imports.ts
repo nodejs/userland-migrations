@@ -1,4 +1,4 @@
-import logger from '@nodejs/utils/logger'
+import logger from '@nodejs/codemod-utils/logger'
 import type { FSAbsolutePath, Specifier } from './index.d.ts';
 import { fexists } from './fexists.ts';
 import { isDir } from './is-dir.ts';
