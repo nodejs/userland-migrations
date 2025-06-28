@@ -2,6 +2,7 @@ import module from 'node:module';
 
 import { type Api, api } from '@codemod.com/workflow';
 import type { Helpers } from '@codemod.com/workflow/dist/jsFam.d.ts';
+import logger from '@nodejs/codemod-utils/logger';
 
 import { mapImports } from './map-imports.ts';
 import type { FSAbsolutePath } from './index.d.ts';
@@ -9,6 +10,9 @@ import type { FSAbsolutePath } from './index.d.ts';
 import * as aliasLoader from '@nodejs-loaders/alias/alias.loader.mjs';
 
 module.registerHooks(aliasLoader);
+
+// Set the codemod name for the logger
+logger.setCodemodName('correct-ts-specifiers');
 
 export async function workflow({ contexts, files }: Api) {
 	await files(globPattern).jsFam(processModule);

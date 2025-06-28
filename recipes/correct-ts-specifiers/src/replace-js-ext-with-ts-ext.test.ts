@@ -8,7 +8,7 @@ import type { FSAbsolutePath } from './index.d.ts';
 
 type MockModuleContext = ReturnType<typeof mock.module>;
 
-type LoggerFunction = typeof import('@nodejs/codemod-utils/logger').error;
+type LoggerFunction = typeof import('@nodejs/codemod-utils/logger').logger;
 type ReplaceJSExtWithTSExt = typeof import('./replace-js-ext-with-ts-ext.ts').replaceJSExtWithTSExt;
 
 describe('Correcting ts file extensions', { concurrency: true }, () => {
@@ -16,27 +16,28 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 	const fixturesDir = path.join(import.meta.dirname, 'fixtures/e2e') as FSAbsolutePath;
 	const catSpecifier = path.join(fixturesDir, 'Cat.ts') as FSAbsolutePath;
 
-	let mock__error: Mock<LoggerFunction>;
-	let mock__logger: MockModuleContext;
+	let mock__logger: Mock<LoggerFunction>;
+	let mock__loggerModule: MockModuleContext;
 	let replaceJSExtWithTSExt: ReplaceJSExtWithTSExt;
 
 	before(async () => {
-		const error = mock.fn<LoggerFunction>();
+		const logger = mock.fn<LoggerFunction>();
+		const setCodemodName = mock.fn();
 
-		mock__error = error;
-		mock__logger = mock.module('@nodejs/codemod-utils/logger', {
-			defaultExport: { error },
+		mock__logger = logger;
+		mock__loggerModule = mock.module('@nodejs/codemod-utils/logger', {
+			defaultExport: { logger, setCodemodName },
 		});
 
 		({ replaceJSExtWithTSExt } = await import('./replace-js-ext-with-ts-ext.ts'));
 	});
 
 	afterEach(() => {
-		mock__error.mock.resetCalls();
+		mock__logger.mock.resetCalls();
 	});
 
 	after(() => {
-		mock__logger.restore();
+		mock__loggerModule.restore();
 	});
 
 	describe.todo('Get type def specifier from package.json');
@@ -61,7 +62,9 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 
 					assert.equal(output.replacement, null);
 
-					const { 0: message } = mock__error.mock.calls[0].arguments;
+					const { 0: source, 1: type, 2: message } = mock__logger.mock.calls[0].arguments;
+					assert.equal(source, originatingFilePath);
+					assert.equal(type, 'error');
 					assert.match(message, /disambiguate/);
 					for (const dExt of dExts) assert.match(message, new RegExp(`${base}${dExt}`));
 				});

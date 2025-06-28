@@ -103,13 +103,10 @@ async function checkSet<Ext extends DExt | JSExt | TSExt>(
 	if (found.size) {
 		if (found.size === 1) return { isType: exts[0].startsWith('.d'), replacement: replacement! };
 
-		logger.error(
-			[
-				parentPath,
-				`"${specifier}" appears to resolve to multiple files. Cannot disambiguate between`,
-				`"${Array.from(found).join('", "')}"`,
-				'(skipping).',
-			].join(' '),
+		logger.logger(
+			parentPath,
+			'error',
+			`"${specifier}" appears to resolve to multiple files. Cannot disambiguate between "${Array.from(found).join('", "')}" (skipping).`
 		);
 	}
 }

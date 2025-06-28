@@ -5,32 +5,29 @@ import { fileURLToPath } from 'node:url';
 import { dExts } from './exts.ts';
 import type { FSAbsolutePath } from './index.d.ts';
 
-type LoggerFunction = typeof import('@nodejs/codemod-utils/logger').error;
+type LoggerFunction = typeof import('@nodejs/codemod-utils/logger').logger;
 type MapImports = typeof import('./map-imports.ts').mapImports;
 
 describe('Map Imports', { concurrency: true }, () => {
 	const originatingFilePath = fileURLToPath(import.meta.resolve('./test.ts')) as FSAbsolutePath;
-	let mock__error: Mock<LoggerFunction>;
-	let mock__warn: Mock<LoggerFunction>;
+	let mock__logger: Mock<LoggerFunction>;
 	let mapImports: MapImports;
 
 	before(async () => {
-		const error = mock.fn<LoggerFunction>();
-		const warn = mock.fn<LoggerFunction>();
+		const logger = mock.fn<LoggerFunction>();
+		const setCodemodName = mock.fn();
 
-		mock__error = error;
-		mock__warn = warn;
+		mock__logger = logger;
 
 		mock.module('@nodejs/codemod-utils/logger', {
-			defaultExport: { error, warn },
+			defaultExport: { logger, setCodemodName },
 		});
 
 		({ mapImports } = await import('./map-imports.ts'));
 	});
 
 	afterEach(() => {
-		mock__error.mock.resetCalls();
-		mock__warn.mock.resetCalls();
+		mock__logger.mock.resetCalls();
 	});
 
 	it('unambiguous: should skip a node builtin specifier', async () => {
@@ -63,9 +60,10 @@ describe('Map Imports', { concurrency: true }, () => {
 		assert.equal(output.replacement, undefined);
 		assert.notEqual(output.isType, true);
 
-		const { 0: message } = mock__error.mock.calls[0].arguments;
+		const { 0: source, 1: type, 2: message } = mock__logger.mock.calls[0].arguments;
 
-		assert.match(message, new RegExp(originatingFilePath));
+		assert.equal(source, originatingFilePath);
+		assert.equal(type, 'error');
 		assert.match(message, /no match/i);
 		assert.match(message, new RegExp(specifier));
 	});
