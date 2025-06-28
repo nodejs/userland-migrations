@@ -3,12 +3,13 @@ import { snapshot } from 'node:test';
 
 snapshot.setResolveSnapshotPath(generateSnapshotPath);
 
+type SnapshotPath = Parameters<Parameters<typeof snapshot.setResolveSnapshotPath>[0]>[0];
+
 /**
  * @param {string} testFilePath `'/tmp/foo.test.js'`
  * @returns `'/tmp/foo.test.snap.cjs'`
- * @type {Parameters<snapshot.setResolveSnapshotPath>[0]}
  */
-function generateSnapshotPath(testFilePath) {
+function generateSnapshotPath(testFilePath: SnapshotPath) {
 	if (!testFilePath) return '';
 
 	const ext = extname(testFilePath);
