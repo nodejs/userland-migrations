@@ -64,8 +64,8 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 					assert.equal(output.replacement, null);
 
 					const { 0: message } = mock__error.mock.calls[0].arguments;
-					assert.match(message as string, /disambiguate/);
-					for (const dExt of dExts) assert.match(message as string, new RegExp(`${base}${dExt}`));
+					assert.match(message, /disambiguate/);
+					for (const dExt of dExts) assert.match(message, new RegExp(`${base}${dExt}`));
 				});
 			});
 

@@ -92,7 +92,7 @@ describe('Logger', { skip: skipWindows, concurrency: true }, () => {
 			{
 				cwd: import.meta.dirname,
 				env: {
-					DEBUG: 'true',
+					LOGLEVEL: 'debug',
 					FORCE_COLOR: 'true',
 				},
 			},
