@@ -1,13 +1,11 @@
 import assert from 'node:assert/strict';
+import { execPath } from 'node:process';
 import { describe, it } from 'node:test';
-import { execPath, platform } from 'node:process';
-import dedent from "dedent";
+import dedent from 'dedent';
 import { spawnPromisified } from './spawn-promisified.ts';
 
-const skipWindows = platform === 'win32';
-
-describe('Logger', { skip: skipWindows, concurrency: true }, () => {
-	it('should log info messages', async (t) => {
+describe('logger', { concurrency: true }, () => {
+	it('should emit non-error entries to standard out, collated by source module', async (t) => {
 		const { code, stdout } = await spawnPromisified(
 			execPath,
 			[
@@ -15,113 +13,51 @@ describe('Logger', { skip: skipWindows, concurrency: true }, () => {
 				'--experimental-strip-types',
 				'-e',
 				dedent`
-				import { info } from './logger.ts';
-				info('This is an info message');`,
+				import { logger } from './logger.ts';
+
+				const source1 = '/tmp/foo.js';
+				logger(source1, 'log', 'maybe don’t');
+				logger(source1, 'log', 'maybe not that either');
+
+				const source2 = '/tmp/foo.js';
+				logger(source2, 'log', 'still maybe don’t');
+				logger(source2, 'log', 'more maybe not');
+			`,
 			],
 			{
 				cwd: import.meta.dirname,
-				env: {
-					FORCE_COLOR: 'true',
-				},
 			},
 		);
 
-		assert.strictEqual(code, 0);
 		t.assert.snapshot(stdout);
+		assert.equal(code, 0);
 	});
 
-	it('should log warning messages', async (t) => {
-		const { code, stdout, stderr } = await spawnPromisified(
+	it('should emit error entries to standard error, collated by source module', async (t) => {
+		const { code, stderr } = await spawnPromisified(
 			execPath,
 			[
 				'--no-warnings',
 				'--experimental-strip-types',
 				'-e',
 				dedent`
-				import { warn } from './logger.ts';
-				warn('This is a warning message');`,
+				import { logger } from './logger.ts';
+
+				const source1 = '/tmp/foo.js';
+				logger(source1, 'error', 'sh*t happened');
+				logger(source1, 'warn', 'maybe bad');
+
+				const source2 = '/tmp/foo.js';
+				logger(source2, 'error', 'sh*t happened');
+				logger(source2, 'warn', 'maybe other bad');
+				`,
 			],
 			{
 				cwd: import.meta.dirname,
-				env: {
-					FORCE_COLOR: 'true',
-				},
 			},
 		);
 
-		assert.strictEqual(code, 0);
-		assert.strictEqual(stdout, '');
 		t.assert.snapshot(stderr);
-	});
-
-	it('should log error messages', async (t) => {
-		const { code, stdout, stderr } = await spawnPromisified(
-			execPath,
-			[
-				'--no-warnings',
-				'--experimental-strip-types',
-				'-e',
-				dedent`
-				import { error } from './logger.ts';
-				error('This is an error message');`,
-			],
-			{
-				cwd: import.meta.dirname,
-				env: {
-					FORCE_COLOR: 'true',
-				},
-			},
-		);
-
-		assert.strictEqual(code, 0);
-		assert.strictEqual(stdout, '');
-		t.assert.snapshot(stderr);
-	});
-
-	it('should log debug messages', async (t) => {
-		const { code, stdout } = await spawnPromisified(
-			execPath,
-			[
-				'--no-warnings',
-				'--experimental-strip-types',
-				'-e',
-				dedent`
-				import { debug } from './logger.ts';
-				debug('This is a debug message');`,
-			],
-			{
-				cwd: import.meta.dirname,
-				env: {
-					LOGLEVEL: 'debug',
-					FORCE_COLOR: 'true',
-				},
-			},
-		);
-
-		assert.strictEqual(code, 0);
-		t.assert.snapshot(stdout);
-	});
-
-	it('should not log debug messages when DEBUG is not set', async () => {
-		const { code, stdout } = await spawnPromisified(
-			execPath,
-			[
-				'--no-warnings',
-				'--experimental-strip-types',
-				'-e',
-				dedent`
-				import { debug } from './logger.ts';
-				debug('This debug message should not appear');`,
-			],
-			{
-				cwd: import.meta.dirname,
-				env: {
-					FORCE_COLOR: 'true',
-				},
-			},
-		);
-
-		assert.strictEqual(code, 0);
-		assert.strictEqual(stdout, '');
+		assert.equal(code, 1);
 	});
 });

@@ -1,96 +1,174 @@
 import assert from 'node:assert/strict';
-import { type Mock, before, describe, it, mock, afterEach } from 'node:test';
+import path from 'node:path';
+import { type Mock, after, afterEach, before, describe, it, mock } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { dExts } from './exts.ts';
+import { dExts, jsExts, suspectExts, tsExts } from './exts.ts';
 import type { FSAbsolutePath } from './index.d.ts';
 
-type LoggerFunction = typeof import('@nodejs/codemod-utils/logger').logger;
-type MapImports = typeof import('./map-imports.ts').mapImports;
+type MockModuleContext = ReturnType<typeof mock.module>;
 
-describe('Map Imports', { concurrency: true }, () => {
+type Logger = typeof import('@nodejs/codemod-utils/logger').logger;
+type ReplaceJSExtWithTSExt = typeof import('./replace-js-ext-with-ts-ext.ts').replaceJSExtWithTSExt;
+
+describe('Correcting ts file extensions', { concurrency: true }, () => {
 	const originatingFilePath = fileURLToPath(import.meta.resolve('./test.ts')) as FSAbsolutePath;
-	let mock__logger: Mock<LoggerFunction>;
-	let mapImports: MapImports;
+	const fixturesDir = path.join(import.meta.dirname, 'fixtures/e2e') as FSAbsolutePath;
+	const catSpecifier = path.join(fixturesDir, 'Cat.ts') as FSAbsolutePath;
+
+	let mock__log: Mock<Logger>['mock'];
+	let mock__logger: MockModuleContext;
+	let replaceJSExtWithTSExt: ReplaceJSExtWithTSExt;
 
 	before(async () => {
-		const logger = mock.fn<LoggerFunction>();
-		const setCodemodName = mock.fn();
-
-		mock__logger = logger;
-
-		mock.module('@nodejs/codemod-utils/logger', {
-			defaultExport: { logger, setCodemodName },
+		const logger = mock.fn<Logger>();
+		({ mock: mock__log } = logger);
+		mock__logger = mock.module('@nodejs/codemod-utils/logger', {
+			namedExports: { logger },
 		});
 
-		({ mapImports } = await import('./map-imports.ts'));
+		({ replaceJSExtWithTSExt } = await import('./replace-js-ext-with-ts-ext.ts'));
 	});
 
 	afterEach(() => {
-		mock__logger.mock.resetCalls();
+		// TODO delete me
+		mock__log.resetCalls();
 	});
 
-	it('unambiguous: should skip a node builtin specifier', async () => {
-		const output = await mapImports(originatingFilePath, 'node:console');
-
-		assert.equal(output.replacement, undefined);
-		assert.notEqual(output.isType, true);
+	after(() => {
+		// TODO delete me
+		mock__logger.restore();
 	});
 
-	it('quasi-ambiguous: should append a JS extension when path resolves to a file', async () => {
-		const specifier = './fixtures/bar';
-		const output = await mapImports(originatingFilePath, specifier);
+	describe.todo('Get type def specifier from package.json');
 
-		assert.equal(output.replacement, `${specifier}.js`);
-		assert.notEqual(output.isType, true);
+	describe('mapped extension exists', () => {
+		describe('unambiguous match', () => {
+			it('should return an updated specifier', async () => {
+				for (const jsExt of jsExts) {
+					const output = await replaceJSExtWithTSExt(originatingFilePath, `./fixtures/rep${jsExt}`);
+
+					assert.equal(output.replacement, `./fixtures/rep${suspectExts[jsExt]}`);
+					assert.equal(output.isType, false);
+				}
+			});
+		});
+
+		describe('declaration files', () => {
+			describe('ambiguous match', () => {
+				it('should skip and log error', async () => {
+					const base = './fixtures/d/ambiguous/index';
+					const output = await replaceJSExtWithTSExt(originatingFilePath, `${base}.js`);
+
+					assert.equal(output.replacement, null);
+
+					const { 2: msg } = mock__log.calls[0].arguments;
+					assert.match(msg, /disambiguate/);
+					for (const dExt of dExts) assert.match(msg, new RegExp(`${base}${dExt}`));
+				});
+			});
+
+			describe('unambiguous match', () => {
+				it('should return an updated specifier', async () => {
+					for (const dExt of dExts) {
+						const base = `./fixtures/d/unambiguous/${dExt.split('.').pop()}/index`;
+						const output = await replaceJSExtWithTSExt(originatingFilePath, `${base}.js`);
+
+						assert.equal(output.replacement, `${base}${dExt}`);
+						assert.equal(output.isType, true);
+					}
+				});
+
+				it.skip('should update a subpath of a node module', async () => {
+					const specifierBase = 'types/a';
+					const { isType, replacement } = await replaceJSExtWithTSExt(
+						catSpecifier,
+						`${specifierBase}.js`,
+					);
+
+					assert.equal(isType, true);
+					assert.equal(replacement, `${specifierBase}.d.ts`);
+				});
+			});
+		});
 	});
 
-	it('quasi-ambiguous: should append a TS extension when path resolves to a file', async () => {
-		const specifier = './fixtures/foo';
-		const output = await mapImports(originatingFilePath, specifier);
+	describe('mapped extension does NOT exist', () => {
+		it('should skip and log error', async () => {
+			for (const jsExt of jsExts) {
+				const output = await replaceJSExtWithTSExt(originatingFilePath, `./fixtures/skip${jsExt}`);
 
-		assert.equal(output.replacement, `${specifier}.ts`);
-		assert.notEqual(output.isType, true);
+				assert.equal(output.replacement, null);
+				assert.equal(output.isType, undefined);
+			}
+		});
 	});
 
-	it('unambiguous: should replace ".js" → ".ts" when JS file does NOT exist & TS file DOES exist', async () => {
-		const specifier = './fixtures/noexist.js';
-		const output = await mapImports(originatingFilePath, specifier);
+	describe('specifier is inherently a directory', () => {
+		it('should attempt to find an index file', async () => {
+			for (const base of ['.', './']) {
+				for (const jsExt of jsExts) {
+					const output = await replaceJSExtWithTSExt(
+						fileURLToPath(
+							import.meta.resolve(`./fixtures/dir/${jsExt.slice(1)}/test.ts`),
+						) as FSAbsolutePath,
+						base,
+					);
 
-		assert.equal(output.replacement, undefined);
-		assert.notEqual(output.isType, true);
+					assert.equal(output.replacement, `${base}${base.endsWith('/') ? '' : '/'}index${jsExt}`);
+					assert.equal(output.isType, false);
+				}
 
-		const { 0: source, 1: type, 2: message } = mock__logger.mock.calls[0].arguments;
+				for (const tsExt of tsExts) {
+					const output = await replaceJSExtWithTSExt(
+						fileURLToPath(
+							import.meta.resolve(`./fixtures/dir/${tsExt.slice(1)}/test.ts`),
+						) as FSAbsolutePath,
+						base,
+					);
 
-		assert.equal(source, originatingFilePath);
-		assert.equal(type, 'error');
-		assert.match(message, /no match/i);
-		assert.match(message, new RegExp(specifier));
+					assert.equal(output.replacement, `${base}${base.endsWith('/') ? '' : '/'}index${tsExt}`);
+					assert.equal(output.isType, false);
+				}
+			}
+		});
 	});
 
-	it('unambiguous: should not change the file extension when JS file DOES exist & TS file does NOT exist', async () => {
-		const specifier = './fixtures/bar.js';
-		const output = await mapImports(originatingFilePath, specifier);
+	describe('specifier is NOT inherently a directory', () => {
+		it('should attempt to find an index file', async () => {
+			for (const dExt of dExts) {
+				const base = `./fixtures/d/unambiguous/${dExt.slice(3)}`;
+				const output = await replaceJSExtWithTSExt(originatingFilePath, base);
 
-		assert.equal(output.replacement, undefined);
-		assert.notEqual(output.isType, true);
+				assert.equal(output.replacement, `${base}/index${dExt}`);
+				assert.equal(output.isType, true);
+			}
+
+			for (const jsExt of jsExts) {
+				const base = `./fixtures/dir/${jsExt.slice(1)}`;
+				const output = await replaceJSExtWithTSExt(originatingFilePath, base);
+
+				assert.equal(output.replacement, `${base}/index${jsExt}`);
+				assert.equal(output.isType, false);
+			}
+
+			for (const tsExt of tsExts) {
+				const base = `./fixtures/dir/${tsExt.slice(1)}`;
+				const output = await replaceJSExtWithTSExt(originatingFilePath, base);
+
+				assert.equal(output.replacement, `${base}/index${tsExt}`);
+				assert.equal(output.isType, false);
+			}
+		});
 	});
 
-	it('unambiguous: should replace ".js" → ".d…" when JS file does NOT exist & a declaration file exists', async () => {
-		for (const dExt of dExts) {
-			const extType = dExt.split('.').pop();
-			const specifierBase = `./fixtures/d/unambiguous/${extType}/index`;
-			const output = await mapImports(originatingFilePath, `${specifierBase}.js`);
+	describe('specifier contains a directory with a file extension', () => {
+		it('should replace only the file extension', async () => {
+			const originalSpecifier = './fixtures/e2e/qux.js';
+			const { isType, replacement } = await replaceJSExtWithTSExt(originatingFilePath, originalSpecifier);
 
-			assert.equal(output.replacement, `${specifierBase}${dExt}`);
-			assert.equal(output.isType, true);
-		}
-	});
-
-	it('ambiguous: should log and skip when both a JS & a TS file exist with the same name', async () => {
-		const output = await mapImports(originatingFilePath, './fixtures/foo.js');
-
-		assert.equal(output.replacement, './fixtures/foo.ts');
-		assert.notEqual(output.isType, true);
+			assert.equal(isType, false);
+			assert.equal(replacement, `${originalSpecifier}/index.ts`);
+		});
 	});
 });

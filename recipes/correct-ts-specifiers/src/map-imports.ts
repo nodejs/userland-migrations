@@ -1,4 +1,4 @@
-import logger from '@nodejs/codemod-utils/logger'
+import { logger } from '@nodejs/codemod-utils/logger';
 import type { FSAbsolutePath, Specifier } from './index.d.ts';
 import { fexists } from './fexists.ts';
 import { isDir } from './is-dir.ts';
@@ -23,10 +23,13 @@ export const mapImports = async (
 
 	if (replacement) {
 		if ((await fexists(parentPath, specifier)) && !(await isDir(parentPath, specifier))) {
-			logger.logger(
+			logger(
 				parentPath,
 				'warn',
-				`Import specifier "${specifier}" contains a JS extension AND a file with the corresponding TS extension exists. Cannot disambiguate (skipping).`
+				[
+					`Import specifier "${specifier}" contains a JS extension AND a file`,
+					'with the corresponding TS extension exists. Cannot disambiguate (skipping).',
+				].join(' '),
 			);
 
 			return { isType, replacement: specifier };
@@ -36,7 +39,7 @@ export const mapImports = async (
 	}
 
 	if (!(await fexists(parentPath, specifier)))
-		logger.logger(parentPath, 'error', `No matching file found for "${specifier}"`);
+		logger(parentPath, 'error', `No matching file found for "${specifier}"`);
 
 	return {};
 };

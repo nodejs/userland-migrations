@@ -1,15 +1,7 @@
-exports[`Logger > should log debug messages 1`] = `
-"\\u001b[1m\\u001b[35m[This is a debug message]\\u001b[39m\\u001b[22m\\n"
+exports[`logger > should emit error entries to standard error, collated by source module 1`] = `
+" • sh*t happened\\n • maybe bad\\n • sh*t happened\\n • maybe other bad\\n[Codemod: correct-ts-specifiers]: migration incomplete!\\n"
 `;
 
-exports[`Logger > should log error messages 1`] = `
-"\\u001b[1m\\u001b[31m[This is an error message]\\u001b[39m\\u001b[22m\\n"
-`;
-
-exports[`Logger > should log info messages 1`] = `
-"\\u001b[1m\\u001b[36m[This is an info message]\\u001b[39m\\u001b[22m\\n"
-`;
-
-exports[`Logger > should log warning messages 1`] = `
-"\\u001b[1m\\u001b[33m[This is a warning message]\\u001b[39m\\u001b[22m\\n"
+exports[`logger > should emit non-error entries to standard out, collated by source module 1`] = `
+"[Codemod: correct-ts-specifiers]: /tmp/foo.js\\n • maybe don’t\\n • maybe not that either\\n • still maybe don’t\\n • more maybe not\\n[Codemod: correct-ts-specifiers]: migration complete!\\n"
 `;

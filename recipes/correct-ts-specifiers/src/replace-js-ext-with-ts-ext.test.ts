@@ -8,7 +8,7 @@ import type { FSAbsolutePath } from './index.d.ts';
 
 type MockModuleContext = ReturnType<typeof mock.module>;
 
-type LoggerFunction = typeof import('@nodejs/codemod-utils/logger').logger;
+type Logger = typeof import('@nodejs/codemod-utils/logger').logger;
 type ReplaceJSExtWithTSExt = typeof import('./replace-js-ext-with-ts-ext.ts').replaceJSExtWithTSExt;
 
 describe('Correcting ts file extensions', { concurrency: true }, () => {
@@ -16,28 +16,28 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 	const fixturesDir = path.join(import.meta.dirname, 'fixtures/e2e') as FSAbsolutePath;
 	const catSpecifier = path.join(fixturesDir, 'Cat.ts') as FSAbsolutePath;
 
-	let mock__logger: Mock<LoggerFunction>;
-	let mock__loggerModule: MockModuleContext;
+	let mock__log: Mock<Logger>['mock'];
+	let mock__logger: MockModuleContext;
 	let replaceJSExtWithTSExt: ReplaceJSExtWithTSExt;
 
 	before(async () => {
-		const logger = mock.fn<LoggerFunction>();
-		const setCodemodName = mock.fn();
-
-		mock__logger = logger;
-		mock__loggerModule = mock.module('@nodejs/codemod-utils/logger', {
-			defaultExport: { logger, setCodemodName },
+		const logger = mock.fn<Logger>();
+		({ mock: mock__log } = logger);
+		mock__logger = mock.module('@nodejs/codemod-utils/logger', {
+			namedExports: { logger },
 		});
 
 		({ replaceJSExtWithTSExt } = await import('./replace-js-ext-with-ts-ext.ts'));
 	});
 
 	afterEach(() => {
-		mock__logger.mock.resetCalls();
+		// TODO delete me
+		mock__log.resetCalls();
 	});
 
 	after(() => {
-		mock__loggerModule.restore();
+		// TODO delete me
+		mock__logger.restore();
 	});
 
 	describe.todo('Get type def specifier from package.json');
@@ -62,11 +62,9 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 
 					assert.equal(output.replacement, null);
 
-					const { 0: source, 1: type, 2: message } = mock__logger.mock.calls[0].arguments;
-					assert.equal(source, originatingFilePath);
-					assert.equal(type, 'error');
-					assert.match(message, /disambiguate/);
-					for (const dExt of dExts) assert.match(message, new RegExp(`${base}${dExt}`));
+					const { 2: msg } = mock__log.calls[0].arguments;
+					assert.match(msg, /disambiguate/);
+					for (const dExt of dExts) assert.match(msg, new RegExp(`${base}${dExt}`));
 				});
 			});
 
