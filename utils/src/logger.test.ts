@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { execPath } from 'node:process';
 import { describe, it } from 'node:test';
-
-import { spawnPromisified } from '../../../test/spawn-promisified.ts';
+import dedent from 'dedent';
+import { spawnPromisified } from './spawn-promisified.ts';
 
 describe('logger', { concurrency: true }, () => {
 	it('should emit non-error entries to standard out, collated by source module', async (t) => {
@@ -12,7 +12,7 @@ describe('logger', { concurrency: true }, () => {
 				'--no-warnings',
 				'--experimental-strip-types',
 				'-e',
-				`
+				dedent`
 				import { logger } from './logger.ts';
 
 				const source1 = '/tmp/foo.js';
@@ -40,7 +40,7 @@ describe('logger', { concurrency: true }, () => {
 				'--no-warnings',
 				'--experimental-strip-types',
 				'-e',
-				`
+				dedent`
 				import { logger } from './logger.ts';
 
 				const source1 = '/tmp/foo.js';
@@ -50,7 +50,7 @@ describe('logger', { concurrency: true }, () => {
 				const source2 = '/tmp/foo.js';
 				logger(source2, 'error', 'sh*t happened');
 				logger(source2, 'warn', 'maybe other bad');
-			`,
+				`,
 			],
 			{
 				cwd: import.meta.dirname,
