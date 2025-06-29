@@ -67,46 +67,6 @@ function handleImportStatement(node: SgNode, contexts: Api['contexts']): Edit[] 
 }
 
 /**
- * Handle dynamic import call expressions with assert syntax
- * e.g., `import('./module.json', { assert: { type: 'json' } })`
- */
-function handleCallExpression(node: SgNode): Edit[] {
-	const children = node.children();
-
-	if (children.length !== 2) {
-		throw new Error(`Expected 2 children (identifier and arguments), got ${children.length}`);
-	}
-
-	const argumentsList = children[1]; // This should be the arguments
-	const argumentsChildren = argumentsList.children();
-
-	// Find the object argument (second argument in import call)
-	const argumentsObject = argumentsChildren.find(child => child.kind() === 'object');
-
-	if (!argumentsObject) {
-		throw new Error('Expected an object in the arguments of the call expression');
-	}
-
-	const assertPair = argumentsObject
-		.children()
-		.find(child => child.kind() === 'pair' && child.text().startsWith('assert'));
-
-	if (!assertPair) {
-		throw new Error('Expected an "assert" pair in the object of the call expression');
-	}
-
-	const assertValue = findChildByKind(assertPair, 'object');
-
-	if (!assertValue) {
-		throw new Error('Expected an object as the value of the "assert" pair');
-	}
-
-	// Replace "assert" with "with" and keep the same value
-	const newTypePair = `with: ${assertValue.text()}`;
-	return [assertPair.replace(newTypePair)];
-}
-
-/**
  * Process import statements with assert attributes
  *
  * Covers: `import { something } from './module.json' assert { type: 'json' };`
@@ -141,15 +101,23 @@ async function processImportStatements(astGrep: Api['astGrep'], contexts: Api['c
 async function processCallExpressions(astGrep: Api['astGrep']) {
 	await astGrep({
 		rule: {
-			kind: 'call_expression',
-			pattern: "import($SPECIFIER, { assert: $ASSERT })",
+			kind: 'property_identifier',
+			regex: '^assert$',
+			inside: {
+				kind: 'pair',
+				inside: {
+					kind: 'object',
+					inside: {
+						kind: 'arguments',
+						inside: {
+							kind: 'call_expression',
+							pattern: "import($_SPECIFIER, $_ARGS)"
+						}
+					}
+				}
+			}
 		},
-	}).replace(({ getNode }) => {
-		const node = getNode();
-		const edits = handleCallExpression(node);
-
-		return node.commitEdits(edits);
-	});
+	}).replace(() => 'with');
 }
 
 /**
