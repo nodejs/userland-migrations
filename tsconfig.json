@@ -48,6 +48,7 @@
     "node_modules",
     "**/build/**",
     "**/fixtures/**",
+    "**/expected/**",
     "**/test/**",
     "**/*.fixture.mjs",
     "**/*.fixture.mts",
