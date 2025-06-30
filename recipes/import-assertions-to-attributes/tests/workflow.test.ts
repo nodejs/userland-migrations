@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { execPath } from 'node:process';
 import fs from "node:fs";
 import path from "node:path";
 import { spawnPromisified } from '../../../test/spawn-promisified.ts';
@@ -11,11 +10,13 @@ const expectedDir = new URL('tests/expected', cwd);
 
 test("workflow - import-assertions-to-attributes", async (t) => {
 	await spawnPromisified(
-		execPath,
+		'npx',
 		[
-			'--no-warnings',
-			'--experimental-strip-types',
+			'codemod@next',
+			'jssg',
+			'run',
 			'src/workflow.ts',
+			'.',
 		],
 		{
 			cwd,
