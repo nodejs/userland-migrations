@@ -6,7 +6,7 @@ import { dExts } from './exts.ts';
 import type { FSAbsolutePath } from './index.d.ts';
 
 
-type Logger = typeof import('./logger.ts').logger;
+type Logger = typeof import('@nodejs/codemod-utils/logger').logger;
 type MapImports = typeof import('./map-imports.ts').mapImports;
 
 describe('Map Imports', { concurrency: true }, () => {
@@ -17,7 +17,7 @@ describe('Map Imports', { concurrency: true }, () => {
 	before(async () => {
 		const logger = mock.fn<Logger>();
 		({ mock: mock__log } = logger);
-		mock.module('./logger.ts', {
+		mock.module('@nodejs/codemod-utils/logger', {
 			namedExports: { logger },
 		});
 
