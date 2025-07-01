@@ -22,8 +22,6 @@ export default async function transform(root: SgRoot): Promise<string> {
     }
   })
 
-	console.log(importStatements)
-
 	for (const importNode of importStatements) {
 		// Replace 'assert' with 'with' in the import statement
 		importNode.children().map(child => {
