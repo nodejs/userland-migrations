@@ -13,7 +13,9 @@ describe('logger', { concurrency: true }, () => {
 				'--experimental-strip-types',
 				'-e',
 				dedent`
-				import { logger } from './logger.ts';
+				import { logger, setCodemodName } from './logger.ts';
+
+				setCodemodName('test-codemod');
 
 				const source1 = '/tmp/foo.js';
 				logger(source1, 'log', 'maybe don’t');
@@ -41,7 +43,9 @@ describe('logger', { concurrency: true }, () => {
 				'--experimental-strip-types',
 				'-e',
 				dedent`
-				import { logger } from './logger.ts';
+				import { logger, setCodemodName } from './logger.ts';
+
+				setCodemodName('test-codemod');
 
 				const source1 = '/tmp/foo.js';
 				logger(source1, 'error', 'sh*t happened');
@@ -59,5 +63,33 @@ describe('logger', { concurrency: true }, () => {
 
 		t.assert.snapshot(stderr);
 		assert.equal(code, 1);
+	});
+
+	it('should work without a codemod name', async (t) => {
+		const { code, stdout } = await spawnPromisified(
+			execPath,
+			[
+				'--no-warnings',
+				'--experimental-strip-types',
+				'-e',
+				dedent`
+				import { logger } from './logger.ts';
+
+				const source1 = '/tmp/foo.js';
+				logger(source1, 'log', 'maybe don’t');
+				logger(source1, 'log', 'maybe not that either');
+
+				const source2 = '/tmp/foo.js';
+				logger(source2, 'log', 'still maybe don’t');
+				logger(source2, 'log', 'more maybe not');
+			`,
+			],
+			{
+				cwd: import.meta.dirname,
+			},
+		);
+
+		t.assert.snapshot(stdout);
+		assert.equal(code, 0);
 	});
 });
