@@ -92,4 +92,38 @@ describe('logger', { concurrency: true }, () => {
 		t.assert.snapshot(stdout);
 		assert.equal(code, 0);
 	});
+
+	it('should handle multiple codemods with different names correctly', async () => {
+		const { code, stdout } = await spawnPromisified(
+			execPath,
+			[
+				'--no-warnings',
+				'--experimental-strip-types',
+				'-e',
+				dedent`
+				import { logger, setCodemodName } from './logger.ts';
+
+				// Simulate first codemod
+				setCodemodName('codemod-a');
+				logger('/tmp/file1.js', 'log', 'Message from codemod A');
+
+				// Simulate second codemod (this would previously overwrite the name)
+				logger('/tmp/file2.js', 'log', 'Message from codemod B', 'codemod-b');
+
+				// Another message from first codemod (should still show as codemod-a)
+				logger('/tmp/file3.js', 'log', 'Another message from codemod A');
+			`,
+			],
+			{
+				cwd: import.meta.dirname,
+			},
+		);
+
+		// Should show both codemod names in output
+		assert(stdout.includes('[Codemod: codemod-a]'));
+		assert(stdout.includes('[Codemod: codemod-b]'));
+		assert(stdout.includes('Message from codemod A'));
+		assert(stdout.includes('Message from codemod B'));
+		assert.equal(code, 0);
+	});
 });
