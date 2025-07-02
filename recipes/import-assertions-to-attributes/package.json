@@ -8,10 +8,9 @@
     "node": ">=22.15.0"
   },
   "scripts": {
-    "start": "node --no-warnings --experimental-strip-types ./src/workflow.ts",
-    "test": "node --no-warnings --experimental-test-snapshots --experimental-strip-types --import='../../test/snapshots.ts' --test './**/*.test.ts'",
-    "test:coverage": "node --no-warnings --experimental-test-snapshots --experimental-strip-types --import='../../test/snapshots.ts' --experimental-test-coverage --test-coverage-include='src/**/*' --test-coverage-exclude='**/*.test.ts' --test './**/*.test.ts'",
-    "test:update-snapshots": "node --no-warnings --experimental-test-snapshots --experimental-strip-types --import='../../test/snapshots.ts' --test --test-update-snapshots './**/*.test.ts'"
+    "test": "node --no-warnings --experimental-test-snapshots --experimental-strip-types --import='@nodejs/codemod-utils/snapshots' --test './**/*.test.ts'",
+    "test:coverage": "node --no-warnings --experimental-test-snapshots --experimental-strip-types --import='@nodejs/codemod-utils/snapshots' --experimental-test-coverage --test-coverage-include='src/**/*' --test-coverage-exclude='**/*.test.ts' --test './**/*.test.ts'",
+    "test:update-snapshots": "node --no-warnings --experimental-test-snapshots --experimental-strip-types --import='@nodejs/codemod-utils/snapshots' --test --test-update-snapshots './**/*.test.ts'"
   },
   "repository": {
     "type": "git",
@@ -37,6 +36,7 @@
     "@types/node": "^24.0.3"
   },
   "dependencies": {
-    "@ast-grep/napi": "^0.38.6"
+    "@ast-grep/napi": "^0.38.6",
+    "@nodejs/codemod-utils": "*"
   }
 }

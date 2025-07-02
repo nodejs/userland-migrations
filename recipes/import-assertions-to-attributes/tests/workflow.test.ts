@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import fs from "node:fs";
 import path from "node:path";
-import { spawnPromisified } from '../../../test/spawn-promisified.ts';
+import { spawnPromisified } from '@nodejs/codemod-utils/spawn-promisified';
 
 const cwd = new URL('../', import.meta.url);
 const fixturesDir = new URL('tests/fixtures', cwd);
