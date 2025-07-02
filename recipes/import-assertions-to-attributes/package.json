@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node --no-warnings --experimental-strip-types ./src/workflow.ts",
     "test": "node --no-warnings --experimental-test-snapshots --experimental-strip-types --import='../../test/snapshots.ts' --test './**/*.test.ts'",
-    "test:coverage": "node --no-warnings --experimental-test-snapshots --experimental-strip-types --import='../../test/snapshots.ts' --test --experimental-test-coverage --test-coverage-include='src/**/*' --test-coverage-exclude='**/*.test.ts' './**/*.test.ts'",
+    "test:coverage": "node --no-warnings --experimental-test-snapshots --experimental-strip-types --import='../../test/snapshots.ts' --experimental-test-coverage --test-coverage-include='src/**/*' --test-coverage-exclude='**/*.test.ts' --test './**/*.test.ts'",
     "test:update-snapshots": "node --no-warnings --experimental-test-snapshots --experimental-strip-types --import='../../test/snapshots.ts' --test --test-update-snapshots './**/*.test.ts'"
   },
   "repository": {
