@@ -8,7 +8,7 @@ nodes:
     steps:
       - name: "Replace `assert` import attribute to the `with` ECMAScript import attribute."
         js-ast-grep:
-          js_file: "srx/workflow.ts"
+          js_file: "src/workflow.ts"
           base_path: "."
           include:
             - "**/*.ts"

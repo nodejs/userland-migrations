@@ -12,7 +12,7 @@ import type { SgRoot, Edit } from "@ast-grep/napi";
  * 2. import('./module.json', { with: { type: 'json' } })
  */
 export default async function transform(root: SgRoot): Promise<string> {
-  const rootNode = root.root();
+	const rootNode = root.root();
 	const edits: Edit[] = [];
 
   const importStatements = rootNode.findAll({
