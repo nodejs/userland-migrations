@@ -23,7 +23,7 @@ jobs:
       codemods_files: ${{ steps.filter.outputs.codemods_files }}
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0
+        uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49
         with:
           egress-policy: audit
 
@@ -46,7 +46,7 @@ jobs:
       codemod_files: ${{ steps.set-matrix.outputs.codemod_files }}
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0
+        uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49
         with:
           egress-policy: audit
 
@@ -73,7 +73,7 @@ jobs:
       CODEMOD_API_KEY: ${{ secrets.CODEMOD_API_KEY }}
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0
+        uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49
         with:
           egress-policy: audit
 
