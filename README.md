@@ -1,6 +1,6 @@
 <img
-	src="https://raw.githubusercontent.com/nodejs/userland-migrations/main/.github/assets/Userland-Migration-Tagline.png"
-	alt="Node.js Userland Migrations"
+  src="https://raw.githubusercontent.com/nodejs/userland-migrations/main/.github/assets/Userland-Migration-Tagline.png"
+  alt="Node.js Userland Migrations"
 />
 
 This repository contains codemods (automated migrations) for "userland" code. These are intended to facilitate adopting new features and upgrading source-code affected by breaking changes.
