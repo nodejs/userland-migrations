@@ -1,5 +1,22 @@
 import type { SgRoot, Edit } from "@ast-grep/napi";
 
+/**
+ * Transform function that updates code to replace deprecated `createRequireFromPath` usage
+ * with the modern `createRequire` API from the `module` or `node:module` package.
+ *
+ * Handles:
+ * 1. Updates import/require statements that import `createRequireFromPath`:
+ *    - `const { createRequireFromPath } = require('module')` -> `const { createRequire } = require('module')`
+ *    - `const { createRequireFromPath } = require('node:module')` -> `const { createRequire } = require('node:module')`
+ *    - `import { createRequireFromPath } from 'module'` -> `import { createRequire } from 'module'`
+ *    - `import { createRequireFromPath } from 'node:module'` -> `import { createRequire } from 'node:module'`
+ *
+ * 2. Updates variable declarations that use `createRequireFromPath`:
+ *    - `const myRequire = createRequireFromPath(arg)` -> `const require = createRequire(arg)`
+ *
+ * 3. Updates all usages of the old variable names:
+ *    - `myRequire(args)` -> `require(args)`
+ */
 export default function transform(root: SgRoot): string | null {
   const rootNode = root.root();
   const edits: Edit[] = [];
