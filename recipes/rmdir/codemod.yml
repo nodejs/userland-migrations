@@ -1,7 +1,7 @@
 schema_version: "1.0"
 name: "nodejs/rmdir"
 version: "0.0.1"
-description: "Handle DEP0147 node.js deprecation warning by transforming `fs.rmdir` to `fs.rm` with the appropriate options."
+description: "Handle DEP0147 via transforming `fs.rmdir` to `fs.rm`"
 author: "Augustin Mauroy"
 license: "MIT"
 workflow: "workflow.yaml"
