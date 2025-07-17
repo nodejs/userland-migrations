@@ -8,8 +8,8 @@ export const getNodeRequireCalls = (rootNode: SgRoot, nodeModuleName: string): S
 				kind: "variable_declarator",
 				all: [
 					{
-						has: { 
-							field: "name", 
+						has: {
+							field: "name",
 							any: [
 								{ kind: "object_pattern" },
 								{ kind: "identifier" }
