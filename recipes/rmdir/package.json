@@ -1,0 +1,24 @@
+{
+  "name": "@nodejs/rmdirs",
+  "version": "1.0.0",
+  "description": "Handle DEP0147 node.js deprecation warning by transforming `fs.rmdir` to `fs.rm` with the appropriate options.",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod@next jssg test -l typescript ./src/workflow.ts ./"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/rmdirs",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "Augustin Mauroy",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/rmdirs/README.md",
+  "devDependencies": {
+    "@types/node": "^24.0.3"
+  },
+  "dependencies": {
+    "@ast-grep/napi": "^0.38.6"
+  }
+}
