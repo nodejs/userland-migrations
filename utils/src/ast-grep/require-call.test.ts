@@ -10,6 +10,9 @@ describe("require-call", () => {
 		var { join } = require('node:path');
 		let { spawn } = require("child_process");
 		const { styleText } = require("node:util");
+		require("no:assignment");
+		require(variable);
+		require(`backticks`);
 	`;
 	const ast = astGrep.parse(astGrep.Lang.JavaScript, code);
 
