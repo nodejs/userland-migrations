@@ -1,7 +1,7 @@
 schema_version: "1.0"
 name: "nodejs/create-require-from-path"
 version: "0.0.1"
-description: "Handle DEP0130 node.js deprecation warning by transforming `createRequireFromPath` to `createRequire`."
+description: "Handle DEP0130 via transforming `createRequireFromPath` to `createRequire`."
 author: "Augustin Mauroy"
 license: "MIT"
 workflow: "workflow.yaml"
