@@ -1,5 +1,5 @@
 {
-  "name": "@nodejs/rmdirs",
+  "name": "@nodejs/rmdir",
   "version": "1.0.0",
   "description": "Handle DEP0147 node.js deprecation warning by transforming `fs.rmdir` to `fs.rm` with the appropriate options.",
   "type": "module",
