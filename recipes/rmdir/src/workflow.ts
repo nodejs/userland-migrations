@@ -15,6 +15,63 @@ export default function transform(root: SgRoot): string | null {
   let hasChanges = false;
   const edits: Edit[] = [];
 
+	const importStatements = rootNode.findAll({
+    rule: {
+      kind: "import_statement",
+      has: {
+        field: "source",
+        kind: "string",
+        regex: "^'(node:)?fs'$"
+      }
+    }
+  });
+
+	const requireStatements = rootNode.findAll({
+    rule: {
+      kind: "lexical_declaration",
+      all: [
+        {
+          has: {
+            kind: "variable_declarator",
+            all: [
+              {
+                has: {
+                  field: "name",
+                  kind: "object_pattern"
+                }
+              },
+              {
+                has: {
+                  field: "value",
+                  kind: "call_expression",
+                  all: [
+                    {
+                      has: {
+                        field: "function",
+                        kind: "identifier",
+                        regex: "^require$"
+                      }
+                    },
+                    {
+                      has: {
+                        field: "arguments",
+                        kind: "arguments",
+                        has: {
+                          kind: "string",
+                          regex: "^'(node:)?fs'$"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  });
+
 	const rmdirSyncCalls = rootNode.findAll({
 		rule: {
 			any: [
