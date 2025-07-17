@@ -2,7 +2,7 @@
 
 This recipe transforms the usage of `createRequireFromPath` to use the `createRequire` function from the `node:module` module.
 
-It's related to the deprecation notice [DEP0130](https://nodejs.org/api/deprecations.html#DEP0130).
+See [DEP0130](https://nodejs.org/api/deprecations.html#DEP0130).
 
 ## Example
 
