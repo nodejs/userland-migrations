@@ -12,10 +12,11 @@ import type { SgRoot, Edit } from "@ast-grep/napi";
  *    - `import { createRequireFromPath } from 'node:module'` -> `import { createRequire } from 'node:module'`
  *
  * 2. Updates variable declarations that use `createRequireFromPath`:
- *    - `const myRequire = createRequireFromPath(arg)` -> `const require = createRequire(arg)`
+ *    - `const myRequire = createRequireFromPath(arg)` -> `const myRequire = createRequire(arg)`
+ *    - `let myRequire = createRequireFromPath(arg)` -> `let myRequire = createRequire(arg)`
+ *    - `var myRequire = createRequireFromPath(arg)` -> `var myRequire = createRequire(arg)`
  *
- * 3. Updates all usages of the old variable names:
- *    - `myRequire(args)` -> `require(args)`
+ * 3. Preserves original variable names and declaration types.
  */
 export default function transform(root: SgRoot): string | null {
   const rootNode = root.root();
@@ -75,11 +76,13 @@ export default function transform(root: SgRoot): string | null {
   // Step 2: Find variable declarations that use createRequireFromPath and track the variable names
   const createRequireFromPathUsages = rootNode.findAll({
     rule: {
-      pattern: 'const $VAR = createRequireFromPath($ARG)'
+      any: [
+        { pattern: 'const $VAR = createRequireFromPath($ARG)' },
+        { pattern: 'let $VAR = createRequireFromPath($ARG)' },
+        { pattern: 'var $VAR = createRequireFromPath($ARG)' }
+      ]
     }
   });
-
-  const variableMapping = new Map<string, string>();
 
   for (const usage of createRequireFromPathUsages) {
     const varMatch = usage.getMatch("VAR");
@@ -89,33 +92,17 @@ export default function transform(root: SgRoot): string | null {
       const oldVarName = varMatch.text();
       const arg = argMatch.text();
 
-      // Get the original text to preserve semicolons
+      // Get the original text to preserve semicolons and declaration type
       const originalText = usage.text();
 			const hasSemicolon = /;\s*(\r?\n)?$/.test(originalText);
 
-      // Replace the declaration
-      const replacement = `const require = createRequire(${arg})${hasSemicolon ? ';' : ''}`;
+      // Extract the declaration keyword (const, let, or var)
+      const declarationKeyword = originalText.match(/^(const|let|var)/)?.[1] || 'const';
+
+      // Replace only the function name, keep the original variable name
+      const replacement = `${declarationKeyword} ${oldVarName} = createRequire(${arg})${hasSemicolon ? ';' : ''}`;
       edits.push(usage.replace(replacement));
 
-      // Track the variable name change
-      variableMapping.set(oldVarName, "require");
-      hasChanges = true;
-    }
-  }
-
-  // Step 3: Find and update all usages of the old variable names
-  for (const [oldName, newName] of variableMapping) {
-    const callExpressions = rootNode.findAll({
-      rule: {
-        pattern: `${oldName}($$$ARGS)`
-      }
-    });
-
-    for (const callExpr of callExpressions) {
-      const argsMatches = callExpr.getMultipleMatches("ARGS");
-      const argsText = argsMatches.map(arg => arg.text()).join(", ");
-      const replacement = `${newName}(${argsText})`;
-      edits.push(callExpr.replace(replacement));
       hasChanges = true;
     }
   }
