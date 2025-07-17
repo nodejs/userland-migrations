@@ -2,7 +2,7 @@
 
 This recipe provides a guide for migrating from the deprecated `fs.rmdir` and its synchronous and promise-based counterparts to the new `fs.rm` method in Node.js.
 
-It's related to the deprecation notice [DEP0147](https://nodejs.org/api/deprecations.html#DEP0147).
+See [DEP0147](https://nodejs.org/api/deprecations.html#DEP0147).
 
 ## Examples
 
