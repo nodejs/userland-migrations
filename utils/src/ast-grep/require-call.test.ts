@@ -12,7 +12,7 @@ describe("require-call", () => {
 		const { styleText } = require("node:util");
 		require("no:assignment");
 		require(variable);
-		require(`backticks`);
+		require(\`backticks\`);
 	`;
 	const ast = astGrep.parse(astGrep.Lang.JavaScript, code);
 
