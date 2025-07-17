@@ -23,86 +23,116 @@ export default function transform(root: SgRoot): string | null {
   const edits: Edit[] = [];
   let hasChanges = false;
 
-  // Step 1: Find and update import/require statements that import createRequireFromPath
-  const importNodes = rootNode.findAll({
+  // Step 1: Find and update destructuring assignments from require('module') or require('node:module')
+  const requireStatements = rootNode.findAll({
     rule: {
-      any: [
-        // Handle require destructuring
+      kind: "lexical_declaration",
+      all: [
         {
-          kind: "lexical_declaration",
           has: {
             kind: "variable_declarator",
-            has: {
-              field: "value",
-              pattern: `require('module')`
-            }
-          }
-        },
-        {
-          kind: "lexical_declaration",
-          has: {
-            kind: "variable_declarator",
-            has: {
-              field: "value",
-              pattern: `require('node:module')`
-            }
-          }
-        },
-        // Handle import statements
-        {
-          kind: "import_statement",
-          has: {
-            field: "source",
-            kind: "string",
-            regex: "^'(node:)?module'$"
+            all: [
+              {
+                has: {
+                  field: "name",
+                  kind: "object_pattern"
+                }
+              },
+              {
+                has: {
+                  field: "value",
+                  kind: "call_expression",
+                  all: [
+                    {
+                      has: {
+                        field: "function",
+                        kind: "identifier",
+                        regex: "^require$"
+                      }
+                    },
+                    {
+                      has: {
+                        field: "arguments",
+                        kind: "arguments",
+                        has: {
+                          kind: "string",
+                          regex: "^'(node:)?module'$"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
           }
         }
       ]
     }
   });
 
-  for (const importNode of importNodes) {
-    const text = importNode.text();
+  for (const statement of requireStatements) {
+    // Find the object pattern (destructuring)
+    const objectPattern = statement.find({
+      rule: {
+        kind: "object_pattern"
+      }
+    });
 
-    // Check if this import/require includes createRequireFromPath
-    if (text.includes("createRequireFromPath")) {
-      // Replace createRequireFromPath with createRequire
-      const newText = text.replace(/createRequireFromPath/g, "createRequire");
-      edits.push(importNode.replace(newText));
-      hasChanges = true;
+    if (objectPattern) {
+      const originalText = objectPattern.text();
+
+      if (originalText.includes("createRequireFromPath")) {
+        const newText = originalText.replace(/\bcreateRequireFromPath\b/g, "createRequire");
+        edits.push(objectPattern.replace(newText));
+        hasChanges = true;
+      }
     }
   }
 
-  // Step 2: Find variable declarations that use createRequireFromPath and track the variable names
-  const createRequireFromPathUsages = rootNode.findAll({
+  // Process ES6 import statements
+  const importStatements = rootNode.findAll({
     rule: {
-      any: [
-        { pattern: 'const $VAR = createRequireFromPath($ARG)' },
-        { pattern: 'let $VAR = createRequireFromPath($ARG)' },
-        { pattern: 'var $VAR = createRequireFromPath($ARG)' }
-      ]
+      kind: "import_statement",
+      has: {
+        field: "source",
+        kind: "string",
+        regex: "^'(node:)?module'$"
+      }
     }
   });
 
-  for (const usage of createRequireFromPathUsages) {
-    const varMatch = usage.getMatch("VAR");
-    const argMatch = usage.getMatch("ARG");
+  for (const statement of importStatements) {
+    // Find the named imports
+    const namedImports = statement.find({
+      rule: {
+        kind: "named_imports"
+      }
+    });
 
-    if (varMatch && argMatch) {
-      const oldVarName = varMatch.text();
+    if (namedImports) {
+      const originalText = namedImports.text();
+
+      if (originalText.includes("createRequireFromPath")) {
+        const newText = originalText.replace(/\bcreateRequireFromPath\b/g, "createRequire");
+        edits.push(namedImports.replace(newText));
+        hasChanges = true;
+      }
+    }
+  }
+
+  // Step 2: Find and replace createRequireFromPath function calls
+  const functionCalls = rootNode.findAll({
+    rule: {
+      pattern: "createRequireFromPath($ARG)"
+    }
+  });
+
+  for (const call of functionCalls) {
+    const argMatch = call.getMatch("ARG");
+    if (argMatch) {
       const arg = argMatch.text();
-
-      // Get the original text to preserve semicolons and declaration type
-      const originalText = usage.text();
-			const hasSemicolon = /;\s*(\r?\n)?$/.test(originalText);
-
-      // Extract the declaration keyword (const, let, or var)
-      const declarationKeyword = originalText.match(/^(const|let|var)/)?.[1] || 'const';
-
-      // Replace only the function name, keep the original variable name
-      const replacement = `${declarationKeyword} ${oldVarName} = createRequire(${arg})${hasSemicolon ? ';' : ''}`;
-      edits.push(usage.replace(replacement));
-
+      const replacement = `createRequire(${arg})`;
+      edits.push(call.replace(replacement));
       hasChanges = true;
     }
   }
