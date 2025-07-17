@@ -91,7 +91,7 @@ export default function transform(root: SgRoot): string | null {
 
       // Get the original text to preserve semicolons
       const originalText = usage.text();
-      const hasSemicolon = originalText.endsWith(';');
+			const hasSemicolon = /;\s*(\r?\n)?$/.test(originalText);
 
       // Replace the declaration
       const replacement = `const require = createRequire(${arg})${hasSemicolon ? ';' : ''}`;
