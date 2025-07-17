@@ -14,28 +14,35 @@ export const getNodeImportStatements = (rootNode: SgRoot, nodeModuleName: string
 			}
 		});
 
-export const getNodeImportCalls = (rootNode: SgRoot, nodeModuleName: string): SgNode[] => {
-	const results: SgNode[] = [];
-
-	// Find variable declarators with direct import calls
-	const directImports = rootNode
-		.root()
-		.findAll({
-			rule: {
-				kind: "variable_declarator",
-				all: [
-					{
+/**
+ * We just catch `variable_declarator` nodes that use `import` to import a module
+ * Because a simple `import('nodeAPI')` don't do anything, so in codemod context we don't need to
+ * catch those.
+ *
+ * We also don't catch pending promises, like `const pending = import("node:module");`
+ * because it's will became to complex to handle in codemod context. (storing var name, checking is method is used, etc.)
+ */
+export const getNodeImportCalls = (rootNode: SgRoot, nodeModuleName: string): SgNode[] =>
+	rootNode
+	.root()
+	.findAll({
+		rule: {
+			kind: "variable_declarator",
+			all: [
+				{
+					has: {
+						field: "name",
+						any: [
+							{ kind: "object_pattern" },
+							{ kind: "identifier" }
+						]
+					}
+				},
+				{
+					has: {
+						field: "value",
+						kind: "await_expression",
 						has: {
-							field: "name",
-							any: [
-								{ kind: "object_pattern" },
-								{ kind: "identifier" }
-							]
-						}
-					},
-					{
-						has: {
-							field: "value",
 							kind: "call_expression",
 							all: [
 								{
@@ -57,99 +64,7 @@ export const getNodeImportCalls = (rootNode: SgRoot, nodeModuleName: string): Sg
 							]
 						}
 					}
-				]
-			}
-		});
-
-	// Extract the call_expression from direct imports
-	directImports.forEach(declarator => {
-		const callExpr = declarator.field('value');
-		if (callExpr) {
-			results.push(callExpr);
-		}
-	});
-
-	// Find variable declarators with await import calls
-	const awaitImports = rootNode
-		.root()
-		.findAll({
-			rule: {
-				kind: "variable_declarator",
-				all: [
-					{
-						has: {
-							field: "name",
-							any: [
-								{ kind: "object_pattern" },
-								{ kind: "identifier" }
-							]
-						}
-					},
-					{
-						has: {
-							field: "value",
-							kind: "await_expression",
-							has: {
-								kind: "call_expression",
-								all: [
-									{
-										has: {
-											field: "function",
-											kind: "import"
-										}
-									},
-									{
-										has: {
-											field: "arguments",
-											kind: "arguments",
-											has: {
-												kind: "string",
-												regex: `^['"](node:)?${nodeModuleName}['"]$`
-											}
-										}
-									}
-								]
-							}
-						}
-					}
-				]
-			}
-		});
-
-	// Extract the call_expression from await imports
-	awaitImports.forEach(declarator => {
-		const awaitExpr = declarator.field('value');
-		if (awaitExpr) {
-			// Find the call_expression inside the await_expression
-			const callExpr = awaitExpr.find({
-				rule: {
-					kind: "call_expression",
-					all: [
-						{
-							has: {
-								field: "function",
-								kind: "import"
-							}
-						},
-						{
-							has: {
-								field: "arguments",
-								kind: "arguments",
-								has: {
-									kind: "string",
-									regex: `^['"](node:)?${nodeModuleName}['"]$`
-								}
-							}
-						}
-					]
 				}
-			});
-			if (callExpr) {
-				results.push(callExpr);
-			}
+			]
 		}
 	});
-
-	return results;
-};
-

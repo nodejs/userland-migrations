@@ -44,7 +44,6 @@ describe("import-statement", () => {
 			var { join } = await import('node:path');
 			let { spawn } = await import("child_process");
 			const { styleText } = await import("node:util");
-			const pending = import("node:module");
 			await import("no:assignment");
 			await import(variable);
 			await import(\`backticks\`);
@@ -56,34 +55,36 @@ describe("import-statement", () => {
 
 		const fsCalls = getNodeImportCalls(ast, 'fs');
 		assert.strictEqual(fsCalls.length, 1);
-		// For dynamic imports, the module name is in the first argument, not a source field
-		const fsArgs = fsCalls[0].field('arguments');
-		const fsString = fsArgs?.find({ rule: { kind: "string" } });
-		assert.strictEqual(fsString?.text(), "'fs'");
+		const fsCallExpr = fsCalls[0].field('value')?.children()[1]; // await_expression -> call_expression
+		assert.strictEqual(fsCallExpr?.field('function')?.text(), 'import');
+		assert.strictEqual(fsCallExpr?.field('arguments')?.find({ rule: { kind: "string" } })?.text(), "'fs'");
 
 		const pathCalls = getNodeImportCalls(ast, 'path');
 		assert.strictEqual(pathCalls.length, 1);
-		const pathArgs = pathCalls[0].field('arguments');
-		const pathString = pathArgs?.find({ rule: { kind: "string" } });
-		assert.strictEqual(pathString?.text(), "'node:path'");
+		const pathCallExpr = pathCalls[0].field('value')?.children()[1]; // await_expression -> call_expression
+		assert.strictEqual(pathCallExpr?.field('function')?.text(), 'import');
+		assert.strictEqual(pathCallExpr?.field('arguments')?.find({ rule: { kind: "string" } })?.text(), "'node:path'");
 
 		const childProcessCalls = getNodeImportCalls(ast, 'child_process');
 		assert.strictEqual(childProcessCalls.length, 1);
-		const childProcessArgs = childProcessCalls[0].field('arguments');
-		const childProcessString = childProcessArgs?.find({ rule: { kind: "string" } });
-		assert.strictEqual(childProcessString?.text(), '"child_process"');
+		const childProcessCallExpr = childProcessCalls[0].field('value')?.children()[1]; // await_expression -> call_expression
+		assert.strictEqual(childProcessCallExpr?.field('function')?.text(), 'import');
+		assert.strictEqual(childProcessCallExpr?.field('arguments')?.find({ rule: { kind: "string" } })?.text(), '"child_process"');
 
 		const utilCalls = getNodeImportCalls(ast, 'util');
 		assert.strictEqual(utilCalls.length, 1);
-		const utilArgs = utilCalls[0].field('arguments');
-		const utilString = utilArgs?.find({ rule: { kind: "string" } });
-		assert.strictEqual(utilString?.text(), '"node:util"');
-
-		// do we need to catch pending promises?
-		const moduleCalls = getNodeImportCalls(ast, 'module');
-		assert.strictEqual(moduleCalls.length, 1);
-		const moduleArgs = moduleCalls[0].field('arguments');
-		const moduleString = moduleArgs?.find({ rule: { kind: "string" } });
-		assert.strictEqual(moduleString?.text(), '"node:module"');
+		const utilCallExpr = utilCalls[0].field('value')?.children()[1]; // await_expression -> call_expression
+		assert.strictEqual(utilCallExpr?.field('function')?.text(), 'import');
+		assert.strictEqual(utilCallExpr?.field('arguments')?.find({ rule: { kind: "string" } })?.text(), '"node:util"');
 	});
-});
+
+	it("shouldn't catch pending promises during import calls", () => {
+		const code = dedent`
+			const pending = import("node:module");
+		`;
+		const ast = astGrep.parse(astGrep.Lang.JavaScript, code);
+
+		const moduleCalls = getNodeImportCalls(ast, 'module');
+		assert.strictEqual(moduleCalls.length, 0, "Pending import calls should not be caught");
+	});
+})
