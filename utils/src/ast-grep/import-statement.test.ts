@@ -9,7 +9,13 @@ describe("import-statement", () => {
 		import fs from 'fs';
 		import { join } from 'node:path';
 		import { spawn } from "child_process";
-		import { styleText } from "node:util";
+import defaultExport from "module-a";
+import * as namespace from "module-b";
+import { named1, named2 as alias } from "module-c";
+import "module-d";
+import "";
+import config from "./config.json" assert { type: "json" };
+import {} from "module-e";
 	`;
 	const ast = astGrep.parse(astGrep.Lang.JavaScript, code);
 
