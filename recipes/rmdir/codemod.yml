@@ -1,0 +1,17 @@
+schema_version: "1.0"
+name: "nodejs/import-assertions-to-attributes"
+version: "0.0.1"
+description: "Handle DEP0147 node.js deprecation warning by transforming `fs.rmdir` to `fs.rm` with the appropriate options."
+author: "Augustin Mauroy"
+license: "MIT"
+workflow: "workflow.yaml"
+category: "migration"
+
+targets:
+  languages: ["javascript", "typescript"]
+
+keywords: ["transformation", "migration"]
+
+registry:
+  access: "public"
+  visibility: "public"
