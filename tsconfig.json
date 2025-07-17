@@ -49,7 +49,7 @@
     "**/build/**",
     "**/fixtures/**",
     "**/expected/**",
-    "**/test/**",
+    "**/tests/**",
     "**/*.fixture.mjs",
     "**/*.fixture.mts",
     "**/*.fixture.js",
