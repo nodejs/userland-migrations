@@ -1,3 +1,9 @@
+// jssg din't work correclty in npm workspaces, so we use relative imports
+// also it's didn't work with ts paths aliases
+// import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
+// import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
+import { getNodeImportStatements } from "../../../utils/src/ast-grep/import-statement.ts";
+import { getNodeRequireCalls } from "../../../utils/src/ast-grep/require-call.ts";
 import type { SgRoot, Edit } from "@ast-grep/napi";
 
 /**
@@ -24,51 +30,7 @@ export default function transform(root: SgRoot): string | null {
   let hasChanges = false;
 
   // Step 1: Find and update destructuring assignments from require('module') or require('node:module')
-  const requireStatements = rootNode.findAll({
-    rule: {
-      kind: "lexical_declaration",
-      all: [
-        {
-          has: {
-            kind: "variable_declarator",
-            all: [
-              {
-                has: {
-                  field: "name",
-                  kind: "object_pattern"
-                }
-              },
-              {
-                has: {
-                  field: "value",
-                  kind: "call_expression",
-                  all: [
-                    {
-                      has: {
-                        field: "function",
-                        kind: "identifier",
-                        regex: "^require$"
-                      }
-                    },
-                    {
-                      has: {
-                        field: "arguments",
-                        kind: "arguments",
-                        has: {
-                          kind: "string",
-                          regex: "^'(node:)?module'$"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            ]
-          }
-        }
-      ]
-    }
-  });
+  const requireStatements = getNodeRequireCalls(root, "module")
 
   for (const statement of requireStatements) {
     // Find the object pattern (destructuring)
@@ -89,17 +51,7 @@ export default function transform(root: SgRoot): string | null {
     }
   }
 
-  // Process ES6 import statements
-  const importStatements = rootNode.findAll({
-    rule: {
-      kind: "import_statement",
-      has: {
-        field: "source",
-        kind: "string",
-        regex: "^'(node:)?module'$"
-      }
-    }
-  });
+  const importStatements = getNodeImportStatements(root, "module");
 
   for (const statement of importStatements) {
     // Find the named imports
@@ -137,9 +89,7 @@ export default function transform(root: SgRoot): string | null {
     }
   }
 
-  if (!hasChanges) {
-    return null;
-  }
+  if (!hasChanges) return null;
 
   return rootNode.commitEdits(edits);
 }
