@@ -1,17 +1,21 @@
 schema_version: "1.0"
-name: "nodejs/create-require-from-path"
-version: "0.0.1"
-description: "Handle DEP0130 via transforming `createRequireFromPath` to `createRequire`."
-author: "Augustin Mauroy"
-license: "MIT"
-workflow: "workflow.yaml"
-category: "migration"
+name: nodejs/create-require-from-path
+version: 0.0.1
+description: Handle DEP0130 via transforming `createRequireFromPath` to `createRequire`.
+author: Augustin Mauroy
+license: MIT
+workflow: workflow.yaml
+category: migration
 
 targets:
-  languages: ["javascript", "typescript"]
+  languages:
+    - javascript
+    - typescript
 
-keywords: ["transformation", "migration"]
+keywords:
+  - transformation
+  - migration
 
 registry:
-  access: "public"
-  visibility: "public"
+  access: public
+  visibility: public
