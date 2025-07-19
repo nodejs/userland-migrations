@@ -6,10 +6,10 @@ nodes:
     runtime:
       type: direct
     steps:
-      - name: "Replace `assert` import attribute to the `with` ECMAScript import attribute."
+      - name: Replace `assert` import attribute to the `with` ECMAScript import attribute.
         js-ast-grep:
-          js_file: "src/workflow.ts"
-          base_path: "."
+          js_file: src/workflow.ts
+          base_path: .
           include:
             - "**/*.js"
             - "**/*.jsx"
@@ -18,7 +18,7 @@ nodes:
             - "**/*.cts"
             - "**/*.mts"
             - "**/*.ts"
-            - "**/*.tsx"
+            - "**/*.tsx
           exclude:
             - "**/node_modules/**"
-          language: "typescript"
+          language: typescript
