@@ -9,8 +9,8 @@ category: migration
 
 targets:
   languages:
-  - javascript
-  - typescript
+    - javascript
+    - typescript
 
 keywords:
   - transformation
