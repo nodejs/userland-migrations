@@ -1,3 +1,9 @@
+// jssg din't work correclty in npm workspaces, so we use relative imports
+// also it's didn't work with ts paths aliases
+// import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
+// import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
+import { getNodeImportStatements } from "../../../utils/src/ast-grep/import-statement.ts";
+import { getNodeRequireCalls } from "../../../utils/src/ast-grep/require-call.ts";
 import type { SgRoot, Edit } from "@ast-grep/napi";
 
 /**
@@ -11,66 +17,12 @@ import type { SgRoot, Edit } from "@ast-grep/napi";
  * 4. fs.promises.rmdir(path, { recursive: true }) -> fs.promises.rm(path, { recursive: true, force: true })
  */
 export default function transform(root: SgRoot): string | null {
-  const rootNode = root.root();
-  let hasChanges = false;
-  const edits: Edit[] = [];
+	const rootNode = root.root();
+	let hasChanges = false;
+	const edits: Edit[] = [];
 
-	const importStatements = rootNode.findAll({
-    rule: {
-      kind: "import_statement",
-      has: {
-        field: "source",
-        kind: "string",
-        regex: "^'(node:)?fs'$"
-      }
-    }
-  });
-
-	const requireStatements = rootNode.findAll({
-    rule: {
-      kind: "lexical_declaration",
-      all: [
-        {
-          has: {
-            kind: "variable_declarator",
-            all: [
-              {
-                has: {
-                  field: "name",
-                  kind: "object_pattern"
-                }
-              },
-              {
-                has: {
-                  field: "value",
-                  kind: "call_expression",
-                  all: [
-                    {
-                      has: {
-                        field: "function",
-                        kind: "identifier",
-                        regex: "^require$"
-                      }
-                    },
-                    {
-                      has: {
-                        field: "arguments",
-                        kind: "arguments",
-                        has: {
-                          kind: "string",
-                          regex: "^'(node:)?fs'$"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            ]
-          }
-        }
-      ]
-    }
-  });
+	const importStatements = getNodeImportStatements(rootNode, 'fs');
+	const requireStatements = getNodeRequireCalls(rootNode, 'fs');
 
 	const rmdirSyncCalls = rootNode.findAll({
 		rule: {
@@ -98,7 +50,7 @@ export default function transform(root: SgRoot): string | null {
 	});
 
 	for (const call of rmdirSyncCalls) {
-		// Check if this call has recursive: true option
+		// Check if this call has `recursive: true` option
 		const optionsMatch = call.getMatch("OPTIONS");
 		if (!optionsMatch) continue;
 		const optionsText = optionsMatch.text();
@@ -113,7 +65,7 @@ export default function transform(root: SgRoot): string | null {
 
 	for (const call of rmdirCalls) {
 		const callText = call.text();
-		// Check if this call has recursive: true option
+		// Check if this call has `recursive: true` option
 		const optionsMatch = call.getMatch("OPTIONS");
 		if (!optionsMatch) continue;
 		const optionsText = optionsMatch.text();
@@ -122,7 +74,7 @@ export default function transform(root: SgRoot): string | null {
 		}
 		let newCallText = "";
 		if (callText.includes("fs.rmdir(")) {
-			// Handle fs.rmdir -> fs.rm
+			// Handle fs.rmdir → fs.rm
 			if (call.getMatch("CALLBACK")) {
 				// Has callback
 				const path = call.getMatch("PATH")?.text();
@@ -145,9 +97,10 @@ export default function transform(root: SgRoot): string | null {
 	}
 
 	for (const call of promisesRmdirCalls) {
-		// Check if this call has recursive: true option
+		// Check if this call has `recursive: true` option
 		const optionsMatch = call.getMatch("OPTIONS");
 		if (!optionsMatch) continue;
+
 		const optionsText = optionsMatch.text();
 		if (!optionsText.includes("recursive") || !optionsText.includes("true")) {
 			continue;
@@ -158,7 +111,7 @@ export default function transform(root: SgRoot): string | null {
 		hasChanges = true;
 	}
 
-  if (!hasChanges) return null;
+	if (!hasChanges) return null;
 
-  return rootNode.commitEdits(edits);
+	return rootNode.commitEdits(edits);
 }
