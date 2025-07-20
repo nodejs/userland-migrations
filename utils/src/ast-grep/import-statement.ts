@@ -15,24 +15,6 @@ export const getNodeImportStatements = (rootNode: SgRoot, nodeModuleName: string
 		});
 
 /**
- * This function take an `import_statment` and return true if it's spead import statement.
- * For example:
- * `import { readFile } from 'fs';` → `true`
- * `import { readFile as read } from 'fs';` → `true`
- * `import * as fs from 'fs';` → `false`
- * `import fs from 'fs';` → `false`
- */
-export const isImportStatementSpread = (node: SgNode): boolean => {
-	if (node.kind() !== "import_statement") {
-		return false;
-	}
-
-	// Check if the import statement has a named_imports node anywhere in its structure
-	// This covers cases like: import { readFile }, import { readFile as read }, import {}
-	return node.find({ rule: { kind: 'named_imports' } }) !== null;
-};
-
-/**
  * We just catch `variable_declarator` nodes that use `import` to import a module
  * Because a simple `import('nodeAPI')` don't do anything, so in codemod context we don't need to
  * catch those.

@@ -2,11 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import astGrep from '@ast-grep/napi';
 import dedent from 'dedent';
-import {
-	getNodeImportStatements,
-	getNodeImportCalls,
-	isImportStatementSpread
-} from "./import-statement.ts";
+import { getNodeImportStatements, getNodeImportCalls } from "./import-statement.ts";
 
 describe("import-statement", () => {
 	it("should return import statements", () => {
@@ -90,33 +86,5 @@ describe("import-statement", () => {
 
 		const moduleCalls = getNodeImportCalls(ast, 'module');
 		assert.strictEqual(moduleCalls.length, 0, "Pending import calls should not be caught");
-	});
-
-	it("should correctly identify spread import statements", () => {
-		const testCases = [
-			{ code: 'import { readFile } from "fs";', expected: true, description: 'Named import' },
-			{ code: 'import { readFile as read } from "fs";', expected: true, description: 'Named import with alias' },
-			{ code: 'import * as fs from "fs";', expected: false, description: 'Namespace import' },
-			{ code: 'import fs from "fs";', expected: false, description: 'Default import' },
-			{ code: 'import {} from "fs";', expected: true, description: 'Empty named import' },
-			{ code: 'import { a, b, c } from "module";', expected: true, description: 'Multiple named imports' },
-			{ code: 'import { a as x, b, c as y } from "module";', expected: true, description: 'Mixed named imports with aliases' },
-			{ code: 'import "side-effect";', expected: false, description: 'Side-effect import' }
-		];
-
-		for( const testCase of testCases) {
-			const ast = astGrep.parse(astGrep.Lang.JavaScript, testCase.code);
-			const importNode = ast.root().find({ rule: { kind: 'import_statement' } });
-
-			assert.ok(importNode, `Could not find import statement for: ${testCase.code}`);
-
-			const result = isImportStatementSpread(importNode);
-
-			assert.strictEqual(
-				result,
-				testCase.expected,
-				`${testCase.description}: Expected ${testCase.expected} for "${testCase.code}", got ${result}`
-			);
-		}
 	});
 })
