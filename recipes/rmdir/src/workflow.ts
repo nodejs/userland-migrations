@@ -2,8 +2,8 @@
 // also it's didn't work with ts paths aliases
 // import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 // import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import { getNodeImportStatements } from "../../../utils/src/ast-grep/import-statement.ts";
-import { getNodeRequireCalls } from "../../../utils/src/ast-grep/require-call.ts";
+import { getNodeImportStatements, isImportStatementSpread } from "../../../utils/src/ast-grep/import-statement.ts";
+import { getNodeRequireCalls, isSpreadRequire } from "../../../utils/src/ast-grep/require-call.ts";
 import type { SgRoot, Edit } from "@ast-grep/napi";
 
 /**
@@ -21,8 +21,26 @@ export default function transform(root: SgRoot): string | null {
 	let hasChanges = false;
 	const edits: Edit[] = [];
 
-	const importStatements = getNodeImportStatements(rootNode, 'fs');
-	const requireStatements = getNodeRequireCalls(rootNode, 'fs');
+	const importStatements = getNodeImportStatements(root, 'fs');
+	const requireStatements = getNodeRequireCalls(root, 'fs');
+
+	for (const importNode of importStatements) {
+		if (!isImportStatementSpread(importNode)) continue;
+
+		const importText = importNode.text();
+		const newImportText = importText.replace(/rmdir/g, 'rm');
+		edits.push(importNode.replace(newImportText));
+		hasChanges = true;
+	}
+
+	for (const requireNode of requireStatements) {
+		if (!isSpreadRequire(requireNode)) continue;
+
+		const requireText = requireNode.text();
+		const newRequireText = requireText.replace(/rmdir/g, 'rm');
+		edits.push(requireNode.replace(newRequireText));
+		hasChanges = true;
+	}
 
 	const rmdirSyncCalls = rootNode.findAll({
 		rule: {
@@ -86,7 +104,7 @@ export default function transform(root: SgRoot): string | null {
 				newCallText = `fs.rm(${path}, { recursive: true, force: true })`;
 			}
 		} else if (callText.includes("fs.promises.rmdir(")) {
-			// Handle fs.promises.rmdir -> fs.promises.rm
+			// Handle fs.promises.rmdir → fs.promises.rm
 			const path = call.getMatch("PATH")?.text();
 			newCallText = `fs.promises.rm(${path}, { recursive: true, force: true })`;
 		}
