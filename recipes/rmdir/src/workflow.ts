@@ -2,8 +2,8 @@
 // also it's didn't work with ts paths aliases
 // import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 // import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import { getNodeImportStatements, isImportStatementSpread } from "../../../utils/src/ast-grep/import-statement.ts";
-import { getNodeRequireCalls, isSpreadRequire } from "../../../utils/src/ast-grep/require-call.ts";
+import { getNodeImportStatements } from "../../../utils/src/ast-grep/import-statement.ts";
+import { getNodeRequireCalls } from "../../../utils/src/ast-grep/require-call.ts";
 import type { SgRoot, Edit } from "@ast-grep/napi";
 
 /**
@@ -21,31 +21,12 @@ export default function transform(root: SgRoot): string | null {
 	let hasChanges = false;
 	const edits: Edit[] = [];
 
-	const importStatements = getNodeImportStatements(root, 'fs');
-	const requireStatements = getNodeRequireCalls(root, 'fs');
-
-	for (const importNode of importStatements) {
-		if (!isImportStatementSpread(importNode)) continue;
-
-		const importText = importNode.text();
-		const newImportText = importText.replace(/rmdir/g, 'rm');
-		edits.push(importNode.replace(newImportText));
-		hasChanges = true;
-	}
-
-	for (const requireNode of requireStatements) {
-		if (!isSpreadRequire(requireNode)) continue;
-
-		const requireText = requireNode.text();
-		const newRequireText = requireText.replace(/rmdir/g, 'rm');
-		edits.push(requireNode.replace(newRequireText));
-		hasChanges = true;
-	}
-
+	// Find all rmdir calls that need transformation
 	const rmdirSyncCalls = rootNode.findAll({
 		rule: {
 			any: [
 				{ pattern: "fs.rmdirSync($PATH, $OPTIONS)" },
+				{ pattern: "rmdirSync($PATH, $OPTIONS)" }
 			]
 		}
 	});
@@ -55,6 +36,8 @@ export default function transform(root: SgRoot): string | null {
 			any: [
 				{ pattern: "fs.rmdir($PATH, $OPTIONS, $CALLBACK)" },
 				{ pattern: "fs.rmdir($PATH, $OPTIONS)" },
+				{ pattern: "rmdir($PATH, $OPTIONS, $CALLBACK)" },
+				{ pattern: "rmdir($PATH, $OPTIONS)" }
 			]
 		}
 	});
@@ -62,71 +45,159 @@ export default function transform(root: SgRoot): string | null {
 	const promisesRmdirCalls = rootNode.findAll({
 		rule: {
 			any: [
-				{ pattern: "fs.promises.rmdir($PATH, $OPTIONS)" }
+				{ pattern: "fs.promises.rmdir($PATH, $OPTIONS)" },
+				{ pattern: "promises.rmdir($PATH, $OPTIONS)" }
 			]
 		}
 	});
 
+	let needsRmImport = false;
+	let needsRmSyncImport = false;
+
+	// Transform rmdirSync calls
 	for (const call of rmdirSyncCalls) {
-		// Check if this call has `recursive: true` option
 		const optionsMatch = call.getMatch("OPTIONS");
 		if (!optionsMatch) continue;
 		const optionsText = optionsMatch.text();
 		if (!optionsText.includes("recursive") || !optionsText.includes("true")) {
 			continue;
 		}
+
 		const path = call.getMatch("PATH")?.text();
-		const newCallText = `fs.rmSync(${path}, { recursive: true, force: true })`;
-		edits.push(call.replace(newCallText));
+		const callText = call.text();
+
+		if (callText.includes("fs.rmdirSync(")) {
+			const newCallText = `fs.rmSync(${path}, { recursive: true, force: true })`;
+			edits.push(call.replace(newCallText));
+		} else {
+			// destructured call like rmdirSync(...)
+			const newCallText = `rmSync(${path}, { recursive: true, force: true })`;
+			edits.push(call.replace(newCallText));
+			needsRmSyncImport = true;
+		}
 		hasChanges = true;
 	}
 
+	// Transform rmdir calls
 	for (const call of rmdirCalls) {
-		const callText = call.text();
-		// Check if this call has `recursive: true` option
 		const optionsMatch = call.getMatch("OPTIONS");
 		if (!optionsMatch) continue;
 		const optionsText = optionsMatch.text();
 		if (!optionsText.includes("recursive") || !optionsText.includes("true")) {
 			continue;
 		}
-		let newCallText = "";
+
+		const path = call.getMatch("PATH")?.text();
+		const callText = call.text();
+
 		if (callText.includes("fs.rmdir(")) {
 			// Handle fs.rmdir → fs.rm
 			if (call.getMatch("CALLBACK")) {
 				// Has callback
-				const path = call.getMatch("PATH")?.text();
 				const callback = call.getMatch("CALLBACK")?.text();
-				newCallText = `fs.rm(${path}, { recursive: true, force: true }, ${callback})`;
+				const newCallText = `fs.rm(${path}, { recursive: true, force: true }, ${callback})`;
+				edits.push(call.replace(newCallText));
 			} else {
 				// No callback
-				const path = call.getMatch("PATH")?.text();
-				newCallText = `fs.rm(${path}, { recursive: true, force: true })`;
+				const newCallText = `fs.rm(${path}, { recursive: true, force: true })`;
+				edits.push(call.replace(newCallText));
 			}
-		} else if (callText.includes("fs.promises.rmdir(")) {
-			// Handle fs.promises.rmdir → fs.promises.rm
-			const path = call.getMatch("PATH")?.text();
-			newCallText = `fs.promises.rm(${path}, { recursive: true, force: true })`;
+		} else {
+			// destructured call like rmdir(...)
+			if (call.getMatch("CALLBACK")) {
+				// Has callback
+				const callback = call.getMatch("CALLBACK")?.text();
+				const newCallText = `rm(${path}, { recursive: true, force: true }, ${callback})`;
+				edits.push(call.replace(newCallText));
+			} else {
+				// No callback
+				const newCallText = `rm(${path}, { recursive: true, force: true })`;
+				edits.push(call.replace(newCallText));
+			}
+			needsRmImport = true;
 		}
-		if (newCallText) {
-			edits.push(call.replace(newCallText));
-			hasChanges = true;
-		}
+		hasChanges = true;
 	}
 
+	// Transform fs.promises.rmdir calls
 	for (const call of promisesRmdirCalls) {
-		// Check if this call has `recursive: true` option
 		const optionsMatch = call.getMatch("OPTIONS");
 		if (!optionsMatch) continue;
-
 		const optionsText = optionsMatch.text();
 		if (!optionsText.includes("recursive") || !optionsText.includes("true")) {
 			continue;
 		}
+
 		const path = call.getMatch("PATH")?.text();
-		const newCallText = `fs.promises.rm(${path}, { recursive: true, force: true })`;
-		edits.push(call.replace(newCallText));
+		const callText = call.text();
+
+		if (callText.includes("fs.promises.rmdir(")) {
+			const newCallText = `fs.promises.rm(${path}, { recursive: true, force: true })`;
+			edits.push(call.replace(newCallText));
+		} else {
+			// destructured call like promises.rmdir(...)
+			const newCallText = `promises.rm(${path}, { recursive: true, force: true })`;
+			edits.push(call.replace(newCallText));
+			needsRmImport = true;
+		}
 		hasChanges = true;
+	}
+
+	// Update imports/requires only if we have destructured calls that need new imports
+	if (needsRmImport || needsRmSyncImport) {
+		const importStatements = getNodeImportStatements(root, 'fs');
+
+		// Update import statements
+		for (const importNode of importStatements) {
+			// Check if it's a named import (destructured)
+			const namedImports = importNode.find({ rule: { kind: 'named_imports' } });
+			if (!namedImports) continue;
+
+			let importText = importNode.text();
+			let updated = false;
+
+			if (needsRmImport && importText.includes("rmdir") && !importText.includes(" rm,") && !importText.includes(" rm ") && !importText.includes("{rm,") && !importText.includes("{rm }")) {
+				// Add rm to imports
+				importText = importText.replace(/{\s*/, "{ rm, ");
+				updated = true;
+			}
+
+			if (needsRmSyncImport && importText.includes("rmdirSync")) {
+				// Replace rmdirSync with rmSync
+				importText = importText.replace(/rmdirSync/g, "rmSync");
+				updated = true;
+			}
+
+			if (updated) {
+				edits.push(importNode.replace(importText));
+				hasChanges = true;
+			}
+		}
+
+		const requireStatements = getNodeRequireCalls(root, 'fs');
+
+		// Update require statements
+		for (const requireNode of requireStatements) {
+			let requireText = requireNode.text();
+			let updated = false;
+
+			if (needsRmImport && requireText.includes("rmdir") && !requireText.includes(" rm,") && !requireText.includes(" rm ") && !requireText.includes("{rm,") && !requireText.includes("{rm }")) {
+				// Add rm to requires
+				requireText = requireText.replace(/{\s*/, "{ rm, ");
+				updated = true;
+			}
+
+			if (needsRmSyncImport && requireText.includes("rmdirSync")) {
+				// Replace rmdirSync with rmSync
+				requireText = requireText.replace(/rmdirSync/g, "rmSync");
+				updated = true;
+			}
+
+			if (updated) {
+				edits.push(requireNode.replace(requireText));
+				hasChanges = true;
+			}
+		}
 	}
 
 	if (!hasChanges) return null;

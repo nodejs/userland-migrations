@@ -1,4 +1,3 @@
-
 const { rm, rmdir, rmSync, promises } = require("node:fs");
 
 const pathName = "path/to/directory";
