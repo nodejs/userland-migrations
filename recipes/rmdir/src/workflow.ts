@@ -1,9 +1,5 @@
-// jssg din't work correclty in npm workspaces, so we use relative imports
-// also it's didn't work with ts paths aliases
-// import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
-// import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import { getNodeImportStatements } from "../../../utils/src/ast-grep/import-statement.ts";
-import { getNodeRequireCalls } from "../../../utils/src/ast-grep/require-call.ts";
+import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
+import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import type { SgRoot, Edit } from "@ast-grep/napi";
 
 /**
