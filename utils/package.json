@@ -14,7 +14,7 @@
   "license": "MIT",
   "type": "module",
   "devDependencies": {
-    "@ast-grep/napi": "^0.38.6",
+    "@ast-grep/napi": "^0.39.1",
     "dedent": "^1.6.0"
   }
 }
