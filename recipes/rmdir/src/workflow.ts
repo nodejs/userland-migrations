@@ -152,7 +152,13 @@ export default function transform(root: SgRoot): string | null {
 			let importText = importNode.text();
 			let updated = false;
 
-			if (needsRmImport && importText.includes("rmdir") && !importText.includes(" rm,") && !importText.includes(" rm ") && !importText.includes("{rm,") && !importText.includes("{rm }")) {
+			if (needsRmImport
+				&& importText.includes("rmdir")
+				&& !importText.includes(" rm,")
+				&& !importText.includes(" rm ")
+				&& !importText.includes("{rm,")
+				&& !importText.includes("{rm }")
+			) {
 				// Add rm to imports
 				importText = importText.replace(/{\s*/, "{ rm, ");
 				updated = true;
@@ -177,7 +183,13 @@ export default function transform(root: SgRoot): string | null {
 			let requireText = requireNode.text();
 			let updated = false;
 
-			if (needsRmImport && requireText.includes("rmdir") && !requireText.includes(" rm,") && !requireText.includes(" rm ") && !requireText.includes("{rm,") && !requireText.includes("{rm }")) {
+			if (needsRmImport
+				&& requireText.includes("rmdir")
+				&& !requireText.includes(" rm,")
+				&& !requireText.includes(" rm ")
+				&& !requireText.includes("{rm,")
+				&& !requireText.includes("{rm }")
+			) {
 				// Add rm to requires
 				requireText = requireText.replace(/{\s*/, "{ rm, ");
 				updated = true;
