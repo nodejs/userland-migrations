@@ -1,6 +1,6 @@
 schema_version: "1.0"
-name: nodejs/util-is
-version: 0.0.1
+name: "@nodejs/util-is"
+version: 1.0.0
 description: ""
 author: Augustin Mauroy
 license: MIT
