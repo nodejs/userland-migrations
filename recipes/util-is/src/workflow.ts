@@ -131,7 +131,7 @@ function isMethodImportedFromUtil(root: SgRoot, methodName: string): boolean {
 	// Check import statements
 	for (const importNode of importStatements) {
 		const importText = importNode.text();
-		if (importText.includes(`${methodName}`)) {
+		if (importText.includes(methodName)) {
 			return true;
 		}
 	}
@@ -139,7 +139,7 @@ function isMethodImportedFromUtil(root: SgRoot, methodName: string): boolean {
 	// Check require statements
 	for (const requireNode of requireStatements) {
 		const requireText = requireNode.text();
-		if (requireText.includes(`${methodName}`)) {
+		if (requireText.includes(methodName)) {
 			return true;
 		}
 	}
