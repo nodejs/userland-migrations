@@ -12,7 +12,7 @@ if (Buffer.isBuffer(someValue)) {
 if (someValue instanceof Date) {
 	console.log('someValue is a date');
 }
-if (Object.prototype.toString(someValue) === '[object Error]' || someValue instanceof Error) {
+if (Object.prototype.toString(someValue) === '[object Error]' || someValue instanceof Error ) {
 	console.log('someValue is an error');
 }
 if (typeof someValue === 'function') {
@@ -30,7 +30,7 @@ if (typeof someValue === 'number') {
 if (someValue && typeof someValue === 'object') {
 	console.log('someValue is an object');
 }
-if (someValue === null || (typeof someValue !== 'object' && typeof someValue !== 'function')) {
+if (someValue === null || (typeof someValue !=='object' && typeof someValue !== 'function')) {
 	console.log('someValue is a primitive');
 }
 if (someValue instanceof RegExp) {
