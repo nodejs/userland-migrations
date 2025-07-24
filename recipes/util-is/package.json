@@ -4,7 +4,8 @@
   "description": "",
   "type": "module",
   "scripts": {
-    "test": "npx codemod@next jssg test -l typescript ./src/workflow.ts ./"
+    "test": "npx codemod@next jssg test -l typescript ./src/workflow.ts ./",
+    "test:update-snapshots": "npx codemod@next jssg test --update-snapshots -l typescript ./src/workflow.ts ./"
   },
   "repository": {
     "type": "git",
