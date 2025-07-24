@@ -12,7 +12,7 @@ if (Buffer.isBuffer(someValue)) {
 if (someValue instanceof Date) {
 	console.log('someValue is a date');
 }
-if (someValue instanceof Error) {
+if (Object.prototype.toString(someValue) === '[object Error]' || someValue instanceof Error ) {
 	console.log('someValue is an error');
 }
 if (typeof someValue === 'function') {
