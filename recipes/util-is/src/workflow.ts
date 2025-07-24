@@ -152,88 +152,88 @@ function isMethodImportedFromUtil(root: SgRoot, methodName: string): boolean {
  * and remove it entirely if no other methods are used.
  */
 function cleanupUtilImports(root: SgRoot, edits: Edit[], nonIsMethodsUsed: Set<string>): void {
-    // All util.is**() methods that could be imported
-    const allIsMethods = new Set([
-        'isArray', 'isBoolean', 'isBuffer', 'isDate', 'isError', 'isFunction',
-        'isNull', 'isNullOrUndefined', 'isNumber', 'isObject', 'isPrimitive',
-        'isRegExp', 'isString', 'isSymbol', 'isUndefined'
-    ]);
+	// All util.is**() methods that could be imported
+	const allIsMethods = new Set([
+		'isArray', 'isBoolean', 'isBuffer', 'isDate', 'isError', 'isFunction',
+		'isNull', 'isNullOrUndefined', 'isNumber', 'isObject', 'isPrimitive',
+		'isRegExp', 'isString', 'isSymbol', 'isUndefined'
+	]);
 
-    // Process import statements
-    const importStatements = getNodeImportStatements(root, 'util');
+	// Process import statements
+	const importStatements = getNodeImportStatements(root, 'util');
 
-    for (const importNode of importStatements) {
-        const namedSpecifiers = getNamedImportSpecifiers(importNode);
-        const defaultImport = getDefaultImportIdentifier(importNode);
+	for (const importNode of importStatements) {
+		const namedSpecifiers = getNamedImportSpecifiers(importNode);
+		const defaultImport = getDefaultImportIdentifier(importNode);
 
-        if (namedSpecifiers.length > 0) {
-            // Handle named imports: import { isArray, isString } from 'util'
-            const remainingSpecifiers = namedSpecifiers.filter(specifier => {
-                const identifierName = specifier.text();
-                return !allIsMethods.has(identifierName);
-            });
+		if (namedSpecifiers.length > 0) {
+			// Handle named imports: import { isArray, isString } from 'util'
+			const remainingSpecifiers = namedSpecifiers.filter(specifier => {
+				const identifierName = specifier.text();
+				return !allIsMethods.has(identifierName);
+			});
 
-            if (remainingSpecifiers.length === 0) {
-                // Remove the entire import statement
-                edits.push(importNode.replace(''));
-            } else if (remainingSpecifiers.length < namedSpecifiers.length) {
-                // Update the import to only include remaining methods
-                const namedImportsClause = importNode.find({
-                    rule: { kind: "named_imports" }
-                });
-                if (namedImportsClause) {
-                    const newImportsText = remainingSpecifiers.map(s => s.text()).join(', ');
-                    edits.push(namedImportsClause.replace(`{ ${newImportsText} }`));
-                }
-            }
-        } else if (defaultImport) {
-            // Handle namespace imports: import util from 'util'
-            if (nonIsMethodsUsed.size === 0) {
-                edits.push(importNode.replace(''));
-            }
-        }
-    }
+			if (remainingSpecifiers.length === 0) {
+				// Remove the entire import statement
+				edits.push(importNode.replace(''));
+			} else if (remainingSpecifiers.length < namedSpecifiers.length) {
+				// Update the import to only include remaining methods
+				const namedImportsClause = importNode.find({
+					rule: { kind: "named_imports" }
+				});
+				if (namedImportsClause) {
+					const newImportsText = remainingSpecifiers.map(s => s.text()).join(', ');
+					edits.push(namedImportsClause.replace(`{ ${newImportsText} }`));
+				}
+			}
+		} else if (defaultImport) {
+			// Handle namespace imports: import util from 'util'
+			if (nonIsMethodsUsed.size === 0) {
+				edits.push(importNode.replace(''));
+			}
+		}
+	}
 
-    // Process require statements
-    const requireStatements = getNodeRequireCalls(root, 'util');
+	// Process require statements
+	const requireStatements = getNodeRequireCalls(root, 'util');
 
-    for (const requireNode of requireStatements) {
-        const destructuredIdentifiers = getRequireDestructuredIdentifiers(requireNode);
-        const namespaceIdentifier = getRequireNamespaceIdentifier(requireNode);
+	for (const requireNode of requireStatements) {
+		const destructuredIdentifiers = getRequireDestructuredIdentifiers(requireNode);
+		const namespaceIdentifier = getRequireNamespaceIdentifier(requireNode);
 
-        if (destructuredIdentifiers.length > 0) {
-            // Handle destructured requires: const { isArray, isString } = require('util')
-            const remainingIdentifiers = destructuredIdentifiers.filter(identifier => {
-                const identifierName = identifier.text();
-                return !allIsMethods.has(identifierName);
-            });
+		if (destructuredIdentifiers.length > 0) {
+			// Handle destructured requires: const { isArray, isString } = require('util')
+			const remainingIdentifiers = destructuredIdentifiers.filter(identifier => {
+				const identifierName = identifier.text();
+				return !allIsMethods.has(identifierName);
+			});
 
-            if (remainingIdentifiers.length === 0) {
-                // Remove the entire require statement
+			if (remainingIdentifiers.length === 0) {
+				// Remove the entire require statement
 				const parent = requireNode.parent();
 				if (parent) {
 					edits.push(parent.replace(''));
 				} else {
 					console.warn("Parent node not found for requireNode:", requireNode.text());
 				}
-            } else if (remainingIdentifiers.length < destructuredIdentifiers.length) {
-                // Update the require to only include remaining methods
-                const objectPattern = requireNode.find({
-                    rule: { kind: "object_pattern" }
-                });
-                if (objectPattern) {
-                    const newImportsText = remainingIdentifiers.map(i => i.text()).join(', ');
-                    edits.push(objectPattern.replace(`{ ${newImportsText} }`));
-                }
-            }
-        } else if (namespaceIdentifier && nonIsMethodsUsed.size === 0) {
-            // Handle namespace requires: const util = require('util')
+			} else if (remainingIdentifiers.length < destructuredIdentifiers.length) {
+				// Update the require to only include remaining methods
+				const objectPattern = requireNode.find({
+					rule: { kind: "object_pattern" }
+				});
+				if (objectPattern) {
+					const newImportsText = remainingIdentifiers.map(i => i.text()).join(', ');
+					edits.push(objectPattern.replace(`{ ${newImportsText} }`));
+				}
+			}
+		} else if (namespaceIdentifier && nonIsMethodsUsed.size === 0) {
+			// Handle namespace requires: const util = require('util')
 			const parent = requireNode.parent();
 			if (parent){
 				edits.push(parent.replace(''));
 			} else {
 				console.warn("Parent node not found for requireNode:", requireNode.text());
 			}
-        }
-    }
+		}
+	}
 }
