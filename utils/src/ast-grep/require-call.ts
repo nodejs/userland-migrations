@@ -51,3 +51,33 @@ export const getNodeRequireCalls = (rootNode: SgRoot, nodeModuleName: string): S
 			}
 		});
 
+/**
+ * Get destructured identifiers from a require call
+ */
+export const getRequireDestructuredIdentifiers = (requireNode: SgNode): SgNode[] => {
+	const objectPattern = requireNode.find({
+		rule: {
+			kind: "object_pattern"
+		}
+	});
+
+	if (!objectPattern) return [];
+
+	return objectPattern.findAll({
+		rule: {
+			kind: "shorthand_property_identifier_pattern"
+		}
+	});
+};
+
+/**
+ * Get the identifier from a namespace require (e.g., const util = require('util'))
+ */
+export const getRequireNamespaceIdentifier = (requireNode: SgNode): SgNode | null => {
+	// First check if the name field is an identifier (not an object_pattern)
+	const nameField = requireNode.field('name');
+	if (nameField && nameField.kind() === 'identifier') {
+		return nameField;
+	}
+	return null;
+};
