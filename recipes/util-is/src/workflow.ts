@@ -131,17 +131,14 @@ function isMethodImportedFromUtil(root: SgRoot, methodName: string): boolean {
 	// Check import statements
 	for (const importNode of importStatements) {
 		const importText = importNode.text();
-		if (importText.includes(methodName)) {
-			return true;
-		}
+		if (importText.includes(methodName)) return true;
 	}
 
 	// Check require statements
 	for (const requireNode of requireStatements) {
 		const requireText = requireNode.text();
-		if (requireText.includes(methodName)) {
-			return true;
-		}
+
+		if (requireText.includes(methodName)) return true;
 	}
 
 	return false;
@@ -229,10 +226,9 @@ function cleanupUtilImports(root: SgRoot, edits: Edit[], nonIsMethodsUsed: Set<s
 		} else if (namespaceIdentifier && nonIsMethodsUsed.size === 0) {
 			// Handle namespace requires: const util = require('util')
 			const parent = requireNode.parent();
-			if (parent){
+
+			if (parent) {
 				edits.push(parent.replace(''));
-			} else {
-				console.warn("Parent node not found for requireNode:", requireNode.text());
 			}
 		}
 	}
