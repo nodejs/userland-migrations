@@ -50,6 +50,27 @@ export default function transform(root: SgRoot): string | null {
 	// Track which methods are actually used so we can clean up imports
 	const usedMethods = new Set<string>();
 
+	// Track non util.is**() methods that are used
+	const nonIsMethodsUsed = new Set<string>();
+
+	// Check what util methods are currently being used (before any transformations)
+	const currentUtilUsages = rootNode.findAll({
+		rule: {
+			pattern: 'util.$METHOD($$$)'
+		}
+	});
+
+	// Find all util.is**() method usages and track non-is methods
+	for (const usage of currentUtilUsages) {
+		const methodMatch = usage.getMatch('METHOD');
+		if (methodMatch) {
+			const methodName = methodMatch.text();
+			if (!(methodName in replacements)) {
+				nonIsMethodsUsed.add(methodName);
+			}
+		}
+	}
+
 	// Find all util.is**() calls
 	for (const [method, replacement] of Object.entries(replacements)) {
 		// Pattern for util.isMethod(arg)
@@ -67,6 +88,7 @@ export default function transform(root: SgRoot): string | null {
 			const newCallText = replacement(argText);
 			edits.push(call.replace(newCallText));
 			hasChanges = true;
+			usedMethods.add(method); // Track namespace method usage
 		}
 
 		// Pattern for destructured calls like isArray(arg)
@@ -91,12 +113,10 @@ export default function transform(root: SgRoot): string | null {
 		}
 	}
 
-	// Clean up unused imports if any util.is**() methods have been replaced
-	if (hasChanges) {
-		cleanupUtilImports(root, edits, usedMethods);
-	}
-
 	if (!hasChanges) return null;
+
+	// Clean up unused imports if any util.is**() methods have been replaced
+	cleanupUtilImports(root, edits, nonIsMethodsUsed);
 
 	return rootNode.commitEdits(edits);
 }
@@ -129,35 +149,105 @@ function isMethodImportedFromUtil(root: SgRoot, methodName: string): boolean {
 
 /**
  * Clean up util imports by removing unused is**() methods
+ * and remove it entirely if no other methods are used.
  */
-function cleanupUtilImports(root: SgRoot, edits: Edit[], usedMethods: Set<string>): void {
-	// Clean up import statements
+function cleanupUtilImports(root: SgRoot, edits: Edit[], nonIsMethodsUsed: Set<string>): void {
 	const importStatements = getNodeImportStatements(root, 'util');
+	const requireStatements = getNodeRequireCalls(root, 'util');
+
+	// All util.is**() methods that could be imported
+	const allIsMethods = [
+		'isArray', 'isBoolean', 'isBuffer', 'isDate', 'isError', 'isFunction',
+		'isNull', 'isNullOrUndefined', 'isNumber', 'isObject', 'isPrimitive',
+		'isRegExp', 'isString', 'isSymbol', 'isUndefined'
+	];
+
+	// Process import statements
 	for (const importNode of importStatements) {
 		const importText = importNode.text();
 
-		// Check if it's a named import (destructured)
-		const namedImports = importNode.find({ rule: { kind: 'named_imports' } });
-		if (namedImports) {
-			// Check if we need to remove any methods
-			const shouldRemove = Array.from(usedMethods).some(method => importText.includes(method));
-			if (shouldRemove) {
-				// Remove the entire import statement since all methods are being replaced
+		// Handle named imports: import { isArray, isBoolean, otherMethod } from 'util'
+		const namedImportMatch = importText.match(/import\s*\{\s*([^}]+)\s*\}\s*from\s*['"`](node:)?util['"`]/);
+		if (namedImportMatch) {
+			const importedItems = namedImportMatch[1]
+				.split(',')
+				.map(item => item.trim())
+				.filter(item => item.length > 0);
+
+			// Filter out the is**() methods that were replaced
+			const remainingImports = importedItems.filter(item => {
+				return !allIsMethods.includes(item);
+			});
+
+			if (remainingImports.length === 0) {
+				// Remove the entire import statement
+				edits.push(importNode.replace(''));
+			} else if (remainingImports.length < importedItems.length) {
+				// Update the import to only include remaining methods
+				const newImportText = importText.replace(
+					namedImportMatch[1],
+					remainingImports.join(', ')
+				);
+				edits.push(importNode.replace(newImportText));
+			}
+		}
+		// Handle namespace imports: import util from 'util'
+		else if (importText.match(/import\s+\w+\s+from\s*['"`](node:)?util['"`]/)) {
+			// If no non-is**() methods are used, remove the entire import
+			if (nonIsMethodsUsed.size === 0) {
 				edits.push(importNode.replace(''));
 			}
 		}
 	}
 
-	// Clean up require statements using the utility function
-	const requireStatements = getNodeRequireCalls(root, 'util');
+	// Process require statements
 	for (const requireNode of requireStatements) {
 		const requireText = requireNode.text();
 
-		// Check if any of the used methods are in this require
-		const shouldRemove = Array.from(usedMethods).some(method => requireText.includes(method));
-		if (shouldRemove) {
-			// Remove the entire require statement
-			edits.push(requireNode.replace(''));
+		// Handle destructured requires: { isArray, isBoolean, otherMethod } = require('util')
+		const destructuredMatch = requireText.match(/\{\s*([^}]+)\s*\}\s*=\s*require\s*\(\s*['"`](node:)?util['"`]\s*\)/);
+		if (destructuredMatch) {
+			const importedItems = destructuredMatch[1]
+				.split(',')
+				.map(item => item.trim())
+				.filter(item => item.length > 0);
+
+			// Filter out the is**() methods that were replaced
+			const remainingImports = importedItems.filter(item => {
+				return !allIsMethods.includes(item);
+			});
+
+			if (remainingImports.length === 0) {
+				// Remove the entire require statement
+				const parentNode = requireNode.parent();
+				if (parentNode && (parentNode.kind() === 'variable_declaration' || parentNode.kind() === 'lexical_declaration')) {
+					edits.push(parentNode.replace(''));
+				} else {
+					// Fallback: just remove the declarator
+					edits.push(requireNode.replace(''));
+				}
+			} else if (remainingImports.length < importedItems.length) {
+				// Update the require to only include remaining methods
+				const newRequireText = requireText.replace(
+					destructuredMatch[1],
+					remainingImports.join(', ')
+				);
+				edits.push(requireNode.replace(newRequireText));
+			}
+		}
+		// Handle namespace requires: util = require('util')
+		else if (requireText.match(/\w+\s*=\s*require\s*\(\s*['"`](node:)?util['"`]\s*\)/)) {
+			// If no non-is**() methods are used, remove the entire require
+			if (nonIsMethodsUsed.size === 0) {
+				// Find the parent variable_declaration node and remove it entirely
+				const parentNode = requireNode.parent();
+				if (parentNode && (parentNode.kind() === 'variable_declaration' || parentNode.kind() === 'lexical_declaration')) {
+					edits.push(parentNode.replace(''));
+				} else {
+					// Fallback: just remove the declarator
+					edits.push(requireNode.replace(''));
+				}
+			}
 		}
 	}
 }
