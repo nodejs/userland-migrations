@@ -34,7 +34,7 @@ export default function transform(root: SgRoot): string | null {
 		'isBoolean': (arg: string) => `typeof ${arg} === 'boolean'`,
 		'isBuffer': (arg: string) => `Buffer.isBuffer(${arg})`,
 		'isDate': (arg: string) => `${arg} instanceof Date`,
-		'isError': (arg: string) => `${arg} instanceof Error`,
+		'isError': (arg: string) => `Object.prototype.toString(${arg}) === '[object Error]' || ${arg} instanceof Error `,
 		'isFunction': (arg: string) => `typeof ${arg} === 'function'`,
 		'isNull': (arg: string) => `${arg} === null`,
 		'isNullOrUndefined': (arg: string) => `${arg} == null`,
