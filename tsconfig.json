@@ -41,14 +41,13 @@
   },
   "include": [
     "./recipes/",
-    "./test",
     "./utils"
   ],
   "exclude": [
     "node_modules",
     "**/build/**",
     "**/fixtures/**",
-    "**/test/**",
+    "**/tests/**",
     "**/*.fixture.mjs",
     "**/*.fixture.mts",
     "**/*.fixture.js",
