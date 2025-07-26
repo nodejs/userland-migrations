@@ -1,5 +1,5 @@
 schema_version: "1.0"
-name: nodejs/import-assertions-to-attributes
+name: "@nodejs/import-assertions-to-attributes"
 version: 0.0.1
 description: Replace `assert` import attribute to the `with` ECMAScript import attribute.
 author: Augustin Mauroy
