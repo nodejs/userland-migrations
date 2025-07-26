@@ -18,5 +18,8 @@
   "devDependencies": {
     "@types/node": "^24.0.3",
     "@codemod.com/jssg-types": "^1.0.3"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
   }
 }
