@@ -41,7 +41,6 @@
   },
   "include": [
     "./recipes/",
-    "./test",
     "./utils"
   ],
   "exclude": [
