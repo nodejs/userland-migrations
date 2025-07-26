@@ -1,7 +1,7 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.0.0/schema.json",
   "files": {
-    "includes": ["**", "!**/*.snap.cjs", "!**/fixtures/**"]
+    "includes": ["**", "!**/*.snap.cjs", "!**/fixtures/**", "!**/expected/**", "!**/input/**"]
   },
   "assist": { "actions": { "source": { "organizeImports": "off" } } },
   // Rules for the linter
