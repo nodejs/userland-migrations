@@ -1,0 +1,21 @@
+schema_version: "1.0"
+name: @nodejs/tmpdir
+version: 0.0.1
+description: Handle DEP0022 via transforming `tmpDir` to `tmpdir`.
+author: nekojanai (Jana)
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+
+registry:
+  access: public
+  visibility: public
