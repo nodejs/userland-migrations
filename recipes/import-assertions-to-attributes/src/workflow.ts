@@ -1,4 +1,4 @@
-import type { SgRoot, Edit } from "@ast-grep/napi";
+import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
 
 /**
  * Transform function that converts import assertions to import attributes
