@@ -4,7 +4,7 @@ Thank you for your interest in contributing to this project! We welcome contribu
 
 ## Prerequisites
 
-- Node.js (specifie the version in the `.nvmrc` file)
+- Node.js (specify the version in the `.nvmrc` file)
 - npm for managing packages
 
 ## Project Structure
