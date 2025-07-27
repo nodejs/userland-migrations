@@ -32,11 +32,15 @@ describe("remove-lines", () => {
 			line 4
 		`;
 
-		const range = {
+		const range: Range = {
 			start: {
+				// @ts-ignore - @ast-grep/napi returns start.row but type expects line field
+				// TODO: Remove when https://github.com/codemod-com/codemod/pull/1655 is merged
 				row: 1,
 			},
 			end: {
+				// @ts-ignore - @ast-grep/napi returns start.row but type expects line field
+				// TODO: Remove when https://github.com/codemod-com/codemod/pull/1655 is merged
 				row: 1,
 			},
 		};
@@ -59,25 +63,32 @@ describe("remove-lines", () => {
 			line 4
 		`;
 
-		const removeLineTwo = {
+		const removeLineTwo: Range = {
 			start: {
+				// @ts-ignore - @ast-grep/napi returns start.row but type expects line field
+				// TODO: Remove when https://github.com/codemod-com/codemod/pull/1655 is merged
 				row: 1,
 			},
 			end: {
+				// @ts-ignore - @ast-grep/napi returns start.row but type expects line field
+				// TODO: Remove when https://github.com/codemod-com/codemod/pull/1655 is merged
 				row: 1,
 			},
-		} as Range;
+		};
 
 		const removeLineThree: Range = {
 			start: {
+				// @ts-ignore - @ast-grep/napi returns start.row but type expects line field
+				// TODO: Remove when https://github.com/codemod-com/codemod/pull/1655 is merged
 				row: 2,
 			},
 			end: {
+				// @ts-ignore - @ast-grep/napi returns start.row but type expects line field
+				// TODO: Remove when https://github.com/codemod-com/codemod/pull/1655 is merged
 				row: 2,
 			},
-		} as Range;
+		};
 
-		// @ts-ignore - @ast-grep/napi  need a fix on the
 		const output = removeLines(code, [removeLineTwo, removeLineThree]);
 
 		assert.strictEqual(expected, output);
@@ -98,12 +109,16 @@ describe("remove-lines", () => {
 
 		const range: Range = {
 			start: {
+				// @ts-ignore - @ast-grep/napi returns start.row but type expects line field
+				// TODO: Remove when https://github.com/codemod-com/codemod/pull/1655 is merged
 				row: 1,
 			},
 			end: {
+				// @ts-ignore - @ast-grep/napi returns start.row but type expects line field
+				// TODO: Remove when https://github.com/codemod-com/codemod/pull/1655 is merged
 				row: 2,
 			},
-		} as Range;
+		};
 
 		const output = removeLines(code, [range]);
 

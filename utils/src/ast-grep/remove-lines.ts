@@ -5,11 +5,12 @@ export function removeLines(sourceCode: string, ranges: Range[]) {
 
 	let removeCounter = 0;
 	for (const range of ranges) {
-		// @ts-ignore - @ast-grep/napi is returning start.row, but the type says the field need to be
-		// line
+		// @ts-ignore - @ast-grep/napi returns start.row but type expects line field
+		// TODO: Remove when https://github.com/codemod-com/codemod/pull/1655 is merged
 		const start = range.start.row - removeCounter;
 
-		// @ts-ignore - @ast-grep/napi types are outdated
+		// @ts-ignore - @ast-grep/napi returns start.row but type expects line field
+		// TODO: Remove when https://github.com/codemod-com/codemod/pull/1655 is merged
 		const end = range.end.row - removeCounter;
 
 		const removedLines = lines.splice(start, end - start + 1);
