@@ -1,7 +1,7 @@
 {
   "name": "@nodejs/rmdir",
-  "version": "0.0.1",
-  "description": "Handle DEP0147 via transforming `fs.rmdir` to `fs.rm`` with the appropriate options.",
+  "version": "1.0.0",
+  "description": "Handle DEP0147 via transforming `fs.rmdir` to `fs.rm` with the appropriate options.",
   "type": "module",
   "scripts": {
     "test": "npx codemod@next jssg test -l typescript ./src/workflow.ts ./"

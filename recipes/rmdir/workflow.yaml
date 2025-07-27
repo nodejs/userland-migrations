@@ -19,7 +19,7 @@ nodes:
             - "**/*.cts"
             - "**/*.mts"
             - "**/*.ts"
-            - "**/*.tsx
+            - "**/*.tsx"
           exclude:
             - "**/node_modules/**"
           language: typescript
