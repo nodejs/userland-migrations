@@ -176,9 +176,178 @@ function isLikelyFileDescriptor(param: string, rootNode: SgNode<Js>): boolean {
   // Check if it's a numeric literal
   if (/^\d+$/.test(param.trim())) return true;
 
-  // Search for variable declarations that might assign a file descriptor
-  // such as `const fd = fs.openSync(...)` or `open(..., (err, fd) => ...)`
-  const variableDeclarators = rootNode.findAll({
+  // Check if parameter is in a callback context
+  if (isInCallbackContext(param, rootNode)) return true;
+
+  // Check if there's a variable in scope that assigns a file descriptor
+  if (hasFileDescriptorVariable(param, rootNode)) return true;
+
+  // If we didn't find any indicators, assume it's not a file descriptor
+  return false;
+}
+
+/**
+ * Check if the parameter is used inside a callback context from fs.open
+ * @param param The parameter name to check
+ * @param rootNode The root node of the AST
+ */
+function isInCallbackContext(param: string, rootNode: SgNode<Js>): boolean {
+  // Find all uses of the parameter
+  const parameterUsages = rootNode.findAll({
+    rule: {
+      kind: "identifier",
+      regex: `^${param}$`
+    }
+  });
+
+  for (const usage of parameterUsages) {
+    // Check if this usage is inside a callback parameter list for fs.open
+    const isInFsOpenCallback = usage.inside({
+      rule: {
+        kind: "call_expression",
+        all: [
+          {
+            has: {
+              field: "function",
+              kind: "member_expression",
+              all: [
+                {
+                  has: {
+                    field: "object",
+                    kind: "identifier",
+                    regex: "^fs$"
+                  }
+                },
+                {
+                  has: {
+                    field: "property",
+                    kind: "property_identifier",
+                    regex: "^open$"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            has: {
+              field: "arguments",
+              kind: "arguments",
+              has: {
+                any: [
+                  {
+                    kind: "arrow_function",
+                    has: {
+                      field: "parameters",
+                      kind: "formal_parameters",
+                      has: {
+												// @ts-ignore - jssg-types arren't happy but jssg work with type_error
+                        kind: "required_parameter",
+                        has: {
+                          field: "pattern",
+                          kind: "identifier",
+                          regex: `^${param}$`
+                        }
+                      }
+                    }
+                  },
+                  {
+                    kind: "function_expression",
+                    has: {
+                      field: "parameters",
+                      kind: "formal_parameters",
+                      has: {
+												// @ts-ignore - jssg-types arren't happy but jssg work with type_error
+                        kind: "required_parameter",
+                        has: {
+                          field: "pattern",
+                          kind: "identifier",
+                          regex: `^${param}$`
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    });
+
+    // Check if this usage is inside a callback parameter list for destructured open
+    const isInDestructuredOpenCallback = usage.inside({
+      rule: {
+        kind: "call_expression",
+        all: [
+          {
+            has: {
+              field: "function",
+              kind: "identifier",
+              regex: "^open$"
+            }
+          },
+          {
+            has: {
+              field: "arguments",
+              kind: "arguments",
+              has: {
+                any: [
+                  {
+                    kind: "arrow_function",
+                    has: {
+                      field: "parameters",
+                      kind: "formal_parameters",
+                      has: {
+												// @ts-ignore - jssg-types arren't happy but jssg work with type_error
+                        kind: "required_parameter",
+                        has: {
+                          field: "pattern",
+                          kind: "identifier",
+                          regex: `^${param}$`
+                        }
+                      }
+                    }
+                  },
+                  {
+                    kind: "function_expression",
+                    has: {
+                      field: "parameters",
+                      kind: "formal_parameters",
+                      has: {
+												// @ts-ignore - jssg-types arren't happy but jssg work with type_error
+                        kind: "required_parameter",
+                        has: {
+                          field: "pattern",
+                          kind: "identifier",
+                          regex: `^${param}$`
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    });
+
+    if (isInFsOpenCallback || isInDestructuredOpenCallback) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Check if there's a variable in scope that assigns a file descriptor value
+ * @param param The parameter name to check
+ * @param rootNode The root node of the AST
+ */
+function hasFileDescriptorVariable(param: string, rootNode: SgNode<Js>): boolean {
+  // Search for variable declarations that assign from fs.openSync
+  const syncVariableDeclarators = rootNode.findAll({
     rule: {
       kind: "variable_declarator",
       all: [
@@ -195,21 +364,29 @@ function isLikelyFileDescriptor(param: string, rootNode: SgNode<Js>): boolean {
             kind: "call_expression",
             has: {
               field: "function",
-              kind: "member_expression",
-              all: [
+              any: [
                 {
-                  has: {
-                    field: "object",
-                    kind: "identifier",
-                    regex: "^fs$"
-                  }
+                  kind: "member_expression",
+                  all: [
+                    {
+                      has: {
+                        field: "object",
+                        kind: "identifier",
+                        regex: "^fs$"
+                      }
+                    },
+                    {
+                      has: {
+                        field: "property",
+                        kind: "property_identifier",
+                        regex: "^openSync$"
+                      }
+                    }
+                  ]
                 },
                 {
-                  has: {
-                    field: "property",
-                    kind: "property_identifier",
-                    regex: "^(open|openSync)$"
-                  }
+                  kind: "identifier",
+                  regex: "^openSync$"
                 }
               ]
             }
@@ -219,40 +396,51 @@ function isLikelyFileDescriptor(param: string, rootNode: SgNode<Js>): boolean {
     }
   });
 
-  if (variableDeclarators.length > 0) return true;
+  if (syncVariableDeclarators.length > 0) return true;
 
-  // Check if the parameter appears as a callback parameter in fs.open calls
-  // Pattern: open(..., (err, fd) => ...)
-  const callbackParameters = rootNode.findAll({
+  // Search for assignment expressions that assign from fs.openSync
+  const syncAssignments = rootNode.findAll({
     rule: {
-      kind: "call_expression",
+      kind: "assignment_expression",
       all: [
         {
           has: {
-            field: "function",
+            field: "left",
             kind: "identifier",
-            regex: "^open$"
+            regex: `^${param}$`
           }
         },
         {
           has: {
-            field: "arguments",
-            kind: "arguments",
+            field: "right",
+            kind: "call_expression",
             has: {
-              kind: "arrow_function",
-              has: {
-                field: "parameters",
-                kind: "formal_parameters",
-                has: {
-									// @ts-ignore - idk what happend here maybe a bug in infering `Js` type
-                  kind: "required_parameter",
-                  has: {
-                    field: "pattern",
-                    kind: "identifier",
-                    regex: `^${param}$`
-                  }
+              field: "function",
+              any: [
+                {
+                  kind: "member_expression",
+                  all: [
+                    {
+                      has: {
+                        field: "object",
+                        kind: "identifier",
+                        regex: "^fs$"
+                      }
+                    },
+                    {
+                      has: {
+                        field: "property",
+                        kind: "property_identifier",
+                        regex: "^openSync$"
+                      }
+                    }
+                  ]
+                },
+                {
+                  kind: "identifier",
+                  regex: "^openSync$"
                 }
-              }
+              ]
             }
           }
         }
@@ -260,63 +448,40 @@ function isLikelyFileDescriptor(param: string, rootNode: SgNode<Js>): boolean {
     }
   });
 
-  if (callbackParameters.length > 0) return true;
+  if (syncAssignments.length > 0) return true;
 
-  // Check for fs.open callback patterns as well
-  const fsOpenCallbacks = rootNode.findAll({
+  // Check if the variable is assigned from another variable that's a file descriptor
+  const variableAssignments = rootNode.findAll({
     rule: {
-      kind: "call_expression",
+      kind: "variable_declarator",
       all: [
         {
           has: {
-            field: "function",
-            kind: "member_expression",
-            all: [
-              {
-                has: {
-                  field: "object",
-                  kind: "identifier",
-                  regex: "^fs$"
-                }
-              },
-              {
-                has: {
-                  field: "property",
-                  kind: "property_identifier",
-                  regex: "^open$"
-                }
-              }
-            ]
+            field: "name",
+            kind: "identifier",
+            regex: `^${param}$`
           }
         },
         {
           has: {
-            field: "arguments",
-            kind: "arguments",
-            has: {
-              kind: "arrow_function",
-              has: {
-                field: "parameters",
-                kind: "formal_parameters",
-                has: {
-									// @ts-ignore - idk what happend here maybe a bug in infering `Js` type
-                  kind: "required_parameter",
-                  has: {
-                    field: "pattern",
-                    kind: "identifier",
-                    regex: `^${param}$`
-                  }
-                }
-              }
-            }
+            field: "value",
+            kind: "identifier"
           }
         }
       ]
     }
   });
 
-  if (fsOpenCallbacks.length > 0) return true;
+  for (const assignment of variableAssignments) {
+    const valueNode = assignment.field("value");
+    if (valueNode) {
+      const sourceVar = valueNode.text();
+      // Recursively check if the source variable is a file descriptor
+      if (hasFileDescriptorVariable(sourceVar, rootNode)) {
+        return true;
+      }
+    }
+  }
 
-  // If we didn't find any indicators, assume it's not a file descriptor
   return false;
 }
