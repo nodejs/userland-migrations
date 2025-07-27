@@ -346,8 +346,77 @@ function isInCallbackContext(param: string, rootNode: SgNode<Js>): boolean {
  * @param rootNode The root node of the AST
  */
 function hasFileDescriptorVariable(param: string, rootNode: SgNode<Js>): boolean {
-  // Search for variable declarations that assign from fs.openSync
-  const syncVariableDeclarators = rootNode.findAll({
+  // Find all usages of the parameter to understand the context
+  const parameterUsages = rootNode.findAll({
+    rule: {
+      kind: "identifier",
+      regex: `^${param}$`
+    }
+  });
+
+  // For each usage, check if there's a variable declaration in scope
+  for (const usage of parameterUsages) {
+    // Check if this usage is in a truncate call context
+    const isInTruncateCall = usage.inside({
+      rule: {
+        any: [
+          { pattern: "fs.truncate($FD, $LEN, $CALLBACK)" },
+          { pattern: "fs.truncate($FD, $LEN)" },
+          { pattern: "truncate($FD, $LEN, $CALLBACK)" },
+          { pattern: "truncate($FD, $LEN)" },
+          { pattern: "fs.truncateSync($FD, $LEN)" },
+          { pattern: "truncateSync($FD, $LEN)" }
+        ]
+      }
+    });
+
+    if (!isInTruncateCall) continue;
+
+    // Find the scope containing this usage
+    const scope = findContainingScope(usage);
+    if (!scope) continue;
+
+    // Search for variable declarations within this scope
+    if (hasFileDescriptorVariableInScope(param, scope)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Find the containing scope (function, block, or program) for a given node
+ * @param node The node to find the scope for
+ */
+function findContainingScope(node: SgNode<Js>): SgNode<Js> | null {
+  let current = node.parent();
+
+  while (current) {
+    const kind = current.kind();
+    // These are scope-creating nodes in JavaScript
+    if (kind === "program" ||
+        kind === "function_declaration" ||
+        kind === "function_expression" ||
+        kind === "arrow_function" ||
+        kind === "method_definition" ||
+        kind === "statement_block") {
+      return current;
+    }
+    current = current.parent();
+  }
+
+  return null;
+}
+
+/**
+ * Check if there's a file descriptor variable declaration within a specific scope
+ * @param param The parameter name to check
+ * @param scope The scope node to search within
+ */
+function hasFileDescriptorVariableInScope(param: string, scope: SgNode<Js>): boolean {
+  // Search for variable declarations that assign from fs.openSync within this scope
+  const syncVariableDeclarators = scope.findAll({
     rule: {
       kind: "variable_declarator",
       all: [
@@ -398,8 +467,8 @@ function hasFileDescriptorVariable(param: string, rootNode: SgNode<Js>): boolean
 
   if (syncVariableDeclarators.length > 0) return true;
 
-  // Search for assignment expressions that assign from fs.openSync
-  const syncAssignments = rootNode.findAll({
+  // Search for assignment expressions that assign from fs.openSync within this scope
+  const syncAssignments = scope.findAll({
     rule: {
       kind: "assignment_expression",
       all: [
@@ -450,8 +519,8 @@ function hasFileDescriptorVariable(param: string, rootNode: SgNode<Js>): boolean
 
   if (syncAssignments.length > 0) return true;
 
-  // Check if the variable is assigned from another variable that's a file descriptor
-  const variableAssignments = rootNode.findAll({
+  // Check if the variable is assigned from another variable that's a file descriptor within this scope
+  const variableAssignments = scope.findAll({
     rule: {
       kind: "variable_declarator",
       all: [
@@ -476,12 +545,42 @@ function hasFileDescriptorVariable(param: string, rootNode: SgNode<Js>): boolean
     const valueNode = assignment.field("value");
     if (valueNode) {
       const sourceVar = valueNode.text();
-      // Recursively check if the source variable is a file descriptor
-      if (hasFileDescriptorVariable(sourceVar, rootNode)) {
+      // Recursively check if the source variable is a file descriptor within the same scope
+      if (hasFileDescriptorVariableInScope(sourceVar, scope)) {
         return true;
       }
     }
   }
 
+  // If not found in current scope, check parent scopes (for closure/lexical scoping)
+  const parentScope = findParentScope(scope);
+  if (parentScope) {
+    return hasFileDescriptorVariableInScope(param, parentScope);
+  }
+
   return false;
+}
+
+/**
+ * Find the parent scope of a given scope node
+ * @param scope The current scope node
+ */
+function findParentScope(scope: SgNode<Js>): SgNode<Js> | null {
+  let current = scope.parent();
+
+  while (current) {
+    const kind = current.kind();
+    // These are scope-creating nodes in JavaScript
+    if (kind === "program" ||
+        kind === "function_declaration" ||
+        kind === "function_expression" ||
+        kind === "arrow_function" ||
+        kind === "method_definition" ||
+        kind === "statement_block") {
+      return current;
+    }
+    current = current.parent();
+  }
+
+  return null;
 }
