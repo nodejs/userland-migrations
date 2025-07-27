@@ -1,6 +1,6 @@
 schema_version: "1.0"
-name: nodejs/create-require-from-path
-version: 0.0.1
+name: "@nodejs/create-require-from-path"
+version: 1.0.0
 description: Handle DEP0130 via transforming `createRequireFromPath` to `createRequire`.
 author: Augustin Mauroy
 license: MIT
