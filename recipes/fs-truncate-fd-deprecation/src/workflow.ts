@@ -169,7 +169,6 @@ export default function transform(root: SgRoot<Js>): string | null {
 /**
  * Helper function to determine if a parameter is likely a file descriptor
  * rather than a file path string.
- * @todo(@AugustinMauroy): use more AST than regex for this function.
  * @param param The parameter to check (e.g., 'fd').
  * @param rootNode The root node of the AST to search within.
  */
@@ -177,27 +176,147 @@ function isLikelyFileDescriptor(param: string, rootNode: SgNode<Js>): boolean {
   // Check if it's a numeric literal
   if (/^\d+$/.test(param.trim())) return true;
 
-  // Simple check: if the parameter appears in an `openSync` assignment, it's likely a file descriptor
-  const sourceText = rootNode.text();
+  // Search for variable declarations that might assign a file descriptor
+  // such as `const fd = fs.openSync(...)` or `open(..., (err, fd) => ...)`
+  const variableDeclarators = rootNode.findAll({
+    rule: {
+      kind: "variable_declarator",
+      all: [
+        {
+          has: {
+            field: "name",
+            kind: "identifier",
+            regex: `^${param}$`
+          }
+        },
+        {
+          has: {
+            field: "value",
+            kind: "call_expression",
+            has: {
+              field: "function",
+              kind: "member_expression",
+              all: [
+                {
+                  has: {
+                    field: "object",
+                    kind: "identifier",
+                    regex: "^fs$"
+                  }
+                },
+                {
+                  has: {
+                    field: "property",
+                    kind: "property_identifier",
+                    regex: "^(open|openSync)$"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  });
 
-  // Look for patterns like "const fd = openSync(...)" or "const fd = fs.openSync(...)"
-  const openSyncPattern = new RegExp(`(?:const|let|var)\\s+${param}\\s*=\\s*(?:fs\\.)?openSync\\s*\\(`, 'g');
+  if (variableDeclarators.length > 0) return true;
 
-  if (openSyncPattern.test(sourceText)) return true;
+  // Check if the parameter appears as a callback parameter in fs.open calls
+  // Pattern: open(..., (err, fd) => ...)
+  const callbackParameters = rootNode.findAll({
+    rule: {
+      kind: "call_expression",
+      all: [
+        {
+          has: {
+            field: "function",
+            kind: "identifier",
+            regex: "^open$"
+          }
+        },
+        {
+          has: {
+            field: "arguments",
+            kind: "arguments",
+            has: {
+              kind: "arrow_function",
+              has: {
+                field: "parameters",
+                kind: "formal_parameters",
+                has: {
+									// @ts-ignore - idk what happend here maybe a bug in infering `Js` type
+                  kind: "required_parameter",
+                  has: {
+                    field: "pattern",
+                    kind: "identifier",
+                    regex: `^${param}$`
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  });
 
-  // Look for patterns where the parameter is used in an open callback
-  // This handles cases like: open('file', (err, fd) => { truncate(fd, ...) })
-  const callbackPattern = new RegExp(`\\(\\s*(?:err|error)\\s*,\\s*${param}\\s*\\)\\s*=>`, 'g');
+  if (callbackParameters.length > 0) return true;
 
-	if (callbackPattern.test(sourceText)) return true;
+  // Check for fs.open callback patterns as well
+  const fsOpenCallbacks = rootNode.findAll({
+    rule: {
+      kind: "call_expression",
+      all: [
+        {
+          has: {
+            field: "function",
+            kind: "member_expression",
+            all: [
+              {
+                has: {
+                  field: "object",
+                  kind: "identifier",
+                  regex: "^fs$"
+                }
+              },
+              {
+                has: {
+                  field: "property",
+                  kind: "property_identifier",
+                  regex: "^open$"
+                }
+              }
+            ]
+          }
+        },
+        {
+          has: {
+            field: "arguments",
+            kind: "arguments",
+            has: {
+              kind: "arrow_function",
+              has: {
+                field: "parameters",
+                kind: "formal_parameters",
+                has: {
+									// @ts-ignore - idk what happend here maybe a bug in infering `Js` type
+                  kind: "required_parameter",
+                  has: {
+                    field: "pattern",
+                    kind: "identifier",
+                    regex: `^${param}$`
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  });
 
+  if (fsOpenCallbacks.length > 0) return true;
 
-  // Look for function callback patterns
-  const functionCallbackPattern = new RegExp(`function\\s*\\(\\s*(?:err|error)\\s*,\\s*${param}\\s*\\)`, 'g');
-
-  if (functionCallbackPattern.test(sourceText)) return true;
-
-  // Conservative approach: if we can't determine it's a file descriptor,
-  // assume it's a file path to avoid breaking valid path-based truncate calls
+  // If we didn't find any indicators, assume it's not a file descriptor
   return false;
 }
