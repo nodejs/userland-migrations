@@ -1,5 +1,5 @@
 {
-  "name": "@nodejs/fs-truncate-fd-depreciation",
+  "name": "@nodejs/fs-truncate-fd-deprecation",
   "version": "0.0.1",
   "description": "Handle DEP0081 via transforming `truncate` to `ftruncateSync` when using a file descriptor.",
   "type": "module",
@@ -9,12 +9,12 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nodejs/userland-migrations.git",
-    "directory": "recipes/fs-truncate-fd-depreciation",
+    "directory": "recipes/fs-truncate-fd-deprecation",
     "bugs": "https://github.com/nodejs/userland-migrations/issues"
   },
   "author": "Augustin Mauroy",
   "license": "MIT",
-  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/fs-truncate-fd-depreciation/README.md",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/fs-truncate-fd-deprecation/README.md",
   "devDependencies": {
     "@codemod.com/jssg-types": "^1.0.3"
   },
