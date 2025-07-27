@@ -60,6 +60,7 @@ export default function transform(root: SgRoot): string | null {
 				const restDeclarations = declarations
 					.map((d) => d.text())
 					.filter((d) => d !== "mainModule");
+
 				edits.push(objectPattern.replace(`{ ${restDeclarations.join(", ")} }`));
 			}
 		}
@@ -68,7 +69,14 @@ export default function transform(root: SgRoot): string | null {
 	// Step 3: Replace all code references:
 	const nodes = rootNode.findAll({
 		rule: {
-			pattern: "process.mainModule",
+			any: [
+				{
+					pattern: "process.mainModule",
+				},
+				{
+					pattern: "mainModule",
+				},
+			],
 		},
 	});
 
