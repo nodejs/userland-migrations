@@ -28,7 +28,7 @@ Each codemod is defined in a directory under `recipes/`. The directory should co
 
 **`workflow.ts`** example:
 ```ts
-import type { SgRoot, Edit } from "@ast-grep/napi";
+import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
 
 /**
  * Transform function that converts deprecated api.fn calls
