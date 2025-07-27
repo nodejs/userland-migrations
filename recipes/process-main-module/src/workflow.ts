@@ -3,7 +3,9 @@ import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call
 import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
 
 /**
- * Transforms the usage of `process.mainModule` to use the `require.main`. *
+ * Transforms `process.mainModule` usage to `require.main`. Handles direct global access
+ * with `process.mainModule` or `require("node:process")` imports, as `mainModule` is CJS-only.
+ *
  *
  * Handles:
  * 1. Find all destructuring require statements from 'node:process' module that import 'mainModule'
@@ -49,9 +51,9 @@ export default function transform(root: SgRoot): string | null {
 					},
 				});
 				linesToRemove.push(declarationNode.range());
-				nodes.forEach((node) => {
+				for (const node of nodes) {
 					edits.push(node.replace("require.main"));
-				});
+				}
 			}
 
 			if (declarations.length > 1) {
@@ -70,9 +72,9 @@ export default function transform(root: SgRoot): string | null {
 		},
 	});
 
-	nodes.forEach((node) => {
+	for (const node of nodes) {
 		edits.push(node.replace("require.main"));
-	});
+	}
 
 	let sourceCode = rootNode.commitEdits(edits);
 	sourceCode = removeLines(sourceCode, linesToRemove);
