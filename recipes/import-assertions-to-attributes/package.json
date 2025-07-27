@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/import-assertions-to-attributes",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Replace `assert` import attribute to the `with` ECMAScript import attribute.",
   "type": "module",
   "scripts": {
