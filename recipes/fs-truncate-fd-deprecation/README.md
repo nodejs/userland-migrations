@@ -31,3 +31,8 @@ open('file.txt', 'w', (err, fd) => {
   });
 });
 ```
+
+## Caveats
+
+When using `const fd = fs.openSync('file.txt', 'w');`, the codemod don't care about scope and will always transform `fs.truncate(fd, 10)` to `fs.ftruncateSync(fd, 10)`. So if you have mutiple variables with the same name, you should be careful with the transformation.
+
