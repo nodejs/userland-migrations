@@ -22,6 +22,11 @@ export default function transform(root: SgRoot): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
+	const patternsToReplace = [
+		{
+			pattern: "process.mainModule",
+		},
+	];
 
 	// @ts-ignore - ast-grep types are not fully compatible with JSSG types
 	const requireDeclarations = getNodeRequireCalls(root, "process");
@@ -61,6 +66,10 @@ export default function transform(root: SgRoot): string | null {
 					.map((d) => d.text())
 					.filter((d) => d !== "mainModule");
 
+				patternsToReplace.push({
+					pattern: "mainModule",
+				});
+
 				edits.push(objectPattern.replace(`{ ${restDeclarations.join(", ")} }`));
 			}
 		}
@@ -69,14 +78,7 @@ export default function transform(root: SgRoot): string | null {
 	// Step 3: Replace all code references:
 	const nodes = rootNode.findAll({
 		rule: {
-			any: [
-				{
-					pattern: "process.mainModule",
-				},
-				{
-					pattern: "mainModule",
-				},
-			],
+			any: patternsToReplace,
 		},
 	});
 
