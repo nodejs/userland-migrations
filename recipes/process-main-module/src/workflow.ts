@@ -31,7 +31,20 @@ export default function transform(root: SgRoot): string | null {
 	// @ts-ignore - ast-grep types are not fully compatible with JSSG types
 	const requireDeclarations = getNodeRequireCalls(root, "process");
 
-	for (const declarationNode of requireDeclarations) {
+	const destructureDeclarations = rootNode.findAll({
+		rule: {
+			kind: "lexical_declaration",
+			has: {
+				kind: "variable_declarator",
+				has: {
+					kind: "identifier",
+					regex: "process",
+				},
+			},
+		},
+	});
+
+	for (const declarationNode of [...requireDeclarations, ...destructureDeclarations]) {
 		// Step 1: Get all requires from module nodule:process that is destructuring mainModule:
 		if (declarationNode.text().includes("mainModule")) {
 			const objectPattern = declarationNode.find({
