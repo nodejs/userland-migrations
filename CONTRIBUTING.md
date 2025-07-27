@@ -1,35 +1,47 @@
-# Contributing
+# Contributing to Node.js Userland Migration
 
-Thank you for your interest in contributing to this project! We welcome contributions from the community. Please follow these guidelines to ensure a smooth contribution process.
+Thank you for your interest in contributing to this project! We value contributions from the community and want to make the process as smooth as possible.
 
-## Prerequisites
+## Getting Started
 
-- Node.js (specify the version in the `.nvmrc` file)
-- npm for managing packages
+### Prerequisites
 
-## Project Structure
+Before you begin, ensure you have the following installed:
 
-The project is structured as follows:
+### Project Overview
 
-- `recipes/`: is where the codemod are stored.
-- `utils`: is a npm workspace that contains utility functions used by the codemods like `ast-grep` utilities.
+Our codebase is organized as follows:
 
-### A codemod structure
+- `.github/`: Contains GitHub files like issue templates and workflows
+- `recipes/`: Contains all the codemods
+- `utils/`: An npm workspace with utility functions used by the codemods (including [ast-grep](https://ast-grep.github.io/) utilities)
 
-Each codemod is defined in a directory under `recipes/`. The directory should contain:
+## Codemod Development
 
-- `README.md` - A description of the codemod, its purpose, and how to use it.
-- `package.json` - The package manifest for the codemod.
-- `src/workflow.ts` - The main entry point for the codemod. That uses `jssg` codemod API to define the transformation logic. [codemod docs](https://docs.codemod.com/cli/cli-reference#codemod%40next-jssg)
-- `codemod.yml` -  The codemod manifest file
-- `workflow.yml` - The workflow definition file that defines the codemod's workflow. [workflow docs](https://docs.codemod.com/cli/workflows)
-- `test/` - Contains tests for the codemod. Tests should be written using the `jssg` testing utilities. [codemod docs](https://docs.codemod.com/cli/cli-reference#codemod%40next-jssg)
-- `tsconfig.json` - TypeScript configuration file for the codemod and your IDEs.
+### Structure of a Codemod
 
-**`workflow.ts`** example:
+Each codemod resides in its own directory under `recipes/` and should include:
+
+| File | Purpose |
+|------|---------|
+| `README.md` | Description, purpose, and usage instructions |
+| `package.json` | Package manifest |
+| `src/workflow.ts` | Main entry point using the `jssg` codemod API |
+| `codemod.yml` | Codemod manifest file |
+| `workflow.yml` | Workflow definition file |
+| `tests/` | Test suite using `jssg` testing utilities |
+| `tsconfig.json` | TypeScript configuration |
+| `README.md` | Description, purpose, and usage instructions |
+| `package.json` | Package manifest |
+| `src/workflow.ts` | Main entry point using the `jssg` codemod API |
+| `codemod.yml` | Codemod manifest file |
+| `workflow.yml` | Workflow definition file |
+| `tests/` | Test suite using `jssg` testing utilities |
+| `tsconfig.json` | TypeScript configuration |
+### Example Files
+**`src/workflow.ts` example:**
 ```ts
 import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
-
 /**
  * Transform function that converts deprecated api.fn calls
  * to the new api.fn syntax.
@@ -43,16 +55,12 @@ export default function transform(root: SgRoot): string | null {
 	const rootNode = root.root();
 	let hasChanges = false;
 	const edits: Edit[] = [];
-
 	// do some transformation
-
 	if (!hasChanges) return null;
-
 	return rootNode.commitEdits(edits);
 }
 ```
-
-**`codemod.yml`** example:
+**`codemod.yml` example:**
 ```yaml
 schema_version: "1.0"
 name: "@nodejs/<codemod-name>"
@@ -62,23 +70,25 @@ author: <Your Name>
 license: MIT
 workflow: workflow.yaml
 category: migration
-
 targets:
   languages:
     - javascript
     - typescript
-
 keywords:
   - transformation
   - migration
-
 registry:
   access: public
   visibility: public
 ```
 
-> [!TIPS]
-> To iterate quickly with codemods, you can use their [codemod studio](https://docs.codemod.com/codemod-studio)
+## Useful Resources
+
+- [Codemod CLI Reference](https://docs.codemod.com/cli/cli-reference)
+- [Codemod Workflow Documentation](https://docs.codemod.com/cli/workflows)
+- [Codemod Studio Documentation](https://docs.codemod.com/codemod-studio)
+- [JSSG API Reference](https://docs.codemod.com/cli/cli-reference#cli-command-reference)
+- [AST-grep Documentation](https://ast-grep.github.io/)
 
 ## Before pushing a commit
 
@@ -87,23 +97,53 @@ A convenient superset of checks is available via `node --run pre-commit`, which 
 > [!WARNING]
 > Some integration tests modify fixtures because they run the entire codemod. Remember to use the `git restore` command to restore these files before pushing a commit.
 
-## Commit Messages
+## Development Workflow
 
-Please follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification for commit messages. This helps in generating changelogs and understanding the history of changes.
+### Before Pushing a Commit
 
-## Pull Requests
+Run our comprehensive check suite:
 
-When submitting a pull request, please ensure that:
-- Your changes are well-documented.
-- You have run all tests and they pass.
-- Your code adheres to the project's coding standards (use `node --run pre-commit` to check this).
-- The pull request description clearly explains the changes and their purpose and it's use [conventional commit](https://www.conventionalcommits.org/en/v1.0.0/) format.
+```bash
+node --run pre-commit
+```
+
+This will:
+- Fix formatting and safe linting issues automatically
+- Check types
+- Run tests
+Be sure to commit any changes resulting from these automated fixes.
+
+> [!WARNING]
+> Some integration tests modify fixtures as they run the entire codemod. Remember to use `git restore` to revert these files before committing.
+
+### Commit Messages
+
+Please follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification for your commit messages. This helps with:
+
+- Automatic changelog generation
+- Understanding the history of changes
+- Semantic versioning
+
+Examples:
+- `feat: add new node.js 18 migration codemod`
+- `fix: correct type checking in ESM migration`
+- `docs: improve usage examples`
+
+## Pull Request Process
+
+When submitting a pull request:
+1. Ensure your changes are well-documented
+2. Run all tests (`node --run pre-commit`)
+3. Follow the project's coding standards
+4. Use the [conventional commit](https://www.conventionalcommits.org/en/v1.0.0/) format in your PR title and description
+5. Link to any related issues
 
 ### Acceptance Criteria
 
-- At least 2 reviewers have approved the pull request.
-- All tests pass.
-- At least 48 hours have passed since the pull request was opened, allowing time for review and discussion.
+For a pull request to be merged, it must:
+- Receive approval from at least 2 reviewers
+- Pass all tests
+- Be open for at least 48 hours to allow for review and discussion
 
 ### Developer's Certificate of Origin 1.1
 
