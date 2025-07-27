@@ -1,21 +1,84 @@
 # Contributing
 
-A recipe generally has a few things:
+Thank you for your interest in contributing to this project! We welcome contributions from the community. Please follow these guidelines to ensure a smooth contribution process.
 
-* A `README.md` explaining its purpose and use (including any options, and required and optional
-files).
-* Tests via node's test runner (min coverage: 80%)
-  * unit tests
-  * end-to-end test(s) for accepted use-cases
-  * a `test` command in `package.json`; there may be sub-commands like `test:unit` & `test:e2e`, but there must be a parent that combines them.
-    * Include `--import='@nodejs/codemod-utils/snapshots` to standardise the filename (`${original_base_name}.snap.cjs`) across recipes.
-    * Ensure `--test-coverage-include` and `--test-coverage-exclude` are set correctly for the recipe's workspace. The root repo handles setting coverage rules like minimum line coverage.
-* Code comments (js docs, etc)
-* Types (either via typescript or jsdoc)
+## Prerequisites
 
-CI will run lint & type checking and all included test files against all PRs.
+- Node.js (specifie the version in the `.nvmrc` file)
+- npm for managing packages
 
-New recipes are added under `./recipes` in their own folder, succinctly named for what they do. General-purpose recipes have simple names like `correct-ts-specifiers`. A suite of migrations has a name like `migrate from 18 to 20`, and more specific migrations are named like `migrate-fs-readFile-from-18-to-20`.
+## Project Structure
+
+The project is structured as follows:
+
+- `recipes/`: is where the codemod are stored.
+- `utils`: is a npm workspace that contains utility functions used by the codemods like `ast-grep` utilities.
+
+### A codemod structure
+
+Each codemod is defined in a directory under `recipes/`. The directory should contain:
+
+- `README.md` - A description of the codemod, its purpose, and how to use it.
+- `package.json` - The package manifest for the codemod.
+- `src/workflow.ts` - The main entry point for the codemod. That uses `jssg` codemod API to define the transformation logic. [codemod docs](https://docs.codemod.com/cli/cli-reference#codemod%40next-jssg)
+- `codemod.yml` -  The codemod manifest file
+- `workflow.yml` - The workflow definition file that defines the codemod's workflow. [workflow docs](https://docs.codemod.com/cli/workflows)
+- `test/` - Contains tests for the codemod. Tests should be written using the `jssg` testing utilities. [codemod docs](https://docs.codemod.com/cli/cli-reference#codemod%40next-jssg)
+- `tsconfig.json` - TypeScript configuration file for the codemod and your IDEs.
+
+**`workflow.ts`** example:
+```ts
+import type { SgRoot, Edit } from "@ast-grep/napi";
+
+/**
+ * Transform function that converts deprecated api.fn calls
+ * to the new api.fn syntax.
+ *
+ * Handles:
+ * 1. api.fn(<args>)
+ * 2. api.fn(<args>, { recursive: true })
+ * ...
+ */
+export default function transform(root: SgRoot): string | null {
+	const rootNode = root.root();
+	let hasChanges = false;
+	const edits: Edit[] = [];
+
+	// do some transformation
+
+	if (!hasChanges) return null;
+
+	return rootNode.commitEdits(edits);
+}
+```
+
+**`codemod.yml`** example:
+```yaml
+schema_version: "1.0"
+name: "@nodejs/<codemod-name>"
+version: 0.0.1
+description: <Your codemod description>
+author: <Your Name>
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+
+registry:
+  access: public
+  visibility: public
+```
+
+> [!TIPS]
+> To iterate quickly with codemods, you can use their [codemod studio](https://docs.codemod.com/codemod-studio)
 
 ## Before pushing a commit
 
