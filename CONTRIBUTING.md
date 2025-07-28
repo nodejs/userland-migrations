@@ -6,7 +6,10 @@ Thank you for your interest in contributing to this project! We value contributi
 
 ### Prerequisites
 
-Before you begin, ensure you have the following installed:
+Before you begin, ensure you have the current versions of the following installed:
+
+* node
+* npm
 
 - Node.js (`.nvmrc` is set so you can use your favorite Node.js version)
 - npm (for development dependencies)
