@@ -1,6 +1,6 @@
-# `createRequireFromPath` DEP0130
+# `createRequireFromPath` DEP0138
 
-This recipe transforms the usage of `process.mainModule` to use the `require.main`.
+This recipe transforms the usage of `process.mainModule` to use `require.main` in CommonJS modules.
 
 See [DEP0138](https://nodejs.org/api/deprecations.html#DEP0138).
 
