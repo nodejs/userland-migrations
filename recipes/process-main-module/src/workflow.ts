@@ -62,26 +62,21 @@ export default function transform(root: SgRoot): string | null {
 				},
 			});
 
-			if (declarations.length === 1) {
-				const nodes = rootNode.findAll({
-					rule: {
-						pattern: "mainModule",
-					},
+			if (declarations.length !== 0) {
+				patternsToReplace.push({
+					pattern: "mainModule",
 				});
+			}
+
+			// When 'mainModule' is the only item imported, remove to whole thing to avoid an empty import
+			if (declarations.length === 1) {
 				linesToRemove.push(declarationNode.range());
-				for (const node of nodes) {
-					edits.push(node.replace("require.main"));
-				}
 			}
 
 			if (declarations.length > 1) {
 				const restDeclarations = declarations
 					.map((d) => d.text())
 					.filter((d) => d !== "mainModule");
-
-				patternsToReplace.push({
-					pattern: "mainModule",
-				});
 
 				edits.push(objectPattern.replace(`{ ${restDeclarations.join(", ")} }`));
 			}
