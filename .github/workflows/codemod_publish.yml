@@ -77,13 +77,13 @@ jobs:
           if [[ ! -d "$CODEMOD_PATH" ]]; then
             echo "❌ Codemod directory not found: $CODEMOD_PATH"
             echo "Available directories in recipes/:"
-            ls -la recipes/ || echo "No recipes directory found"
+            ls -lah recipes/ || echo "No recipes directory found"
             exit 1
           fi
 
-          echo "✅ Found codemod directory: $CODEMOD_PATH"
+          echo "✓ Found codemod directory: $CODEMOD_PATH"
           echo "Directory contents:"
-          ls -la "$CODEMOD_PATH"
+          ls -lah "$CODEMOD_PATH"
 
       - name: Setup Node.js environment
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
