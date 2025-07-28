@@ -8,6 +8,9 @@ Thank you for your interest in contributing to this project! We value contributi
 
 Before you begin, ensure you have the following installed:
 
+- Node.js (`.nvmrc` is set so you can use your favorite Node.js version)
+- npm (for development dependencies)
+
 ### Project Overview
 
 Our codebase is organized as follows:
@@ -82,13 +85,6 @@ registry:
 - [Codemod Studio Documentation](https://docs.codemod.com/codemod-studio)
 - [JSSG API Reference](https://docs.codemod.com/cli/cli-reference#cli-command-reference)
 - [AST-grep Documentation](https://ast-grep.github.io/)
-
-## Before pushing a commit
-
-A convenient superset of checks is available via `node --run pre-commit`, which automatically fixes formatting and linting issues (that are safe to fix), checks types, and runs tests. Changes resulting from this should be committed.
-
-> [!WARNING]
-> Some integration tests modify fixtures because they run the entire codemod. Remember to use the `git restore` command to restore these files before pushing a commit.
 
 ## Development Workflow
 
