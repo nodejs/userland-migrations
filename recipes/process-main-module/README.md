@@ -1,4 +1,4 @@
-# `createRequireFromPath` DEP0138
+# `process.mainModule` DEP0138
 
 This recipe transforms the usage of `process.mainModule` to use `require.main` in CommonJS modules.
 
