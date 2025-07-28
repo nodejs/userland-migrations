@@ -34,14 +34,14 @@ describe("remove-lines", () => {
 
 		const range: Range = {
 			start: {
-				// @ts-ignore - @ast-grep/napi returns start.row but type expects line field
-				// TODO: Remove when https://github.com/codemod-com/codemod/pull/1655 is merged
-				row: 1,
+				line: 1,
+				column: 0,
+				index: 0,
 			},
 			end: {
-				// @ts-ignore - @ast-grep/napi returns start.row but type expects line field
-				// TODO: Remove when https://github.com/codemod-com/codemod/pull/1655 is merged
-				row: 1,
+				line: 1,
+				column: 0,
+				index: 0,
 			},
 		};
 
@@ -65,27 +65,27 @@ describe("remove-lines", () => {
 
 		const removeLineTwo: Range = {
 			start: {
-				// @ts-ignore - @ast-grep/napi returns start.row but type expects line field
-				// TODO: Remove when https://github.com/codemod-com/codemod/pull/1655 is merged
-				row: 1,
+				line: 1,
+				column: 0,
+				index: 0,
 			},
 			end: {
-				// @ts-ignore - @ast-grep/napi returns start.row but type expects line field
-				// TODO: Remove when https://github.com/codemod-com/codemod/pull/1655 is merged
-				row: 1,
+				line: 1,
+				column: 0,
+				index: 0,
 			},
 		};
 
 		const removeLineThree: Range = {
 			start: {
-				// @ts-ignore - @ast-grep/napi returns start.row but type expects line field
-				// TODO: Remove when https://github.com/codemod-com/codemod/pull/1655 is merged
-				row: 2,
+				line: 2,
+				column: 0,
+				index: 0,
 			},
 			end: {
-				// @ts-ignore - @ast-grep/napi returns start.row but type expects line field
-				// TODO: Remove when https://github.com/codemod-com/codemod/pull/1655 is merged
-				row: 2,
+				line: 2,
+				column: 0,
+				index: 0,
 			},
 		};
 
@@ -109,14 +109,14 @@ describe("remove-lines", () => {
 
 		const range: Range = {
 			start: {
-				// @ts-ignore - @ast-grep/napi returns start.row but type expects line field
-				// TODO: Remove when https://github.com/codemod-com/codemod/pull/1655 is merged
-				row: 1,
+				line: 1,
+				column: 0,
+				index: 0,
 			},
 			end: {
-				// @ts-ignore - @ast-grep/napi returns start.row but type expects line field
-				// TODO: Remove when https://github.com/codemod-com/codemod/pull/1655 is merged
-				row: 2,
+				line: 2,
+				column: 0,
+				index: 0,
 			},
 		};
 
