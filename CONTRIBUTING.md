@@ -63,7 +63,7 @@ export default function transform(root: SgRoot): string | null {
 ```yaml
 schema_version: "1.0"
 name: "@nodejs/<codemod-name>"
-version: 0.0.1
+version: 1.0.0
 description: <Your codemod description>
 author: <Your Name>
 license: MIT
