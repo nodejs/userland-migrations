@@ -31,13 +31,6 @@ Each codemod resides in its own directory under `recipes/` and should include:
 | `workflow.yml` | Workflow definition file |
 | `tests/` | Test suite using `jssg` testing utilities |
 | `tsconfig.json` | TypeScript configuration |
-| `README.md` | Description, purpose, and usage instructions |
-| `package.json` | Package manifest |
-| `src/workflow.ts` | Main entry point using the `jssg` codemod API |
-| `codemod.yml` | Codemod manifest file |
-| `workflow.yml` | Workflow definition file |
-| `tests/` | Test suite using `jssg` testing utilities |
-| `tsconfig.json` | TypeScript configuration |
 ### Example Files
 **`src/workflow.ts` example:**
 ```ts
