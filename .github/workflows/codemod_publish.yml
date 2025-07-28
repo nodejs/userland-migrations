@@ -1,83 +1,130 @@
-# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-
-# For more information see: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow
-
 name: Publish Codemod
 
 on:
   push:
     tags:
-      - 'v*@*'  # Match tags like v1.0.0@my-codemod
+      - "v*@*"
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to publish (e.g., v1.0.0@my-codemod)'
+        description: "Tag to publish (format: v1.0.0@codemod-name)"
         required: true
         type: string
 
+env:
+  NODE_VERSION_FILE: ".nvmrc"
+
 jobs:
-  publish:
+  validate-and-publish:
+    name: Validate and Publish Codemod
     runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    outputs:
+      version: ${{ steps.parse-tag.outputs.version }}
+      codemod-name: ${{ steps.parse-tag.outputs.codemod-name }}
+      codemod-path: ${{ steps.parse-tag.outputs.codemod-path }}
 
-      - name: Extract version and codemod name
-        id: extract
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@ec9f2d5744a09debf3a187a3f4f675c53b671911 # v2.13.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Parse tag and extract metadata
+        id: parse-tag
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          GITHUB_REF: ${{ github.ref }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.tag }}"
+          # Determine the tag based on trigger type
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            TAG="$INPUT_TAG"
+            echo "Using manually provided tag: $TAG"
           else
             TAG="${GITHUB_REF#refs/tags/}"
+            echo "Using pushed tag: $TAG"
           fi
 
-          # Extract version (everything before @)
-          VERSION="${TAG%@*}"
-          VERSION="${VERSION#v}"  # Remove 'v' prefix
-
-          # Extract codemod name (everything after @)
-          CODEMOD_NAME="${TAG#*@}"
-
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "CODEMOD_NAME=$CODEMOD_NAME" >> $GITHUB_OUTPUT
-          echo "CODEMOD_PATH=recipes/$CODEMOD_NAME" >> $GITHUB_OUTPUT
-
-          echo "Publishing version $VERSION of $CODEMOD_NAME from recipes/$CODEMOD_NAME"
-
-      - name: Validate codemod directory exists
-        run: |
-          if [ ! -d "${{ steps.extract.outputs.CODEMOD_PATH }}" ]; then
-            echo "Error: Directory ${{ steps.extract.outputs.CODEMOD_PATH }} does not exist"
+          # Validate tag format
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+@[a-zA-Z0-9_-]+$ ]]; then
+            echo "❌ Invalid tag format: $TAG"
+            echo "Expected format: v1.0.0@codemod-name"
             exit 1
           fi
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: ".nvmrc"
-          cache: 'npm'
+          # Extract components
+          VERSION="${TAG%@*}"      # Everything before @
+          VERSION="${VERSION#v}"   # Remove v prefix
+          CODEMOD_NAME="${TAG#*@}" # Everything after @
+          CODEMOD_PATH="recipes/$CODEMOD_NAME"
 
-      - name: Install dependencies
+          # Set outputs
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "codemod-name=$CODEMOD_NAME" >> $GITHUB_OUTPUT
+          echo "codemod-path=$CODEMOD_PATH" >> $GITHUB_OUTPUT
+
+      - name: Verify codemod directory
+        env:
+          CODEMOD_PATH: ${{ steps.parse-tag.outputs.codemod-path }}
+        run: |
+          if [[ ! -d "$CODEMOD_PATH" ]]; then
+            echo "❌ Codemod directory not found: $CODEMOD_PATH"
+            echo "Available directories in recipes/:"
+            ls -la recipes/ || echo "No recipes directory found"
+            exit 1
+          fi
+
+          echo "✅ Found codemod directory: $CODEMOD_PATH"
+          echo "Directory contents:"
+          ls -la "$CODEMOD_PATH"
+
+      - name: Setup Node.js environment
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: ${{ env.NODE_VERSION_FILE }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install project dependencies
         run: npm ci
 
       - name: Install Codemod CLI
         run: npm install -g codemod@next
 
-      # Run test first so if it's failing, we don't waste time to login and rest of thing
-      - name: Run test
-        working-directory: ${{ steps.extract.outputs.CODEMOD_PATH }}
-        run: node --run test
+      - name: Run codemod Tests
+        working-directory: Test``
+        run: node --test
 
-      - name: Login to Codemod registry
+      - name: Authenticate with Codemod registry
         env:
           CODEMOD_TOKEN: ${{ secrets.CODEMOD_TOKEN }}
         run: codemod login --token "$CODEMOD_TOKEN"
 
-      - name: Publish codemod (dry run)
-        working-directory: ${{ steps.extract.outputs.CODEMOD_PATH }}
-        run: codemod publish --dry-run
-
       - name: Publish codemod
-        working-directory: ${{ steps.extract.outputs.CODEMOD_PATH }}
+        working-directory: ${{ steps.parse-tag.outputs.codemod-path }}
         run: codemod publish
+
+      - name: Create release summary
+        env:
+          CODEMOD_NAME: ${{ steps.parse-tag.outputs.codemod-name }}
+          VERSION: ${{ steps.parse-tag.outputs.version }}
+          TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+          TRIGGER: ${{ github.event_name == 'workflow_dispatch' && 'Manual' || 'Tag Push' }}
+          ACTOR: ${{ github.triggering_actor }}
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          # 🚀 Codemod Publication Summary
+
+          **Codemod:** \`$CODEMOD_NAME\`
+          **Version:** \`$VERSION\`
+          **Tag:** \`$TAG\`
+          **Trigger:** $TRIGGER by $ACTOR
+
+          ✅ Codemod has been successfully published to the registry!
+          EOF
