@@ -43,7 +43,7 @@ jobs:
           echo "CODEMOD_NAME=$CODEMOD_NAME" >> $GITHUB_OUTPUT
           echo "CODEMOD_PATH=recipes/$CODEMOD_NAME" >> $GITHUB_OUTPUT
 
-          echo "Publishing: $CODEMOD_NAME (version: $VERSION) from recipes/$CODEMOD_NAME"
+          echo "Publishing version $VERSION of $CODEMOD_NAME from recipes/$CODEMOD_NAME"
 
       - name: Validate codemod directory exists
         run: |
