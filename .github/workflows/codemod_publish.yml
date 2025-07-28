@@ -64,14 +64,15 @@ jobs:
       - name: Install Codemod CLI
         run: npm install -g codemod@next
 
+      # Run test first so if it's failing, we don't waste time to login and rest of thing
+      - name: Run test
+        working-directory: ${{ steps.extract.outputs.CODEMOD_PATH }}
+        run: node --run test
+
       - name: Login to Codemod registry
         env:
           CODEMOD_TOKEN: ${{ secrets.CODEMOD_TOKEN }}
         run: codemod login --token "$CODEMOD_TOKEN"
-
-      - name: Run test
-        working-directory: ${{ steps.extract.outputs.CODEMOD_PATH }}
-        run: node --run test
 
       - name: Publish codemod (dry run)
         working-directory: ${{ steps.extract.outputs.CODEMOD_PATH }}
