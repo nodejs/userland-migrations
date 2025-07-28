@@ -1,18 +1,19 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# For more information see: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow
+
 name: Publish Codemod
 
 on:
   push:
     tags:
-      - "v*@*"
+      - "v*@*" # eg: v1.0.0@codemod-name
   workflow_dispatch:
     inputs:
       tag:
         description: "Tag to publish (format: v1.0.0@codemod-name)"
         required: true
         type: string
-
-env:
-  NODE_VERSION_FILE: ".nvmrc"
 
 jobs:
   validate-and-publish:
@@ -87,7 +88,7 @@ jobs:
       - name: Setup Node.js environment
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version-file: ${{ env.NODE_VERSION_FILE }}
+          node-version-file: ".nvmrc"
           cache: npm
           cache-dependency-path: package-lock.json
 
@@ -97,8 +98,9 @@ jobs:
       - name: Install Codemod CLI
         run: npm install -g codemod@next
 
+      # Run test before login to not waste time if it fails
       - name: Run codemod Tests
-        working-directory: Test``
+        working-directory: ${{ steps.parse-tag.outputs.codemod-path }}
         run: node --test
 
       - name: Authenticate with Codemod registry
