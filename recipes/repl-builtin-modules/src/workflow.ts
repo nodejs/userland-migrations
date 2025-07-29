@@ -42,8 +42,14 @@ export default function transform(root: SgRoot<Js>): string | null {
                     }
                 });
 
-                const hasOnlyBuiltinModules = properties.length === 1 &&
-                    properties[0].text() === "builtinModules";
+                const pairProperties = objectPattern.findAll({
+                    rule: {
+                        kind: "pair_pattern"
+                    }
+                });
+
+                const hasOnlyBuiltinModules = (properties.length === 1 && properties[0].text() === "builtinModules") ||
+                    (properties.length === 0 && pairProperties.length === 1 && pairProperties[0].text().includes("builtinModules"));
 
                 if (hasOnlyBuiltinModules) {
                     // Case 2: Replace entire require statement
@@ -54,37 +60,50 @@ export default function transform(root: SgRoot<Js>): string | null {
                     });
                     if (moduleSpecifier) {
                         const currentModule = moduleSpecifier.text();
-                        const newModule = currentModule.includes("node:") ? '"node:module"' : '"module"';
+                        const newModule = currentModule.includes("node:") ? "'node:module'" : "'module'";
                         edits.push(moduleSpecifier.replace(newModule));
                         hasChanges = true;
                     }
                 } else {
                     // Case 3: Split into two statements
-                    const newText = originalText.replace(/,?\s*builtinModules\s*,?/g, "").replace(/,\s*$/, "").replace(/^\s*,/, "");
+                    const newText = originalText.replace(/,?\s*builtinModules\s*(:\s*\w+)?\s*,?/g, "").replace(/,\s*$/, "").replace(/^\s*,/, "");
 
                     if (newText !== "{ }") {
-                        edits.push(objectPattern.replace(newText));
-                    }
+                        // Get the parent variable declaration to replace the entire statement
+                        const variableDeclaration = statement.parent();
 
-                    // Add new module require statement
-                    const moduleSpecifier = statement.find({
-                        rule: {
-                            kind: "string"
+                        if (variableDeclaration && (variableDeclaration.kind() === "variable_declaration" || variableDeclaration.kind() === "lexical_declaration")) {
+                            // Extract the alias if present
+                            const aliasMatch = originalText.match(/builtinModules\s*:\s*(\w+)/);
+                            const aliasText = aliasMatch ? `: ${aliasMatch[1]}` : "";
+
+                            const moduleSpecifier = statement.find({
+                                rule: {
+                                    kind: "string"
+                                }
+                            });
+
+                            if (moduleSpecifier) {
+                                const currentModule = moduleSpecifier.text();
+                                const newModule = currentModule.includes("node:") ? "node:module" : "module";
+
+                                // Create the new statements
+                                const firstStatement = `const ${newText} = require(${currentModule});`;
+                                const secondStatement = `const { builtinModules${aliasText} } = require(${newModule.includes('node:') ? "'node:module'" : "'module'"});`;
+
+                                // Replace the entire variable declaration with both statements
+                                const replacementText = `${firstStatement}\n${secondStatement}`;
+
+                                edits.push(variableDeclaration.replace(replacementText));
+                                hasChanges = true;
+                            }
+                        } else {
+                            // Fallback to just replacing the object pattern
+                            edits.push(objectPattern.replace(newText));
                         }
-                    });
-                    if (moduleSpecifier) {
-                        const currentModule = moduleSpecifier.text();
-                        const newModule = currentModule.includes("node:") ? "node:module" : "module";
-                        const newStatement = `const { builtinModules } = require(${newModule.includes("node:") ? '"node:module"' : '"module"'});`;
-
-                        // Insert after current statement
-                        const statementEnd = statement.range().end;
-                        edits.push({
-                            startPos: statementEnd.index,
-                            endPos: statementEnd.index,
-                            insertedText: `\n${newStatement}`
-                        });
-                        hasChanges = true;
+                    } else {
+                        // If we're removing the entire destructuring, we need to remove the whole statement
+                        edits.push(statement.replace(""));
                     }
                 }
             }
@@ -115,6 +134,14 @@ export default function transform(root: SgRoot<Js>): string | null {
                     });
 
                     if (memberExpressions.length > 0) {
+                        // Replace variable name from repl to module
+                        edits.push(identifier.replace("module"));
+
+                        // Replace all member expressions
+                        for (const memberExpr of memberExpressions) {
+                            edits.push(memberExpr.replace("module.builtinModules"));
+                        }
+
                         // Replace require statement to use module instead
                         const moduleSpecifier = statement.find({
                             rule: {
@@ -123,7 +150,7 @@ export default function transform(root: SgRoot<Js>): string | null {
                         });
                         if (moduleSpecifier) {
                             const currentModule = moduleSpecifier.text();
-                            const newModule = currentModule.includes("node:") ? '"node:module"' : '"module"';
+                            const newModule = currentModule.includes("node:") ? "'node:module'" : "'module'";
                             edits.push(moduleSpecifier.replace(newModule));
                             hasChanges = true;
                         }
@@ -138,6 +165,7 @@ export default function transform(root: SgRoot<Js>): string | null {
     const replImportStatements = getNodeImportStatements(root, "repl");
 
     for (const statement of replImportStatements) {
+        // Handle named imports like: import { builtinModules } from 'node:repl'
         const namedImports = statement.find({
             rule: {
                 kind: "named_imports"
@@ -167,13 +195,13 @@ export default function transform(root: SgRoot<Js>): string | null {
                     });
                     if (moduleSpecifier) {
                         const currentModule = moduleSpecifier.text();
-                        const newModule = currentModule.includes("node:") ? '"node:module"' : '"module"';
+                        const newModule = currentModule.includes("node:") ? "'node:module'" : "'module'";
                         edits.push(moduleSpecifier.replace(newModule));
                         hasChanges = true;
                     }
                 } else {
                     // Case 5: Split into two statements
-                    const newText = originalText.replace(/,?\s*builtinModules\s*,?/g, "").replace(/,\s*$/, "").replace(/^\s*,/, "");
+                    const newText = originalText.replace(/,?\s*builtinModules\s*(:\s*\w+)?\s*,?/g, "").replace(/,\s*$/, "").replace(/^\s*,/, "");
                     edits.push(namedImports.replace(newText));
 
                     // Add new module import statement
@@ -185,7 +213,12 @@ export default function transform(root: SgRoot<Js>): string | null {
                     if (moduleSpecifier) {
                         const currentModule = moduleSpecifier.text();
                         const newModule = currentModule.includes("node:") ? "node:module" : "module";
-                        const newStatement = `import { builtinModules } from ${newModule.includes("node:") ? '"node:module"' : '"module"'};`;
+
+                        // Extract the alias if present
+                        const aliasMatch = originalText.match(/builtinModules\s*(as\s+\w+)/);
+                        const aliasText = aliasMatch ? ` ${aliasMatch[1]}` : "";
+
+                        const newStatement = `import { builtinModules${aliasText} } from ${newModule.includes("node:") ? "'node:module'" : "'module'"};`;
 
                         // Insert after current statement
                         const statementEnd = statement.range().end;
@@ -195,6 +228,74 @@ export default function transform(root: SgRoot<Js>): string | null {
                             insertedText: `\n${newStatement}`
                         });
                         hasChanges = true;
+                    }
+                }
+            }
+        }
+
+        // Handle default imports like: import repl from 'node:repl'
+        // Handle namespace imports like: import * as repl from 'node:repl'
+        if (!namedImports) {
+            // Look for default or namespace imports that use repl.builtinModules
+            const importClause = statement.find({
+                rule: {
+                    kind: "import_clause"
+                }
+            });
+
+            if (importClause) {
+                let importIdentifier = null;
+
+                // Check for default import
+                const defaultImport = importClause.find({
+                    rule: {
+                        kind: "identifier"
+                    }
+                });
+
+                // Check for namespace import
+                const namespaceImport = importClause.find({
+                    rule: {
+                        kind: "namespace_import"
+                    }
+                });
+
+                if (defaultImport) {
+                    importIdentifier = defaultImport;
+                } else if (namespaceImport) {
+                    const namespaceIdentifier = namespaceImport.find({
+                        rule: {
+                            kind: "identifier"
+                        }
+                    });
+                    if (namespaceIdentifier) {
+                        importIdentifier = namespaceIdentifier;
+                    }
+                }
+
+                if (importIdentifier) {
+                    const varName = importIdentifier.text();
+
+                    // Find all member expressions using this variable with builtinModules
+                    const memberExpressions = rootNode.findAll({
+                        rule: {
+                            pattern: `${varName}.builtinModules`
+                        }
+                    });
+
+                    if (memberExpressions.length > 0) {
+                        // Replace the import to use module instead
+                        const moduleSpecifier = statement.find({
+                            rule: {
+                                kind: "string"
+                            }
+                        });
+                        if (moduleSpecifier) {
+                            const currentModule = moduleSpecifier.text();
+                            const newModule = currentModule.includes("node:") ? "'node:module'" : "'module'";
+                            edits.push(moduleSpecifier.replace(newModule));
+                            hasChanges = true;
+                        }
                     }
                 }
             }
