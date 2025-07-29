@@ -1,3 +1,3 @@
-const repl = require('node:repl');
+const module = require('node:module');
 
-console.log(repl.builtinModules);
+console.log(module.builtinModules);
