@@ -8,11 +8,11 @@ import type Js from "@codemod.com/jssg-types/langs/javascript";
  * to module.builtinModules API.
  *
  * Handles:
- * 1. const repl = require('node:repl'); repl.builtinModules -> const module = require('node:module'); module.builtinModules
- * 2. const { builtinModules } = require('node:repl'); -> const { builtinModules } = require('node:module');
- * 3. const { builtinModules, foo } = require('node:repl'); -> const { foo } = require('node:repl'); const { builtinModules } = require('node:module');
- * 4. import { builtinModules } from 'node:repl'; -> import { builtinModules } from 'node:module';
- * 5. import { builtinModules, foo } from 'node:repl'; -> import { foo } from 'node:repl'; import { builtinModules } from 'node:module';
+ * 1. const repl = require('node:repl'); repl.builtinModules → const module = require('node:module'); module.builtinModules
+ * 2. const { builtinModules } = require('node:repl'); → const { builtinModules } = require('node:module');
+ * 3. const { builtinModules, foo } = require('node:repl'); → const { foo } = require('node:repl'); const { builtinModules } = require('node:module');
+ * 4. import { builtinModules } from 'node:repl'; → import { builtinModules } from 'node:module';
+ * 5. import { builtinModules, foo } from 'node:repl'; → import { foo } from 'node:repl'; import { builtinModules } from 'node:module';
  */
 export default function transform(root: SgRoot<Js>): string | null {
     const rootNode = root.root();
