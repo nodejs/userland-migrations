@@ -37,7 +37,9 @@ Each codemod resides in its own directory under `recipes/` and should include:
 | `workflow.yml` | Workflow definition file |
 | `tests/` | Test suite using `jssg` testing utilities |
 | `tsconfig.json` | TypeScript configuration |
+
 ### Example Files
+
 **`src/workflow.ts` example:**
 ```ts
 import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
@@ -59,6 +61,7 @@ export default function transform(root: SgRoot): string | null {
 	return rootNode.commitEdits(edits);
 }
 ```
+
 **`codemod.yml` example:**
 ```yaml
 schema_version: "1.0"
@@ -69,13 +72,16 @@ author: <Your Name>
 license: MIT
 workflow: workflow.yaml
 category: migration
+
 targets:
   languages:
     - javascript
     - typescript
+
 keywords:
   - transformation
   - migration
+
 registry:
   access: public
   visibility: public
