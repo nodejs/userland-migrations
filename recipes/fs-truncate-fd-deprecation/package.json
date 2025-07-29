@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/fs-truncate-fd-deprecation",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Handle DEP0081 via transforming `truncate` to `ftruncateSync` when using a file descriptor.",
   "type": "module",
   "scripts": {
@@ -19,6 +19,6 @@
     "@codemod.com/jssg-types": "^1.0.3"
   },
   "dependencies": {
-    "@nodejs/codemod-utils": "0.0.0"
+    "@nodejs/codemod-utils": "*"
   }
 }
