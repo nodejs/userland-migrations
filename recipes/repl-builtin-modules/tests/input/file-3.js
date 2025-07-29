@@ -1,5 +1,3 @@
-const { builtinModules, foo } = require('node:repl');
+const { builtinModules: nodeBuiltinModules } = require('node:repl');
 
-console.log(builtinModules);
-
-foo(); // does something else
+console.log(nodeBuiltinModules);
