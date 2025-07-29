@@ -7,6 +7,8 @@ import type Js from "@codemod.com/jssg-types/langs/javascript";
  * Transform function that converts deprecated repl.builtinModules
  * to module.builtinModules API.
  *
+ * See https://nodejs.org/api/deprecations.html#DEP0191
+ *
  * Handles:
  * 1. const repl = require('node:repl'); repl.builtinModules → const module = require('node:module'); module.builtinModules
  * 2. const { builtinModules } = require('node:repl'); → const { builtinModules } = require('node:module');
