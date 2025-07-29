@@ -24,29 +24,19 @@ export default function transform(root: SgRoot<Js>): string | null {
   let usedTruncate = false;
   let usedTruncateSync = false;
 
-  // Find all truncate and truncateSync calls
-  const truncateCalls = rootNode.findAll({
+  // Find fs.truncate and fs.truncateSync calls (these are always safe to transform)
+  const fsTruncateCalls = rootNode.findAll({
     rule: {
       any: [
         { pattern: "fs.truncate($FD, $LEN, $CALLBACK)" },
         { pattern: "fs.truncate($FD, $LEN)" },
-        { pattern: "truncate($FD, $LEN, $CALLBACK)" },
-        { pattern: "truncate($FD, $LEN)" }
+        { pattern: "fs.truncateSync($FD, $LEN)" }
       ]
     }
   });
 
-  const truncateSyncCalls = rootNode.findAll({
-    rule: {
-      any: [
-        { pattern: "fs.truncateSync($FD, $LEN)" },
-        { pattern: "truncateSync($FD, $LEN)" }
-      ]
-    }
-  });
-
-  // Transform truncate calls
-  for (const call of truncateCalls) {
+  // Transform fs.truncate calls
+  for (const call of fsTruncateCalls) {
     const fdMatch = call.getMatch("FD");
     const lenMatch = call.getMatch("LEN");
     const callbackMatch = call.getMatch("CALLBACK");
@@ -58,112 +48,128 @@ export default function transform(root: SgRoot<Js>): string | null {
     const callback = callbackMatch?.text();
     const callText = call.text();
 
-    // Check if this looks like a file descriptor (numeric or variable from open)
-    if (isLikelyFileDescriptor(fd, rootNode)) {
-      if (callText.includes("fs.truncate(")) {
-        const newCallText = callback
-          ? `fs.ftruncate(${fd}, ${len}, ${callback})`
-          : `fs.ftruncate(${fd}, ${len})`;
-        edits.push(call.replace(newCallText));
-      } else {
-        // destructured call like truncate(...)
-        const newCallText = callback
-          ? `ftruncate(${fd}, ${len}, ${callback})`
-          : `ftruncate(${fd}, ${len})`;
-        edits.push(call.replace(newCallText));
-        usedTruncate = true;
-      }
-      hasChanges = true;
+    let newCallText: string;
+    if (callText.includes("fs.truncateSync(")) {
+      newCallText = `fs.ftruncateSync(${fd}, ${len})`;
+    } else {
+      newCallText = callback
+        ? `fs.ftruncate(${fd}, ${len}, ${callback})`
+        : `fs.ftruncate(${fd}, ${len})`;
     }
+
+    edits.push(call.replace(newCallText));
+    hasChanges = true;
   }
 
-  // Transform truncateSync calls
-  for (const call of truncateSyncCalls) {
-    const fdMatch = call.getMatch("FD");
-    const lenMatch = call.getMatch("LEN");
+  // Find destructured truncate/truncateSync calls (need scope analysis)
+  const destructuredCalls = rootNode.findAll({
+    rule: {
+      any: [
+        { pattern: "truncate($FD, $LEN, $CALLBACK)" },
+        { pattern: "truncate($FD, $LEN)" },
+        { pattern: "truncateSync($FD, $LEN)" }
+      ]
+    }
+  });
 
-    if (!fdMatch || !lenMatch) continue;
+  // Transform destructured calls only if they're from fs imports/requires
+  for (const call of destructuredCalls) {
+    if (isFromFsModule(call, root)) {
+      const fdMatch = call.getMatch("FD");
+      const lenMatch = call.getMatch("LEN");
+      const callbackMatch = call.getMatch("CALLBACK");
 
-    const fd = fdMatch.text();
-    const len = lenMatch.text();
-    const callText = call.text();
+      if (!fdMatch || !lenMatch) continue;
 
-    // Check if this looks like a file descriptor
-    if (isLikelyFileDescriptor(fd, rootNode)) {
-      if (callText.includes("fs.truncateSync(")) {
-        const newCallText = `fs.ftruncateSync(${fd}, ${len})`;
+      const fd = fdMatch.text();
+      const len = lenMatch.text();
+      const callback = callbackMatch?.text();
+      const callText = call.text();
+
+      // Check if this looks like a file descriptor
+      if (isLikelyFileDescriptor(fd, rootNode)) {
+        let newCallText: string;
+
+        if (callText.includes("truncateSync(")) {
+          newCallText = `ftruncateSync(${fd}, ${len})`;
+          usedTruncateSync = true;
+        } else {
+          newCallText = callback
+            ? `ftruncate(${fd}, ${len}, ${callback})`
+            : `ftruncate(${fd}, ${len})`;
+          usedTruncate = true;
+        }
+
         edits.push(call.replace(newCallText));
-      } else {
-        // destructured call like truncateSync(...)
-        const newCallText = `ftruncateSync(${fd}, ${len})`;
-        edits.push(call.replace(newCallText));
-        usedTruncateSync = true;
+        hasChanges = true;
       }
-      hasChanges = true;
     }
   }
 
   // Update imports/requires if we have destructured calls that were transformed
   if (usedTruncate || usedTruncateSync) {
-    // @ts-ignore - ast-grep types are not fully compatible with JSSG types
-    const importStatements = getNodeImportStatements(root, 'fs');
-
-    // Update import statements
-    for (const importNode of importStatements) {
-      const namedImports = importNode.find({ rule: { kind: 'named_imports' } });
-      if (!namedImports) continue;
-
-      let importText = importNode.text();
-      let updated = false;
-
-      if (usedTruncate && importText.includes("truncate") && !importText.includes("ftruncate")) {
-        // Replace truncate with ftruncate in imports
-        importText = importText.replace(/\btruncate\b/g, "ftruncate");
-        updated = true;
-      }
-
-      if (usedTruncateSync && importText.includes("truncateSync") && !importText.includes("ftruncateSync")) {
-        // Replace truncateSync with ftruncateSync in imports
-        importText = importText.replace(/\btruncateSync\b/g, "ftruncateSync");
-        updated = true;
-      }
-
-      if (updated) {
-        edits.push(importNode.replace(importText));
-        hasChanges = true;
-      }
-    }
-
-    // @ts-ignore - ast-grep types are not fully compatible with JSSG types
-    const requireStatements = getNodeRequireCalls(root, 'fs');
-
-    // Update require statements
-    for (const requireNode of requireStatements) {
-      let requireText = requireNode.text();
-      let updated = false;
-
-      if (usedTruncate && requireText.includes("truncate") && !requireText.includes("ftruncate")) {
-        // Replace truncate with ftruncate in requires
-        requireText = requireText.replace(/\btruncate\b/g, "ftruncate");
-        updated = true;
-      }
-
-      if (usedTruncateSync && requireText.includes("truncateSync") && !requireText.includes("ftruncateSync")) {
-        // Replace truncateSync with ftruncateSync in requires
-        requireText = requireText.replace(/\btruncateSync\b/g, "ftruncateSync");
-        updated = true;
-      }
-
-      if (updated) {
-        edits.push(requireNode.replace(requireText));
-        hasChanges = true;
-      }
-    }
+    updateImportsAndRequires(root, usedTruncate, usedTruncateSync, edits);
+    hasChanges = true;
   }
 
   if (!hasChanges) return null;
 
   return rootNode.commitEdits(edits);
+}
+
+/**
+ * Update import and require statements to replace truncate functions with ftruncate
+ */
+function updateImportsAndRequires(root: SgRoot<Js>, usedTruncate: boolean, usedTruncateSync: boolean, edits: Edit[]): void {
+  // @ts-ignore - ast-grep types are not fully compatible with JSSG types
+  const importStatements = getNodeImportStatements(root, 'fs');
+  // @ts-ignore - ast-grep types are not fully compatible with JSSG types
+  const requireStatements = getNodeRequireCalls(root, 'fs');
+
+  // Update import and require statements
+  for (const statement of [...importStatements, ...requireStatements]) {
+    let text = statement.text();
+    let updated = false;
+
+    if (usedTruncate && text.includes("truncate") && !text.includes("ftruncate")) {
+      text = text.replace(/\btruncate\b/g, "ftruncate");
+      updated = true;
+    }
+
+    if (usedTruncateSync && text.includes("truncateSync") && !text.includes("ftruncateSync")) {
+      text = text.replace(/\btruncateSync\b/g, "ftruncateSync");
+      updated = true;
+    }
+
+    if (updated) {
+      edits.push(statement.replace(text));
+    }
+  }
+}
+
+/**
+ * Check if a call expression is from a destructured fs import/require
+ */
+function isFromFsModule(call: SgNode<Js>, root: SgRoot<Js>): boolean {
+  // @ts-ignore - ast-grep types are not fully compatible with JSSG types
+  const importStatements = getNodeImportStatements(root, 'fs');
+  // @ts-ignore - ast-grep types are not fully compatible with JSSG types
+  const requireStatements = getNodeRequireCalls(root, 'fs');
+
+  // Get the function name being called (truncate or truncateSync)
+  const callExpression = call.child(0);
+  const functionName = callExpression?.text();
+  if (!functionName) return false;
+
+  // Check if this function name appears in any fs import/require destructuring
+  for (const statement of [...importStatements, ...requireStatements]) {
+    const text = statement.text();
+    if (text.includes("{") && text.includes(functionName)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -176,13 +182,16 @@ function isLikelyFileDescriptor(param: string, rootNode: SgNode<Js>): boolean {
   // Check if it's a numeric literal
   if (/^\d+$/.test(param.trim())) return true;
 
-  // Check if parameter is in a callback context
+  // Check if it's obviously a string literal (path)
+  if (/^['"`]/.test(param.trim())) return false;
+
+  // Check if it's assigned from fs.openSync or openSync
+  if (isAssignedFromOpenSync(param, rootNode)) return true;
+
+  // Check if it's used inside a callback context from fs.open
   if (isInCallbackContext(param, rootNode)) return true;
 
-  // Check if there's a variable in scope that assigns a file descriptor
-  if (hasFileDescriptorVariable(param, rootNode)) return true;
-
-  // If we didn't find any indicators, assume it's not a file descriptor
+  // For other cases, be conservative - don't transform unless we're sure
   return false;
 }
 
@@ -201,386 +210,104 @@ function isInCallbackContext(param: string, rootNode: SgNode<Js>): boolean {
   });
 
   for (const usage of parameterUsages) {
-    // Check if this usage is inside a callback parameter list for fs.open
-    const isInFsOpenCallback = usage.inside({
+    // Check if this usage is inside a callback parameter for fs.open or open
+    const isInOpenCallback = usage.inside({
       rule: {
         kind: "call_expression",
-        all: [
-          {
-            has: {
-              field: "function",
+        has: {
+          field: "function",
+          any: [
+            {
               kind: "member_expression",
               all: [
-                {
-                  has: {
-                    field: "object",
-                    kind: "identifier",
-                    regex: "^fs$"
-                  }
-                },
-                {
-                  has: {
-                    field: "property",
-                    kind: "property_identifier",
-                    regex: "^open$"
-                  }
-                }
+                { has: { field: "object", kind: "identifier", regex: "^fs$" } },
+                { has: { field: "property", kind: "property_identifier", regex: "^open$" } }
               ]
-            }
-          },
-          {
-            has: {
-              field: "arguments",
-              kind: "arguments",
-              has: {
-                any: [
-                  {
-                    kind: "arrow_function",
-                    has: {
-                      field: "parameters",
-                      kind: "formal_parameters",
-                      has: {
-												// @ts-ignore - jssg-types arren't happy but jssg work with type_error
-                        kind: "required_parameter",
-                        has: {
-                          field: "pattern",
-                          kind: "identifier",
-                          regex: `^${param}$`
-                        }
-                      }
-                    }
-                  },
-                  {
-                    kind: "function_expression",
-                    has: {
-                      field: "parameters",
-                      kind: "formal_parameters",
-                      has: {
-												// @ts-ignore - jssg-types arren't happy but jssg work with type_error
-                        kind: "required_parameter",
-                        has: {
-                          field: "pattern",
-                          kind: "identifier",
-                          regex: `^${param}$`
-                        }
-                      }
-                    }
-                  }
-                ]
-              }
-            }
-          }
-        ]
-      }
-    });
-
-    // Check if this usage is inside a callback parameter list for destructured open
-    const isInDestructuredOpenCallback = usage.inside({
-      rule: {
-        kind: "call_expression",
-        all: [
-          {
-            has: {
-              field: "function",
+            },
+            {
               kind: "identifier",
               regex: "^open$"
             }
-          },
-          {
-            has: {
-              field: "arguments",
-              kind: "arguments",
-              has: {
-                any: [
-                  {
-                    kind: "arrow_function",
-                    has: {
-                      field: "parameters",
-                      kind: "formal_parameters",
-                      has: {
-												// @ts-ignore - jssg-types arren't happy but jssg work with type_error
-                        kind: "required_parameter",
-                        has: {
-                          field: "pattern",
-                          kind: "identifier",
-                          regex: `^${param}$`
-                        }
-                      }
-                    }
-                  },
-                  {
-                    kind: "function_expression",
-                    has: {
-                      field: "parameters",
-                      kind: "formal_parameters",
-                      has: {
-												// @ts-ignore - jssg-types arren't happy but jssg work with type_error
-                        kind: "required_parameter",
-                        has: {
-                          field: "pattern",
-                          kind: "identifier",
-                          regex: `^${param}$`
-                        }
-                      }
-                    }
-                  }
-                ]
-              }
-            }
-          }
-        ]
+          ]
+        }
       }
     });
 
-    if (isInFsOpenCallback || isInDestructuredOpenCallback) {
-      return true;
-    }
+    if (isInOpenCallback) return true;
   }
 
   return false;
 }
 
 /**
- * Check if there's a variable in scope that assigns a file descriptor value
+ * Check if there's a variable that's assigned from fs.openSync
  * @param param The parameter name to check
  * @param rootNode The root node of the AST
  */
-function hasFileDescriptorVariable(param: string, rootNode: SgNode<Js>): boolean {
-  // Find all usages of the parameter to understand the context
-  const parameterUsages = rootNode.findAll({
+function isAssignedFromOpenSync(param: string, rootNode: SgNode<Js>): boolean {
+  // Search for variable declarations or assignments from fs.openSync or openSync
+  const openSyncAssignments = rootNode.findAll({
     rule: {
-      kind: "identifier",
-      regex: `^${param}$`
-    }
-  });
-
-  // For each usage, check if there's a variable declaration in scope
-  for (const usage of parameterUsages) {
-    // Check if this usage is in a truncate call context
-    const isInTruncateCall = usage.inside({
-      rule: {
-        any: [
-          { pattern: "fs.truncate($FD, $LEN, $CALLBACK)" },
-          { pattern: "fs.truncate($FD, $LEN)" },
-          { pattern: "truncate($FD, $LEN, $CALLBACK)" },
-          { pattern: "truncate($FD, $LEN)" },
-          { pattern: "fs.truncateSync($FD, $LEN)" },
-          { pattern: "truncateSync($FD, $LEN)" }
-        ]
-      }
-    });
-
-    if (!isInTruncateCall) continue;
-
-    // Find the scope containing this usage
-    const scope = findContainingScope(usage);
-    if (!scope) continue;
-
-    // Search for variable declarations within this scope
-    if (hasFileDescriptorVariableInScope(param, scope)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/**
- * Find the containing scope (function, block, or program) for a given node
- * @param node The node to find the scope for
- */
-function findContainingScope(node: SgNode<Js>): SgNode<Js> | null {
-  let current = node.parent();
-
-  while (current) {
-    const kind = current.kind();
-    // These are scope-creating nodes in JavaScript
-    if (kind === "program" ||
-        kind === "function_declaration" ||
-        kind === "function_expression" ||
-        kind === "arrow_function" ||
-        kind === "method_definition" ||
-        kind === "statement_block") {
-      return current;
-    }
-    current = current.parent();
-  }
-
-  return null;
-}
-
-/**
- * Check if there's a file descriptor variable declaration within a specific scope
- * @param param The parameter name to check
- * @param scope The scope node to search within
- */
-function hasFileDescriptorVariableInScope(param: string, scope: SgNode<Js>): boolean {
-  // Search for variable declarations that assign from fs.openSync within this scope
-  const syncVariableDeclarators = scope.findAll({
-    rule: {
-      kind: "variable_declarator",
-      all: [
+      any: [
         {
-          has: {
-            field: "name",
-            kind: "identifier",
-            regex: `^${param}$`
-          }
-        },
-        {
-          has: {
-            field: "value",
-            kind: "call_expression",
-            has: {
-              field: "function",
-              any: [
-                {
-                  kind: "member_expression",
-                  all: [
+          kind: "variable_declarator",
+          all: [
+            { has: { field: "name", kind: "identifier", regex: `^${param}$` } },
+            {
+              has: {
+                field: "value",
+                kind: "call_expression",
+                has: {
+                  field: "function",
+                  any: [
                     {
-                      has: {
-                        field: "object",
-                        kind: "identifier",
-                        regex: "^fs$"
-                      }
+                      kind: "member_expression",
+                      all: [
+                        { has: { field: "object", kind: "identifier", regex: "^fs$" } },
+                        { has: { field: "property", kind: "property_identifier", regex: "^openSync$" } }
+                      ]
                     },
                     {
-                      has: {
-                        field: "property",
-                        kind: "property_identifier",
-                        regex: "^openSync$"
-                      }
+                      kind: "identifier",
+                      regex: "^openSync$"
                     }
                   ]
-                },
-                {
-                  kind: "identifier",
-                  regex: "^openSync$"
                 }
-              ]
+              }
             }
-          }
-        }
-      ]
-    }
-  });
-
-  if (syncVariableDeclarators.length > 0) return true;
-
-  // Search for assignment expressions that assign from fs.openSync within this scope
-  const syncAssignments = scope.findAll({
-    rule: {
-      kind: "assignment_expression",
-      all: [
-        {
-          has: {
-            field: "left",
-            kind: "identifier",
-            regex: `^${param}$`
-          }
+          ]
         },
         {
-          has: {
-            field: "right",
-            kind: "call_expression",
-            has: {
-              field: "function",
-              any: [
-                {
-                  kind: "member_expression",
-                  all: [
+          kind: "assignment_expression",
+          all: [
+            { has: { field: "left", kind: "identifier", regex: `^${param}$` } },
+            {
+              has: {
+                field: "right",
+                kind: "call_expression",
+                has: {
+                  field: "function",
+                  any: [
                     {
-                      has: {
-                        field: "object",
-                        kind: "identifier",
-                        regex: "^fs$"
-                      }
+                      kind: "member_expression",
+                      all: [
+                        { has: { field: "object", kind: "identifier", regex: "^fs$" } },
+                        { has: { field: "property", kind: "property_identifier", regex: "^openSync$" } }
+                      ]
                     },
                     {
-                      has: {
-                        field: "property",
-                        kind: "property_identifier",
-                        regex: "^openSync$"
-                      }
+                      kind: "identifier",
+                      regex: "^openSync$"
                     }
                   ]
-                },
-                {
-                  kind: "identifier",
-                  regex: "^openSync$"
                 }
-              ]
+              }
             }
-          }
+          ]
         }
       ]
     }
   });
 
-  if (syncAssignments.length > 0) return true;
-
-  // Check if the variable is assigned from another variable that's a file descriptor within this scope
-  const variableAssignments = scope.findAll({
-    rule: {
-      kind: "variable_declarator",
-      all: [
-        {
-          has: {
-            field: "name",
-            kind: "identifier",
-            regex: `^${param}$`
-          }
-        },
-        {
-          has: {
-            field: "value",
-            kind: "identifier"
-          }
-        }
-      ]
-    }
-  });
-
-  for (const assignment of variableAssignments) {
-    const valueNode = assignment.field("value");
-    if (valueNode) {
-      const sourceVar = valueNode.text();
-      // Recursively check if the source variable is a file descriptor within the same scope
-      if (hasFileDescriptorVariableInScope(sourceVar, scope)) {
-        return true;
-      }
-    }
-  }
-
-  // If not found in current scope, check parent scopes (for closure/lexical scoping)
-  const parentScope = findParentScope(scope);
-  if (parentScope) {
-    return hasFileDescriptorVariableInScope(param, parentScope);
-  }
-
-  return false;
-}
-
-/**
- * Find the parent scope of a given scope node
- * @param scope The current scope node
- */
-function findParentScope(scope: SgNode<Js>): SgNode<Js> | null {
-  let current = scope.parent();
-
-  while (current) {
-    const kind = current.kind();
-    // These are scope-creating nodes in JavaScript
-    if (kind === "program" ||
-        kind === "function_declaration" ||
-        kind === "function_expression" ||
-        kind === "arrow_function" ||
-        kind === "method_definition" ||
-        kind === "statement_block") {
-      return current;
-    }
-    current = current.parent();
-  }
-
-  return null;
+  return openSyncAssignments.length > 0;
 }

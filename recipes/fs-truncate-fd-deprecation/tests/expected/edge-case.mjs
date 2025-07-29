@@ -17,7 +17,7 @@ fs.ftruncateSync(accesible, 10);
 fs.closeSync(accesible);
 
 function foo() {
-	ftruncateFile(unaccessible, 10);
+	truncateFile(unaccessible, 10);
 }
 
 function bar() {
