@@ -1,6 +1,15 @@
-import { getNodeImportStatements, getNamedImportSpecifiers, getDefaultImportIdentifier } from "@nodejs/codemod-utils/ast-grep/import-statement";
-import { getNodeRequireCalls, getRequireDestructuredIdentifiers, getRequireNamespaceIdentifier } from "@nodejs/codemod-utils/ast-grep/require-call";
-import type { SgRoot, Edit } from "@ast-grep/napi";
+import {
+	getNodeImportStatements,
+	getNamedImportSpecifiers,
+	getDefaultImportIdentifier
+} from "@nodejs/codemod-utils/ast-grep/import-statement";
+import {
+	getNodeRequireCalls,
+	getRequireDestructuredIdentifiers,
+	getRequireNamespaceIdentifier
+} from "@nodejs/codemod-utils/ast-grep/require-call";
+import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
+import type { SgRoot, Edit, Range } from "@ast-grep/napi";
 
 /**
  * Transform function that converts deprecated util.is**() calls
@@ -27,6 +36,7 @@ export default function transform(root: SgRoot): string | null {
 	const rootNode = root.root();
 	let hasChanges = false;
 	const edits: Edit[] = [];
+	const linesToRemove: Range[] = [];
 
 	// Mapping of util.is**() methods to their replacements
 	const replacements = {
@@ -116,9 +126,11 @@ export default function transform(root: SgRoot): string | null {
 	if (!hasChanges) return null;
 
 	// Clean up unused imports if any util.is**() methods have been replaced
-	cleanupUtilImports(root, edits, nonIsMethodsUsed);
+	cleanupUtilImports(root, edits, nonIsMethodsUsed, linesToRemove);
 
-	return rootNode.commitEdits(edits);
+	let sourceCode = rootNode.commitEdits(edits);
+	sourceCode = removeLines(sourceCode, linesToRemove);
+	return sourceCode;
 }
 
 /**
@@ -148,7 +160,7 @@ function isMethodImportedFromUtil(root: SgRoot, methodName: string): boolean {
  * Clean up util imports by removing unused is**() methods
  * and remove it entirely if no other methods are used.
  */
-function cleanupUtilImports(root: SgRoot, edits: Edit[], nonIsMethodsUsed: Set<string>): void {
+function cleanupUtilImports(root: SgRoot, edits: Edit[], nonIsMethodsUsed: Set<string>, linesToRemove: Range[]): void {
 	// All util.is**() methods that could be imported
 	const allIsMethods = new Set([
 		'isArray', 'isBoolean', 'isBuffer', 'isDate', 'isError', 'isFunction',
@@ -172,7 +184,7 @@ function cleanupUtilImports(root: SgRoot, edits: Edit[], nonIsMethodsUsed: Set<s
 
 			if (remainingSpecifiers.length === 0) {
 				// Remove the entire import statement
-				edits.push(importNode.replace(''));
+				linesToRemove.push(importNode.range());
 			} else if (remainingSpecifiers.length < namedSpecifiers.length) {
 				// Update the import to only include remaining methods
 				const namedImportsClause = importNode.find({
@@ -186,7 +198,7 @@ function cleanupUtilImports(root: SgRoot, edits: Edit[], nonIsMethodsUsed: Set<s
 		} else if (defaultImport) {
 			// Handle namespace imports: import util from 'util'
 			if (nonIsMethodsUsed.size === 0) {
-				edits.push(importNode.replace(''));
+				linesToRemove.push(importNode.range());
 			}
 		}
 	}
@@ -209,7 +221,7 @@ function cleanupUtilImports(root: SgRoot, edits: Edit[], nonIsMethodsUsed: Set<s
 				// Remove the entire require statement
 				const parent = requireNode.parent();
 				if (parent) {
-					edits.push(parent.replace(''));
+					linesToRemove.push(parent.range());
 				} else {
 					console.warn("Parent node not found for requireNode:", requireNode.text());
 				}
@@ -228,7 +240,7 @@ function cleanupUtilImports(root: SgRoot, edits: Edit[], nonIsMethodsUsed: Set<s
 			const parent = requireNode.parent();
 
 			if (parent) {
-				edits.push(parent.replace(''));
+				linesToRemove.push(parent.range());
 			}
 		}
 	}
