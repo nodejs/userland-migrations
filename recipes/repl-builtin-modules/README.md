@@ -1,33 +1,63 @@
-# `fs.rmdir` DEP0147
+# `repl.builtinModules` DEP0191
 
-This recipe provides a guide for migrating from the deprecated `fs.rmdir` and its synchronous and promise-based counterparts to the new `fs.rm` method in Node.js.
+This recipe provides a guide for migrating from the deprecated `repl.builtinModules` to the new `module.builtinModules` property in Node.js.
 
-See [DEP0147](https://nodejs.org/api/deprecations.html#DEP0147).
+See [DEP0191](https://nodejs.org/api/deprecations.html#DEP0191).
 
 ## Examples
 
 **Before:**
-
 ```js
-// Using fs.rmdir with the recursive option
-fs.rmdir(path, { recursive: true }, callback);
+// Using require with namespace import
+const repl = require('node:repl');
+console.log(repl.builtinModules);
 
-// Using fs.rmdirSync with the recursive option
-fs.rmdirSync(path, { recursive: true });
+// Using require with destructuring
+const { builtinModules } = require('node:repl');
 
-// Using fs.promises.rmdir with the recursive option
-fs.promises.rmdir(path, { recursive: true });
+// Using require with mixed destructuring
+const { builtinModules, foo } = require('node:repl');
+
+// Using ES6 import with named import
+import { builtinModules } from 'node:repl';
+
+// Using ES6 import with mixed named imports
+import { builtinModules, foo } from 'node:repl';
+
+// Using ES6 import with default import
+import repl from 'node:repl';
+console.log(repl.builtinModules);
+
+// Using ES6 import with namespace import
+import * as repl from 'node:repl';
+console.log(repl.builtinModules);
 ```
 
 **After:**
-
 ```js
-// Using fs.rm with recursive and force options
-fs.rm(path, { recursive: true, force: true }, callback);
+// Using require with namespace import
+const module = require('node:module');
+console.log(module.builtinModules);
 
-// Using fs.rmSync with recursive and force options
-fs.rmSync(path, { recursive: true, force: true });
+// Using require with destructuring
+const { builtinModules } = require('node:module');
 
-// Using fs.promises.rm with recursive and force options
-fs.promises.rm(path, { recursive: true, force: true });
+// Using require with mixed destructuring
+const { foo } = require('node:repl');
+const { builtinModules } = require('node:module');
+
+// Using ES6 import with named import
+import { builtinModules } from 'node:module';
+
+// Using ES6 import with mixed named imports
+import { foo } from 'node:repl';
+import { builtinModules } from 'node:module';
+
+// Using ES6 import with default import
+import module from 'node:module';
+console.log(module.builtinModules);
+
+// Using ES6 import with namespace import
+import * as module from 'node:module';
+console.log(module.builtinModules);
 ```
