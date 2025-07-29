@@ -5,8 +5,7 @@ import dedent from 'dedent';
 import {
 	getNodeImportStatements,
 	getNodeImportCalls,
-	getDefaultImportIdentifier,
-	getNamedImportSpecifiers,
+	getDefaultImportIdentifier
 } from "./import-statement.ts";
 
 describe("import-statement", () => {
@@ -103,32 +102,6 @@ describe("import-statement", () => {
         assert.strictEqual(moduleCalls.length, 0, "Pending import calls should not be caught");
     });
 
-    it("should handle getNamedImportSpecifiers", () => {
-        const code = dedent`
-            import { join, resolve as resolvePath } from 'node:path';
-            import { spawn } from "child_process";
-            import defaultExport from "module-a";
-        `;
-        const ast = astGrep.parse(astGrep.Lang.JavaScript, code);
-
-        const pathImports = getNodeImportStatements(ast, 'path');
-        const namedSpecifiers = getNamedImportSpecifiers(pathImports[0]);
-        assert.strictEqual(namedSpecifiers.length, 2);
-        assert.strictEqual(namedSpecifiers[0].field('name')?.text(), 'join');
-        assert.strictEqual(namedSpecifiers[1].field('name')?.text(), 'resolve');
-        assert.strictEqual(namedSpecifiers[1].field('alias')?.text(), 'resolvePath');
-
-        const childProcessImports = getNodeImportStatements(ast, 'child_process');
-        const childProcessSpecifiers = getNamedImportSpecifiers(childProcessImports[0]);
-        assert.strictEqual(childProcessSpecifiers.length, 1);
-        assert.strictEqual(childProcessSpecifiers[0].field('name')?.text(), 'spawn');
-
-        // Default import should have no named specifiers
-        const moduleAImports = getNodeImportStatements(ast, 'module-a');
-        const moduleASpecifiers = getNamedImportSpecifiers(moduleAImports[0]);
-        assert.strictEqual(moduleASpecifiers.length, 0);
-    });
-
     it("should handle getDefaultImportIdentifier", () => {
         const code = dedent`
             import fs from 'fs';
@@ -171,13 +144,11 @@ describe("import-statement", () => {
         const sideEffectImports = getNodeImportStatements(ast, 'side-effect-only');
         assert.strictEqual(sideEffectImports.length, 1);
         assert.strictEqual(getDefaultImportIdentifier(sideEffectImports[0]), null);
-        assert.strictEqual(getNamedImportSpecifiers(sideEffectImports[0]).length, 0);
 
         // Test empty imports
         const emptyImports = getNodeImportStatements(ast, 'empty-imports');
         assert.strictEqual(emptyImports.length, 1);
         assert.strictEqual(getDefaultImportIdentifier(emptyImports[0]), null);
-        assert.strictEqual(getNamedImportSpecifiers(emptyImports[0]).length, 0);
     });
 
     it("should handle non-await import calls", () => {

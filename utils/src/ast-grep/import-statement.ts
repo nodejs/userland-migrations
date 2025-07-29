@@ -14,15 +14,6 @@ export const getNodeImportStatements = (rootNode: SgRoot, nodeModuleName: string
 			}
 		});
 
-/**
- * Get named import specifiers from an import statement
- */
-export const getNamedImportSpecifiers = (importNode: SgNode): SgNode[] =>
-	importNode.findAll({
-		rule: {
-			kind: "import_specifier"
-		}
-	});
 
 /**
  * Get the default import identifier from an import statement

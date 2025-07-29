@@ -1,6 +1,5 @@
 import {
 	getNodeImportStatements,
-	getNamedImportSpecifiers,
 	getDefaultImportIdentifier
 } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import {
@@ -16,21 +15,21 @@ import type { SgRoot, Edit, Range } from "@ast-grep/napi";
  * to their modern equivalents.
  *
  * Handles:
- * 1. util.isArray() -> Array.isArray()
- * 2. util.isBoolean() -> typeof value === 'boolean'
- * 3. util.isBuffer() -> Buffer.isBuffer()
- * 4. util.isDate() -> value instanceof Date
- * 5. util.isError() -> value instanceof Error
- * 6. util.isFunction() -> typeof value === 'function'
- * 7. util.isNull() -> value === null
- * 8. util.isNullOrUndefined() -> value == null
- * 9. util.isNumber() -> typeof value === 'number'
- * 10. util.isObject() -> typeof value === 'object' && value !== null
- * 11. util.isPrimitive() -> value !== Object(value)
- * 12. util.isRegExp() -> value instanceof RegExp
- * 13. util.isString() -> typeof value === 'string'
- * 14. util.isSymbol() -> typeof value === 'symbol'
- * 15. util.isUndefined() -> typeof value === 'undefined'
+ * 1. util.isArray() → Array.isArray()
+ * 2. util.isBoolean() → typeof value === 'boolean'
+ * 3. util.isBuffer() → Buffer.isBuffer()
+ * 4. util.isDate() → value instanceof Date
+ * 5. util.isError() → value instanceof Error
+ * 6. util.isFunction() → typeof value === 'function'
+ * 7. util.isNull() → value === null
+ * 8. util.isNullOrUndefined() → value == null
+ * 9. util.isNumber() → typeof value === 'number'
+ * 10. util.isObject() → typeof value === 'object' && value !== null
+ * 11. util.isPrimitive() → value !== Object(value)
+ * 12. util.isRegExp() → value instanceof RegExp
+ * 13. util.isString() → typeof value === 'string'
+ * 14. util.isSymbol() → typeof value === 'symbol'
+ * 15. util.isUndefined() → typeof value === 'undefined'
  */
 export default function transform(root: SgRoot): string | null {
 	const rootNode = root.root();
@@ -176,7 +175,7 @@ function cleanupUtilImports(root: SgRoot, edits: Edit[], nonIsMethodsUsed: Set<s
 	const importStatements = getNodeImportStatements(root, 'util');
 
 	for (const importNode of importStatements) {
-		const namedSpecifiers = getNamedImportSpecifiers(importNode);
+		const namedSpecifiers = importNode.findAll({ rule: { kind: "import_specifier" } });
 		const defaultImport = getDefaultImportIdentifier(importNode);
 
 		if (namedSpecifiers.length > 0) {
