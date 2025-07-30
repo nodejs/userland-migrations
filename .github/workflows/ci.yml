@@ -72,7 +72,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Validate YAML files
-        run: find . -name "*.yaml" -o -name "*.yml" | xargs yamllint
+        run: yamllint -c .yamllint.yaml
 
   tests:
     name: Unit, e2e, coverage
