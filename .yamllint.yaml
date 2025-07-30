@@ -1,3 +1,7 @@
+# We use yamllint to ensure our YAML files are well-formed and follow best practices.
+# In future, I (@AugustinMauroy) want to use `codemod validate` to validate YAML files.
+# But this feature only check `workflow.yaml` and not `codemod.yaml`.
+
 yaml-files:
   - '*.yaml'
   - '*.yml'
