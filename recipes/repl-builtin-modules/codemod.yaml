@@ -15,6 +15,7 @@ targets:
 keywords:
   - transformation
   - migration
+  - deprecation
 
 registry:
   access: public

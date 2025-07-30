@@ -2,7 +2,7 @@
 
 This recipe provides a guide for migrating from the deprecated `repl.builtinModules` to the new `module.builtinModules` property in Node.js.
 
-See [DEP0191](https://nodejs.org/api/deprecations.html#DEP0191).
+See [DEP0191](https://nodejs.org/api/deprecations.html#DEP0191) and [DEP0142](https://nodejs.org/api/deprecations.html#DEP0142)
 
 ## Examples
 
