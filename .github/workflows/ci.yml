@@ -62,6 +62,18 @@ jobs:
       - run: node --run lint
       - run: node --run type-check
 
+  validate-yaml:
+    name: Validate YAML files
+
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Validate YAML files
+        run: yamllint **/*.yaml
+
   tests:
     name: Unit, e2e, coverage
 
