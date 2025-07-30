@@ -1,5 +1,4 @@
-import type { TypesMap } from "@codemod.com/jssg-types/main";
-import type { Kinds } from "@ast-grep/napi/types/staticTypes.js";
+import type { Kinds, TypesMap } from "@ast-grep/napi/types/staticTypes.js";
 import type { SgNode } from "@ast-grep/napi";
 
 const requireKinds = ["lexical_declaration", "variable_declarator"];
@@ -34,7 +33,7 @@ const supportedKinds = [...requireKinds, ...importKinds];
  *
  * @example
  * ```typescript
- * // Given an import: const {types: utilTypes} = require("node:util")
+ * // Given an import: import {types as utilTypes} from ("node:util")
  * // And path: "$.types.isNativeError"
  * // Returns: "utilTypes.isNativeError"
  * ```
@@ -176,6 +175,22 @@ function resolveBindingPathImport(node: SgNode<TypesMap, Kinds<TypesMap>>, path:
 		return path.replace("$", activeNode.text());
 	}
 
+	const namespaceImport = activeNode.find({
+		rule: {
+			kind: "namespace_import",
+		},
+	});
+
+	if (Boolean(namespaceImport)) {
+		const namespaceIdentifier = namespaceImport.find({
+			rule: {
+				kind: "identifier",
+			},
+		});
+
+		return path.replace("$", namespaceIdentifier.text());
+	}
+
 	const namedImports = activeNode.findAll({
 		rule: {
 			kind: "import_specifier",
@@ -216,11 +231,38 @@ function resolveBindingPathImport(node: SgNode<TypesMap, Kinds<TypesMap>>, path:
 		},
 	});
 
-	console.log({ chama: renamedImports.map((t) => t.text()) });
+	let oldName: string, newName: string;
 
-	if (importFound) {
-		return path.slice(path.indexOf(importFound));
+	if (renamedImports.length > 0) {
+		for (const renamedImport of renamedImports) {
+			const oldNameNode = renamedImport.find({
+				rule: {
+					has: {
+						field: "name",
+						kind: "identifier",
+					},
+				},
+			});
+			oldName = oldNameNode?.text();
+
+			if (oldName && pathArr.includes(oldName)) {
+				const newNameNode = renamedImport.find({
+					rule: {
+						has: {
+							field: "alias",
+							kind: "identifier",
+						},
+					},
+				});
+
+				newName = newNameNode?.text();
+				break;
+			}
+		}
 	}
 
-	return "none";
+	if (oldName && newName) {
+		const newPath = path.slice(path.indexOf(oldName));
+		return newPath.replace(oldName, newName);
+	}
 }

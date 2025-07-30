@@ -1,20 +1,11 @@
 import assert from "node:assert/strict";
-import { resolveBindingPath } from "./resolve-binding-path.ts";
-import { describe, it, only } from "node:test";
+import { describe, it } from "node:test";
 import astGrep from "@ast-grep/napi";
 import dedent from "dedent";
 
-describe("resolve-binding-path", () => {
-	const code = dedent`
-		const util = require('node:util');
-		var { join } = require('node:path');
-		let { spawn } = require("child_process");
-		const { styleText: renamedFunction } = require("node:util");
-		require("no:assignment");
-		require(variable);
-		require(\`backticks\`);
-	`;
+import { resolveBindingPath } from "./resolve-binding-path.ts";
 
+describe("resolve-binding-path", () => {
 	it("should be able to solve binding path to simple requires", () => {
 		const code = dedent`
 			const util = require('node:util');
@@ -147,5 +138,22 @@ describe("resolve-binding-path", () => {
 		const bindingPath = resolveBindingPath(importStatement!, "$.types.isNativeError");
 
 		assert.strictEqual(bindingPath, "renamedTypes.isNativeError");
+	});
+
+	it("should be able to solve binding using esmodule with namespace import", () => {
+		const code = dedent`
+			import * as example from 'node:util';
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const importStatement = rootNode.root().find({
+			rule: {
+				kind: "import_statement",
+			},
+		});
+
+		const bindingPath = resolveBindingPath(importStatement!, "$.types.isNativeError");
+
+		assert.strictEqual(bindingPath, "example.types.isNativeError");
 	});
 });
