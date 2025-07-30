@@ -72,7 +72,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Validate YAML files
-        run: yamllint -c .yamllint.yaml
+        run: yamllint -c .yamllint.yaml -f github ./
 
   tests:
     name: Unit, e2e, coverage
