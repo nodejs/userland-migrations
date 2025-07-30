@@ -13,8 +13,8 @@ const supportedKinds = [...requireKinds, ...importKinds];
  * Takes a dotted path (like `$.types.isNativeError`) and analyzes the provided AST node to determine
  * how that function should be accessed in the local code context based on the import pattern used.
  *
- * @param node - The AST node representing the import statement or module structure
- * @param path - The global dotted path to resolve (e.g., "$.types.isNativeError")
+ * @param node - The AST node representing the import or require statement
+ * @param path - The expected dotted path to resolve (e.g., "$.types.isNativeError")
  * @returns The local access path that should be used in code (e.g., "types.isNativeError")
  *
  * @example
