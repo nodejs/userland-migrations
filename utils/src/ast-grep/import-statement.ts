@@ -14,6 +14,25 @@ export const getNodeImportStatements = (rootNode: SgRoot, nodeModuleName: string
 			}
 		});
 
+
+/**
+ * Get the default import identifier from an import statement
+ */
+export const getDefaultImportIdentifier = (importNode: SgNode): SgNode | null =>
+	importNode.find({
+		rule: {
+			kind: "identifier",
+			inside: {
+				kind: "import_clause",
+				not: {
+					has: {
+						kind: "named_imports"
+					}
+				}
+			}
+		}
+	});
+
 /**
  * We just catch `variable_declarator` nodes that use `import` to import a module
  * Because a simple `import('nodeAPI')` don't do anything, so in codemod context we don't need to
