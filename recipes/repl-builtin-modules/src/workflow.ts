@@ -93,20 +93,6 @@ export default function transform(root: SgRoot<Js>): string | null {
                     }
                 } else {
                     // Case 3: Split into two statements
-                    const newText = originalText.replace(/,?\s*(builtinModules|_builtinLibs)\s*(:\s*\w+)?\s*,?/g, (match, property, alias, offset, string) => {
-                        // If the match is at the beginning, remove leading comma from the rest
-                        if (offset === 1) { // After opening brace
-                            return "";
-                        }
-                        // If there's a comma before, keep the comma for the remaining items
-                        if (match.startsWith(",")) {
-                            return "";
-                        }
-                        // If there's a comma after, remove it
-                        return "";
-                    }).replace(/^{\s*,/, "{ ").replace(/,\s*}$/, " }").replace(/,\s*,/g, ",").trim();
-
-                    // Better approach: manually reconstruct the object pattern
                     const propertiesToKeep = [];
                     const properties = objectPattern.findAll({
                         rule: {
