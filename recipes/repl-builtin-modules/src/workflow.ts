@@ -1,7 +1,9 @@
+import { EOL } from "node:os";
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
 import type Js from "@codemod.com/jssg-types/langs/javascript";
+
 
 /**
  * Transform function that converts deprecated repl.builtinModules and repl._builtinLibs
@@ -147,7 +149,7 @@ export default function transform(root: SgRoot<Js>): string | null {
                                 const secondStatement = `const { builtinModules${aliasText} } = require(${newModule.includes('node:') ? "'node:module'" : "'module'"});`;
 
                                 // Replace the entire variable declaration with both statements
-                                const replacementText = `${firstStatement}\n${secondStatement}`;
+                                const replacementText = `${firstStatement}${EOL}${secondStatement}`;
 
                                 edits.push(variableDeclaration.replace(replacementText));
 
@@ -326,7 +328,7 @@ export default function transform(root: SgRoot<Js>): string | null {
                         edits.push({
                             startPos: statementEnd.index,
                             endPos: statementEnd.index,
-                            insertedText: `\n${newStatement}`
+                            insertedText: `${EOL}${newStatement}`
                         });
 
                         // If original had _builtinLibs without alias, replace standalone references
