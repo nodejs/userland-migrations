@@ -70,19 +70,13 @@ function resolveBindingPathRequire(node: SgNode<TypesMap, Kinds<TypesMap>>, path
 		});
 	}
 
-	if (!activeNode) {
-		throw new Error(
-			"Failed to resolve require() statement. Unable to determine the module binding.",
-		);
-	}
-
-	activeNode = node.child(0);
+	activeNode = activeNode.child(0);
 
 	if (activeNode?.kind() === "identifier") {
 		return path.replace("$", activeNode.text());
 	}
 
-	const namedImports = node.findAll({
+	const namedImports = activeNode.findAll({
 		rule: {
 			kind: "shorthand_property_identifier_pattern",
 		},
@@ -161,12 +155,6 @@ function resolveBindingPathImport(node: SgNode<TypesMap, Kinds<TypesMap>>, path:
 				kind: "import_clause",
 			},
 		});
-	}
-
-	if (!activeNode) {
-		throw new Error(
-			"Failed to resolve require() statement. Unable to determine the module binding.",
-		);
 	}
 
 	activeNode = activeNode.child(0);

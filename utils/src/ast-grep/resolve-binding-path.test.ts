@@ -14,7 +14,7 @@ describe("resolve-binding-path", () => {
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
 		const importStatement = rootNode.root().find({
 			rule: {
-				kind: "variable_declarator",
+				kind: "lexical_declaration",
 			},
 		});
 
