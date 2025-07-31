@@ -1,6 +1,6 @@
 schema_version: "1.0"
-name: @nodejs/tmpdir
-version: 0.0.1
+name: "@nodejs/tmpDir-to-tmpdir"
+version: "1.0.0"
 description: Handle DEP0022 via transforming `tmpDir` to `tmpdir`.
 author: nekojanai (Jana)
 license: MIT

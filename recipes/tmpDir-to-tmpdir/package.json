@@ -1,5 +1,5 @@
 {
-  "name": "@nodejs/tmpdir",
+  "name": "@nodejs/tmpDir-to-tmpdir",
   "version": "1.0.0",
   "description": "Handle DEP0022 via transforming `tmpDir` to `tmpdir`.",
   "type": "module",
@@ -9,12 +9,12 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nodejs/userland-migrations.git",
-    "directory": "recipes/tmpdir",
+    "directory": "recipes/tmpDir-to-tmpdir",
     "bugs": "https://github.com/nodejs/userland-migrations/issues"
   },
   "author": "nekojanai (Jana)",
   "license": "MIT",
-  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/tmpdir/README.md",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/tmpDir-to-tmpdir/README.md",
   "devDependencies": {
     "@types/node": "^24.0.3"
   },
