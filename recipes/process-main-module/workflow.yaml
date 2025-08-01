@@ -8,7 +8,7 @@ nodes:
       type: direct
     steps:
       - name: Handle DEP0138 via transforming `process.mainModule` to `require.main`.
-      js-ast-grep:
+        js-ast-grep:
           js_file: src/workflow.ts
           base_path: .
           include:
