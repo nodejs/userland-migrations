@@ -1,0 +1,25 @@
+{
+  "name": "@nodejs/tmpdir-to-tmpdir",
+  "version": "1.0.0",
+  "description": "Handle DEP0022 via transforming `tmpDir` to `tmpdir`.",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod@next jssg test -l typescript ./src/workflow.ts ./"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/tmpdir-to-tmpdir",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "nekojanai (Jana)",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/tmpdir-to-tmpdir/README.md",
+  "devDependencies": {
+    "@types/node": "^24.0.3"
+  },
+  "dependencies": {
+    "@ast-grep/napi": "^0.39.1",
+    "@nodejs/codemod-utils": "0.0.0"
+  }
+}
