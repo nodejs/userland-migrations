@@ -8,11 +8,8 @@ Thank you for your interest in contributing to this project! We value contributi
 
 Before you begin, ensure you have the current versions of the following installed:
 
-* node
-* npm
-
-- Node.js (`.nvmrc` is set so you can use your favorite Node.js version)
-- npm (for development dependencies)
+- node
+- npm
 
 ### Project Overview
 
@@ -122,10 +119,19 @@ Please follow the [Conventional Commits](https://www.conventionalcommits.org/en/
 - Understanding the history of changes
 - Semantic versioning
 
+Format:
+```
+<type>(<scope>): <description>
+```
+
+- **`type`**: The type of change (e.g., `feat`, `fix`, `docs`, `chore`, etc.)
+- **`scope`**: A short, lowercase description of the section of the codebase affected (e.g., `tmpDir-to-tmpdir`, `esm-migration`)
+- **`description`**: A concise summary of the change
+
 Examples:
-- `feat: add new node.js 18 migration codemod`
-- `fix: correct type checking in ESM migration`
-- `docs: improve usage examples`
+- `feat(tmpDir-to-tmpdir): add new node.js 18 migration codemod`
+- `fix(esm-migration): correct type checking in ESM migration`
+- `docs(codemod-usage): improve usage examples`
 
 ## Pull Request Process
 
@@ -134,7 +140,7 @@ When submitting a pull request:
 2. Run all tests (`node --run pre-commit`)
 3. Follow the project's coding standards
 4. Use the [conventional commit](https://www.conventionalcommits.org/en/v1.0.0/) format in your PR title and description
-5. Link to any related issues
+5. Link to any related issues, using [GitHub keywords](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/using-keywords-in-issues-and-pull-requests) where applicable.
 
 ### Acceptance Criteria
 
@@ -142,6 +148,7 @@ For a pull request to be merged, it must:
 - Receive approval from at least 2 reviewers
 - Pass all tests
 - Be open for at least 48 hours to allow for review and discussion
+  - except hotfixes and trivial corrections (like typos)
 
 ### Developer's Certificate of Origin 1.1
 
