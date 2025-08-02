@@ -55,10 +55,14 @@ export default function transform(root: SgRoot<Js>): string | null {
                     }
                 });
 
-                const hasOnlyBuiltinProperty = (properties.length === 1 &&
-                    (properties[0].text() === "builtinModules" || properties[0].text() === "_builtinLibs")) ||
-                    (properties.length === 0 && pairProperties.length === 1 &&
-                    (pairProperties[0].text().includes("builtinModules") || pairProperties[0].text().includes("_builtinLibs")));
+				// Check if the destructured properties contain only builtinModules or _builtinLibs
+				const hasSingleShorthandProperty = properties.length === 1 &&
+					(properties[0].text() === "builtinModules" || properties[0].text() === "_builtinLibs");
+
+				const hasSinglePairProperty = properties.length === 0 && pairProperties.length === 1 &&
+					(pairProperties[0].text().includes("builtinModules") || pairProperties[0].text().includes("_builtinLibs"));
+
+				const hasOnlyBuiltinProperty = hasSingleShorthandProperty || hasSinglePairProperty;
 
                 if (hasOnlyBuiltinProperty) {
                     // Case 2/7: Replace entire require statement
@@ -200,28 +204,21 @@ export default function transform(root: SgRoot<Js>): string | null {
                     const varName = identifier.text();
 
                     // Find all member expressions using this variable with builtinModules or _builtinLibs
-                    const builtinModulesExpressions = rootNode.findAll({
+					const usages = rootNode.findAll({
                         rule: {
-                            pattern: `${varName}.builtinModules`
+                            any: [
+                                { pattern: `${varName}.builtinModules` },
+                                { pattern: `${varName}._builtinLibs` }
+                            ]
                         }
                     });
 
-                    const builtinLibsExpressions = rootNode.findAll({
-                        rule: {
-                            pattern: `${varName}._builtinLibs`
-                        }
-                    });
-
-                    if (builtinModulesExpressions.length > 0 || builtinLibsExpressions.length > 0) {
+                    if (usages.length > 0) {
                         // Replace variable name from repl to module
                         edits.push(identifier.replace("module"));
 
                         // Replace all member expressions
-                        for (const memberExpr of builtinModulesExpressions) {
-                            edits.push(memberExpr.replace("module.builtinModules"));
-                        }
-
-                        for (const memberExpr of builtinLibsExpressions) {
+                        for (const memberExpr of usages) {
                             edits.push(memberExpr.replace("module.builtinModules"));
                         }
 
@@ -231,6 +228,7 @@ export default function transform(root: SgRoot<Js>): string | null {
                                 kind: "string"
                             }
                         });
+
                         if (moduleSpecifier) {
                             const currentModule = moduleSpecifier.text();
                             const newModule = currentModule.includes("node:") ? "'node:module'" : "'module'";
@@ -396,19 +394,16 @@ export default function transform(root: SgRoot<Js>): string | null {
                     const varName = importIdentifier.text();
 
                     // Find all member expressions using this variable with builtinModules or _builtinLibs
-                    const builtinModulesExpressions = rootNode.findAll({
-                        rule: {
-                            pattern: `${varName}.builtinModules`
-                        }
-                    });
+					const expressions = rootNode.findAll({
+						rule: {
+							any: [
+								{ pattern: `${varName}.builtinModules` },
+								{ pattern: `${varName}._builtinLibs` }
+							]
+						}
+					});
 
-                    const builtinLibsExpressions = rootNode.findAll({
-                        rule: {
-                            pattern: `${varName}._builtinLibs`
-                        }
-                    });
-
-                    if (builtinModulesExpressions.length > 0 || builtinLibsExpressions.length > 0) {
+                    if (expressions.length > 0) {
                         // Replace the import to use module instead
                         const moduleSpecifier = statement.find({
                             rule: {
@@ -423,7 +418,7 @@ export default function transform(root: SgRoot<Js>): string | null {
                         }
 
                         // Replace all _builtinLibs usages with builtinModules
-                        for (const memberExpr of builtinLibsExpressions) {
+                        for (const memberExpr of expressions) {
                             edits.push(memberExpr.replace(`${varName}.builtinModules`));
                         }
                     }
