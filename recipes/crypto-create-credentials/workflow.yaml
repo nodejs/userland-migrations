@@ -7,7 +7,7 @@ nodes:
     runtime:
       type: direct
     steps:
-      - name: Replace `assert` import attribute to the `with` ECMAScript import attribute.
+      - name: Handle DEP0010 via transforming `crypto.createCredentials` to `tls.createSecureContext`.
         js-ast-grep:
           js_file: src/workflow.ts
           base_path: .

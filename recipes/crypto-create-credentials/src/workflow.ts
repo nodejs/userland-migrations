@@ -170,7 +170,7 @@ function handleNamespaceImport(
 ) {
     const isEsm = importType === 'NAMESPACE_IMPORT';
     const nameNode = isEsm
-        ? importOrDeclarator.find({ rule: { kind: 'namespace_import' } })?.field('name')
+        ? importOrDeclarator.find({ rule: { kind: 'namespace_import' } })?.find({ rule: { kind: 'identifier' }})
         : importOrDeclarator.field('name');
 
     if (!nameNode) {

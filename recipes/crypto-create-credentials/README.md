@@ -1,4 +1,4 @@
-# `fs.rmdir` DEP0147
+# `crypto.createCredentials` DEP0010
 
 This recipe provides a guide for migrating from the deprecated `crypto.createCredentials` method in Node.js.
 

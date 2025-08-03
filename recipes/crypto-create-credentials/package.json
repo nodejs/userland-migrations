@@ -1,5 +1,5 @@
 {
-  "name": "@nodejs/crypto-createCredentials",
+  "name": "@nodejs/crypto-create-credentials",
   "version": "1.0.0",
   "description": "Handle DEP0010 via transforming `crypto.createCredentials` to `tls.createSecureContext` with the appropriate options.",
   "type": "module",
@@ -9,7 +9,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nodejs/userland-migrations.git",
-    "directory": "recipes/rmdirs",
+        "directory": "recipes/crypto-create-credentials",
     "bugs": "https://github.com/nodejs/userland-migrations/issues"
   },
   "author": "0hmx",
