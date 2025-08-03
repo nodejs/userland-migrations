@@ -6,9 +6,10 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const edits: Edit[] = [];
 	let hasChanges = false;
 
-	// after the migration, `url.format` is deprecated, so we replace it with `new URL().toString()`
-	// check remaining usages of `url` module and replace import statements accordingly
-	// and require calls
+	// after the migration, replacement of `url.parse` and `url.format`
+	// we need to check remaining usage of `url` module
+	// if needed, we can remove the `url` import
+	// we are going to use bruno's utility to resolve bindings
 
 	if (!hasChanges) return null;
 
