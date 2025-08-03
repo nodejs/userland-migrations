@@ -90,7 +90,7 @@ registry:
 - [Codemod Workflow Documentation](https://docs.codemod.com/cli/workflows)
 - [Codemod Studio Documentation](https://docs.codemod.com/codemod-studio)
 - [JSSG API Reference](https://docs.codemod.com/cli/cli-reference#cli-command-reference)
-- [AST-grep Documentation](https://ast-grep.github.io/)
+- [ast-grep Documentation](https://ast-grep.github.io/)
 
 ## Development Workflow
 
