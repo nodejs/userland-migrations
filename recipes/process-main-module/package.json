@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/process-main-module",
-  "version": "1.1.0",
+  "version": "1.0.1",
   "description": "Handle DEP0138 via transforming `process.mainModule` to `require.main`.",
   "type": "module",
   "scripts": {
