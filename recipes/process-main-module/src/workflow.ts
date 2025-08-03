@@ -1,6 +1,7 @@
 import type { Edit, SgRoot, Range } from "@codemod.com/jssg-types/main";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
+import { removeBinding } from "@nodejs/codemod-utils/ast-grep/remove-binding";
 
 /**
  * Transforms `process.mainModule` usage to `require.main`. Handles direct global access
@@ -47,38 +48,21 @@ export default function transform(root: SgRoot): string | null {
 	for (const declarationNode of [...requireDeclarations, ...destructureDeclarations]) {
 		// Step 1: Get all requires from module nodule:process that is destructuring mainModule:
 		if (declarationNode.text().includes("mainModule")) {
-			const objectPattern = declarationNode.find({
-				rule: {
-					kind: "object_pattern",
-				},
-			});
+			// @ts-ignore - ast-grep types are not fully compatible with JSSG types
+			const result = removeBinding(declarationNode, "mainModule");
 
-			if (!objectPattern) continue;
-
-			// Step2: Handle the destructuring import:
-			const declarations = declarationNode.findAll({
-				rule: {
-					kind: "shorthand_property_identifier_pattern",
-				},
-			});
-
-			if (declarations.length !== 0) {
+			if (result) {
 				patternsToReplace.push({
 					pattern: "mainModule",
 				});
-			}
 
-			// When 'mainModule' is the only item imported, remove to whole thing to avoid an empty import
-			if (declarations.length === 1) {
-				linesToRemove.push(declarationNode.range());
-			}
+				if (result.edit) {
+					edits.push(result.edit);
+				}
 
-			if (declarations.length > 1) {
-				const restDeclarations = declarations
-					.map((d) => d.text())
-					.filter((d) => d !== "mainModule");
-
-				edits.push(objectPattern.replace(`{ ${restDeclarations.join(", ")} }`));
+				if (result.lineToRemove) {
+					linesToRemove.push(result.lineToRemove);
+				}
 			}
 		}
 	}
