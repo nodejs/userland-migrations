@@ -1,0 +1,51 @@
+# `fs.rmdir` DEP0147
+
+This recipe provides a guide for migrating from the deprecated `crypto.createCredentials` method in Node.js.
+
+See [DEP0010](https://nodejs.org/api/deprecations.html#DEP0010).
+
+## Examples
+
+**Before:**
+
+```js
+// Using the deprecated createCredentials from node:crypto
+const { createCredentials } = require('node:crypto');
+
+const credentials = createCredentials({
+  key: privateKey,
+  cert: certificate,
+  ca: [caCertificate]
+});
+
+// Using destructuring with ES module imports
+import { createCredentials } from 'node:crypto';
+
+const credentials = createCredentials({
+  key: privateKey,
+  cert: certificate,
+  ca: [caCertificate]
+});
+```
+
+**After:**
+
+```js
+// Updated to use createSecureContext from node:tls
+const { createSecureContext } = require('node:tls');
+
+const credentials = createSecureContext({
+  key: privateKey,
+  cert: certificate,
+  ca: [caCertificate]
+});
+
+// Updated ES module import
+import { createSecureContext } from 'node:tls';
+
+const credentials = createSecureContext({
+  key: privateKey,
+  cert: certificate,
+  ca: [caCertificate]
+});
+```
