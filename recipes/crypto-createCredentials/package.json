@@ -14,7 +14,7 @@
   },
   "author": "0hmx",
   "license": "MIT",
-  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/rmdirs/README.md",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/crypto-create-credentials/README.md",
   "devDependencies": {
     "@types/node": "^24.0.3",
     "@codemod.com/jssg-types": "^1.0.3"
