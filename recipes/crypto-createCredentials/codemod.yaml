@@ -1,5 +1,5 @@
 schema_version: "1.0"
-name: "@nodejs/crypto-createCredentials"
+name: "@nodejs/crypto-create-credentials"
 version: 1.0.0
 description: Handle DEP0010 via transforming `crypto.createCredentials` to `tls.createSecureContext`
 author: 0hmx
