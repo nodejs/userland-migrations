@@ -1,8 +1,9 @@
 import type { Edit, SgRoot } from "@codemod.com/jssg-types/main";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
+import type Js from "@codemod.com/jssg-types/langs/javascript";
 
-export default function tranform(root: SgRoot): string | null {
+export default function tranform(root: SgRoot<Js>): string | null {
   const rootNode = root.root();
   const edits: Edit[] = [];
   let hasChanges = false;
