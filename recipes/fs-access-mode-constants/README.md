@@ -64,7 +64,7 @@ access('/path/to/file', constants.F_OK, callback);
 access('/path/to/file', constants.R_OK | constants.W_OK, callback);
 ```
 
-### Case 4: ESM destructured import
+### Case 4: named imports
 
 **Before:**
 
