@@ -145,7 +145,7 @@ When submitting a pull request:
 ### Acceptance Criteria
 
 For a pull request to be merged, it must:
-- Receive approval from at least 2 reviewers
+- Receive approval from at least 2 reviewers ([team members](TEAM.md))
 - Pass all tests
 - Be open for at least 48 hours to allow for review and discussion
   - except hotfixes and trivial corrections (like typos)
