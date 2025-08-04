@@ -1,5 +1,5 @@
 {
-  "name": "@nodejs/file-access-mode-constants",
+  "name": "@nodejs/fs-access-mode-constants",
   "version": "1.0.0",
   "description": "Handle DEP0176 via transforming imports of `fs.F_OK`, `fs.R_OK`, `fs.W_OK`, `fs.X_OK` from the root `fs` module to `fs.constants`.",
   "type": "module",
@@ -9,17 +9,16 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nodejs/userland-migrations.git",
-    "directory": "recipes/file-access-mode-constants",
+    "directory": "recipes/fs-access-mode-constants",
     "bugs": "https://github.com/nodejs/userland-migrations/issues"
   },
   "author": "nekojanai (Jana)",
   "license": "MIT",
-  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/file-access-mode-constants/README.md",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/fs-access-mode-constants/README.md",
   "dependencies": {
-    "@ast-grep/napi": "^0.39.2",
-    "@nodejs/codemod-utils": "^0.0.0"
+    "@nodejs/codemod-utils": "*"
   },
   "devDependencies": {
-    "@types/node": "^24.1.0"
+    "@codemod.com/jssg-types": "^1.0.3"
   }
 }
