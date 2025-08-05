@@ -11,7 +11,7 @@ Current members are:
 
 ## Rights
 
-Any team member may block a PR or decision. A block may be overturned by team vote; votes require a quorum of ⅔ of active members and passes by >½ simple majority. In accordance with Node.js policy, a team's vote may be overturned by the [TSC](https://github.com/nodejs/TSC).
+Any team member may block a PR or decision. A block may be overturned by team vote; votes require a quorum of ⅔ of active members and pass by >½ simple majority. In accordance with Node.js policy, a team's vote may be overturned by the [TSC](https://github.com/nodejs/TSC).
 
 Any member can create a tag on main which triggers a CI run, this is used to create a releases. So be careful with this power. Tags should have this structure `vX.Y.Z@workspace`, where `X.Y.Z` is the version number and `workspace` is the name of the npm workspace (e.g. `v1.2.3@codemod`).
 
@@ -27,7 +27,7 @@ The team lead is not more equal than other active members; it is an administrati
 
 The team lead is responsible for ensuring team policies are followed, and takes some discretion when taking administrative action (such as removing an inactive member per team policy).
 
-The team lead can also bypass Github Branch rulesets to merge PRs that are otherwise blocked by the rules. Only for hotfixes.
+The team lead can also bypass Github Branch rulesets to merge PRs that are otherwise blocked by the rules (such as for trivial edits/corrects and hot-fixes).
 
 ## Team nomination
 
@@ -43,7 +43,7 @@ Non-members of the Node.js org should meet the following criteria:
   - _Consistent_ means roughly once a week (we all have lives)
   - _Substantive_ means adds value and does not detract from the issue at hand.
 
-Exceptions may be made to members of the larger ecosystem who are well known to the Node.js organisation.
+Exceptions may be made for members of the larger ecosystem who are well known to the Node.js organisation.
 
 An active member may nominate a contributor who meets this criteria. The nomination must pass before requesting the contributor be added to the organisation. All active members must be notified of the nomination.
 
