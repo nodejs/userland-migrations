@@ -220,7 +220,8 @@ function resolveBindingPathImport(node: SgNode<TypesMap, Kinds<TypesMap>>, path:
 		},
 	});
 
-	let oldName: string, newName: string;
+	let oldName: string;
+	let newName: string;
 
 	if (renamedImports.length > 0) {
 		for (const renamedImport of renamedImports) {
