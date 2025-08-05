@@ -11,7 +11,7 @@ export default function tranform(root: SgRoot<Js>): string | null {
   let hasPromisesImport = false;
   let promisesImportName = "promises";
 
-  // @ts-ignore - ast-grep types are not fully compatible with JSSG types
+  // @ts-expect-error - ast-grep types are not fully compatible with JSSG types
   const requireStatements = getNodeRequireCalls(root, "fs");
 
   for (const statement of requireStatements) {
@@ -79,7 +79,7 @@ export default function tranform(root: SgRoot<Js>): string | null {
     }
   }
 
-  // @ts-ignore - ast-grep types are not fully compatible with JSSG types
+  // @ts-expect-error - ast-grep types are not fully compatible with JSSG types
   const importStatements = getNodeImportStatements(root, "fs");
 
   for (const statement of importStatements) {
