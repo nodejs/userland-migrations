@@ -1,0 +1,23 @@
+schema_version: "1.0"
+name: "@nodejs/crypto-rsa-pss-update"
+version: 1.0.0
+description: Handle DEP0154 via transforming deprecated RSA-PSS crypto options `hash` to `hashAlgorithm` and `mgf1Hash` to `mgf1HashAlgorithm`
+author: Claude Code
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - crypto
+  - rsa-pss
+
+registry:
+  access: public
+  visibility: public
