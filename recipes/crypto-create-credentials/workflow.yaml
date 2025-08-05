@@ -12,10 +12,10 @@ nodes:
           js_file: src/workflow.ts
           base_path: .
           include:
+            - "**/*.cjs"
             - "**/*.js"
             - "**/*.jsx"
             - "**/*.mjs"
-            - "**/*.cjs"
             - "**/*.cts"
             - "**/*.mts"
             - "**/*.ts"
