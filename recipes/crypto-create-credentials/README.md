@@ -1,6 +1,6 @@
 # `crypto.createCredentials` DEP0010
 
-This recipe provides a guide for migrating from the deprecated `crypto.createCredentials` method in Node.js.
+This recipe transforms `crypto.createCredentials` usage to use modern `node:tls` methods.
 
 See [DEP0010](https://nodejs.org/api/deprecations.html#DEP0010).
 
