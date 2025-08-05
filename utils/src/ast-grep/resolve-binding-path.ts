@@ -116,7 +116,8 @@ function resolveBindingPathRequire(node: SgNode<TypesMap, Kinds<TypesMap>>, path
 		},
 	});
 
-	let oldName: string, newName: string;
+	let oldName: string;
+	let newName: string;
 
 	for (const rename of renamedImports) {
 		const oldNameNode = rename.find({
