@@ -12,7 +12,7 @@
     "directory": "recipes/crypto-rsa-pss-update",
     "bugs": "https://github.com/nodejs/userland-migrations/issues"
   },
-  "author": "Claude Code",
+  "author": "Mauro Nievas",
   "license": "MIT",
   "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/crypto-rsa-pss-update/README.md",
   "devDependencies": {
