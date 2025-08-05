@@ -1,5 +1,22 @@
 import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
 
+type TlsImportState = {
+    added: boolean;
+    identifier: string;
+};
+
+type HandlerResult = {
+    edits: Edit[];
+    wasTransformed: boolean;
+    newState: TlsImportState;
+};
+
+type EnsureTlsResult = {
+    edits: Edit[];
+    identifier: string; // The identifier that was used or found
+    newState: TlsImportState;
+};
+
 type ImportType =
     | 'DESTRUCTURED_REQUIRE'
     | 'NAMESPACE_REQUIRE'
@@ -8,12 +25,15 @@ type ImportType =
 
 function ensureTlsImport(
     rootNode: SgNode,
-    edits: Edit[],
     importType: ImportType,
-    tlsImportState: { added: boolean; identifier: string },
-): string {
-    if (tlsImportState.added) {
-        return tlsImportState.identifier;
+    currentState: TlsImportState,
+): EnsureTlsResult {
+    if (currentState.added) {
+        return {
+            edits: [],
+            identifier: currentState.identifier,
+            newState: currentState,
+        };
     }
 
     const isEsm =
@@ -34,39 +54,58 @@ function ensureTlsImport(
     if (existingTlsImport) {
         const nameNode = existingTlsImport.field('name');
         if (nameNode?.is('identifier')) {
-            tlsImportState.identifier = nameNode.text();
-            tlsImportState.added = true;
-            return tlsImportState.identifier;
+            const foundIdentifier = nameNode.text();
+            return {
+                edits: [],
+                identifier: foundIdentifier,
+                newState: {
+                    added: true,
+                    identifier: foundIdentifier,
+                },
+            };
         }
     }
 
     const firstNode = rootNode.children()[0];
-    if (firstNode) {
-        const newImportText = isEsm
-            ? `import * as ${tlsImportState.identifier} from '${moduleSpecifier}';\n`
-            : `const ${tlsImportState.identifier} = require('${moduleSpecifier}');\n`;
 
-        const edit = {
-            startPos: firstNode.range().start.index,
-            endPos: firstNode.range().start.index,
-            insertedText: newImportText,
+    if (!firstNode) {
+        return {
+            edits: [],
+            identifier: currentState.identifier,
+            newState: currentState,
         };
-        edits.push(edit);
     }
 
-    tlsImportState.added = true;
-    return tlsImportState.identifier;
+    const tlsIdentifier = currentState.identifier;
+    const newImportText = isEsm
+        ? `import * as ${tlsIdentifier} from '${moduleSpecifier}';\n`
+        : `const ${tlsIdentifier} = require('${moduleSpecifier}');\n`;
+
+    const edit: Edit = {
+        startPos: firstNode.range().start.index,
+        endPos: firstNode.range().start.index,
+        insertedText: newImportText,
+    };
+
+    return {
+        edits: [edit],
+        identifier: tlsIdentifier,
+        newState: {
+            added: true,
+            identifier: tlsIdentifier,
+        },
+    };
 }
 
 function handleDestructuredImport(
     statement: SgNode,
     rootNode: SgNode,
-    edits: Edit[],
-    tlsImportState: { added: boolean },
-) {
+    currentState: TlsImportState,
+): HandlerResult {
+    const localEdits: Edit[] = [];
     const isEsm = statement.kind() === 'import_statement';
 
-    let specifiersNode;
+    let specifiersNode: SgNode | null | undefined;
     if (isEsm) {
         specifiersNode =
             statement.find({ rule: { kind: 'named_imports' } }) ??
@@ -90,7 +129,7 @@ function handleDestructuredImport(
     }
 
     if (!specifiersNode) {
-        return false;
+        return { edits: [], wasTransformed: false, newState: currentState };
     }
 
     const findPropsRule = {
@@ -108,7 +147,7 @@ function handleDestructuredImport(
     );
 
     if (!createCredentialsNode) {
-        return false;
+        return { edits: [], wasTransformed: false, newState: currentState };
     }
 
     const usagesFindRule = {
@@ -125,7 +164,7 @@ function handleDestructuredImport(
     for (const usage of usages) {
         const functionIdentifier = usage.field('function');
         if (functionIdentifier) {
-            edits.push(functionIdentifier.replace('createSecureContext'));
+            localEdits.push(functionIdentifier.replace('createSecureContext'));
         }
     }
 
@@ -135,46 +174,52 @@ function handleDestructuredImport(
         ? `import { ${newImportFunction} } from '${newImportModule}';`
         : `const { ${newImportFunction} } = require('${newImportModule}');`;
 
+    let finalState = currentState;
+
     if (destructuredProps.length === 1) {
-        edits.push(statement.replace(newImportStatement));
-        tlsImportState.added = true;
+        localEdits.push(statement.replace(newImportStatement));
+        finalState = { ...currentState, added: true };
     } else {
         const otherProps = destructuredProps
             .filter((id) => id.text() !== 'createCredentials')
             .map((id) => id.text());
 
         const newDestructuredString = `{ ${otherProps.join(', ')} }`;
-        edits.push(specifiersNode.replace(newDestructuredString));
+        localEdits.push(specifiersNode.replace(newDestructuredString));
 
-        if (!tlsImportState.added) {
+        if (!currentState.added) {
             const newEdit = {
                 startPos: statement.range().end.index,
                 endPos: statement.range().end.index,
                 insertedText: `\n${newImportStatement}`,
             };
-            edits.push(newEdit);
-            tlsImportState.added = true;
-        } else {
+            localEdits.push(newEdit);
+            finalState = { ...currentState, added: true };
         }
     }
 
-    return true;
+    return {
+        edits: localEdits,
+        wasTransformed: true,
+        newState: finalState,
+    };
 }
 
 function handleNamespaceImport(
     importOrDeclarator: SgNode,
     rootNode: SgNode,
-    edits: Edit[],
     importType: ImportType,
-    tlsImportState: { added: boolean; identifier: string },
-) {
+    currentState: TlsImportState,
+): HandlerResult {
+    const localEdits: Edit[] = [];
     const isEsm = importType === 'NAMESPACE_IMPORT';
+
     const nameNode = isEsm
-        ? importOrDeclarator.find({ rule: { kind: 'namespace_import' } })?.find({ rule: { kind: 'identifier' }})
+        ? importOrDeclarator.find({ rule: { kind: 'namespace_import' } })?.find({ rule: { kind: 'identifier' } })
         : importOrDeclarator.field('name');
 
     if (!nameNode) {
-        return false;
+        return { edits: [], wasTransformed: false, newState: currentState };
     }
     const namespaceName = nameNode.text();
 
@@ -189,57 +234,71 @@ function handleNamespaceImport(
     };
     const memberAccessUsages = rootNode.findAll(memberAccessFindRule);
 
-    if (memberAccessUsages.length > 0) {
-
-        const allUsagesFindRule = {
-            rule: {
-                kind: 'member_expression',
-                has: { field: 'object', regex: `^${namespaceName}$` },
-            },
-        };
-        const allUsages = rootNode.findAll(allUsagesFindRule);
-
-        if (allUsages.length === memberAccessUsages.length) {
-            const newTlsIdentifier = tlsImportState.identifier;
-            const newImportModule = 'node:tls';
-            const newImportStatement = isEsm
-                ? `import * as ${newTlsIdentifier} from '${newImportModule}';`
-                : `const ${newTlsIdentifier} = require('${newImportModule}');`;
-
-            const nodeToReplace = isEsm
-                ? importOrDeclarator
-                : importOrDeclarator.parent();
-            edits.push(nodeToReplace.replace(newImportStatement));
-            tlsImportState.added = true;
-
-            for (const usage of memberAccessUsages) {
-                const replacementText = `${newTlsIdentifier}.createSecureContext`;
-                edits.push(usage.replace(replacementText));
-            }
-        } else {
-            let tlsIdentifier = ensureTlsImport(
-                rootNode,
-                edits,
-                importType,
-                tlsImportState,
-            );
-
-            for (const usage of memberAccessUsages) {
-                const replacementText = `${tlsIdentifier}.createSecureContext`;
-                edits.push(usage.replace(replacementText));
-            }
-        }
-        return true;
-    } else {
-        return false;
+    if (memberAccessUsages.length === 0) {
+        return { edits: [], wasTransformed: false, newState: currentState };
     }
+
+    const allUsagesFindRule = {
+        rule: {
+            kind: 'member_expression',
+            has: { field: 'object', regex: `^${namespaceName}$` },
+        },
+    };
+    const allUsages = rootNode.findAll(allUsagesFindRule);
+
+    let finalState = currentState;
+
+    if (allUsages.length === memberAccessUsages.length) {
+        const newTlsIdentifier = currentState.identifier;
+        const newImportModule = 'node:tls';
+        const newImportStatement = isEsm
+            ? `import * as ${newTlsIdentifier} from '${newImportModule}';`
+            : `const ${newTlsIdentifier} = require('${newImportModule}');`;
+
+        const nodeToReplace = isEsm
+            ? importOrDeclarator
+            : importOrDeclarator.parent();
+
+        if (nodeToReplace) {
+            localEdits.push(nodeToReplace.replace(newImportStatement));
+        }
+
+        finalState = { ...currentState, added: true };
+
+        for (const usage of memberAccessUsages) {
+            const replacementText = `${newTlsIdentifier}.createSecureContext`;
+            localEdits.push(usage.replace(replacementText));
+        }
+    } else {
+        const ensureResult = ensureTlsImport(
+            rootNode,
+            importType,
+            currentState,
+        );
+        localEdits.push(...ensureResult.edits);
+        finalState = ensureResult.newState;
+
+        for (const usage of memberAccessUsages) {
+            const replacementText = `${ensureResult.identifier}.createSecureContext`;
+            localEdits.push(usage.replace(replacementText));
+        }
+    }
+
+    return {
+        edits: localEdits,
+        wasTransformed: true,
+        newState: finalState,
+    };
 }
 
 export default function transform(root: SgRoot): string | null {
-    const edits: Edit[] = [];
     const rootNode = root.root();
+    const allEdits: Edit[] = [];
     let wasTransformed = false;
-    const tlsImportState = { added: false, identifier: 'tls' };
+    let currentTlsImportState: TlsImportState = {
+        added: false,
+        identifier: 'tls',
+    };
 
     const cryptoImportsRule = {
         rule: {
@@ -257,7 +316,10 @@ export default function transform(root: SgRoot): string | null {
                 },
                 {
                     kind: 'import_statement',
-                    has: { field: 'source', regex: "^['\"](node:)?crypto['\"]$" },
+                    has: {
+                        field: 'source',
+                        regex: "^['\"](node:)?crypto['\"]$",
+                    },
                 },
             ],
         },
@@ -265,7 +327,8 @@ export default function transform(root: SgRoot): string | null {
     const cryptoImports = rootNode.findAll(cryptoImportsRule);
 
     for (const importMatch of cryptoImports) {
-        const nameNode = importMatch.field('imports') ?? importMatch.field('name');
+        const nameNode =
+            importMatch.field('imports') ?? importMatch.field('name');
         let importType: ImportType | undefined;
 
         if (importMatch.kind() === 'import_statement') {
@@ -275,7 +338,6 @@ export default function transform(root: SgRoot): string | null {
                 importType = 'DESTRUCTURED_IMPORT';
             }
         } else {
-            // variable_declarator for require
             if (nameNode?.is('object_pattern')) {
                 importType = 'DESTRUCTURED_REQUIRE';
             } else if (nameNode?.is('identifier')) {
@@ -287,42 +349,48 @@ export default function transform(root: SgRoot): string | null {
             continue;
         }
 
-        let transformedByType = false;
+        let result: HandlerResult | undefined;
+
         switch (importType) {
             case 'DESTRUCTURED_REQUIRE':
-            case 'DESTRUCTURED_IMPORT':
+            case 'DESTRUCTURED_IMPORT': {
                 const statement =
                     importType === 'DESTRUCTURED_REQUIRE'
                         ? importMatch.parent()
                         : importMatch;
-                transformedByType = handleDestructuredImport(
-                    statement,
-                    rootNode,
-                    edits,
-                    tlsImportState,
-                );
+                if (statement) {
+                    result = handleDestructuredImport(
+                        statement,
+                        rootNode,
+                        currentTlsImportState,
+                    );
+                }
                 break;
+            }
 
             case 'NAMESPACE_REQUIRE':
             case 'NAMESPACE_IMPORT':
-                transformedByType = handleNamespaceImport(
+                result = handleNamespaceImport(
                     importMatch,
                     rootNode,
-                    edits,
                     importType,
-                    tlsImportState,
+                    currentTlsImportState,
                 );
                 break;
         }
 
-        if (transformedByType) {
-            wasTransformed = true;
+        if (result) {
+            allEdits.push(...result.edits);
+            currentTlsImportState = result.newState;
+            if (result.wasTransformed) {
+                wasTransformed = true;
+            }
         }
     }
 
     if (wasTransformed) {
-        return rootNode.commitEdits(edits);
-    } else {
-        return null;
+        return rootNode.commitEdits(allEdits);
     }
+
+    return null;
 }
