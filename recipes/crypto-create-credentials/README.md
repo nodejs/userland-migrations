@@ -7,7 +7,6 @@ See [DEP0010](https://nodejs.org/api/deprecations.html#DEP0010).
 ## Examples
 
 **Before:**
-
 ```js
 // Using the deprecated createCredentials from node:crypto
 const { createCredentials } = require('node:crypto');
