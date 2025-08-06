@@ -2,9 +2,7 @@ import type { Kinds, TypesMap } from "@ast-grep/napi/types/staticTypes.js";
 import type { SgNode } from "@ast-grep/napi";
 
 const requireKinds = ["lexical_declaration", "variable_declarator"];
-
 const importKinds = ["import_statement", "import_clause"];
-
 const supportedKinds = [...requireKinds, ...importKinds];
 
 /**
@@ -44,7 +42,7 @@ export function resolveBindingPath(node: SgNode<TypesMap, Kinds<TypesMap>>, path
 
 	if (!supportedKinds.includes(rootKind.toString())) {
 		throw Error(
-			`Invalid node kind. To resolve binding path, one of these types must be provided: ${supportedKinds}`,
+			`Invalid node kind. To resolve binding path, one of these types must be provided: ${supportedKinds.join(", ")}`,
 		);
 	}
 
@@ -82,18 +80,9 @@ function resolveBindingPathRequire(node: SgNode<TypesMap, Kinds<TypesMap>>, path
 		},
 	});
 
-	let importFound = undefined;
-
 	for (const namedImport of namedImports) {
 		const text = namedImport.text();
-		if (pathArr.includes(text)) {
-			importFound = text;
-			break;
-		}
-	}
-
-	if (importFound) {
-		return path.slice(path.indexOf(importFound));
+		if (pathArr.includes(text)) return path.slice(path.indexOf(text));
 	}
 
 	const renamedImports = activeNode.findAll({
@@ -116,16 +105,13 @@ function resolveBindingPathRequire(node: SgNode<TypesMap, Kinds<TypesMap>>, path
 		},
 	});
 
-	let oldName: string;
-	let newName: string;
-
 	for (const rename of renamedImports) {
 		const oldNameNode = rename.find({
 			rule: {
 				kind: "property_identifier",
 			},
 		});
-		oldName = oldNameNode?.text();
+		const oldName = oldNameNode?.text();
 
 		if (oldName && pathArr.includes(oldName)) {
 			const newNameNode = rename.find({
@@ -134,14 +120,9 @@ function resolveBindingPathRequire(node: SgNode<TypesMap, Kinds<TypesMap>>, path
 				},
 			});
 
-			newName = newNameNode?.text();
-			break;
+			const newPath = path.slice(path.indexOf(oldName));
+			return newPath.replace(oldName, newNameNode?.text());
 		}
-	}
-
-	if (oldName && newName) {
-		const newPath = path.slice(path.indexOf(oldName));
-		return newPath.replace(oldName, newName);
 	}
 }
 
@@ -170,7 +151,7 @@ function resolveBindingPathImport(node: SgNode<TypesMap, Kinds<TypesMap>>, path:
 		},
 	});
 
-	if (Boolean(namespaceImport)) {
+	if (namespaceImport) {
 		const namespaceIdentifier = namespaceImport.find({
 			rule: {
 				kind: "identifier",
@@ -186,18 +167,9 @@ function resolveBindingPathImport(node: SgNode<TypesMap, Kinds<TypesMap>>, path:
 		},
 	});
 
-	let importFound = undefined;
-
 	for (const namedImport of namedImports) {
 		const text = namedImport.text();
-		if (pathArr.includes(text)) {
-			importFound = text;
-			break;
-		}
-	}
-
-	if (importFound) {
-		return path.slice(path.indexOf(importFound));
+		if (pathArr.includes(text)) return path.slice(path.indexOf(text));
 	}
 
 	const renamedImports = activeNode.findAll({
@@ -220,9 +192,6 @@ function resolveBindingPathImport(node: SgNode<TypesMap, Kinds<TypesMap>>, path:
 		},
 	});
 
-	let oldName: string;
-	let newName: string;
-
 	if (renamedImports.length > 0) {
 		for (const renamedImport of renamedImports) {
 			const oldNameNode = renamedImport.find({
@@ -233,7 +202,7 @@ function resolveBindingPathImport(node: SgNode<TypesMap, Kinds<TypesMap>>, path:
 					},
 				},
 			});
-			oldName = oldNameNode?.text();
+			const oldName = oldNameNode?.text();
 
 			if (oldName && pathArr.includes(oldName)) {
 				const newNameNode = renamedImport.find({
@@ -245,14 +214,9 @@ function resolveBindingPathImport(node: SgNode<TypesMap, Kinds<TypesMap>>, path:
 					},
 				});
 
-				newName = newNameNode?.text();
-				break;
+				const newPath = path.slice(path.indexOf(oldName));
+				return newPath.replace(oldName, newNameNode?.text());
 			}
 		}
-	}
-
-	if (oldName && newName) {
-		const newPath = path.slice(path.indexOf(oldName));
-		return newPath.replace(oldName, newName);
 	}
 }

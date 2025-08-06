@@ -46,13 +46,15 @@ describe("resolve-binding-path", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const importStatement = rootNode.root().find({
+		const requireStatement = rootNode.root().find({
 			rule: {
 				kind: "variable_declarator",
 			},
 		});
 
-		const bindingPath = resolveBindingPath(importStatement!, "$.types.isNativeError");
+		const bindingPath = resolveBindingPath(requireStatement!, "$.types.isNativeError");
+
+		console.log({ bindingPath });
 
 		assert.strictEqual(bindingPath, "isNativeError");
 	});
@@ -155,5 +157,124 @@ describe("resolve-binding-path", () => {
 		const bindingPath = resolveBindingPath(importStatement!, "$.types.isNativeError");
 
 		assert.strictEqual(bindingPath, "example.types.isNativeError");
+	});
+
+	it("should handle deep nested destructuring with multiple levels", () => {
+		const code = dedent`
+			const { types: { isNativeError: nativeErrorCheck } } = require('node:util');
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const requireStatement = rootNode.root().find({
+			rule: {
+				kind: "variable_declarator",
+			},
+		});
+
+		const bindingPath = resolveBindingPath(requireStatement!, "$.types.isNativeError");
+
+		assert.strictEqual(bindingPath, "nativeErrorCheck");
+	});
+
+	it("generateshould handle complex path resolution with longer dotted paths", () => {
+		const code = dedent`
+			const util = require('node:util');
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const importStatement = rootNode.root().find({
+			rule: {
+				kind: "lexical_declaration",
+			},
+		});
+
+		const bindingPath = resolveBindingPath(importStatement!, "$.types.format.inspect.custom");
+
+		assert.strictEqual(bindingPath, "util.types.format.inspect.custom");
+	});
+
+	it("should handle multiple named imports with different aliases", () => {
+		const code = dedent`
+			import { types as utilTypes, format as utilFormat } from 'node:util';
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const importStatement = rootNode.root().find({
+			rule: {
+				kind: "import_statement",
+			},
+		});
+
+		const bindingPath = resolveBindingPath(importStatement!, "$.format.inspect");
+
+		assert.strictEqual(bindingPath, "utilFormat.inspect");
+	});
+
+	it("should handle require with complex destructuring and renaming", () => {
+		const code = dedent`
+			const { types: renamed, format: { inspect } } = require('node:util');
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const requireStatement = rootNode.root().find({
+			rule: {
+				kind: "variable_declarator",
+			},
+		});
+
+		const bindingPath = resolveBindingPath(requireStatement!, "$.types.isNativeError");
+
+		assert.strictEqual(bindingPath, "renamed.isNativeError");
+	});
+
+	it("should handle empty path segments gracefully", () => {
+		const code = dedent`
+			const { types } = require('node:util');
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const requireStatement = rootNode.root().find({
+			rule: {
+				kind: "variable_declarator",
+			},
+		});
+
+		const bindingPath = resolveBindingPath(requireStatement!, "$.types");
+
+		assert.strictEqual(bindingPath, "types");
+	});
+
+	it("should handle single character variable names", () => {
+		const code = dedent`
+			const { types: t } = require('node:util');
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const requireStatement = rootNode.root().find({
+			rule: {
+				kind: "variable_declarator",
+			},
+		});
+
+		const bindingPath = resolveBindingPath(requireStatement!, "$.types.isNativeError");
+
+		assert.strictEqual(bindingPath, "t.isNativeError");
+	});
+
+	it("should handle mixed require patterns with array destructuring context", () => {
+		const code = dedent`
+			const [, { types }] = [null, require('node:util')];
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const requireStatement = rootNode.root().find({
+			rule: {
+				kind: "variable_declarator",
+			},
+		});
+
+		const bindingPath = resolveBindingPath(requireStatement!, "$.types.isNativeError");
+
+		assert.strictEqual(bindingPath, "types.isNativeError");
 	});
 });
