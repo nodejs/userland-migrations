@@ -25,4 +25,3 @@ nodes:
           exclude:
             - "**/node_modules/**"
           language: typescript
-
