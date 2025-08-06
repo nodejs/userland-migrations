@@ -9,7 +9,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nodejs/userland-migrations.git",
-        "directory": "recipes/crypto-create-credentials",
+    "directory": "recipes/crypto-create-credentials",
     "bugs": "https://github.com/nodejs/userland-migrations/issues"
   },
   "author": "0hmx",
