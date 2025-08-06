@@ -54,8 +54,6 @@ describe("resolve-binding-path", () => {
 
 		const bindingPath = resolveBindingPath(requireStatement!, "$.types.isNativeError");
 
-		console.log({ bindingPath });
-
 		assert.strictEqual(bindingPath, "isNativeError");
 	});
 
@@ -227,9 +225,9 @@ describe("resolve-binding-path", () => {
 		assert.strictEqual(bindingPath, "renamed.isNativeError");
 	});
 
-	it("should handle empty path segments gracefully", () => {
+	it("should handle deep destructuring and return remaining path after resolved binding", () => {
 		const code = dedent`
-			const { types } = require('node:util');
+			const { a: {b: { c: { d }} } } = require('node:util');
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
@@ -239,9 +237,9 @@ describe("resolve-binding-path", () => {
 			},
 		});
 
-		const bindingPath = resolveBindingPath(requireStatement!, "$.types");
+		const bindingPath = resolveBindingPath(requireStatement!, "$.a.b.c.d.e");
 
-		assert.strictEqual(bindingPath, "types");
+		assert.strictEqual(bindingPath, "d.e");
 	});
 
 	it("should handle single character variable names", () => {
