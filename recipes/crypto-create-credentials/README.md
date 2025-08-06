@@ -28,7 +28,6 @@ const credentials = createCredentials({
 ```
 
 **After:**
-
 ```js
 // Updated to use createSecureContext from node:tls
 const { createSecureContext } = require('node:tls');
