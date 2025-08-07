@@ -1,4 +1,4 @@
-import * as os from 'os';
+import * as os from 'node:os';
 import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
 
 type TlsImportState = {
