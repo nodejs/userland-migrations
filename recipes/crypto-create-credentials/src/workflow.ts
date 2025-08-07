@@ -1,3 +1,4 @@
+import * as os from 'os';
 import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
 
 type TlsImportState = {
@@ -78,8 +79,8 @@ function ensureTlsImport(
 
     const tlsIdentifier = currentState.identifier;
     const newImportText = isEsm
-        ? `import * as ${tlsIdentifier} from '${moduleSpecifier}';\n`
-        : `const ${tlsIdentifier} = require('${moduleSpecifier}');\n`;
+        ? `import * as ${tlsIdentifier} from '${moduleSpecifier}';${os.EOL}`
+        : `const ${tlsIdentifier} = require('${moduleSpecifier}');${os.EOL}`;
 
     const edit: Edit = {
         startPos: firstNode.range().start.index,
@@ -191,7 +192,7 @@ function handleDestructuredImport(
             const newEdit = {
                 startPos: statement.range().end.index,
                 endPos: statement.range().end.index,
-                insertedText: `\n${newImportStatement}`,
+                insertedText: `${os.EOL}${newImportStatement}`,
             };
             localEdits.push(newEdit);
             finalState = { ...currentState, added: true };
