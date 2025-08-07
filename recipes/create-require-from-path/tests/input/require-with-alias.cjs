@@ -1,0 +1,3 @@
+const { createRequireFromPath: foo } = require("../index.cjs");
+
+const r3 = foo("/path/to/module");
