@@ -1,5 +1,6 @@
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
+import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
 
 /**
@@ -137,6 +138,74 @@ export default function transform(root: SgRoot): string | null {
 			needsRmImport = true;
 		}
 		hasChanges = true;
+	}
+
+	// Transform named alias import when recursive set to true
+	// @ts-ignore - ast-grep types are not fully compatible with JSSG types
+	const importStatements = getNodeImportStatements(root, "fs");
+
+	for (const eachNode of importStatements) {
+		// Get in file reference alias name (import {rmdir as foo} from "node:fs" -> foo)
+		const referenceNameInFile = resolveBindingPath(eachNode, "$.rmdir");
+		if (!referenceNameInFile) continue;
+		// Get in file reference node
+		const referenceFunctionNode = rootNode.find({
+			rule: {
+				any: [
+					{
+						pattern: `${referenceNameInFile}($PATH, $OPTIONS, $CALLBACK)`,
+					},
+					{
+						pattern: `${referenceNameInFile}($PATH, $OPTIONS)`,
+					},
+				],
+			},
+		});
+		if (!referenceFunctionNode) continue;
+		const optionsMatch = referenceFunctionNode.getMatch("OPTIONS");
+		if (!optionsMatch) continue;
+		const optionsText = optionsMatch.text();
+		if (!optionsText.includes("recursive") || !optionsText.includes("true")) {
+			continue;
+		}
+		// Proceed with the change since { recursive: true }
+		const aliasNodes = eachNode.findAll({
+			rule: {
+				any: [
+					{
+						kind: "import_specifier",
+						all: [
+							{
+								has: {
+									field: "alias",
+									pattern: "$ALIAS",
+								},
+							},
+							{
+								has: {
+									field: "name",
+									pattern: "$ORIGINAL",
+								},
+							},
+						],
+					},
+				],
+			},
+		});
+
+		for (const eachAliasNode of aliasNodes) {
+			// Narrow down to rmdir alias
+			if (eachAliasNode.text().includes("rmdir")) {
+				const rmdirNode = eachAliasNode.find({
+					rule: {
+						kind: "identifier",
+					},
+				});
+				// Change rmdir to rm
+				edits.push(rmdirNode!.replace("rm"));
+				hasChanges = true;
+			}
+		}
 	}
 
 	// Update imports/requires only if we have destructured calls that need new imports
