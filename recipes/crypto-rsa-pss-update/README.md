@@ -13,43 +13,51 @@ The transformation only applies to calls with `'rsa-pss'` as the key type.
 
 ## Examples
 
-### Before
+**Before**
 
-```javascript
-const crypto = require('crypto');
+```js
+const crypto = require("crypto");
 
-crypto.generateKeyPair('rsa-pss', {
-  modulusLength: 2048,
-  hash: 'sha256',
-  mgf1Hash: 'sha1',
-  saltLength: 32
-}, (err, publicKey, privateKey) => {
-  // callback
-});
+crypto.generateKeyPair(
+	"rsa-pss",
+	{
+		modulusLength: 2048,
+		hash: "sha256",
+		mgf1Hash: "sha1",
+		saltLength: 32,
+	},
+	(err, publicKey, privateKey) => {
+		// callback
+	},
+);
 
-crypto.generateKeyPairSync('rsa-pss', {
-  modulusLength: 2048,
-  hash: 'sha256'
+crypto.generateKeyPairSync("rsa-pss", {
+	modulusLength: 2048,
+	hash: "sha256",
 });
 ```
 
-### After
+**After**
 
-```javascript
-const crypto = require('crypto');
+```js
+const crypto = require("crypto");
 
-crypto.generateKeyPair('rsa-pss', {
-  modulusLength: 2048,
-  hashAlgorithm: 'sha256',
-  mgf1HashAlgorithm: 'sha1',
-  saltLength: 32
-}, (err, publicKey, privateKey) => {
-  // callback
-});
+crypto.generateKeyPair(
+	"rsa-pss",
+	{
+		modulusLength: 2048,
+		hashAlgorithm: "sha256",
+		mgf1HashAlgorithm: "sha1",
+		saltLength: 32,
+	},
+	(err, publicKey, privateKey) => {
+		// callback
+	},
+);
 
-crypto.generateKeyPairSync('rsa-pss', {
-  modulusLength: 2048,
-  hashAlgorithm: 'sha256'
+crypto.generateKeyPairSync("rsa-pss", {
+	modulusLength: 2048,
+	hashAlgorithm: "sha256",
 });
 ```
 
