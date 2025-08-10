@@ -1,108 +1,132 @@
-name: Codemod publish
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# For more information see: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow
+
+name: Publish Codemod
 
 on:
-  workflow_dispatch:
   push:
-    paths:
-      - "recipes/**"
-      - "codemods/**"
-    branches:
-      - main
-
-permissions:
-  contents: read
+    tags:
+      - "v*@*" # eg: v1.0.0@codemod-name
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish (format: v1.0.0@codemod-name)"
+        required: true
+        type: string
 
 jobs:
-  paths-filter:
-    permissions:
-      contents: read
-      pull-requests: read
-    name: Check for .codemodrc.json files changes
+  validate-and-publish:
+    name: Validate and Publish Codemod
     runs-on: ubuntu-latest
+
     outputs:
-      codemods: ${{ steps.filter.outputs.codemods }}
-      codemods_files: ${{ steps.filter.outputs.codemods_files }}
+      version: ${{ steps.parse-tag.outputs.version }}
+      codemod-name: ${{ steps.parse-tag.outputs.codemod-name }}
+      codemod-path: ${{ steps.parse-tag.outputs.codemod-path }}
+
     steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0
+      - name: Harden Runner
+        uses: step-security/harden-runner@ec9f2d5744a09debf3a187a3f4f675c53b671911 # v2.13.0
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
-        id: filter
-        name: Filter codemods
-        with:
-          list-files: json
-          filters: |
-            codemods:
-              - '**/.codemodrc.json'
-
-  prepare-matrix:
-    name: Prepare matrix
-    runs-on: ubuntu-latest
-    needs: paths-filter
-    if: always() && needs.paths-filter.outputs.codemods == 'true'
-    outputs:
-      codemod_files: ${{ steps.set-matrix.outputs.codemod_files }}
-    steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0
-        with:
-          egress-policy: audit
-
-      - name: Checkout Code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
 
-      - name: Set matrix for codemods
-        id: set-matrix
+      - name: Parse tag and extract metadata
+        id: parse-tag
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          GITHUB_REF: ${{ github.ref }}
         run: |
-          FILES_JSON=$(echo '${{ needs.paths-filter.outputs.codemods_files }}' | jq -c '{include: map({file: .})}')
-          echo "codemod_files=$FILES_JSON" >> "$GITHUB_OUTPUT"
-          echo "Matrix JSON: $FILES_JSON"
+          # Determine the tag based on trigger type
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            TAG="$INPUT_TAG"
+            echo "Using manually provided tag: $TAG"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+            echo "Using pushed tag: $TAG"
+          fi
 
-  publish:
-    name: Publish ${{ matrix.file }}
-    runs-on: ubuntu-latest
-    needs: prepare-matrix
-    strategy:
-      fail-fast: false
-      matrix: ${{fromJson(needs.prepare-matrix.outputs.codemod_files)}}
-    env:
-      CODEMOD_API_KEY: ${{ secrets.CODEMOD_API_KEY }}
-    steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0
-        with:
-          egress-policy: audit
+          # Validate tag format
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+@[a-zA-Z0-9_-]+$ ]]; then
+            echo "❌ Invalid tag format: $TAG"
+            echo "Expected format: v1.0.0@codemod-name"
+            exit 1
+          fi
 
-      - name: Checkout Code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          fetch-depth: 0
+          # Extract components
+          VERSION="${TAG%@*}"      # Everything before @
+          VERSION="${VERSION#v}"   # Remove v prefix
+          CODEMOD_NAME="${TAG#*@}" # Everything after @
+          CODEMOD_PATH="recipes/$CODEMOD_NAME"
 
-      - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e
+          # Set outputs
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "codemod-name=$CODEMOD_NAME" >> $GITHUB_OUTPUT
+          echo "codemod-path=$CODEMOD_PATH" >> $GITHUB_OUTPUT
+
+      - name: Verify codemod directory
+        env:
+          CODEMOD_PATH: ${{ steps.parse-tag.outputs.codemod-path }}
+        run: |
+          if [[ ! -d "$CODEMOD_PATH" ]]; then
+            echo "❌ Codemod directory not found: $CODEMOD_PATH"
+            echo "Available directories in recipes/:"
+            ls -lah recipes/ || echo "No recipes directory found"
+            exit 1
+          fi
+
+          echo "✓ Found codemod directory: $CODEMOD_PATH"
+          echo "Directory contents:"
+          ls -lah "$CODEMOD_PATH"
+
+      - name: Setup Node.js environment
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: package-lock.json
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get install libsecret-1-dev
-          npm install -g codemod
+      # We don't use dev dependencies
+      # But we need npm to put local workspace in `node_modules`
+      # so codemod can bundle workspaces in the codemod tarball correctly
+      - name: Install project dependencies
+        run: npm ci
 
-      - name: Test codemod
-        run: |
-          DIR=$(dirname "${{ matrix.file }}")
-          echo "Testing codemod in: $DIR"
-          cd "$DIR"
-          npm install
-          npm run --if-present test
+      # Run test before login to not waste time if it fails
+      - name: Run codemod Tests
+        working-directory: ${{ steps.parse-tag.outputs.codemod-path }}
+        run: node --test
+
+      - name: Authenticate with Codemod registry
+        env:
+          CODEMOD_TOKEN: ${{ secrets.CODEMOD_TOKEN }}
+        run: npx codemod@next login --api-key "$CODEMOD_TOKEN"
 
       - name: Publish codemod
+        working-directory: ${{ steps.parse-tag.outputs.codemod-path }}
+        run: npx codemod@next publish
+
+      - name: Create release summary
+        env:
+          CODEMOD_NAME: ${{ steps.parse-tag.outputs.codemod-name }}
+          VERSION: ${{ steps.parse-tag.outputs.version }}
+          TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+          TRIGGER: ${{ github.event_name == 'workflow_dispatch' && 'Manual' || 'Tag Push' }}
+          ACTOR: ${{ github.triggering_actor }}
         run: |
-          DIR=$(dirname "${{ matrix.file }}")
-          echo "Publishing codemod in: $DIR"
-          cd "$DIR"
-          npx codemod publish
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          # 🚀 Codemod Publication Summary
+
+          **Codemod:** \`$CODEMOD_NAME\`
+          **Version:** \`$VERSION\`
+          **Tag:** \`$TAG\`
+          **Trigger:** $TRIGGER by $ACTOR
+
+          ✅ Codemod has been successfully published to the registry!
+          EOF

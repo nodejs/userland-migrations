@@ -1,0 +1,25 @@
+{
+  "name": "@nodejs/process-main-module",
+  "version": "1.0.1",
+  "description": "Handle DEP0138 via transforming `process.mainModule` to `require.main`.",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod@next jssg test -l typescript ./src/workflow.ts ./"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/process-main-module",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "Bruno Rodrigues",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/process-main-module/README.md",
+  "devDependencies": {
+    "@types/node": "^24.2.0",
+    "@codemod.com/jssg-types": "^1.0.3"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "0.0.0"
+  }
+}

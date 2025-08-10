@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node --no-warnings --experimental-import-meta-resolve --experimental-strip-types ./src/workflow.ts",
-    "test": "node --no-warnings --experimental-import-meta-resolve --experimental-test-module-mocks --experimental-test-snapshots --experimental-strip-types --import='../../test/snapshots.ts' --test --experimental-test-coverage --test-coverage-include='src/**/*' --test-coverage-exclude='**/*.test.ts' './**/*.test.ts'"
+    "test": "node --no-warnings --experimental-import-meta-resolve --experimental-test-module-mocks --experimental-test-snapshots --experimental-strip-types --import='@nodejs/codemod-utils/snapshots' --test --experimental-test-coverage --test-coverage-include='src/**/*' --test-coverage-exclude='**/*.test.ts' './**/*.test.ts'"
   },
   "repository": {
     "type": "git",
@@ -30,13 +30,12 @@
   "author": "Jacob Smith",
   "license": "MIT",
   "homepage": "https://github.com/nodejs/userland-migrations/tree/main/correct-ts-specifiers#readme",
-  "devDependencies": {
-    "@types/lodash.get": "^4.4.9",
-    "@types/node": "^22.15.19",
-    "type-fest": "^4.41.0"
-  },
   "dependencies": {
     "@codemod.com/workflow": "^0.0.31",
     "@nodejs-loaders/alias": "^2.1.2"
+  },
+  "devDependencies": {
+    "@nodejs/codemod-utils": "*",
+    "@types/node": "^24.2.0"
   }
 }

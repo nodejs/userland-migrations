@@ -1,14 +1,9 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "files": {
-    "ignore": [
-      "**/*.snap.cjs",
-			"**/fixtures/**"
-    ]
+    "includes": ["**", "!**/*.snap.cjs", "!**/fixtures/**", "!**/expected/**", "!**/input/**"]
   },
-  "organizeImports": {
-    "enabled": false
-  },
+  "assist": { "actions": { "source": { "organizeImports": "off" } } },
   // Rules for the linter
   "linter": {
     "rules": {
@@ -18,7 +13,18 @@
         "noYodaExpression": "error",
         "useImportType": "error",
         "useNodeAssertStrict": "error",
-        "useNodejsImportProtocol": "error"
+        "useNodejsImportProtocol": "error",
+        "useAsConstAssertion": "error",
+        "useDefaultParameterLast": "error",
+        "useEnumInitializers": "error",
+        "useSelfClosingElements": "error",
+        "useSingleVarDeclarator": "error",
+        "noUnusedTemplateLiteral": "error",
+        "useNumberNamespace": "error",
+        "noInferrableTypes": "error",
+        "noUselessElse": "error",
+        "useArrayLiterals": "off",
+        "noEnum": "error"
       },
       "suspicious": {
         "noAssignInExpressions": "off",
@@ -29,12 +35,9 @@
       },
       "correctness": {
         "noUnusedVariables": "error",
-        "useArrayLiterals": "off",
         "noUnknownFunction": "error"
       },
-      "nursery": {
-        "noEnum": "error"
-      },
+      "nursery": {},
       "performance": {
         "recommended": true
       }
@@ -44,11 +47,11 @@
   "javascript": {
     "formatter": {
       "arrowParentheses": "always",
-			"semicolons": "always",
+      "semicolons": "always",
       "quoteStyle": "single",
       "trailingCommas": "all"
     },
-		"linter": {
+    "linter": {
       "enabled": true
     }
   },

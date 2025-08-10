@@ -1,0 +1,21 @@
+schema_version: "1.0"
+name: "@nodejs/rmdir"
+version: 1.0.0
+description: Handle DEP0147 via transforming `fs.rmdir` to `fs.rm`
+author: Augustin Mauroy
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+
+registry:
+  access: public
+  visibility: public

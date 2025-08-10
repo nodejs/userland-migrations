@@ -1,0 +1,5 @@
+import { constants, tmpDir, version } from 'node:os';
+
+var t0 = tmpDir();
+let t1 = tmpDir();
+const t2 = tmpDir();

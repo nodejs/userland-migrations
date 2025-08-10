@@ -40,15 +40,15 @@
     "skipLibCheck": true
   },
   "include": [
-    "./build/",
     "./recipes/",
-    "./test",
+    "./utils"
   ],
   "exclude": [
     "node_modules",
     "**/build/**",
     "**/fixtures/**",
-    "**/test/**",
+    "**/expected/**",
+    "**/tests/**",
     "**/*.fixture.mjs",
     "**/*.fixture.mts",
     "**/*.fixture.js",
