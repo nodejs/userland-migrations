@@ -37,7 +37,7 @@ const supportedKinds = [...requireKinds, ...importKinds];
  * ```
  */
 export function resolveBindingPath(node: SgNode<TypesMap, Kinds<TypesMap>>, path: string) {
-	let activeNode = node;
+	const activeNode = node;
 	const rootKind = activeNode.kind().toString();
 
 	if (!supportedKinds.includes(rootKind.toString())) {
