@@ -10,14 +10,7 @@ See [DEP0010](https://nodejs.org/api/deprecations.html#DEP0010).
 ```js
 // Using the deprecated createCredentials from node:crypto
 const { createCredentials } = require('node:crypto');
-
-const credentials = createCredentials({
-  key: privateKey,
-  cert: certificate,
-  ca: [caCertificate]
-});
-
-// Using destructuring with ES module imports
+// OR
 import { createCredentials } from 'node:crypto';
 
 const credentials = createCredentials({
