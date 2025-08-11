@@ -1,5 +1,6 @@
-import repl from 'node:repl';
-import * as nodeRepl from 'node:repl';
+import { builtinModules, _builtinLibs, foo } from 'node:repl';
 
-console.log(repl.builtinModules);
-console.log(nodeRepl.builtinModules);
+console.log(builtinModules);
+console.log(_builtinLibs);
+
+foo(); // does something else

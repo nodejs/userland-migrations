@@ -1,3 +1,5 @@
-import { builtinModules as nodeBuiltinModules } from 'node:module';
+import repl from 'node:module';
+import * as nodeRepl from 'node:module';
 
-console.log(nodeBuiltinModules);
+console.log(repl.builtinModules);
+console.log(nodeRepl.builtinModules);

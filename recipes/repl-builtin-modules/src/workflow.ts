@@ -42,11 +42,11 @@ export default function transform(root: SgRoot<Js>): string | null {
             const parent = ref.parent();
 
             if (
-				parent
-				&& parent.kind() !== "object_pattern"
-				&& parent.kind() !== "member_expression"
-				&& parent.kind() !== "named_imports"
-			) {
+                parent
+                && parent.kind() !== "object_pattern"
+                && parent.kind() !== "member_expression"
+                && parent.kind() !== "named_imports"
+            ) {
                 edits.push(ref.replace("builtinModules"));
             }
         }
@@ -81,29 +81,33 @@ export default function transform(root: SgRoot<Js>): string | null {
                 });
 
                 // Check if only builtin properties are destructured
-				const isOnlyBuiltin = (
-					properties.length === 1 &&
-					["builtinModules", "_builtinLibs"].includes(properties[0].text())
-				) || (
-					properties.length === 0 &&
-					pairProperties.length === 1 &&
-					containsBuiltinProperties(pairProperties[0].text())
-				);
+                const builtinShorthandCount = properties.filter(p =>
+                    ["builtinModules", "_builtinLibs"].includes(p.text())
+                ).length;
+
+                const builtinPairCount = pairProperties.filter(p =>
+                    containsBuiltinProperties(p.text())
+                ).length;
+
+                const totalBuiltinCount = builtinShorthandCount + builtinPairCount;
+                const totalCount = properties.length + pairProperties.length;
+
+                const isOnlyBuiltin = totalCount > 0 && totalBuiltinCount === totalCount;
 
                 if (isOnlyBuiltin) {
                     // Replace entire require statement
                     updateModuleSpecifier(statement);
 
                     if (originalText.includes("_builtinLibs")) {
-                        //edits.push(objectPattern.replace(originalText.replace("_builtinLibs", "builtinModules")));
-						const newText = originalText.replace("_builtinLibs", "builtinModules");
-						edits.push(objectPattern.replace(newText));
-						replaceStandaloneBuiltinLibsReferences();
-					}
+                        const newText = originalText.replace("_builtinLibs", "builtinModules");
+                        edits.push(objectPattern.replace(newText));
+                        replaceStandaloneBuiltinLibsReferences();
+                    }
                     hasChanges = true;
                 } else {
                     // Split into two statements
                     const propertiesToKeep = [];
+                    const builtinAliases = []; // Change to array to handle multiple aliases
 
                     for (const prop of properties) {
                         const propText = prop.text();
@@ -114,7 +118,16 @@ export default function transform(root: SgRoot<Js>): string | null {
 
                     for (const prop of pairProperties) {
                         const propText = prop.text();
-                        if (!containsBuiltinProperties(propText)) {
+                        if (containsBuiltinProperties(propText)) {
+                            // Extract alias from pair pattern like "builtinModules: alias" or "_builtinLibs: alias"
+                            const keyNode = prop.find({ rule: { kind: "property_identifier" } });
+                            const valueNode = prop.find({ rule: { kind: "identifier" } });
+
+                            if (keyNode && valueNode &&
+                                (keyNode.text() === "builtinModules" || keyNode.text() === "_builtinLibs")) {
+                                builtinAliases.push(valueNode.text());
+                            }
+                        } else {
                             propertiesToKeep.push(propText);
                         }
                     }
@@ -127,17 +140,33 @@ export default function transform(root: SgRoot<Js>): string | null {
                             const currentModule = moduleSpecifier.text();
                             const newModule = getNewModuleSpecifier(currentModule);
 
-                            const aliasMatch = originalText.match(/(builtinModules|_builtinLibs)\s*:\s*(\w+)/);
-                            const aliasText = aliasMatch ? `: ${aliasMatch[2]}` : "";
-
                             const reconstructedText = `{ ${propertiesToKeep.join(", ")} }`;
                             const firstStatement = `const ${reconstructedText} = require(${currentModule});`;
-                            const secondStatement = `const { builtinModules${aliasText} } = require(${newModule});`;
+
+                            // Always use builtinModules without alias for the new module import
+                            const secondStatement = `const { builtinModules } = require(${newModule});`;
                             const replacementText = `${firstStatement}${EOL}${secondStatement}`;
 
                             edits.push(variableDeclaration.replace(replacementText));
 
-                            if (originalText.includes("_builtinLibs") && !aliasText) {
+                            // Replace all alias references to use builtinModules
+                            for (const alias of builtinAliases) {
+                                const aliasReferences = rootNode.findAll({
+                                    rule: { pattern: alias }
+                                });
+
+                                for (const ref of aliasReferences) {
+                                    const parent = ref.parent();
+                                    if (parent &&
+                                        parent.kind() !== "object_pattern" &&
+                                        parent.kind() !== "pair_pattern" &&
+                                        parent.kind() !== "variable_declarator") {
+                                        edits.push(ref.replace("builtinModules"));
+                                    }
+                                }
+                            }
+
+                            if (originalText.includes("_builtinLibs")) {
                                 replaceStandaloneBuiltinLibsReferences();
                             }
                             hasChanges = true;
@@ -150,34 +179,34 @@ export default function transform(root: SgRoot<Js>): string | null {
             const variableDeclarator = statement.find({ rule: { kind: "variable_declarator" } });
 
             if (variableDeclarator) {
-				// Use resolveBindingPath to determine how builtinModules should be accessed
-				const builtinModulesPath = resolveBindingPath(variableDeclarator, "$.builtinModules");
-				const builtinLibsPath = resolveBindingPath(variableDeclarator, "$._builtinLibs");
+                // Use resolveBindingPath to determine how builtinModules should be accessed
+                const builtinModulesPath = resolveBindingPath(variableDeclarator, "$.builtinModules");
+                const builtinLibsPath = resolveBindingPath(variableDeclarator, "$._builtinLibs");
 
-				const usages = rootNode.findAll({
-					rule: {
-						any: [
-							{ pattern: builtinModulesPath },
-							{ pattern: builtinLibsPath }
-						]
-					}
-				});
+                const usages = rootNode.findAll({
+                    rule: {
+                        any: [
+                            { pattern: builtinModulesPath },
+                            { pattern: builtinLibsPath }
+                        ]
+                    }
+                });
 
-				if (usages.length > 0) {
-					const identifier = variableDeclarator.find({
-						rule: { kind: "identifier" }
-					});
+                if (usages.length > 0) {
+                    const identifier = variableDeclarator.find({
+                        rule: { kind: "identifier" }
+                    });
 
-					if (identifier) {
-						edits.push(identifier.replace("module"));
-						updateModuleSpecifier(statement);
+                    if (identifier) {
+                        edits.push(identifier.replace("module"));
+                        updateModuleSpecifier(statement);
 
-						for (const memberExpr of usages) {
-							edits.push(memberExpr.replace("module.builtinModules"));
-						}
-						hasChanges = true;
-					}
-				}
+                        for (const memberExpr of usages) {
+                            edits.push(memberExpr.replace("module.builtinModules"));
+                        }
+                        hasChanges = true;
+                    }
+                }
             }
         }
     }
@@ -205,16 +234,17 @@ export default function transform(root: SgRoot<Js>): string | null {
                     updateModuleSpecifier(statement);
 
                     if (originalText.includes("_builtinLibs")) {
-						const newText = originalText.replace("_builtinLibs", "builtinModules");
-						edits.push(namedImports.replace(newText));
+                        const newText = originalText.replace("_builtinLibs", "builtinModules");
+                        edits.push(namedImports.replace(newText));
                         replaceStandaloneBuiltinLibsReferences();
                     }
                     hasChanges = true;
                 } else {
                     // Split into two statements
                     const newText = originalText
-						.replace(/,?\s*(builtinModules|_builtinLibs)\s*(as\s+\w+)?\s*,?/g, "")
-                        .replace(/,\s*$/, "").replace(/^\s*,/, "");
+                        .replace(/,?\s*(builtinModules|_builtinLibs)\s*(as\s+\w+)?\s*,?/g, "")
+                        .replace(/,\s*$/, "")
+                        .replace(/^\s*,/, "");
                     edits.push(namedImports.replace(newText));
 
                     const moduleSpecifier = statement.find({ rule: { kind: "string" } });
@@ -245,44 +275,44 @@ export default function transform(root: SgRoot<Js>): string | null {
             const importClause = statement.find({ rule: { kind: "import_clause" } });
             if (!importClause) continue;
 
-			// Use resolveBindingPath to determine how builtinModules should be accessed
-			const builtinModulesPath = resolveBindingPath(importClause, "$.builtinModules");
-			const builtinLibsPath = resolveBindingPath(importClause, "$._builtinLibs");
+            // Use resolveBindingPath to determine how builtinModules should be accessed
+            const builtinModulesPath = resolveBindingPath(importClause, "$.builtinModules");
+            const builtinLibsPath = resolveBindingPath(importClause, "$._builtinLibs");
 
-			const expressions = rootNode.findAll({
-				rule: {
-					any: [
-						{ pattern: builtinModulesPath },
-						{ pattern: builtinLibsPath }
-					]
-				}
-			});
+            const expressions = rootNode.findAll({
+                rule: {
+                    any: [
+                        { pattern: builtinModulesPath },
+                        { pattern: builtinLibsPath }
+                    ]
+                }
+            });
 
-			if (expressions.length > 0) {
-				updateModuleSpecifier(statement);
+            if (expressions.length > 0) {
+                updateModuleSpecifier(statement);
 
-				// Get the namespace identifier to maintain consistency
-				let importIdentifier = importClause.find({ rule: { kind: "identifier" } });
-				if (!importIdentifier) {
-					const namespaceImport = importClause.find({
-						rule: { kind: "namespace_import" }
-					});
+                // Get the namespace identifier to maintain consistency
+                let importIdentifier = importClause.find({ rule: { kind: "identifier" } });
+                if (!importIdentifier) {
+                    const namespaceImport = importClause.find({
+                        rule: { kind: "namespace_import" }
+                    });
 
-					if (namespaceImport) {
-						importIdentifier = namespaceImport.find({ rule: { kind: "identifier" } });
-					}
-				}
+                    if (namespaceImport) {
+                        importIdentifier = namespaceImport.find({ rule: { kind: "identifier" } });
+                    }
+                }
 
-				const varName = importIdentifier?.text() || "module";
-				for (const memberExpr of expressions) {
-					edits.push(memberExpr.replace(`${varName}.builtinModules`));
-				}
-				hasChanges = true;
-			}
+                const varName = importIdentifier?.text() || "module";
+                for (const memberExpr of expressions) {
+                    edits.push(memberExpr.replace(`${varName}.builtinModules`));
+                }
+                hasChanges = true;
+            }
         }
     }
 
-	if (!hasChanges) return null;
+    if (!hasChanges) return null;
 
     return rootNode.commitEdits(edits);
 }
