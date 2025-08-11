@@ -198,6 +198,7 @@ export default function transform(root: SgRoot): string | null {
 			if (eachAliasNode.text().includes("rmdir")) {
 				const rmdirNode = eachAliasNode.find({
 					rule: {
+						pattern: "rmdir",
 						kind: "identifier",
 					},
 				});
