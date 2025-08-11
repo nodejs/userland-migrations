@@ -23,7 +23,6 @@ import type Js from "@codemod.com/jssg-types/langs/javascript";
  */
 export default function transform(root: SgRoot<Js>): string | null {
     const rootNode = root.root();
-    let hasChanges = false;
     const edits: Edit[] = [];
 
     // Helper functions
@@ -58,6 +57,7 @@ export default function transform(root: SgRoot<Js>): string | null {
         if (moduleSpecifier) {
             const currentModule = moduleSpecifier.text();
             const newModule = getNewModuleSpecifier(currentModule);
+
             edits.push(moduleSpecifier.replace(newModule));
         }
     };
@@ -103,7 +103,6 @@ export default function transform(root: SgRoot<Js>): string | null {
                         edits.push(objectPattern.replace(newText));
                         replaceStandaloneBuiltinLibsReferences();
                     }
-                    hasChanges = true;
                 } else {
                     // Split into two statements
                     const propertiesToKeep = [];
@@ -118,13 +117,20 @@ export default function transform(root: SgRoot<Js>): string | null {
 
                     for (const prop of pairProperties) {
                         const propText = prop.text();
-                        if (containsBuiltinProperties(propText)) {
+
+						if (containsBuiltinProperties(propText)) {
                             // Extract alias from pair pattern like "builtinModules: alias" or "_builtinLibs: alias"
                             const keyNode = prop.find({ rule: { kind: "property_identifier" } });
                             const valueNode = prop.find({ rule: { kind: "identifier" } });
 
-                            if (keyNode && valueNode &&
-                                (keyNode.text() === "builtinModules" || keyNode.text() === "_builtinLibs")) {
+                            if (
+								keyNode &&
+								valueNode &&
+                                (
+									keyNode.text() === "builtinModules" ||
+									keyNode.text() === "_builtinLibs"
+								)
+							) {
                                 builtinAliases.push(valueNode.text());
                             }
                         } else {
@@ -157,10 +163,13 @@ export default function transform(root: SgRoot<Js>): string | null {
 
                                 for (const ref of aliasReferences) {
                                     const parent = ref.parent();
-                                    if (parent &&
+
+                                    if (
+										parent &&
                                         parent.kind() !== "object_pattern" &&
                                         parent.kind() !== "pair_pattern" &&
-                                        parent.kind() !== "variable_declarator") {
+                                        parent.kind() !== "variable_declarator"
+									) {
                                         edits.push(ref.replace("builtinModules"));
                                     }
                                 }
@@ -169,7 +178,6 @@ export default function transform(root: SgRoot<Js>): string | null {
                             if (originalText.includes("_builtinLibs")) {
                                 replaceStandaloneBuiltinLibsReferences();
                             }
-                            hasChanges = true;
                         }
                     }
                 }
@@ -179,7 +187,6 @@ export default function transform(root: SgRoot<Js>): string | null {
             const variableDeclarator = statement.find({ rule: { kind: "variable_declarator" } });
 
             if (variableDeclarator) {
-                // Use resolveBindingPath to determine how builtinModules should be accessed
                 const builtinModulesPath = resolveBindingPath(variableDeclarator, "$.builtinModules");
                 const builtinLibsPath = resolveBindingPath(variableDeclarator, "$._builtinLibs");
 
@@ -204,7 +211,6 @@ export default function transform(root: SgRoot<Js>): string | null {
                         for (const memberExpr of usages) {
                             edits.push(memberExpr.replace("module.builtinModules"));
                         }
-                        hasChanges = true;
                     }
                 }
             }
@@ -238,7 +244,6 @@ export default function transform(root: SgRoot<Js>): string | null {
                         edits.push(namedImports.replace(newText));
                         replaceStandaloneBuiltinLibsReferences();
                     }
-                    hasChanges = true;
                 } else {
                     // Split into two statements
                     const newText = originalText
@@ -248,15 +253,15 @@ export default function transform(root: SgRoot<Js>): string | null {
                     edits.push(namedImports.replace(newText));
 
                     const moduleSpecifier = statement.find({ rule: { kind: "string" } });
+
                     if (moduleSpecifier) {
                         const currentModule = moduleSpecifier.text();
                         const newModule = getNewModuleSpecifier(currentModule);
-
                         const aliasMatch = originalText.match(/(builtinModules|_builtinLibs)\s*(as\s+\w+)/);
                         const aliasText = aliasMatch ? ` ${aliasMatch[2]}` : "";
-
                         const newStatement = `import { builtinModules${aliasText} } from ${newModule};`;
                         const statementEnd = statement.range().end;
+
                         edits.push({
                             startPos: statementEnd.index,
                             endPos: statementEnd.index,
@@ -266,7 +271,6 @@ export default function transform(root: SgRoot<Js>): string | null {
                         if (originalText.includes("_builtinLibs") && !aliasText) {
                             replaceStandaloneBuiltinLibsReferences();
                         }
-                        hasChanges = true;
                     }
                 }
             }
@@ -307,12 +311,11 @@ export default function transform(root: SgRoot<Js>): string | null {
                 for (const memberExpr of expressions) {
                     edits.push(memberExpr.replace(`${varName}.builtinModules`));
                 }
-                hasChanges = true;
             }
         }
     }
 
-    if (!hasChanges) return null;
+    if (!edits.length) return null;
 
     return rootNode.commitEdits(edits);
 }
