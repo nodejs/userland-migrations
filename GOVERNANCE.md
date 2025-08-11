@@ -11,7 +11,7 @@ Meet the current members of the Node.js userland migrations:
 ## Rights
 
 Any team member can block a pull request or decision. A block can be overturned by a team vote, which requires a quorum of two-thirds of active members and passes with a simple majority (>50%). Pursuant to Node.js policy, the [TSC](https://github.com/nodejs/TSC) may override a team’s vote.
-Any member can create a tag on the repository's `HEAD` branch, which triggers a CI run and initiates a release. Tags must follow the format `vX.Y.Z@workspace`, where `X.Y.Z` is the version number and `workspace` is the name of the npm workspace (e.g., `v1.2.3@codemod`).
+Any member can create a tag on the repository's `HEAD` branch, which triggers a CI run and initiates a release. Tags must follow the format `vX.Y.Z@workspace`, where `X.Y.Z` is the version number and `workspace` is the name of the npm workspace (e.g. `v1.2.3@codemod`).
 
 ### Active vs inactive membership
 
