@@ -1,27 +1,23 @@
-# Team membership
+# Governance
 
-Current members are:
+Meet the current members of the Node.js userland migrations:
 
-- `@alexbit-codemod`
-- `@AugustinMauroy`
-- `@avivkeller`
-- `@bmuenzenmeyer`
-- `@JakobJingleheimer` (lead)
-- `@ljharb`
+- [@AugustinMauroy](https://github.com/AugustinMauroy) - **Augustin Mauroy** (he/him)
+- [@avivkeller](https://github.com/avivkeller) - **Aviv Keller** (he/him)
+- [@bmuenzenmeyer](https://github.com/bmuenzenmeyer) - **Brian Muenzenmeyer** (he/him)
+- [@JakobJingleheimer](https://github.com/JakobJingleheimer) - **Jacob Smith** (he/him) - Maintainer
+- [@ljharb](https://github.com/ljharb) - **Jordan Harband** (he/him)
 
 ## Rights
 
-Any team member may block a PR or decision. A block may be overturned by team vote; votes require a quorum of ⅔ of active members and pass by >½ simple majority. In accordance with Node.js policy, a team's vote may be overturned by the [TSC](https://github.com/nodejs/TSC).
-
-Any member can create a tag on main which triggers a CI run, this is used to create a releases. So be careful with this power. Tags should have this structure `vX.Y.Z@workspace`, where `X.Y.Z` is the version number and `workspace` is the name of the npm workspace (e.g. `v1.2.3@codemod`).
+Any team member can block a pull request or decision. A block can be overturned by a team vote, which requires a quorum of two-thirds of active members and passes with a simple majority (>50%). Pursuant to Node.js policy, the [TSC](https://github.com/nodejs/TSC) may override a team’s vote.
+Any member can create a tag on the repository's `HEAD` branch, which triggers a CI run and initiates a release. Tags must follow the format `vX.Y.Z@workspace`, where `X.Y.Z` is the version number and `workspace` is the name of the npm workspace (e.g., `v1.2.3@codemod`).
 
 ### Active vs inactive membership
 
-An active member is one who has substantively participated once in the past 6 weeks.
+### Retaining Membership
 
-A member who has been inactive for 4 or more months may be removed. They are welcome to return by simple request.
-
-#### Team lead
+Members are expected to engage in project discussions regularly, and members inactive for more than six months may be removed from the active members list. Removed members can be reinstated upon returning to active participation.
 
 The team lead is not more equal than other active members; it is an administrative function. For administrative purposes, the lead owns the repo, the github team, and handles membership changes and repository administration (particularly potentially destructive actions).
 
@@ -48,6 +44,16 @@ Exceptions may be made for members of the larger ecosystem who are well known to
 An active member may nominate a contributor who meets this criteria. The nomination must pass before requesting the contributor be added to the organisation. All active members must be notified of the nomination.
 
 A nomination should be raised privately with active members before publicly, out of respect for the nominee.
+
+### Team Maintainers
+
+Team maintainers serve in an administrative capacity and are not considered "more equal" than other active contributors. Their primary role is to support smooth project operations.
+
+Maintainership includes responsibilities such as managing the GitHub repository and team, handling membership changes, and performing administrative tasks, especially those that may be destructive or sensitive in nature.
+
+Maintainers ensure team policies are upheld and may exercise discretion when taking necessary actions, such as removing inactive members in accordance with team guidelines.
+
+Additionally, maintainers have the ability to bypass GitHub branch protection rules to merge pull requests, typically in cases of trivial edits, urgent corrections, or hot-fixes.
 
 ## Team Expulsion
 
