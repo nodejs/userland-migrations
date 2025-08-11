@@ -181,9 +181,11 @@ function handleDestructuredImport(
         localEdits.push(statement.replace(newImportStatement));
         finalState = { ...currentState, added: true };
     } else {
-        const otherProps = destructuredProps
-            .filter((id) => id.text() !== 'createCredentials')
-            .map((id) => id.text());
+        const otherProps = [];
+        for (const d of destructuredProps) {
+          const text = d.text();
+          if (text !== 'createCredentials') otherProps.push(text);
+        }
 
         const newDestructuredString = `{ ${otherProps.join(', ')} }`;
         localEdits.push(specifiersNode.replace(newDestructuredString));
