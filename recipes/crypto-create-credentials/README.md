@@ -24,14 +24,7 @@ const credentials = createCredentials({
 ```js
 // Updated to use createSecureContext from node:tls
 const { createSecureContext } = require('node:tls');
-
-const credentials = createSecureContext({
-  key: privateKey,
-  cert: certificate,
-  ca: [caCertificate]
-});
-
-// Updated ES module import
+// OR
 import { createSecureContext } from 'node:tls';
 
 const credentials = createSecureContext({
