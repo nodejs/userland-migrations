@@ -335,11 +335,9 @@ export default function transform(root: SgRoot): string | null {
         let importType: ImportType | undefined;
 
         if (importMatch.kind() === 'import_statement') {
-            if (importMatch.find({ rule: { kind: 'namespace_import' } })) {
-                importType = 'NAMESPACE_IMPORT';
-            } else {
-                importType = 'DESTRUCTURED_IMPORT';
-            }
+            importType = importMatch.find({ rule: { kind: 'namespace_import' } })
+              ? 'NAMESPACE_IMPORT'
+              : 'DESTRUCTURED_IMPORT';
         } else {
             if (nameNode?.is('object_pattern')) {
                 importType = 'DESTRUCTURED_REQUIRE';
