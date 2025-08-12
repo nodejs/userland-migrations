@@ -282,8 +282,7 @@ function handleNamespaceImport(
         finalState = ensureResult.newState;
 
         for (const usage of memberAccessUsages) {
-            const replacementText = `${ensureResult.identifier}.createSecureContext`;
-            localEdits.push(usage.replace(replacementText));
+            localEdits.push(usage.replace(`${ensureResult.identifier}.createSecureContext`));
         }
     }
 
