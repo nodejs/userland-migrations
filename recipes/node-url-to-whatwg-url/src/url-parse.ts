@@ -71,56 +71,54 @@ export default function transform(root: SgRoot<JS>): string | null {
     }
 
     // Destructuring: const { auth } = obj -> const auth = `${obj.username}:${obj.password}`
-    const authDestructures = rootNode.findAll({ rule: { pattern: "const { auth } = $OBJ" } });
-    for (const node of authDestructures) {
-        const base = node.getMatch("OBJ");
-        if (!base) continue;
-        const hadSemi = /;\s*$/.test(node.text());
-        const name = base.text();
-        const replacement = `const auth = \`${'${'}${name}.username${'}'}:${'${'}${name}.password${'}'}\`${hadSemi ? ';' : ''}`;
-        edits.push(node.replace(replacement));
-    }
+	const fieldsToReplace = [
+		{
+			key: "auth",
+			replaceFn: (base: string, hadSemi: boolean) =>
+				`const auth = \`\${${base}.username}:\${${base}.password}\`${hadSemi ? ";" : ""}`,
+		},
+		{
+			key: "path",
+			replaceFn: (base: string, hadSemi: boolean) =>
+				`const path = \`\${${base}.pathname}\${${base}.search}\`${hadSemi ? ";" : ""}`,
+		},
+		{
+			key: "hostname",
+			replaceFn: (base: string, hadSemi: boolean) =>
+				`const hostname = ${base}.hostname.replace(/^\\[|\\]$/, '')${hadSemi ? ";" : ""}`,
+		},
+	];
 
-    // Property access: obj.path -> `${obj.pathname}${obj.search}`
-    const pathAccesses = rootNode.findAll({ rule: { pattern: "$OBJ.path" } });
-    for (const node of pathAccesses) {
-        const base = node.getMatch("OBJ");
-        if (!base) continue;
+	for (const { key, replaceFn } of fieldsToReplace) {
+		// Handle property access
+		const propertyAccesses = rootNode.findAll({ rule: { pattern: `$OBJ.${key}` } });
+		for (const node of propertyAccesses) {
+			const base = node.getMatch("OBJ");
+			if (!base) continue;
 
-        const replacement = `\`\${${base.text()}.pathname}\${${base.text()}.search}\``;
-        edits.push(node.replace(replacement));
-    }
+			let replacement = "";
+			if (key === "auth") {
+				replacement = `\`\${${base.text()}.username}:\${${base.text()}.password}\``;
+			} else if (key === "path") {
+				replacement = `\`\${${base.text()}.pathname}\${${base.text()}.search}\``;
+			} else if (key === "hostname") {
+				replacement = `${base.text()}.hostname.replace(/^\\[|\\]$/, '')`;
+			}
 
-    // Destructuring: const { path } = obj -> const path = `${obj.pathname}${obj.search}`
-    const pathDestructures = rootNode.findAll({ rule: { pattern: "const { path } = $OBJ" } });
-    for (const node of pathDestructures) {
-        const base = node.getMatch("OBJ");
-        if (!base) continue;
-        const hadSemi = /;\s*$/.test(node.text());
-        const name = base.text();
-        const replacement = `const path = \`${'${'}${name}.pathname${'}'}${'${'}${name}.search${'}'}\`${hadSemi ? ';' : ''}`;
-        edits.push(node.replace(replacement));
-    }
+			edits.push(node.replace(replacement));
+		}
 
-    // Property access: obj.hostname -> obj.hostname.replace(/^\[|\]$/, '')
-    const hostnameAccesses = rootNode.findAll({ rule: { pattern: "$OBJ.hostname" } });
-    for (const node of hostnameAccesses) {
-        const base = node.getMatch("OBJ");
-        if (!base) continue;
+		// Handle destructuring
+		const destructures = rootNode.findAll({ rule: { pattern: `const { ${key} } = $OBJ` } });
+		for (const node of destructures) {
+			const base = node.getMatch("OBJ");
+			if (!base) continue;
 
-        const replacement = `${base.text()}.hostname.replace(/^\\[|\\]$/, '')`;
-        edits.push(node.replace(replacement));
-    }
-
-    // Destructuring: const { hostname } = obj -> const hostname = obj.hostname.replace(/^\[|\]$/, '')
-    const hostnameDestructures = rootNode.findAll({ rule: { pattern: "const { hostname } = $OBJ" } });
-    for (const node of hostnameDestructures) {
-        const base = node.getMatch("OBJ");
-        if (!base) continue;
-        const hadSemi = /;\s*$/.test(node.text());
-        const replacement = `const hostname = ${base.text()}.hostname.replace(/^\\[|\\]$/, '')${hadSemi ? ';' : ''}`;
-        edits.push(node.replace(replacement));
-    }
+			const hadSemi = /;\s*$/.test(node.text());
+			const replacement = replaceFn(base.text(), hadSemi);
+			edits.push(node.replace(replacement));
+		}
+	}
 
     if (!edits.length) return null;
 
