@@ -300,8 +300,8 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const edits: Edit[] = [];
 
 	// Safety: only run on files that import/require node:url
-    const importNodes = getNodeImportStatements(root, "url");
-    const requireNodes = getNodeRequireCalls(root, "url");
+    const importNodes = getNodeImportStatements(root as undefined, "url");
+    const requireNodes = getNodeRequireCalls(root as undefined, "url");
 	const requiresImports = [...importNodes, ...requireNodes]
 
     if (!requiresImports.length) return null;
