@@ -193,6 +193,7 @@ function handleDestructuredImport(
         if (!currentState.added) {
             const newEdit = {
                 startPos: statement.range().end.index,
+                // appending, so use `end` for both
                 endPos: statement.range().end.index,
                 insertedText: `${os.EOL}${newImportStatement}`,
             };
