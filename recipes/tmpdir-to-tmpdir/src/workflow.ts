@@ -1,6 +1,6 @@
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import type { SgRoot, Edit } from "@ast-grep/napi";
+import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
 
 /**
  * Transform function that updates code to replace deprecated `tmpDir` usage
@@ -26,6 +26,7 @@ export default function transform(root: SgRoot): string | null {
   let hasChanges = false;
 
   // Step 1: Find and update destructuring assignments from require('os') or require('node:os')
+	// @ts-ignore - ast-grep types are not fully compatible with JSSG types
   const requireStatements = getNodeRequireCalls(root, "os");
 
   for (const statement of requireStatements) {
@@ -47,6 +48,7 @@ export default function transform(root: SgRoot): string | null {
     }
   }
 
+	// @ts-ignore - ast-grep types are not fully compatible with JSSG types
   const importStatements = getNodeImportStatements(root, "os");
 
   for (const statement of importStatements) {

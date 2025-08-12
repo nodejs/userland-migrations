@@ -23,7 +23,7 @@ See the [codemod CLI doc](https://go.codemod.com/cli-docs) for a full list of av
 
 ## Available codemods
 
-You can find official Node.js codemods in the [Codemod Registry](https://codemod.com/registry?author=nodejs). Additionally, community-contributed Node.js codemods are available in the [Codemod Registry](https://codemod.link/nodejs-official).
+You can find official Node.js codemods in the [Codemod Registry](https://codemod.link/nodejs-official).
 
 ## Acknowledgments
 
