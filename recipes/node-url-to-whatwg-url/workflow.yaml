@@ -1,4 +1,7 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/codemod-com/codemod/refs/heads/main/schemas/workflow.json
+
 version: "1"
+
 nodes:
   - id: apply-transforms
     name: Apply AST Transformations
@@ -11,11 +14,11 @@ nodes:
           js_file: src/url-parse.ts
           base_path: .
           include:
+            - "**/*.cjs"
+            - "**/*.cts"
             - "**/*.js"
             - "**/*.jsx"
             - "**/*.mjs"
-            - "**/*.cjs"
-            - "**/*.cts"
             - "**/*.mts"
             - "**/*.ts"
             - "**/*.tsx"
@@ -27,11 +30,11 @@ nodes:
           js_file: src/url-format.ts
           base_path: .
           include:
+            - "**/*.cjs"
+            - "**/*.cts"
             - "**/*.js"
             - "**/*.jsx"
             - "**/*.mjs"
-            - "**/*.cjs"
-            - "**/*.cts"
             - "**/*.mts"
             - "**/*.ts"
             - "**/*.tsx"
@@ -43,11 +46,11 @@ nodes:
           js_file: src/import-process.ts
           base_path: .
           include:
+            - "**/*.cjs"
+            - "**/*.cts"
             - "**/*.js"
             - "**/*.jsx"
             - "**/*.mjs"
-            - "**/*.cjs"
-            - "**/*.cts"
             - "**/*.mts"
             - "**/*.ts"
             - "**/*.tsx"
