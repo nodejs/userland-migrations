@@ -1,5 +1,7 @@
 import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
 import type JS from "@codemod.com/jssg-types/langs/javascript";
+import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
+import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 
 /**
  * Get the literal text value of a node, if it exists.
@@ -157,7 +159,15 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 
+	// Safety: only run on files that import/require node:url
+	const hasNodeUrlImport =
+		getNodeImportStatements(root, "url").length > 0 ||
+		getNodeRequireCalls(root, "url").length > 0;
+
+	if (!hasNodeUrlImport) return null;
+
 	// Look for various ways format can be referenced
+	// todo(@AugustinMauroy): use resolveBindingPath
 	const patterns = [
 		"url.format($OPTIONS)",
 		"nodeUrl.format($OPTIONS)",

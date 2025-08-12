@@ -1,3 +1,5 @@
+import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
+import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
 import type JS from "@codemod.com/jssg-types/langs/javascript";
 
@@ -14,50 +16,46 @@ import type JS from "@codemod.com/jssg-types/langs/javascript";
  * 3. `foo(urlString)` → `new URL(urlString)`
  */
 export default function transform(root: SgRoot<JS>): string | null {
-	const rootNode = root.root();
-	const edits: Edit[] = [];
+    const rootNode = root.root();
+    const edits: Edit[] = [];
 
-	// Safety: only run on files that import/require node:url
-	const hasNodeUrlImport =
-		rootNode.find({ rule: { pattern: "require('node:url')" } }) ||
-		rootNode.find({ rule: { pattern: 'require("node:url")' } }) ||
-		rootNode.find({ rule: { pattern: "import $_ from 'node:url'" } }) ||
-		rootNode.find({ rule: { pattern: 'import $_ from "node:url"' } }) ||
-		rootNode.find({ rule: { pattern: "import { $_ } from 'node:url'" } }) ||
-		rootNode.find({ rule: { pattern: 'import { $_ } from "node:url"' } });
+    // Safety: only run on files that import/require node:url
+    const hasNodeUrlImport =
+        getNodeImportStatements(root, "url").length > 0 ||
+        getNodeRequireCalls(root, "url").length > 0;
 
-	if (!hasNodeUrlImport) {
-		return null;
-	}
+    if (!hasNodeUrlImport) return null;
 
-	// 1) Replace parse calls with new URL()
-	const parseCallPatterns = [
-		// member calls on typical identifiers
-		"url.parse($ARG)",
-		"nodeUrl.parse($ARG)",
-		// bare identifier (named import)
-		"parse($ARG)",
-		// common alias used in tests
-		"urlParse($ARG)"
-	];
+    // 1) Replace parse calls with new URL()
+	// todo(@AugustinMauroy): use resolveBindingPath
+    const parseCallPatterns = [
+        // member calls on typical identifiers
+        "url.parse($ARG)",
+        "nodeUrl.parse($ARG)",
+        // bare identifier (named import)
+        "parse($ARG)",
+        // common alias used in tests
+        "urlParse($ARG)"
+    ];
 
-	for (const pattern of parseCallPatterns) {
-		const calls = rootNode.findAll({ rule: { pattern } });
+    for (const pattern of parseCallPatterns) {
+        const calls = rootNode.findAll({ rule: { pattern } });
 
-		for (const call of calls) {
-			const arg = call.getMatch("ARG");
-			if (!arg) continue;
-			const replacement = `new URL(${arg.text()})`;
-			edits.push(call.replace(replacement));
-		}
-	}
+        for (const call of calls) {
+            const arg = call.getMatch("ARG");
+            if (!arg) continue;
 
-	// 2) Transform legacy properties on URL object
-	//    - auth => `${obj.username}:${obj.password}`
-	//    - path => `${obj.pathname}${obj.search}`
-	//    - hostname => obj.hostname.replace(/^[\[|\]]$/, '')  (strip square brackets)
+            const replacement = `new URL(${arg.text()})`;
+            edits.push(call.replace(replacement));
+        }
+    }
 
-	// Property access: obj.auth -> `${obj.username}:${obj.password}`
+    // 2) Transform legacy properties on URL object
+    //    - auth => `${obj.username}:${obj.password}`
+    //    - path => `${obj.pathname}${obj.search}`
+    //    - hostname => obj.hostname.replace(/^[\[|\]]$/, '')  (strip square brackets)
+
+    // Property access: obj.auth -> `${obj.username}:${obj.password}`
     const authAccesses = rootNode.findAll({ rule: { pattern: "$OBJ.auth" } });
     for (const node of authAccesses) {
         const base = node.getMatch("OBJ");
@@ -117,8 +115,7 @@ export default function transform(root: SgRoot<JS>): string | null {
         edits.push(node.replace(replacement));
     }
 
-	if (!edits.length) return null;
+    if (!edits.length) return null;
 
-	return rootNode.commitEdits(edits);
+    return rootNode.commitEdits(edits);
 };
-
