@@ -75,8 +75,9 @@ export default function transform(root: SgRoot<JS>): string | null {
     for (const node of authDestructures) {
         const base = node.getMatch("OBJ");
         if (!base) continue;
-
-        const replacement = `const auth = \`\${${base.text()}.username}:\${${base.text()}.password}\`;`;
+        const hadSemi = /;\s*$/.test(node.text());
+        const name = base.text();
+        const replacement = `const auth = \`${'${'}${name}.username${'}'}:${'${'}${name}.password${'}'}\`${hadSemi ? ';' : ''}`;
         edits.push(node.replace(replacement));
     }
 
@@ -95,8 +96,9 @@ export default function transform(root: SgRoot<JS>): string | null {
     for (const node of pathDestructures) {
         const base = node.getMatch("OBJ");
         if (!base) continue;
-
-        const replacement = `const path = \`\${${base.text()}.pathname}\${${base.text()}.search}\`;`;
+        const hadSemi = /;\s*$/.test(node.text());
+        const name = base.text();
+        const replacement = `const path = \`${'${'}${name}.pathname${'}'}${'${'}${name}.search${'}'}\`${hadSemi ? ';' : ''}`;
         edits.push(node.replace(replacement));
     }
 
@@ -115,8 +117,8 @@ export default function transform(root: SgRoot<JS>): string | null {
     for (const node of hostnameDestructures) {
         const base = node.getMatch("OBJ");
         if (!base) continue;
-
-        const replacement = `const hostname = ${base.text()}.hostname.replace(/^\\[|\\]$/, '');`;
+        const hadSemi = /;\s*$/.test(node.text());
+        const replacement = `const hostname = ${base.text()}.hostname.replace(/^\\[|\\]$/, '')${hadSemi ? ';' : ''}`;
         edits.push(node.replace(replacement));
     }
 

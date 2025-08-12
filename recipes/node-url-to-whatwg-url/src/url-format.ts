@@ -259,8 +259,10 @@ function urlFormatToUrlToString(callNode: SgNode<JS>[], edits: Edit[]): void {
 			finalExpr = `'${segs.map((s) => (s.type === "lit" ? s.text : "")).join("")}'`;
 		}
 
-		const replacement = `new URL(${finalExpr}).toString()`;
-		edits.push(call.replace(replacement));
+	// Include semicolon if original statement had one
+	const hadSemi = /;\s*$/.test(call.text());
+	const replacement = `new URL(${finalExpr}).toString()${hadSemi ? ';' : ''}`;
+	edits.push(call.replace(replacement));
 	}
 }
 
