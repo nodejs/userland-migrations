@@ -8,7 +8,6 @@ import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
 export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
-	let hasChanges = false;
 
 	// after the migration, replacement of `url.parse` and `url.format`
 	// we need to check remaining usage of `url` module
@@ -115,9 +114,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 		}
 	}
 
-	hasChanges = edits.length > 0 || linesToRemove.length > 0;
-
-	if (!hasChanges) return null;
+	if (edits.length < 0 || linesToRemove.length < 0) return null;
 
 	// Apply edits, remove whole lines ranges, then normalize leading whitespace only
 	let source = rootNode.commitEdits(edits);

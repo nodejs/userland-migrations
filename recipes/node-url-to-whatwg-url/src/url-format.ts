@@ -2,6 +2,23 @@ import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
 import type JS from "@codemod.com/jssg-types/langs/javascript";
 
 /**
+ * Get the literal text value of a node, if it exists.
+ * @param node The node to extract the literal text from
+ * @returns The literal text value, or undefined if not found
+ */
+const getLiteralText = (node: SgNode<JS> | null | undefined): string | undefined => {
+	const kind = node.kind();
+
+	if (kind === "string") {
+		const frag = node.find({ rule: { kind: "string_fragment" } });
+		return frag ? frag.text() : node.text().slice(1, -1);
+	}
+	if (kind === "number") return node.text();
+	if (kind === "true" || kind === "false") return node.text();
+	return undefined;
+};
+
+/**
  * Transforms url.format() calls to new URL().toString()
  * @param callNode The AST node representing the url.format() call
  * @returns The transformed code
@@ -28,18 +45,6 @@ function urlFormatToUrlToString(callNode: SgNode<JS>[], edits: Edit[]): void {
 		} = {};
 
 		const pairs = objectNode.findAll({ rule: { kind: "pair" } });
-
-		const getLiteralText = (node: SgNode<JS> | null | undefined): string | undefined => {
-			if (!node) return undefined;
-			const kind = node.kind();
-			if (kind === "string") {
-				const frag = node.find({ rule: { kind: "string_fragment" } });
-				return frag ? frag.text() : node.text().slice(1, -1);
-			}
-			if (kind === "number") return node.text();
-			if (kind === "true" || kind === "false") return node.text();
-			return undefined;
-		};
 
 		for (const pair of pairs) {
 			const keyNode = pair.find({ rule: { kind: "property_identifier" } });
@@ -151,7 +156,6 @@ function urlFormatToUrlToString(callNode: SgNode<JS>[], edits: Edit[]): void {
 export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
-	let hasChanges = false;
 
 	// Look for various ways format can be referenced
 	const patterns = [
@@ -163,14 +167,13 @@ export default function transform(root: SgRoot<JS>): string | null {
 
 	for (const pattern of patterns) {
 		const calls = rootNode.findAll({ rule: { pattern } });
-		if (calls.length > 0) {
+
+		if (calls.length) {
 			urlFormatToUrlToString(calls, edits);
 		}
 	}
 
-	hasChanges = edits.length > 0;
-
-	if (!hasChanges) return null;
+	if (!edits.length) return null;
 
 	return rootNode.commitEdits(edits);
 };
