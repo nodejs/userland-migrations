@@ -2,6 +2,7 @@ import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
 import type JS from "@codemod.com/jssg-types/langs/javascript";
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
+import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 
 /**
  * Get the literal text value of a node, if it exists.
@@ -169,20 +170,24 @@ export default function transform(root: SgRoot<JS>): string | null {
 	if (!hasNodeUrlImport) return null;
 
 	// Look for various ways format can be referenced
-	// todo(@AugustinMauroy): use resolveBindingPath
-	const patterns = [
-		"url.format($OPTIONS)",
-		"nodeUrl.format($OPTIONS)",
-		"format($OPTIONS)",
-		"urlFormat($OPTIONS)"
-	];
+	// Build patterns using resolveBindingPath for both import and require forms
+	// @ts-ignore - type difference between jssg and ast-grep wrappers
+	const importNodes = getNodeImportStatements(root, "url");
+	// @ts-ignore - type difference between jssg and ast-grep wrappers
+	const requireNodes = getNodeRequireCalls(root, "url");
+	const patterns = new Set<string>();
+
+	for (const node of [...importNodes, ...requireNodes]) {
+		// @ts-ignore - helper accepts ast-grep SgNode; runtime compatible
+		const binding = resolveBindingPath(node, "$.format");
+		if (!binding) continue;
+		patterns.add(`${binding}($OPTIONS)`);
+	}
 
 	for (const pattern of patterns) {
 		const calls = rootNode.findAll({ rule: { pattern } });
 
-		if (calls.length) {
-			urlFormatToUrlToString(calls, edits);
-		}
+		if (calls.length) urlFormatToUrlToString(calls, edits);
 	}
 
 	if (!edits.length) return null;

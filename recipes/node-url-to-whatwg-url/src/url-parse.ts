@@ -1,7 +1,8 @@
-import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
-import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
 import type JS from "@codemod.com/jssg-types/langs/javascript";
+import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
+import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
+import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 
 /**
  * Transforms `url.parse` usage to `new URL()`.
@@ -28,17 +29,19 @@ export default function transform(root: SgRoot<JS>): string | null {
 
     if (!hasNodeUrlImport) return null;
 
-    // 1) Replace parse calls with new URL()
-	// todo(@AugustinMauroy): use resolveBindingPath
-    const parseCallPatterns = [
-        // member calls on typical identifiers
-        "url.parse($ARG)",
-        "nodeUrl.parse($ARG)",
-        // bare identifier (named import)
-        "parse($ARG)",
-        // common alias used in tests
-        "urlParse($ARG)"
-    ];
+    // 1) Replace parse calls with new URL() using binding-aware patterns
+    // @ts-ignore - type difference between jssg and ast-grep wrappers
+    const importNodes = getNodeImportStatements(root, "url");
+    // @ts-ignore - type difference between jssg and ast-grep wrappers
+    const requireNodes = getNodeRequireCalls(root, "url");
+    const parseCallPatterns = new Set<string>();
+
+    for (const node of [...importNodes, ...requireNodes]) {
+        // @ts-ignore resolve across wrappers
+        const binding = resolveBindingPath(node, "$.parse");
+        if (!binding) continue;
+        parseCallPatterns.add(`${binding}($ARG)`);
+    }
 
     for (const pattern of parseCallPatterns) {
         const calls = rootNode.findAll({ rule: { pattern } });
