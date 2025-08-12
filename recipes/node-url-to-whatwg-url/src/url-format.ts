@@ -23,6 +23,23 @@ const getLiteralText = (node: SgNode<JS> | null | undefined): string | undefined
 };
 
 /**
+ * Get the literal text value of a node, if it exists.
+ * @param node The node to extract the literal text from
+ * @returns The literal text value, or undefined if not found
+ */
+const getLiteralText = (node: SgNode<JS> | null | undefined): string | undefined => {
+	const kind = node.kind();
+
+	if (kind === "string") {
+		const frag = node.find({ rule: { kind: "string_fragment" } });
+		return frag ? frag.text() : node.text().slice(1, -1);
+	}
+	if (kind === "number") return node.text();
+	if (kind === "true" || kind === "false") return node.text();
+	return undefined;
+};
+
+/**
  * Transforms url.format() calls to new URL().toString()
  * @param callNode The AST nodes representing the url.format() calls
  * @param edits The edits collector
