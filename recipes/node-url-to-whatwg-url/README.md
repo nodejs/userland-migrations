@@ -6,22 +6,26 @@ See [DEP0116](https://nodejs.org/api/deprecations.html#DEP0116).
 
 ## Example
 
+### `url.parse` to `new URL()`
 
-**`url.parse` to `new URL()`**
+**Before:**
 ```js
-// Before
 const url = require('node:url');
 
 const myUrl = new url.URL('https://example.com');
 const urlAuth = legacyURL.auth;
-// After
+```
+
+**After:**
+```js
 const myUrl = new URL('https://example.com');
 const urlAuth = `${myUrl.username}:${myUrl.password}`;
 ```
 
-**`url.format` to `myUrl.toString()`**
+### `url.format` to `myUrl.toString()
+
+**Before:**
 ```js
-// Before
 const url = require('node:url');
 
 url.format({
@@ -33,7 +37,10 @@ url.format({
     format: 'json',
   },
 });
-// After
+```
+
+**After:**
+```js
 const myUrl = new URL('https://example.com/some/path?page=1&format=json').toString();
 ```
 
