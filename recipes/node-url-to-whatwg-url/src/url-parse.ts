@@ -1,5 +1,3 @@
-import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
-import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
 import type JS from "@codemod.com/jssg-types/langs/javascript";
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
