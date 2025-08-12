@@ -11,6 +11,7 @@ See [DEP0116](https://nodejs.org/api/deprecations.html#DEP0116).
 ```js
 // Before
 const url = require('node:url');
+
 const myUrl = new url.URL('https://example.com');
 const urlAuth = legacyURL.auth;
 // After
@@ -22,6 +23,7 @@ const urlAuth = `${myUrl.username}:${myUrl.password}`;
 ```js
 // Before
 const url = require('node:url');
+
 url.format({
   protocol: 'https',
   hostname: 'example.com',
@@ -32,8 +34,7 @@ url.format({
   },
 });
 // After
-const myUrl = new URL('https://example.com/some/path?page=1&format=json');
-myUrl.toString();
+const myUrl = new URL('https://example.com/some/path?page=1&format=json').toString();
 ```
 
 ## Caveats

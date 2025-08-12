@@ -12,68 +12,125 @@ function urlFormatToUrlToString(callNode: SgNode<JS>[], edits: Edit[]): void {
 		if (!optionsMatch) continue;
 
 		// Find the object node that contains the URL options
-		const objectNode = optionsMatch.find({
-			rule: {
-				kind: "object"
-			}
-		});
-
+		const objectNode = optionsMatch.find({ rule: { kind: "object" } });
 		if (!objectNode) continue;
 
-		// Extract URL components using AST traversal
-		const urlComponents = {
-			protocol: '',
-			hostname: '',
-			pathname: '',
-			search: ''
+		const urlState: {
+			protocol?: string;
+			auth?: string; // user:pass
+			host?: string; // host:port
+			hostname?: string;
+			port?: string;
+			pathname?: string;
+			search?: string; // ?a=b
+			hash?: string; // #frag
+			queryParams?: Array<[string, string]>;
+		} = {};
+
+		const pairs = objectNode.findAll({ rule: { kind: "pair" } });
+
+		const getLiteralText = (node: SgNode<JS> | null | undefined): string | undefined => {
+			if (!node) return undefined;
+			const kind = node.kind();
+			if (kind === "string") {
+				const frag = node.find({ rule: { kind: "string_fragment" } });
+				return frag ? frag.text() : node.text().slice(1, -1);
+			}
+			if (kind === "number") return node.text();
+			if (kind === "true" || kind === "false") return node.text();
+			return undefined;
 		};
 
-		// Find all property pairs in the object
-		const pairs = objectNode.findAll({
-			rule: {
-				kind: "pair"
-			}
-		});
-
 		for (const pair of pairs) {
-			// Get the property key
-			const keyNode = pair.find({
-				rule: {
-					kind: "property_identifier"
-				}
-			});
+			const keyNode = pair.find({ rule: { kind: "property_identifier" } });
+			const key = keyNode?.text();
+			if (!key) continue;
 
-			// Get the string value
-			const valueNode = pair.find({
-				rule: {
-					kind: "string"
-				}
-			});
-
-			if (keyNode && valueNode) {
-				const key = keyNode.text();
-				// Get the string fragment (the actual content without quotes)
-				const stringFragment = valueNode.find({
-					rule: {
-						kind: "string_fragment"
+			if (key === "query") {
+				// Collect query object literals into key=value
+				const queryObj = pair.find({ rule: { kind: "object" } });
+				if (queryObj) {
+					const qpairs = queryObj.findAll({ rule: { kind: "pair" } });
+					const list: Array<[string, string]> = [];
+					for (const qp of qpairs) {
+						const qkeyNode = qp.find({ rule: { kind: "property_identifier" } });
+						const qvalLiteral = getLiteralText(qp.find({ rule: { any: [{ kind: "string" }, { kind: "number" }, { kind: "true" }, { kind: "false" }] } }));
+						if (qkeyNode && qvalLiteral !== undefined) list.push([qkeyNode.text(), qvalLiteral]);
 					}
-				});
+					urlState.queryParams = list;
+				}
+				continue;
+			}
 
-				const value = stringFragment ? stringFragment.text() : valueNode.text().slice(1, -1);
+			// value might be string/number/bool
+			const valueLiteral = getLiteralText(pair.find({ rule: { any: [{ kind: "string" }, { kind: "number" }, { kind: "true" }, { kind: "false" }] } }));
+			if (valueLiteral === undefined) continue;
 
-				// Map the properties to URL components
-				if (key === 'protocol') urlComponents.protocol = value;
-				else if (key === 'hostname') urlComponents.hostname = value;
-				else if (key === 'pathname') urlComponents.pathname = value;
-				else if (key === 'search') urlComponents.search = value;
-				else console.warn(`Unknown URL option: ${key}`);
+			switch (key) {
+				case "protocol": {
+					// normalize without trailing ':'
+					urlState.protocol = valueLiteral.replace(/:$/, "");
+					break;
+				}
+				case "auth": {
+					urlState.auth = valueLiteral; // 'user:pass'
+					break;
+				}
+				case "host": {
+					urlState.host = valueLiteral; // 'example.com:8080'
+					break;
+				}
+				case "hostname": {
+					urlState.hostname = valueLiteral;
+					break;
+				}
+				case "port": {
+					urlState.port = valueLiteral;
+					break;
+				}
+				case "pathname": {
+					urlState.pathname = valueLiteral;
+					break;
+				}
+				case "search": {
+					urlState.search = valueLiteral;
+					break;
+				}
+				case "hash": {
+					urlState.hash = valueLiteral;
+					break;
+				}
+				default:
+					// ignore unknown options in this simple mapping
+					break;
 			}
 		}
 
-		// Construct the URL string
-		const urlString = `${urlComponents.protocol}://${urlComponents.hostname}${urlComponents.pathname}${urlComponents.search}`;
+		const proto = urlState.protocol ?? "";
+		const auth = urlState.auth ? `${urlState.auth}@` : "";
+		let host = urlState.host;
+		if (!host) {
+			if (urlState.hostname && urlState.port) host = `${urlState.hostname}:${urlState.port}`;
+			else if (urlState.hostname) host = urlState.hostname;
+			else host = "";
+		}
 
-		// Replace the entire call with new URL().toString()
+		let pathname = urlState.pathname ?? "";
+		if (pathname && !pathname.startsWith("/")) pathname = `/${pathname}`;
+
+		let search = urlState.search ?? "";
+		if (!search && urlState.queryParams && urlState.queryParams.length > 0) {
+			const qs = urlState.queryParams.map(([k, v]) => `${k}=${v}`).join("&");
+			search = `?${qs}`;
+		}
+		if (search && !search.startsWith("?")) search = `?${search}`;
+
+		let hash = urlState.hash ?? "";
+		if (hash && !hash.startsWith("#")) hash = `#${hash}`;
+
+		const base = proto ? `${proto}://` : "";
+		const urlString = `${base}${auth}${host}${pathname}${search}${hash}`;
+
 		const replacement = `new URL('${urlString}').toString()`;
 		edits.push(call.replace(replacement));
 	}
@@ -96,17 +153,22 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const edits: Edit[] = [];
 	let hasChanges = false;
 
-	// 1. Find all `url.format(options)` calls
-	const urlFormatCalls = rootNode.findAll({
-		// TODO(@AugustinMauroy): use burno's utility (not merged yet)
-		rule: { pattern: "url.format($OPTIONS)" }
-	});
+	// Look for various ways format can be referenced
+	const patterns = [
+		"url.format($OPTIONS)",
+		"nodeUrl.format($OPTIONS)",
+		"format($OPTIONS)",
+		"urlFormat($OPTIONS)"
+	];
 
-	// 2. Find all `format(options)` calls
-	if (urlFormatCalls.length > 0) {
-		urlFormatToUrlToString(urlFormatCalls, edits);
-		hasChanges = edits.length > 0;
+	for (const pattern of patterns) {
+		const calls = rootNode.findAll({ rule: { pattern } });
+		if (calls.length > 0) {
+			urlFormatToUrlToString(calls, edits);
+		}
 	}
+
+	hasChanges = edits.length > 0;
 
 	if (!hasChanges) return null;
 
