@@ -300,33 +300,26 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const edits: Edit[] = [];
 
 	// Safety: only run on files that import/require node:url
-	const hasNodeUrlImport =
-		// @ts-ignore
-		getNodeImportStatements(root, "url").length > 0 ||
-		// @ts-ignore
-		getNodeRequireCalls(root, "url").length > 0;
+    const importNodes = getNodeImportStatements(root, "url");
+    const requireNodes = getNodeRequireCalls(root, "url");
+	const requiresImports = [...importNodes, ...requireNodes]
 
-	if (!hasNodeUrlImport) return null;
+    if (!requiresImports.length) return null;
 
-	// Look for various ways format can be referenced; build binding-aware patterns
-	// @ts-ignore - type difference between jssg and ast-grep wrappers
-	const importNodes = getNodeImportStatements(root, "url");
-	// @ts-ignore - type difference between jssg and ast-grep wrappers
-	const requireNodes = getNodeRequireCalls(root, "url");
-	const patterns = new Set<string>();
+    const parseCallPatterns = new Set<string>();
 
-	for (const node of [...importNodes, ...requireNodes]) {
+    for (const node of requiresImports) {
 		// @ts-ignore - helper accepts ast-grep SgNode; runtime compatible
 		const binding = resolveBindingPath(node, "$.format");
-		if (binding) patterns.add(`${binding}($OPTIONS)`);
+		if (binding) parseCallPatterns.add(`${binding}($OPTIONS)`);
 	}
 
 	// Fallbacks for common names and tests
 	["url.format($OPTIONS)", "nodeUrl.format($OPTIONS)", "format($OPTIONS)", "urlFormat($OPTIONS)"].forEach((p) =>
-		patterns.add(p),
+		parseCallPatterns.add(p),
 	);
 
-	for (const pattern of patterns) {
+	for (const pattern of parseCallPatterns) {
 		const calls = rootNode.findAll({ rule: { pattern } });
 
 		if (calls.length) urlFormatToUrlToString(calls, edits);
