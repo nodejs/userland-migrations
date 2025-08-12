@@ -141,7 +141,6 @@ export default function transform(root: SgRoot): string | null {
 	}
 
 	// Transform named alias import when recursive set to true
-	// @ts-ignore - ast-grep types are not fully compatible with JSSG types
 	const importStatements = getNodeImportStatements(root, "fs");
 
 	for (const eachNode of importStatements) {
@@ -211,7 +210,6 @@ export default function transform(root: SgRoot): string | null {
 
 	// Update imports/requires only if we have destructured calls that need new imports
 	if (needsRmImport || needsRmSyncImport) {
-		// @ts-ignore - ast-grep types are not fully compatible with JSSG types
 		const importStatements = getNodeImportStatements(root, 'fs');
 
 		// Update import statements
@@ -247,7 +245,6 @@ export default function transform(root: SgRoot): string | null {
 			}
 		}
 
-		// @ts-ignore - ast-grep types are not fully compatible with JSSG types
 		const requireStatements = getNodeRequireCalls(root, 'fs');
 
 		// Update require statements
