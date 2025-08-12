@@ -161,7 +161,9 @@ export default function transform(root: SgRoot<JS>): string | null {
 
 	// Safety: only run on files that import/require node:url
 	const hasNodeUrlImport =
+		// @ts-ignore
 		getNodeImportStatements(root, "url").length > 0 ||
+		// @ts-ignore
 		getNodeRequireCalls(root, "url").length > 0;
 
 	if (!hasNodeUrlImport) return null;
