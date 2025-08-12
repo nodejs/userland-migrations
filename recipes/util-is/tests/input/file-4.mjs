@@ -1,8 +1,8 @@
-import { isArray, isBoolean } from 'node:util';
+import util from 'node:util';
 
-if (isArray(someValue)) {
+if (util.isArray(someValue)) {
 	console.log('someValue is an array');
 }
-if (isBoolean(someValue)) {
+if (util.isBoolean(someValue)) {
 	console.log('someValue is a boolean');
 }

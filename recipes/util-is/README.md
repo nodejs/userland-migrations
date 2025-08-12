@@ -22,7 +22,6 @@ See these deprecations handled by this codemod:
 ## Examples
 
 **Before:**
-
 ```js
 import util from 'node:util';
 
@@ -74,9 +73,7 @@ if (util.isUndefined(someValue)) {
 ```
 
 **After:**
-
 ```js
-
 
 if (Array.isArray(someValue)) {
 	console.log('someValue is an array');
@@ -123,5 +120,4 @@ if (typeof someValue === 'symbol') {
 if (typeof someValue === 'undefined') {
 	console.log('someValue is undefined');
 }
-
 ```

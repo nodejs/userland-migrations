@@ -52,25 +52,6 @@ export const getNodeRequireCalls = (rootNode: SgRoot, nodeModuleName: string): S
 		});
 
 /**
- * Get destructured identifiers from a require call
- */
-export const getRequireDestructuredIdentifiers = (requireNode: SgNode): SgNode[] => {
-	const objectPattern = requireNode.find({
-		rule: {
-			kind: "object_pattern"
-		}
-	});
-
-	if (!objectPattern) return [];
-
-	return objectPattern.findAll({
-		rule: {
-			kind: "shorthand_property_identifier_pattern"
-		}
-	});
-};
-
-/**
  * Get the identifier from a namespace require (e.g., const util = require('util'))
  */
 export const getRequireNamespaceIdentifier = (requireNode: SgNode): SgNode | null => {

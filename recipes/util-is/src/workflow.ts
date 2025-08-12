@@ -1,12 +1,13 @@
 import {
-	getNodeImportStatements,
-	getDefaultImportIdentifier
+    getNodeImportStatements,
+    getDefaultImportIdentifier,
 } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import {
-	getNodeRequireCalls,
-	getRequireDestructuredIdentifiers,
-	getRequireNamespaceIdentifier
+    getNodeRequireCalls,
+    getRequireNamespaceIdentifier,
 } from "@nodejs/codemod-utils/ast-grep/require-call";
+import { removeBinding } from "@nodejs/codemod-utils/ast-grep/remove-binding";
+import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
 import type { SgRoot, Edit, Range } from "@ast-grep/napi";
 
@@ -32,201 +33,186 @@ import type { SgRoot, Edit, Range } from "@ast-grep/napi";
  * 15. util.isUndefined() → typeof value === 'undefined'
  */
 export default function transform(root: SgRoot): string | null {
-	const rootNode = root.root();
-	let hasChanges = false;
-	const edits: Edit[] = [];
-	const linesToRemove: Range[] = [];
+    const rootNode = root.root();
+    const edits: Edit[] = [];
+    const linesToRemove: Range[] = [];
 
-	// Mapping of util.is**() methods to their replacements
-	const replacements = {
-		'isArray': (arg: string) => `Array.isArray(${arg})`,
-		'isBoolean': (arg: string) => `typeof ${arg} === 'boolean'`,
-		'isBuffer': (arg: string) => `Buffer.isBuffer(${arg})`,
-		'isDate': (arg: string) => `${arg} instanceof Date`,
-		'isError': (arg: string) => `Error.isError(${arg})`,
-		'isFunction': (arg: string) => `typeof ${arg} === 'function'`,
-		'isNull': (arg: string) => `${arg} === null`,
-		'isNullOrUndefined': (arg: string) => `${arg} == null`,
-		'isNumber': (arg: string) => `typeof ${arg} === 'number'`,
-		'isObject': (arg: string) => `${arg} && typeof ${arg} === 'object'`,
-		'isPrimitive': (arg: string) => `Object(${arg}) !== ${arg}`,
-		'isRegExp': (arg: string) => `${arg} instanceof RegExp`,
-		'isString': (arg: string) => `typeof ${arg} === 'string'`,
-		'isSymbol': (arg: string) => `typeof ${arg} === 'symbol'`,
-		'isUndefined': (arg: string) => `typeof ${arg} === 'undefined'`
-	};
+    const replacements = {
+        isArray: (arg: string) => `Array.isArray(${arg})`,
+        isBoolean: (arg: string) => `typeof ${arg} === 'boolean'`,
+        isBuffer: (arg: string) => `Buffer.isBuffer(${arg})`,
+        isDate: (arg: string) => `${arg} instanceof Date`,
+        isError: (arg: string) => `Error.isError(${arg})`,
+        isFunction: (arg: string) => `typeof ${arg} === 'function'`,
+        isNull: (arg: string) => `${arg} === null`,
+        isNullOrUndefined: (arg: string) => `${arg} == null`,
+        isNumber: (arg: string) => `typeof ${arg} === 'number'`,
+        isObject: (arg: string) => `${arg} && typeof ${arg} === 'object'`,
+        isPrimitive: (arg: string) => `Object(${arg}) !== ${arg}`,
+        isRegExp: (arg: string) => `${arg} instanceof RegExp`,
+        isString: (arg: string) => `typeof ${arg} === 'string'`,
+        isSymbol: (arg: string) => `typeof ${arg} === 'symbol'`,
+        isUndefined: (arg: string) => `typeof ${arg} === 'undefined'`
+    };
 
-	// Track which methods are actually used so we can clean up imports
-	const usedMethods = new Set<string>();
+    const usedMethods = new Set<string>();
+    const nonIsMethodsUsed = new Set<string>();
 
-	// Track non util.is**() methods that are used
-	const nonIsMethodsUsed = new Set<string>();
+    // Collect util import/require nodes once
+    const importOrRequireNodes = [
+        ...getNodeImportStatements(root, "util"),
+        ...getNodeRequireCalls(root, "util"),
+    ];
 
-	// Check what util methods are currently being used (before any transformations)
-	const currentUtilUsages = rootNode.findAll({
-		rule: {
-			pattern: 'util.$METHOD($$$)'
-		}
-	});
+    // Detect namespace/default identifiers to check for non-is usages later
+    const namespaceBindings = new Set<string>();
+    for (const node of importOrRequireNodes) {
+        // namespace import: import * as ns from 'node:util'
+        const nsImport = node.find({
+            rule: { kind: 'namespace_import' },
+        });
+        if (nsImport) {
+            const id = nsImport.find({ rule: { kind: 'identifier' } });
+            if (id) namespaceBindings.add(id.text());
+        }
 
-	// Find all util.is**() method usages and track non-is methods
-	for (const usage of currentUtilUsages) {
-		const methodMatch = usage.getMatch('METHOD');
-		if (methodMatch) {
-			const methodName = methodMatch.text();
-			if (!(methodName in replacements)) {
-				nonIsMethodsUsed.add(methodName);
-			}
-		}
-	}
+        // default import: import util from 'node:util'
+        const importClause = node.kind() === 'import_statement' || node.kind() === 'import_clause'
+            ? node.find({ rule: { kind: 'import_clause' } }) ?? node
+            : null;
+        if (importClause) {
+            const hasNamed = Boolean(
+                importClause.find({ rule: { kind: 'named_imports' } })
+            );
+            if (!hasNamed) {
+                const defaultId = importClause.find({
+                    rule: { kind: 'identifier', not: { inside: { kind: 'namespace_import' } } },
+                });
+                if (defaultId) namespaceBindings.add(defaultId.text());
+            }
+        }
 
-	// Find all util.is**() calls
-	for (const [method, replacement] of Object.entries(replacements)) {
-		// Pattern for util.isMethod(arg)
-		const utilCalls = rootNode.findAll({
-			rule: {
-				pattern: `util.${method}($ARG)`
-			}
-		});
+        // require namespace: const util = require('node:util')
+    const reqNs = getRequireNamespaceIdentifier(node);
+        if (reqNs) namespaceBindings.add(reqNs.text());
+    }
 
-		for (const call of utilCalls) {
-			const arg = call.getMatch("ARG");
-			if (!arg) continue;
+    // Mark non-is util usages for any namespace binding discovered
+    for (const ns of namespaceBindings) {
+        const usages = rootNode.findAll({ rule: { pattern: `${ns}.$METHOD($$$)` } });
+        for (const usage of usages) {
+            const methodMatch = usage.getMatch('METHOD');
+            if (methodMatch) {
+                const methodName = methodMatch.text();
+                if (!(methodName in replacements)) nonIsMethodsUsed.add(methodName);
+            }
+        }
+    }
 
-			const argText = arg.text();
-			const newCallText = replacement(argText);
-			edits.push(call.replace(newCallText));
-			hasChanges = true;
-			usedMethods.add(method); // Track namespace method usage
-		}
+    // Resolve local bindings for each util.is* and replace invocations
+    const localRefsByMethod = new Map<string, Set<string>>();
+    for (const [method] of Object.entries(replacements)) {
+        localRefsByMethod.set(method, new Set());
+        for (const node of importOrRequireNodes) {
+            const resolved = resolveBindingPath(node, `$.${method}`);
+            if (resolved) localRefsByMethod.get(method)!.add(resolved);
+        }
+    }
 
-		// Pattern for destructured calls like isArray(arg)
-		const destructuredCalls = rootNode.findAll({
-			rule: {
-				pattern: `${method}($ARG)`
-			}
-		});
+    for (const [method, replacement] of Object.entries(replacements)) {
+        const refs = localRefsByMethod.get(method)!;
+        for (const ref of refs) {
+            const calls = rootNode.findAll({ rule: { pattern: `${ref}($ARG)` } });
+            for (const call of calls) {
+                const arg = call.getMatch('ARG');
+                if (!arg) continue;
+                const newCallText = replacement(arg.text());
+                edits.push(call.replace(newCallText));
+                usedMethods.add(method);
+            }
+        }
+    }
 
-		for (const call of destructuredCalls) {
-			// Check if this method is imported from util
-			if (!isMethodImportedFromUtil(root, method)) continue;
+    if (!edits.length) return null;
 
-			const arg = call.getMatch("ARG");
-			if (!arg) continue;
+    // Clean up unused imports using removeBinding
+    const allIsMethods = [
+        'isArray', 'isBoolean', 'isBuffer', 'isDate', 'isError', 'isFunction',
+        'isNull', 'isNullOrUndefined', 'isNumber', 'isObject', 'isPrimitive',
+        'isRegExp', 'isString', 'isSymbol', 'isUndefined'
+    ];
 
-			const argText = arg.text();
-			const newCallText = replacement(argText);
-			edits.push(call.replace(newCallText));
-			hasChanges = true;
-			usedMethods.add(method);
-		}
-	}
+    const importStatements = getNodeImportStatements(root, 'util');
+    for (const importNode of importStatements) {
+    const hasNamespace = Boolean(importNode.find({ rule: { kind: 'namespace_import' } }));
+    const namedImportSpecifiers = importNode.findAll({ rule: { kind: 'import_specifier' } });
+    const hasNamed = namedImportSpecifiers.length > 0;
+    const defaultIdentifier = getDefaultImportIdentifier(importNode);
 
-	if (!hasChanges) return null;
+        // If all named specifiers are util.is* and there is no default or namespace, drop whole line
+        if (
+            hasNamed && !defaultIdentifier && !hasNamespace &&
+            namedImportSpecifiers.every((spec) => {
+                const firstIdent = spec.find({ rule: { kind: 'identifier' } });
+                const name = firstIdent?.text();
+                return name ? allIsMethods.includes(name) : false;
+            })
+        ) {
+            linesToRemove.push(importNode.range());
+            continue;
+        }
 
-	// Clean up unused imports if any util.is**() methods have been replaced
-	cleanupUtilImports(root, edits, nonIsMethodsUsed, linesToRemove);
+        // Otherwise, remove named is* bindings; after replacement they are unused
+        for (const method of allIsMethods) {
+            const change = removeBinding(importNode, method);
+            if (change?.edit) edits.push(change.edit);
+            if (change?.lineToRemove) linesToRemove.push(change.lineToRemove);
+        }
 
-	let sourceCode = rootNode.commitEdits(edits);
-	sourceCode = removeLines(sourceCode, linesToRemove);
-	return sourceCode;
-}
+        // If no other util.* methods are used, drop default/namespace imports entirely
+        if (nonIsMethodsUsed.size === 0) {
+            if ((hasNamespace && !hasNamed) || (defaultIdentifier && !hasNamed)) {
+                linesToRemove.push(importNode.range());
+            }
+        }
+    }
 
-/**
- * Check if a specific util.is**() method is imported from util
- */
-function isMethodImportedFromUtil(root: SgRoot, methodName: string): boolean {
-	const importStatements = getNodeImportStatements(root, 'util');
-	const requireStatements = getNodeRequireCalls(root, 'util');
+    const requireStatements = getNodeRequireCalls(root, 'util');
+    for (const requireNode of requireStatements) {
+        const objectPattern = requireNode.find({ rule: { kind: 'object_pattern' } });
+        if (objectPattern) {
+            const shorthand = objectPattern.findAll({ rule: { kind: 'shorthand_property_identifier_pattern' } });
+            const pairs = objectPattern.findAll({ rule: { kind: 'pair_pattern' } });
+            const importedNames: string[] = [];
+            for (const s of shorthand) importedNames.push(s.text());
+            for (const p of pairs) {
+                const key = p.find({ rule: { kind: 'property_identifier' } });
+                if (key) importedNames.push(key.text());
+            }
+            if (importedNames.length > 0 && importedNames.every((n) => allIsMethods.includes(n))) {
+                linesToRemove.push(requireNode.range());
+                continue;
+            }
+        }
 
-	// Check import statements
-	for (const importNode of importStatements) {
-		const importText = importNode.text();
-		if (importText.includes(methodName)) return true;
-	}
+        // Otherwise, remove named is* bindings; after replacement they are unused
+        for (const method of allIsMethods) {
+            const change = removeBinding(requireNode, method);
+            if (change?.edit) edits.push(change.edit);
+            if (change?.lineToRemove) linesToRemove.push(change.lineToRemove);
+        }
 
-	// Check require statements
-	for (const requireNode of requireStatements) {
-		const requireText = requireNode.text();
+        // If no other util.* methods are used, drop namespace requires entirely
+        if (nonIsMethodsUsed.size === 0) {
+            const reqNs = getRequireNamespaceIdentifier(requireNode);
+            const hasObject = Boolean(objectPattern);
+            if (reqNs && !hasObject) linesToRemove.push(requireNode.range());
+        }
+    }
 
-		if (requireText.includes(methodName)) return true;
-	}
+    let sourceCode = rootNode.commitEdits(edits);
+    // Remove all lines marked for removal (including the whole util require/import if needed)
+    sourceCode = removeLines(sourceCode, linesToRemove);
 
-	return false;
-}
-
-/**
- * Clean up util imports by removing unused is**() methods
- * and remove it entirely if no other methods are used.
- */
-function cleanupUtilImports(root: SgRoot, edits: Edit[], nonIsMethodsUsed: Set<string>, linesToRemove: Range[]): void {
-	// All util.is**() methods that could be imported
-	const allIsMethods = new Set([
-		'isArray', 'isBoolean', 'isBuffer', 'isDate', 'isError', 'isFunction',
-		'isNull', 'isNullOrUndefined', 'isNumber', 'isObject', 'isPrimitive',
-		'isRegExp', 'isString', 'isSymbol', 'isUndefined'
-	]);
-
-	// Helper function to filter out is**() methods
-	const filterNonIsMethods = (identifiers: { text(): string }[]) =>
-		identifiers.filter(id => !allIsMethods.has(id.text()));
-
-	// Process import statements
-	const importStatements = getNodeImportStatements(root, 'util');
-
-	for (const importNode of importStatements) {
-		const namedSpecifiers = importNode.findAll({ rule: { kind: "import_specifier" } });
-		const defaultImport = getDefaultImportIdentifier(importNode);
-
-		if (namedSpecifiers.length > 0) {
-			const remainingSpecifiers = filterNonIsMethods(namedSpecifiers);
-
-			if (remainingSpecifiers.length === 0) {
-				linesToRemove.push(importNode.range());
-			} else if (remainingSpecifiers.length < namedSpecifiers.length) {
-				const namedImportsClause = importNode.find({ rule: { kind: "named_imports" } });
-
-				if (namedImportsClause) {
-					const newImportsText = remainingSpecifiers.map(s => s.text()).join(', ');
-
-					edits.push(namedImportsClause.replace(`{ ${newImportsText} }`));
-				}
-			}
-		} else if (defaultImport && nonIsMethodsUsed.size === 0) {
-			linesToRemove.push(importNode.range());
-		}
-	}
-
-	// Process require statements
-	const requireStatements = getNodeRequireCalls(root, 'util');
-
-	for (const requireNode of requireStatements) {
-		const destructuredIdentifiers = getRequireDestructuredIdentifiers(requireNode);
-		const namespaceIdentifier = getRequireNamespaceIdentifier(requireNode);
-
-		if (destructuredIdentifiers.length > 0) {
-			const remainingIdentifiers = filterNonIsMethods(destructuredIdentifiers);
-
-			if (remainingIdentifiers.length === 0) {
-				const parent = requireNode.parent();
-
-				if (parent) {
-					linesToRemove.push(parent.range());
-				}
-			} else if (remainingIdentifiers.length < destructuredIdentifiers.length) {
-				const objectPattern = requireNode.find({ rule: { kind: "object_pattern" } });
-
-				if (objectPattern) {
-					const newImportsText = remainingIdentifiers.map(i => i.text()).join(', ');
-					edits.push(objectPattern.replace(`{ ${newImportsText} }`));
-				}
-			}
-		} else if (namespaceIdentifier && nonIsMethodsUsed.size === 0) {
-			const parent = requireNode.parent();
-
-			if (parent) {
-				linesToRemove.push(parent.range());
-			}
-		}
-	}
+    return sourceCode;
 }

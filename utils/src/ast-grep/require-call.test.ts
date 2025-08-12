@@ -4,7 +4,6 @@ import astGrep from '@ast-grep/napi';
 import dedent from 'dedent';
 import {
 	getNodeRequireCalls,
-	getRequireDestructuredIdentifiers,
 	getRequireNamespaceIdentifier
 } from "./require-call.ts";
 
@@ -55,31 +54,6 @@ describe("require-call", () => {
         const utilRequires = getNodeRequireCalls(ast, 'util');
         assert.strictEqual(utilRequires.length, 1);
         assert.strictEqual(utilRequires[0].field('value')?.text(), 'require("node:util")');
-    });
-
-    it("should handle getRequireDestructuredIdentifiers", () => {
-        const code = dedent`
-            const { join, resolve } = require('node:path');
-            const { spawn } = require('child_process');
-            const fs = require('fs');
-        `;
-        const ast = astGrep.parse(astGrep.Lang.JavaScript, code);
-
-        const pathRequires = getNodeRequireCalls(ast, 'path');
-        const pathDestructured = getRequireDestructuredIdentifiers(pathRequires[0]);
-        assert.strictEqual(pathDestructured.length, 2);
-        assert.strictEqual(pathDestructured[0].text(), 'join');
-        assert.strictEqual(pathDestructured[1].text(), 'resolve');
-
-        const childProcessRequires = getNodeRequireCalls(ast, 'child_process');
-        const childProcessDestructured = getRequireDestructuredIdentifiers(childProcessRequires[0]);
-        assert.strictEqual(childProcessDestructured.length, 1);
-        assert.strictEqual(childProcessDestructured[0].text(), 'spawn');
-
-        // Namespace require should have no destructured identifiers
-        const fsRequires = getNodeRequireCalls(ast, 'fs');
-        const fsDestructured = getRequireDestructuredIdentifiers(fsRequires[0]);
-        assert.strictEqual(fsDestructured.length, 0);
     });
 
     it("should handle getRequireNamespaceIdentifier", () => {
