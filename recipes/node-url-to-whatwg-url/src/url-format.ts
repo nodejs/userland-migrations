@@ -10,6 +10,7 @@ import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-bindi
  * @returns The literal text value, or undefined if not found
  */
 const getLiteralText = (node: SgNode<JS> | null | undefined): string | undefined => {
+	if (!node) return undefined;
 	const kind = node.kind();
 
 	if (kind === "string") {
@@ -23,8 +24,8 @@ const getLiteralText = (node: SgNode<JS> | null | undefined): string | undefined
 
 /**
  * Transforms url.format() calls to new URL().toString()
- * @param callNode The AST node representing the url.format() call
- * @returns The transformed code
+ * @param callNode The AST nodes representing the url.format() calls
+ * @param edits The edits collector
  */
 function urlFormatToUrlToString(callNode: SgNode<JS>[], edits: Edit[]): void {
 	for (const call of callNode) {
@@ -35,17 +36,41 @@ function urlFormatToUrlToString(callNode: SgNode<JS>[], edits: Edit[]): void {
 		const objectNode = optionsMatch.find({ rule: { kind: "object" } });
 		if (!objectNode) continue;
 
+		type V = { literal: true; text: string } | { literal: false; code: string };
 		const urlState: {
-			protocol?: string;
-			auth?: string; // user:pass
-			host?: string; // host:port
-			hostname?: string;
-			port?: string;
-			pathname?: string;
-			search?: string; // ?a=b
-			hash?: string; // #frag
+			protocol?: V;
+			auth?: V; // user:pass
+			host?: V; // host:port
+			hostname?: V;
+			port?: V;
+			pathname?: V;
+			search?: V; // ?a=b
+			hash?: V; // #frag
 			queryParams?: Array<[string, string]>;
 		} = {};
+
+		const getValue = (pair: SgNode<JS>): V | undefined => {
+			// string/number/bool
+			const litNode = pair.find({
+				rule: { any: [{ kind: "string" }, { kind: "number" }, { kind: "true" }, { kind: "false" }] },
+			});
+			const lit = getLiteralText(litNode);
+			if (lit !== undefined) return { literal: true, text: lit };
+
+			// identifier value
+			const idNode = pair.find({ rule: { kind: "identifier" } });
+			if (idNode) return { literal: false, code: idNode.text() };
+
+			// shorthand property
+			const shorthand = pair.find({ rule: { kind: "shorthand_property_identifier" } });
+			if (shorthand) return { literal: false, code: shorthand.text() };
+
+			// template string value
+			const template = pair.find({ rule: { kind: "template_string" } });
+			if (template) return { literal: false, code: template.text() };
+
+			return undefined;
+		};
 
 		const pairs = objectNode.findAll({ rule: { kind: "pair" } });
 
@@ -62,7 +87,9 @@ function urlFormatToUrlToString(callNode: SgNode<JS>[], edits: Edit[]): void {
 					const list: Array<[string, string]> = [];
 					for (const qp of qpairs) {
 						const qkeyNode = qp.find({ rule: { kind: "property_identifier" } });
-						const qvalLiteral = getLiteralText(qp.find({ rule: { any: [{ kind: "string" }, { kind: "number" }, { kind: "true" }, { kind: "false" }] } }));
+						const qvalLiteral = getLiteralText(
+							qp.find({ rule: { any: [{ kind: "string" }, { kind: "number" }, { kind: "true" }, { kind: "false" }] } }),
+						);
 						if (qkeyNode && qvalLiteral !== undefined) list.push([qkeyNode.text(), qvalLiteral]);
 					}
 					urlState.queryParams = list;
@@ -70,42 +97,42 @@ function urlFormatToUrlToString(callNode: SgNode<JS>[], edits: Edit[]): void {
 				continue;
 			}
 
-			// value might be string/number/bool
-			const valueLiteral = getLiteralText(pair.find({ rule: { any: [{ kind: "string" }, { kind: "number" }, { kind: "true" }, { kind: "false" }] } }));
-			if (valueLiteral === undefined) continue;
+			// value might be literal or identifier/shorthand/template
+			const val = getValue(pair);
+			if (!val) continue;
 
 			switch (key) {
 				case "protocol": {
-					// normalize without trailing ':'
-					urlState.protocol = valueLiteral.replace(/:$/, "");
+					if (val.literal) urlState.protocol = { literal: true, text: val.text.replace(/:$/, "") };
+					else urlState.protocol = val;
 					break;
 				}
 				case "auth": {
-					urlState.auth = valueLiteral; // 'user:pass'
+					urlState.auth = val;
 					break;
 				}
 				case "host": {
-					urlState.host = valueLiteral; // 'example.com:8080'
+					urlState.host = val;
 					break;
 				}
 				case "hostname": {
-					urlState.hostname = valueLiteral;
+					urlState.hostname = val;
 					break;
 				}
 				case "port": {
-					urlState.port = valueLiteral;
+					urlState.port = val;
 					break;
 				}
 				case "pathname": {
-					urlState.pathname = valueLiteral;
+					urlState.pathname = val;
 					break;
 				}
 				case "search": {
-					urlState.search = valueLiteral;
+					urlState.search = val;
 					break;
 				}
 				case "hash": {
-					urlState.hash = valueLiteral;
+					urlState.hash = val;
 					break;
 				}
 				default:
@@ -114,32 +141,125 @@ function urlFormatToUrlToString(callNode: SgNode<JS>[], edits: Edit[]): void {
 			}
 		}
 
-		const proto = urlState.protocol ?? "";
-		const auth = urlState.auth ? `${urlState.auth}@` : "";
-		let host = urlState.host;
-		if (!host) {
-			if (urlState.hostname && urlState.port) host = `${urlState.hostname}:${urlState.port}`;
-			else if (urlState.hostname) host = urlState.hostname;
-			else host = "";
+		// Also handle shorthand properties like `{ search }`
+		const shorthands = objectNode.findAll({ rule: { kind: "shorthand_property_identifier" } });
+		for (const sh of shorthands) {
+			const name = sh.text();
+			const v: V = { literal: false, code: name };
+			switch (name) {
+				case "protocol":
+					urlState.protocol = v;
+					break;
+				case "auth":
+					urlState.auth = v;
+					break;
+				case "host":
+					urlState.host = v;
+					break;
+				case "hostname":
+					urlState.hostname = v;
+					break;
+				case "port":
+					urlState.port = v;
+					break;
+				case "pathname":
+					urlState.pathname = v;
+					break;
+				case "search":
+					urlState.search = v;
+					break;
+				case "hash":
+					urlState.hash = v;
+					break;
+				default:
+					break;
+			}
 		}
 
-		let pathname = urlState.pathname ?? "";
-		if (pathname && !pathname.startsWith("/")) pathname = `/${pathname}`;
+		// Build output segments
+		type Seg = { type: "lit"; text: string } | { type: "expr"; code: string };
+		const segs: Seg[] = [];
+	const pushVal = (v?: V) => {
+			if (!v) return;
+			if (v.literal) {
+				if (v.text) segs.push({ type: "lit", text: v.text });
+			} else {
+		// v is the non-literal branch here
+		segs.push({ type: "expr", code: (v as Extract<V, { literal: false }>).code });
+			}
+		};
 
-		let search = urlState.search ?? "";
-		if (!search && urlState.queryParams && urlState.queryParams.length > 0) {
+		// protocol://
+		if (urlState.protocol) {
+			pushVal(urlState.protocol);
+			segs.push({ type: "lit", text: "://" });
+		}
+
+		// auth@
+		if (urlState.auth) {
+			pushVal(urlState.auth);
+			segs.push({ type: "lit", text: "@" });
+		}
+
+		// host or hostname[:port]
+		if (urlState.host) {
+			pushVal(urlState.host);
+		} else {
+			if (urlState.hostname) pushVal(urlState.hostname);
+			if (urlState.port) {
+				if (urlState.hostname) segs.push({ type: "lit", text: ":" });
+				pushVal(urlState.port);
+			}
+		}
+
+		// pathname
+		if (urlState.pathname) {
+			const p = urlState.pathname;
+			if (p.literal) {
+				const text = p.text && !p.text.startsWith("/") ? `/${p.text}` : p.text;
+				if (text) segs.push({ type: "lit", text });
+			} else {
+				pushVal(p);
+			}
+		}
+
+		// search or build from query
+		if (urlState.search) {
+			const s = urlState.search;
+			if (s.literal) {
+				const text = s.text ? (s.text.startsWith("?") ? s.text : `?${s.text}`) : "";
+				if (text) segs.push({ type: "lit", text });
+			} else {
+				pushVal(s);
+			}
+		} else if (urlState.queryParams && urlState.queryParams.length > 0) {
 			const qs = urlState.queryParams.map(([k, v]) => `${k}=${v}`).join("&");
-			search = `?${qs}`;
+			if (qs) segs.push({ type: "lit", text: `?${qs}` });
 		}
-		if (search && !search.startsWith("?")) search = `?${search}`;
 
-		let hash = urlState.hash ?? "";
-		if (hash && !hash.startsWith("#")) hash = `#${hash}`;
+		// hash
+		if (urlState.hash) {
+			const h = urlState.hash;
+			if (h.literal) {
+				const text = h.text ? (h.text.startsWith("#") ? h.text : `#${h.text}`) : "";
+				if (text) segs.push({ type: "lit", text });
+			} else {
+				pushVal(h);
+			}
+		}
 
-		const base = proto ? `${proto}://` : "";
-		const urlString = `${base}${auth}${host}${pathname}${search}${hash}`;
+		if (!segs.length) continue;
 
-		const replacement = `new URL('${urlString}').toString()`;
+		const hasExpr = segs.some((s) => s.type === "expr");
+		let finalExpr: string;
+		if (hasExpr) {
+			const esc = (s: string) => s.replace(/`/g, "\\`").replace(/\\\$/g, "\\\\$").replace(/\$\{/g, "\\${");
+			finalExpr = `\`${segs.map((s) => (s.type === "lit" ? esc(s.text) : `\${${s.code}}`)).join("")}\``;
+		} else {
+			finalExpr = `'${segs.map((s) => (s.type === "lit" ? s.text : "")).join("")}'`;
+		}
+
+		const replacement = `new URL(${finalExpr}).toString()`;
 		edits.push(call.replace(replacement));
 	}
 }
@@ -169,8 +289,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 
 	if (!hasNodeUrlImport) return null;
 
-	// Look for various ways format can be referenced
-	// Build patterns using resolveBindingPath for both import and require forms
+	// Look for various ways format can be referenced; build binding-aware patterns
 	// @ts-ignore - type difference between jssg and ast-grep wrappers
 	const importNodes = getNodeImportStatements(root, "url");
 	// @ts-ignore - type difference between jssg and ast-grep wrappers
@@ -180,9 +299,13 @@ export default function transform(root: SgRoot<JS>): string | null {
 	for (const node of [...importNodes, ...requireNodes]) {
 		// @ts-ignore - helper accepts ast-grep SgNode; runtime compatible
 		const binding = resolveBindingPath(node, "$.format");
-		if (!binding) continue;
-		patterns.add(`${binding}($OPTIONS)`);
+		if (binding) patterns.add(`${binding}($OPTIONS)`);
 	}
+
+	// Fallbacks for common names and tests
+	["url.format($OPTIONS)", "nodeUrl.format($OPTIONS)", "format($OPTIONS)", "urlFormat($OPTIONS)"].forEach((p) =>
+		patterns.add(p),
+	);
 
 	for (const pattern of patterns) {
 		const calls = rootNode.findAll({ rule: { pattern } });
