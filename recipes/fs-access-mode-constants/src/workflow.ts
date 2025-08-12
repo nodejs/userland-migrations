@@ -1,7 +1,6 @@
 import type { Edit, SgRoot } from "@codemod.com/jssg-types/main";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import type Js from "@codemod.com/jssg-types/langs/javascript";
-import { removeBinding } from "@nodejs/codemod-utils/ast-grep/remove-binding";
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 
 export default function tranform(root: SgRoot<Js>): string | null {
@@ -18,7 +17,10 @@ export default function tranform(root: SgRoot<Js>): string | null {
     });
 
     if (objectPattern) {
-      let objPatArr = objectPattern.text().split('{ ')[1].split(' }')[0].split(', ');
+      let objPatArr = objectPattern.findAll({
+        rule:
+          { kind: 'shorthand_property_identifier_pattern' },
+      }).map((v) => v.text());
       objPatArr = objPatArr.filter((v) => !['F_OK', 'R_OK', 'W_OK', 'X_OK'].includes(v));
       objPatArr.push('constants');
       edits.push(objectPattern.replace(`{ ${objPatArr.join(', ')} }`));
@@ -27,16 +29,19 @@ export default function tranform(root: SgRoot<Js>): string | null {
 
   // @ts-expect-error - ast-grep types are not fully compatible with JSSG types
   const importStatements = getNodeImportStatements(root, "fs");
-  let promisesImportName = undefined;
+  let promisesImportName = '';
 
   for (const statement of importStatements) {
-    const namedImports = statement.find({
+    const objectPattern = statement.find({
       rule:
         { kind: 'named_imports' },
     });
 
-    if (namedImports) {
-      let objPatArr = namedImports.text().split('{ ')[1].split(' }')[0].split(', ');
+    if (objectPattern) {
+      let objPatArr = objectPattern.findAll({
+        rule:
+          { kind: 'import_specifier' },
+      }).map((v) => v.text());
       objPatArr = objPatArr.filter((v) => !['F_OK', 'R_OK', 'W_OK', 'X_OK'].includes(v));
       const promisesImport = objPatArr.find((v) => v.startsWith('promises'));
       if (promisesImport) {
@@ -50,7 +55,7 @@ export default function tranform(root: SgRoot<Js>): string | null {
       } else {
         objPatArr.push('constants');
       }
-      edits.push(namedImports.replace(`{ ${objPatArr.join(', ')} }`));
+      edits.push(objectPattern.replace(`{ ${objPatArr.join(', ')} }`));
     }
   }
 
