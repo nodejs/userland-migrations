@@ -26,7 +26,6 @@ export default function transform(root: SgRoot): string | null {
 	let hasChanges = false;
 
 	// Step 1: Find and update destructuring assignments from require('module') or require('node:module')
-	// @ts-ignore - ast-grep types are not fully compatible with JSSG types
 	const requireStatements = getNodeRequireCalls(root, "module");
 
 	for (const statement of requireStatements) {
@@ -48,7 +47,6 @@ export default function transform(root: SgRoot): string | null {
 		}
 	}
 
-	// @ts-ignore - ast-grep types are not fully compatible with JSSG types
 	const importStatements = getNodeImportStatements(root, "module");
 
 	for (const statement of importStatements) {

@@ -1,4 +1,4 @@
-import type { SgRoot, SgNode } from '@ast-grep/napi';
+import type { SgRoot, SgNode } from '@codemod.com/jssg-types/main';
 
 export const getNodeImportStatements = (rootNode: SgRoot, nodeModuleName: string): SgNode[] =>
 	rootNode

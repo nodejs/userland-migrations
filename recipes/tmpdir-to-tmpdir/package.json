@@ -4,7 +4,7 @@
   "description": "Handle DEP0022 via transforming `tmpDir` to `tmpdir`.",
   "type": "module",
   "scripts": {
-    "test": "npx codemod@next jssg test -l typescript ./src/workflow.ts ./"
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
   },
   "repository": {
     "type": "git",
@@ -16,10 +16,9 @@
   "license": "MIT",
   "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/tmpdir-to-tmpdir/README.md",
   "devDependencies": {
-    "@types/node": "^24.2.1"
+    "@codemod.com/jssg-types": "^1.0.3"
   },
   "dependencies": {
-    "@ast-grep/napi": "^0.39.3",
-    "@nodejs/codemod-utils": "0.0.0"
+    "@nodejs/codemod-utils": "*"
   }
 }
