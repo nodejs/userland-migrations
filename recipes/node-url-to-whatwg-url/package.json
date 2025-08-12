@@ -4,10 +4,10 @@
   "description": "Handle DEPDEP0116 via transforming `url.parse` to `new URL()`",
   "type": "module",
   "scripts": {
-    "test": "node --run test:import-process.js && node --run test:url-format.js && node --run test:url-parse.js",
-    "test:import-process": "npx codemod@next jssg test -l typescript ./src/import-process.ts ./tests/import-process",
-    "test:url-format": "npx codemod@next jssg test -l typescript ./src/url-format.ts ./tests/url-format",
-    "test:url-parse": "npx codemod@next jssg test -l typescript ./src/url-parse.ts ./tests/url-parse"
+  "test": "node --run test:import-process && node --run test:url-format && node --run test:url-parse",
+  "test:import-process": "npx codemod@next jssg test -l typescript ./src/import-process.ts ./tests/ --filter import-process",
+  "test:url-format": "npx codemod@next jssg test -l typescript ./src/url-format.ts ./tests/ --filter url-format",
+  "test:url-parse": "npx codemod@next jssg test -l typescript ./src/url-parse.ts ./tests/ --filter url-parse"
   },
   "repository": {
     "type": "git",

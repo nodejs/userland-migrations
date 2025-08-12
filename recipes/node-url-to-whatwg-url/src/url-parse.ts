@@ -1,4 +1,4 @@
-import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
+import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
 import type JS from "@codemod.com/jssg-types/langs/javascript";
 
 /**
@@ -16,9 +16,103 @@ import type JS from "@codemod.com/jssg-types/langs/javascript";
 export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
-	let hasChanges = false;
 
 	// `url.parse` is deprecated, so we replace it with `new URL()`
+
+	// Safety: only run on files that import/require node:url
+	const hasNodeUrlImport =
+		rootNode.find({ rule: { pattern: "require('node:url')" } }) ||
+		rootNode.find({ rule: { pattern: 'require("node:url")' } }) ||
+		rootNode.find({ rule: { pattern: "import $_ from 'node:url'" } }) ||
+		rootNode.find({ rule: { pattern: 'import $_ from "node:url"' } }) ||
+		rootNode.find({ rule: { pattern: "import { $_ } from 'node:url'" } }) ||
+		rootNode.find({ rule: { pattern: 'import { $_ } from "node:url"' } });
+
+	if (!hasNodeUrlImport) {
+		return null;
+	}
+
+	// 1) Replace parse calls with new URL()
+	const parseCallPatterns = [
+		// member calls on typical identifiers
+		"url.parse($ARG)",
+		"nodeUrl.parse($ARG)",
+		// bare identifier (named import)
+		"parse($ARG)",
+		// common alias used in tests
+		"urlParse($ARG)"
+	];
+
+	for (const pattern of parseCallPatterns) {
+		const calls = rootNode.findAll({ rule: { pattern } });
+		for (const call of calls) {
+			const arg = call.getMatch("ARG") as SgNode<JS> | undefined;
+			if (!arg) continue;
+			const replacement = `new URL(${arg.text()})`;
+			edits.push(call.replace(replacement));
+		}
+	}
+
+	// 2) Transform legacy properties on URL object
+	//    - auth => `${obj.username}:${obj.password}`
+	//    - path => `${obj.pathname}${obj.search}`
+	//    - hostname => obj.hostname.replace(/^[\[|\]]$/, '')  (strip square brackets)
+
+	// Property access: obj.auth -> `${obj.username}:${obj.password}`
+	const authAccesses = rootNode.findAll({ rule: { pattern: "$OBJ.auth" } });
+	for (const node of authAccesses) {
+		const base = node.getMatch("OBJ") as SgNode<JS> | undefined;
+		if (!base) continue;
+		const replacement = '`${' + base.text() + '.username}:${' + base.text() + '.password}`';
+		edits.push(node.replace(replacement));
+	}
+
+	// Destructuring: const { auth } = obj -> const auth = `${obj.username}:${obj.password}`
+	const authDestructures = rootNode.findAll({ rule: { pattern: "const { auth } = $OBJ" } });
+	for (const node of authDestructures) {
+		const base = node.getMatch("OBJ") as SgNode<JS> | undefined;
+		if (!base) continue;
+		const replacement = 'const auth = ' + '`${' + base.text() + '.username}:${' + base.text() + '.password}`' + ';';
+		edits.push(node.replace(replacement));
+	}
+
+	// Property access: obj.path -> `${obj.pathname}${obj.search}`
+	const pathAccesses = rootNode.findAll({ rule: { pattern: "$OBJ.path" } });
+	for (const node of pathAccesses) {
+		const base = node.getMatch("OBJ") as SgNode<JS> | undefined;
+		if (!base) continue;
+		const replacement = '`${' + base.text() + '.pathname}${' + base.text() + '.search}`';
+		edits.push(node.replace(replacement));
+	}
+
+	// Destructuring: const { path } = obj -> const path = `${obj.pathname}${obj.search}`
+	const pathDestructures = rootNode.findAll({ rule: { pattern: "const { path } = $OBJ" } });
+	for (const node of pathDestructures) {
+		const base = node.getMatch("OBJ") as SgNode<JS> | undefined;
+		if (!base) continue;
+		const replacement = 'const path = ' + '`${' + base.text() + '.pathname}${' + base.text() + '.search}`' + ';';
+		edits.push(node.replace(replacement));
+	}
+
+	// Property access: obj.hostname -> obj.hostname.replace(/^\[|\]$/, '')
+	const hostnameAccesses = rootNode.findAll({ rule: { pattern: "$OBJ.hostname" } });
+	for (const node of hostnameAccesses) {
+		const base = node.getMatch("OBJ") as SgNode<JS> | undefined;
+		if (!base) continue;
+		const replacement = base.text() + ".hostname.replace(/^\\[|\\]$/, '')";
+		edits.push(node.replace(replacement));
+	}
+
+	// Destructuring: const { hostname } = obj -> const hostname = obj.hostname.replace(/^\[|\]$/, '')
+	const hostnameDestructures = rootNode.findAll({ rule: { pattern: "const { hostname } = $OBJ" } });
+	for (const node of hostnameDestructures) {
+		const base = node.getMatch("OBJ") as SgNode<JS> | undefined;
+		if (!base) continue;
+		const replacement = 'const hostname = ' + base.text() + ".hostname.replace(/^\\[|\\]$/, '')" + ';';
+		edits.push(node.replace(replacement));
+	}
+
+	const hasChanges = edits.length > 0;
 
 	if (!hasChanges) return null;
 
