@@ -14,11 +14,11 @@ nodes:
           js_file: src/url-parse.ts
           base_path: .
           include:
+            - "**/*.cjs"
+            - "**/*.cts"
             - "**/*.js"
             - "**/*.jsx"
             - "**/*.mjs"
-            - "**/*.cjs"
-            - "**/*.cts"
             - "**/*.mts"
             - "**/*.ts"
             - "**/*.tsx"
@@ -30,11 +30,11 @@ nodes:
           js_file: src/url-format.ts
           base_path: .
           include:
+            - "**/*.cjs"
+            - "**/*.cts"
             - "**/*.js"
             - "**/*.jsx"
             - "**/*.mjs"
-            - "**/*.cjs"
-            - "**/*.cts"
             - "**/*.mts"
             - "**/*.ts"
             - "**/*.tsx"
@@ -46,11 +46,11 @@ nodes:
           js_file: src/import-process.ts
           base_path: .
           include:
+            - "**/*.cjs"
+            - "**/*.cts"
             - "**/*.js"
             - "**/*.jsx"
             - "**/*.mjs"
-            - "**/*.cjs"
-            - "**/*.cts"
             - "**/*.mts"
             - "**/*.ts"
             - "**/*.tsx"
