@@ -19,7 +19,7 @@
     "@types/node": "^24.2.0"
   },
   "dependencies": {
-    "@ast-grep/napi": "^0.39.2",
+    "@ast-grep/napi": "^0.39.3",
     "@nodejs/codemod-utils": "0.0.0"
   }
 }
