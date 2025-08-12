@@ -1,6 +1,6 @@
-# Governance
+# `userland-migrations` Team Governance
 
-Meet the current members of the Node.js userland migrations:
+Meet the current team members of the Node.js userland migrations:
 
 - [@AugustinMauroy](https://github.com/AugustinMauroy) - **Augustin Mauroy** (he/him)
 - [@avivkeller](https://github.com/avivkeller) - **Aviv Keller** (he/him)
@@ -11,19 +11,12 @@ Meet the current members of the Node.js userland migrations:
 ## Rights
 
 Any team member can block a pull request or decision. A block can be overturned by a team vote, which requires a quorum of two-thirds of active members and passes with a simple majority (>50%). Pursuant to Node.js policy, the [TSC](https://github.com/nodejs/TSC) may override a team’s vote.
-Any member can create a tag on the repository's `HEAD` branch, which triggers a CI run and initiates a release. Tags must follow the format `vX.Y.Z@workspace`, where `X.Y.Z` is the version number and `workspace` is the name of the npm workspace (e.g. `v1.2.3@codemod`).
 
 ### Active vs inactive membership
 
 ### Retaining Membership
 
 Members are expected to engage in project discussions regularly, and members inactive for more than six months may be removed from the active members list. Removed members can be reinstated upon returning to active participation.
-
-The team lead is not more equal than other active members; it is an administrative function. For administrative purposes, the lead owns the repo, the github team, and handles membership changes and repository administration (particularly potentially destructive actions).
-
-The team lead is responsible for ensuring team policies are followed, and takes some discretion when taking administrative action (such as removing an inactive member per team policy).
-
-The team lead can also bypass Github Branch rulesets to merge PRs that are otherwise blocked by the rules (such as for trivial edits/corrects and hot-fixes).
 
 ## Team nomination
 
@@ -41,19 +34,21 @@ Non-members of the Node.js org should meet the following criteria:
 
 Exceptions may be made for members of the larger ecosystem who are well known to the Node.js organisation.
 
-An active member may nominate a contributor who meets this criteria. The nomination must pass before requesting the contributor be added to the organisation. All active members must be notified of the nomination.
+An active team member may nominate a contributor who meets this criteria. The nomination must pass before requesting the contributor be added to the organisation. All active members must be notified of the nomination.
 
-A nomination should be raised privately with active members before publicly, out of respect for the nominee.
+A nomination should be raised privately with active team members before publicly, out of respect for the nominee.
 
 ### Team Maintainers
 
-Team maintainers serve in an administrative capacity and are not considered "more equal" than other active contributors. Their primary role is to support smooth project operations.
+Team maintainers serve in an administrative capacity and are not considered "more equal" than other active team members. Their primary role is to support smooth project operations.
 
 Maintainership includes responsibilities such as managing the GitHub repository and team, handling membership changes, and performing administrative tasks, especially those that may be destructive or sensitive in nature.
 
 Maintainers ensure team policies are upheld and may exercise discretion when taking necessary actions, such as removing inactive members in accordance with team guidelines.
 
 Additionally, maintainers have the ability to bypass GitHub branch protection rules to merge pull requests, typically in cases of trivial edits, urgent corrections, or hot-fixes.
+
+Maintainers are also responsible for creating tags on the repository's `HEAD` branch to trigger the CI pipeline and initiate a release. Tags must adhere to the format `vX.Y.Z@workspace`, where `X.Y.Z` represents the version number and `workspace` specifies the npm workspace (e.g., `v1.2.3@codemod`).
 
 ## Team Expulsion
 
