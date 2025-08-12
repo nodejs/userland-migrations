@@ -1,0 +1,21 @@
+schema_version: "1.0"
+name: "@nodejs/fs-access-mode-constants"
+version: "1.0.0"
+description: Handle DEP0176 via transforming imports of `fs.F_OK`, `fs.R_OK`, `fs.W_OK`, `fs.X_OK` from the root `fs` module to `fs.constants`.
+author: nekojanai (Jana)
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+
+registry:
+  access: public
+  visibility: public
