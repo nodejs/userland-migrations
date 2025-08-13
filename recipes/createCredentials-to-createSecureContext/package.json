@@ -1,5 +1,5 @@
 {
-  "name": "@nodejs/crypto-create-credentials",
+  "name": "@nodejs/createCredentials-to-createSecureContext",
   "version": "1.0.0",
   "description": "Handle DEP0010 via transforming `crypto.createCredentials` to `tls.createSecureContext` with the appropriate options.",
   "type": "module",
