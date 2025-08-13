@@ -1,15 +1,15 @@
-import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
-import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
-import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
+import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
+import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
+import type { SgRoot, Edit, SgNode } from '@codemod.com/jssg-types/main';
 
 const classNames = [
-	"Agent",
-	"ClientRequest",
-	"IncomingMessage",
-	"OutgoingMessage",
-	"Server",
-	"ServerResponse",
+	'Agent',
+	'ClientRequest',
+	'IncomingMessage',
+	'OutgoingMessage',
+	'Server',
+	'ServerResponse',
 ];
 
 /**
@@ -27,8 +27,8 @@ export default function transform(root: SgRoot): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 
-	const importNodes = getNodeImportStatements(root, "http");
-	const requireNodes = getNodeRequireCalls(root, "http");
+	const importNodes = getNodeImportStatements(root, 'http');
+	const requireNodes = getNodeRequireCalls(root, 'http');
 	const allStatementNodes = [...importNodes, ...requireNodes];
 	const classes = new Set<string>();
 
@@ -39,7 +39,7 @@ export default function transform(root: SgRoot): string | null {
 	for (const cls of classes) {
 		const classesWithoutNew = rootNode.findAll({
 			rule: {
-				not: { follows: { pattern: "new" } },
+				not: { follows: { pattern: 'new' } },
 				any: [
 					{ pattern: `${cls}()` },
 					{ pattern: `${cls}($ARGS)` },
