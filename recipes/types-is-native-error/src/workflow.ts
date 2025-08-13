@@ -26,14 +26,14 @@ type Binding = {
  *
  * @example
  * ```typescript
- * removeLastPropertyAccess("foo.bar.baz");
+ * createPropBinding("foo.bar.baz");
  * // Returns: { path: "foo.bar.baz", propertyAccess: "foo.bar", lastPropertyAccess: "baz", depth: 3 }
  *
- * removeLastPropertyAccess("foo");
+ * createPropBinding("foo");
  * // Returns: { path: "foo", propertyAccess: "", lastPropertyAccess: "foo", depth: 1 }
  * ```
  */
-function removeLastPropertyAccess(
+function createPropBinding(
 	path: string,
 ): Pick<Binding, "path" | "lastPropertyAccess" | "propertyAccess" | "depth"> {
 	const pathArr = path.split(".");
@@ -102,7 +102,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 		}
 
 		bindings.push({
-			...removeLastPropertyAccess(bindToReplace),
+			...createPropBinding(bindToReplace),
 			node: stmt,
 		});
 	}
