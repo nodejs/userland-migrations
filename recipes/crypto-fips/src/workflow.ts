@@ -36,6 +36,7 @@ export default function transform(root: SgRoot): string | null {
 	edits.push(...updateCryptoRequireDestructuring(root));
 
 	if (edits.length === 0) return null;
+
 	return rootNode.commitEdits(edits);
 }
 
