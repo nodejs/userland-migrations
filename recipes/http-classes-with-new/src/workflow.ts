@@ -30,11 +30,7 @@ export default function transform(root: SgRoot): string | null {
 	const importNodes = getNodeImportStatements(root, 'http');
 	const requireNodes = getNodeRequireCalls(root, 'http');
 	const allStatementNodes = [...importNodes, ...requireNodes];
-	const classes = new Set<string>();
-
-	for (const basePath of getHttpClassBasePaths(allStatementNodes)) {
-		classes.add(basePath);
-	}
+	const classes = new Set<string>(getHttpClassBasePaths(allStatementNodes));
 
 	for (const cls of classes) {
 		const classesWithoutNew = rootNode.findAll({
