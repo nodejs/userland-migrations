@@ -3,7 +3,7 @@ import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import type { SgRoot, Edit, SgNode } from '@codemod.com/jssg-types/main';
 
-const classNames = [
+const CLASS_NAMES = [
 	'Agent',
 	'ClientRequest',
 	'IncomingMessage',
