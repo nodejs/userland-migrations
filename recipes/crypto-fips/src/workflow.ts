@@ -1,9 +1,10 @@
-import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
-import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
-import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
+import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
+import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
+import type { SgRoot, Edit, SgNode } from '@codemod.com/jssg-types/main';
 
-const escapeRegExp = (input: string) => input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegExp = (input: string) =>
+	input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * Transform function that converts deprecated crypto.fips calls
@@ -21,10 +22,12 @@ export default function transform(root: SgRoot): string | null {
 
 	const cryptoBases = new Set<string>(getAllCryptoBasePaths(root));
 
+	// Handle crypto.fips = ... (value-modification)
 	const assignmentResult = replaceAssignments(rootNode, cryptoBases);
 	edits.push(...assignmentResult.edits);
 	hasChanges = assignmentResult.hasChanges;
 
+	// Handle crypto.fips (value-access)
 	const readResult = replaceReads(rootNode, cryptoBases);
 	edits.push(...readResult.edits);
 	hasChanges = readResult.hasChanges;
@@ -35,15 +38,15 @@ export default function transform(root: SgRoot): string | null {
 
 function* getCryptoBasePaths(statements: SgNode[]) {
 	for (const stmt of statements) {
-		const resolvedPath = resolveBindingPath(stmt, "$.fips");
-		if (!resolvedPath || !resolvedPath.includes(".")) continue;
-		yield resolvedPath.slice(0, resolvedPath.lastIndexOf("."));
+		const resolvedPath = resolveBindingPath(stmt, '$.fips');
+		if (!resolvedPath || !resolvedPath.includes('.')) continue;
+		yield resolvedPath.slice(0, resolvedPath.lastIndexOf('.'));
 	}
 }
 
 function* getAllCryptoBasePaths(root: SgRoot) {
-	yield* getCryptoBasePaths(getNodeRequireCalls(root, "crypto"));
-	yield* getCryptoBasePaths(getNodeImportStatements(root, "crypto"));
+	yield* getCryptoBasePaths(getNodeRequireCalls(root, 'crypto'));
+	yield* getCryptoBasePaths(getNodeImportStatements(root, 'crypto'));
 }
 
 function replaceAssignments(rootNode: SgNode, cryptoBases: Set<string>) {
@@ -58,9 +61,15 @@ function replaceAssignments(rootNode: SgNode, cryptoBases: Set<string>) {
 		});
 
 		for (const assign of assignments) {
-			const valueText = assign.getMatch("VALUE")?.text() ?? "";
-			const basePropRegex = new RegExp(`\\b${escapeRegExp(base)}\\.fips\\b`, "g");
-			const transformedValue = valueText.replace(basePropRegex, `${base}.getFips()`);
+			const valueText = assign.getMatch('VALUE')?.text() ?? '';
+			const basePropRegex = new RegExp(
+				`\\b${escapeRegExp(base)}\\.fips\\b`,
+				'g',
+			);
+			const transformedValue = valueText.replace(
+				basePropRegex,
+				`${base}.getFips()`,
+			);
 			edits.push(assign.replace(`${base}.setFips(${transformedValue})`));
 			hasChanges = true;
 		}
