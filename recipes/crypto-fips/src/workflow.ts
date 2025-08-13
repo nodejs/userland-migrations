@@ -267,6 +267,9 @@ function* getCryptoFipsBase(statements: SgNode[], type: 'member' | 'named') {
 	}
 }
 
+/**
+ * Get crypto bases/names for both member and named imports
+ */
 function* getAllCryptoFipsBases(statements: SgNode[]) {
 	yield* getCryptoFipsBase(statements, 'member');
 	yield* getCryptoFipsBase(statements, 'named');
