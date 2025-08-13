@@ -114,101 +114,16 @@ function getCryptoBindings(root: SgRoot<JS>): Map<string, string[]> {
 	// @ts-ignore - ast-grep types compatibility
 	const requireCalls = getNodeRequireCalls(root, "crypto");
 
-	// Handle ES6 imports
-	for (const importStmt of importStatements) {
-		// Handle namespace imports: import * as crypto from 'node:crypto'
-		const namespaceImport = importStmt.find({
-			rule: {
-				kind: "namespace_import"
-			}
-		});
-
-		if (namespaceImport) {
-			const keyPairPath = resolveBindingPath(importStmt, "$.generateKeyPair");
-			const keyPairSyncPath = resolveBindingPath(importStmt, "$.generateKeyPairSync");
-			if (keyPairPath) bindings.set(keyPairPath, ['generateKeyPair']);
-			if (keyPairSyncPath) bindings.set(keyPairSyncPath, ['generateKeyPairSync']);
+	// Handle both ES6 imports and CommonJS requires
+	for (const stmt of [...importStatements, ...requireCalls]) {
+		const generateKeyPairBinding = resolveBindingPath(stmt, "$.generateKeyPair");
+		const generateKeyPairSyncBinding = resolveBindingPath(stmt, "$.generateKeyPairSync");
+		
+		if (generateKeyPairBinding) {
+			bindings.set(generateKeyPairBinding, ['generateKeyPair']);
 		}
-
-		// Handle named imports: import { generateKeyPair, generateKeyPairSync } from 'node:crypto'
-		const namedImports = importStmt.findAll({
-			rule: {
-				kind: "import_specifier"
-			}
-		});
-
-		for (const namedImport of namedImports) {
-			const importText = namedImport.text();
-
-			// Handle aliased imports (e.g., generateKeyPair as foo)
-			if (importText.includes(' as ')) {
-				const [importName, aliasName] = importText.split(' as ').map(s => s.trim());
-				if (importName === 'generateKeyPair' || importName === 'generateKeyPairSync') {
-					bindings.set(aliasName, [importName]);
-				}
-			} else {
-				// Handle direct imports (e.g., generateKeyPair)
-				if (importText === 'generateKeyPair' || importText === 'generateKeyPairSync') {
-					bindings.set(importText, [importText]);
-				}
-			}
-		}
-	}
-
-	// Handle CommonJS requires
-	for (const requireCall of requireCalls) {
-		// Handle destructured requires: const { generateKeyPair: foo } = require('crypto')
-		const objectPattern = requireCall.find({
-			rule: {
-				kind: "object_pattern"
-			}
-		});
-
-		if (objectPattern) {
-			const shorthandProps = objectPattern.findAll({
-				rule: {
-					kind: "shorthand_property_identifier_pattern"
-				}
-			});
-
-			for (const prop of shorthandProps) {
-				const propName = prop.text();
-				if (propName === 'generateKeyPair' || propName === 'generateKeyPairSync') {
-					bindings.set(propName, [propName]);
-				}
-			}
-
-			// Handle renamed destructured requires
-			const pairs = objectPattern.findAll({
-				rule: {
-					kind: "pair_pattern"
-				}
-			});
-
-			for (const pair of pairs) {
-				const pairText = pair.text();
-				// Match pattern like "generateKeyPair: foo"
-				const match = pairText.match(/^(\w+):\s*(\w+)$/);
-				if (match) {
-					const [, keyName, valueName] = match;
-					if (keyName === 'generateKeyPair' || keyName === 'generateKeyPairSync') {
-						bindings.set(valueName, [keyName]);
-					}
-				}
-			}
-		}
-
-		// Handle namespace requires: const crypto = require('crypto')
-		const identifier = requireCall.find({
-			rule: {
-				kind: "identifier"
-			}
-		});
-
-		if (identifier && !objectPattern) {
-			const name = identifier.text();
-			bindings.set(`${name}.generateKeyPair`, ['generateKeyPair']);
-			bindings.set(`${name}.generateKeyPairSync`, ['generateKeyPairSync']);
+		if (generateKeyPairSyncBinding) {
+			bindings.set(generateKeyPairSyncBinding, ['generateKeyPairSync']);
 		}
 	}
 
