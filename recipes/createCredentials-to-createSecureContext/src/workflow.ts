@@ -1,4 +1,4 @@
-import * as os from 'node:os';
+import { EOL } from 'node:os';
 import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
 
 type TlsImportState = {
@@ -86,7 +86,7 @@ function ensureTlsImport(
     }
 
     const tlsIdentifier = currentState.identifier;
-    const newImportText = `${helpers.createNamespaceImport(tlsIdentifier, 'node:tls')};${os.EOL}`;
+    const newImportText = `${helpers.createNamespaceImport(tlsIdentifier, 'node:tls')};${EOL}`;
     const edit: Edit = {
         startPos: firstNode.range().start.index,
         endPos: firstNode.range().start.index,
@@ -146,7 +146,7 @@ function handleDestructuredImport(
             const newEdit = {
                 startPos: statement.range().end.index,
                 endPos: statement.range().end.index,
-                insertedText: `${os.EOL}${newImportStatement}`,
+                insertedText: `${EOL}${newImportStatement}`,
             };
             localEdits.push(newEdit);
             finalState = { ...currentState, added: true };
