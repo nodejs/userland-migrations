@@ -179,20 +179,21 @@ function isFromFsModule(call: SgNode<Js>, root: SgRoot<Js>): boolean {
  * @param rootNode The root node of the AST to search within.
  */
 function isLikelyFileDescriptor(param: string, rootNode: SgNode<Js>): boolean {
-  // Check if it's a numeric literal
-  if (/^\d+$/.test(param.trim())) return true;
+	// Check if it's obviously a string literal (path)
+	if (/^['"`]/.test(param.trim())) return false;
 
-  // Check if it's obviously a string literal (path)
-  if (/^['"`]/.test(param.trim())) return false;
+	// Check if the parameter is likely a file descriptor:
+	// 1. It's a numeric literal (e.g., "123").
+	// 2. It's assigned from fs.openSync or openSync.
+	// 3. It's used inside a callback context from fs.open.
+	if (
+		/^\d+$/.test(param.trim()) ||
+		isAssignedFromOpenSync(param, rootNode) ||
+		isInCallbackContext(param, rootNode)
+	) return true;
 
-  // Check if it's assigned from fs.openSync or openSync
-  if (isAssignedFromOpenSync(param, rootNode)) return true;
-
-  // Check if it's used inside a callback context from fs.open
-  if (isInCallbackContext(param, rootNode)) return true;
-
-  // For other cases, be conservative - don't transform unless we're sure
-  return false;
+	// For other cases, be conservative - don't transform unless we're sure
+	return false;
 }
 
 /**
