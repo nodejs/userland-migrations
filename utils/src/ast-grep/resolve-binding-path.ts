@@ -1,5 +1,4 @@
-import type { Kinds, TypesMap } from "@ast-grep/napi/types/staticTypes.js";
-import type { SgNode } from "@ast-grep/napi";
+import type { SgNode, Kinds, TypesMap } from "@codemod.com/jssg-types/main";
 
 const requireKinds = ["lexical_declaration", "variable_declarator"];
 const importKinds = ["import_statement", "import_clause"];
@@ -37,7 +36,7 @@ const supportedKinds = [...requireKinds, ...importKinds];
  * ```
  */
 export function resolveBindingPath(node: SgNode<TypesMap, Kinds<TypesMap>>, path: string) {
-	let activeNode = node;
+	const activeNode = node;
 	const rootKind = activeNode.kind().toString();
 
 	if (!supportedKinds.includes(rootKind.toString())) {

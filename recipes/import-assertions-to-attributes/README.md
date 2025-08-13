@@ -15,7 +15,7 @@ import data from './data.json' with { type: 'json' };
 Run this codemod with:
 
 ```sh
-npx codemod@next nodejs/import-assertions-to-attributes
+npx codemod nodejs/import-assertions-to-attributes
 ```
 
 ## When is it useful?
