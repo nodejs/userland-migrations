@@ -3,14 +3,17 @@ import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import type { SgRoot, Edit, SgNode } from '@codemod.com/jssg-types/main';
 
-const CLASS_NAMES = [
+/**
+ * Classes of the http module
+ */
+const CLASS_NAMES = Object.freeze([
 	'Agent',
 	'ClientRequest',
 	'IncomingMessage',
 	'OutgoingMessage',
 	'Server',
 	'ServerResponse',
-];
+]);
 
 /**
  * Transform function that converts deprecated node:http classes to use the `new` keyword
@@ -61,7 +64,7 @@ export default function transform(root: SgRoot): string | null {
  * @returns The base path of the http classes
  */
 function* getHttpClassBasePaths(statements: SgNode[]) {
-	for (const cls of classNames) {
+	for (const cls of CLASS_NAMES) {
 		for (const stmt of statements) {
 			const resolvedPath = resolveBindingPath(stmt, `$.${cls}`);
 			if (resolvedPath) {
