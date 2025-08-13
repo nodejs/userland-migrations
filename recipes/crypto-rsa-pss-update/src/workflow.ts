@@ -1,18 +1,20 @@
 import type { SgRoot, SgNode, Edit } from "@codemod.com/jssg-types/main";
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
+import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
+import type JS from "@codemod.com/jssg-types/langs/javascript";
 
 /**
  * Transform function that updates deprecated RSA-PSS crypto options.
  *
  * Transforms:
- * - hash -> hashAlgorithm
- * - mgf1Hash -> mgf1HashAlgorithm
+ * - hash → hashAlgorithm
+ * - mgf1Hash → mgf1HashAlgorithm
  *
  * Only applies to crypto.generateKeyPair() and crypto.generateKeyPairSync()
  * calls with 'rsa-pss' as the first argument.
  */
-export default function transform(root: SgRoot): string | null {
+export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
 	let hasChanges = false;
 	const edits: Edit[] = [];
@@ -53,56 +55,32 @@ export default function transform(root: SgRoot): string | null {
 
 		// Transform hash and mgf1Hash properties
 		for (const pair of pairs) {
-			const keyNode = pair.find({
-				rule: {
-					kind: "property_identifier"
-				}
-			});
-
-			if (!keyNode) continue;
-
-			const key = keyNode.text();
-			if (key === "hash") {
-				const valueNode = pair.find({
+				const keyNode = pair.find({
 					rule: {
-						kind: "string_fragment"
-					}
-				}) || pair.find({
-					rule: {
-						kind: "string"
-					}
+						any: [
+							{
+								regex: "hash",
+								kind: "property_identifier",
+							},
+							{
+								regex: "mgf1Hash",
+								kind: "property_identifier",
+							},
+						],
+					},
 				});
+				if (!keyNode) continue;
+				const key = keyNode.text();
+				hasChanges = true;
 
-				if (valueNode) {
-					const value = valueNode.text();
-					const replacement = value.startsWith('"') || value.startsWith("'") ?
-						`hashAlgorithm: ${value}` :
-						`hashAlgorithm: '${value}'`;
-					edits.push(pair.replace(replacement));
-					hasChanges = true;
+				if (key === "hash") {
+					edits.push(keyNode.replace("hashAlgorithm"));
 				}
-			} else if (key === "mgf1Hash") {
-				const valueNode = pair.find({
-					rule: {
-						kind: "string_fragment"
-					}
-				}) || pair.find({
-					rule: {
-						kind: "string"
-					}
-				});
-
-				if (valueNode) {
-					const value = valueNode.text();
-					const replacement = value.startsWith('"') || value.startsWith("'") ?
-						`mgf1HashAlgorithm: ${value}` :
-						`mgf1HashAlgorithm: '${value}'`;
-					edits.push(pair.replace(replacement));
-					hasChanges = true;
+				if (key === "mgf1Hash") {
+					edits.push(keyNode.replace("mgf1HashAlgorithm"));
 				}
 			}
 		}
-	}
 
 	if (!hasChanges) return null;
 
@@ -113,7 +91,7 @@ export default function transform(root: SgRoot): string | null {
  * Analyzes imports and requires to determine all possible identifiers
  * that could refer to generateKeyPair or generateKeyPairSync functions
  */
-function getCryptoBindings(root: SgRoot): Map<string, string[]> {
+function getCryptoBindings(root: SgRoot<JS>): Map<string, string[]> {
 	const bindings = new Map<string, string[]>();
 
 	// @ts-ignore - ast-grep types compatibility
@@ -131,16 +109,10 @@ function getCryptoBindings(root: SgRoot): Map<string, string[]> {
 		});
 
 		if (namespaceImport) {
-			const identifier = namespaceImport.find({
-				rule: {
-					kind: "identifier"
-				}
-			});
-			if (identifier) {
-				const name = identifier.text();
-				bindings.set(`${name}.generateKeyPair`, ['generateKeyPair']);
-				bindings.set(`${name}.generateKeyPairSync`, ['generateKeyPairSync']);
-			}
+			const keyPairPath = resolveBindingPath(importStmt, "$.generateKeyPair");
+			const keyPairSyncPath = resolveBindingPath(importStmt, "$.generateKeyPairSync");
+			if (keyPairPath) bindings.set(keyPairPath, ['generateKeyPair']);
+			if (keyPairSyncPath) bindings.set(keyPairSyncPath, ['generateKeyPairSync']);
 		}
 
 		// Handle named imports: import { generateKeyPair, generateKeyPairSync } from 'node:crypto'
@@ -231,7 +203,7 @@ function getCryptoBindings(root: SgRoot): Map<string, string[]> {
 /**
  * Find all function calls that match the crypto bindings
  */
-function findCryptoCalls(rootNode: SgNode, bindings: Map<string, string[]>) {
+function findCryptoCalls(rootNode: SgNode<JS>, bindings: Map<string, string[]>) {
 	const allCalls = [];
 
 	for (const [bindingName] of bindings) {

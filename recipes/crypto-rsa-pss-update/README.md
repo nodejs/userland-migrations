@@ -16,7 +16,7 @@ The transformation only applies to calls with `'rsa-pss'` as the key type.
 **Before**
 
 ```js
-const crypto = require("crypto");
+const crypto = require("node:crypto");
 
 crypto.generateKeyPair(
 	"rsa-pss",
@@ -31,7 +31,7 @@ crypto.generateKeyPair(
 	},
 );
 
-crypto.generateKeyPairSync("rsa-pss", {
+crypto.generateKeyPairSync("node:rsa-pss", {
 	modulusLength: 2048,
 	hash: "sha256",
 });
