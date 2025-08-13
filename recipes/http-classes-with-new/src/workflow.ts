@@ -16,12 +16,12 @@ const CLASS_NAMES = [
  * Transform function that converts deprecated node:http classes to use the `new` keyword
  *
  * Handles:
- * 1. http.Agent() -> new http.Agent()
- * 2. http.ClientRequest() -> new http.ClientRequest()
- * 3. http.IncomingMessage() -> new http.IncomingMessage()
- * 4. http.OutgoingMessage() -> new http.OutgoingMessage()
- * 5. http.Server() -> new http.Server()
- * 6. http.ServerResponse() -> new http.ServerResponse()
+ * 1. `http.Agent()` → `new http.Agent()`
+ * 2. `http.ClientRequest()` → `new http.ClientRequest()`
+ * 3. `http.IncomingMessage()` → `new http.IncomingMessage()`
+ * 4. `http.OutgoingMessage()` → `new http.OutgoingMessage()`
+ * 5. `http.Server()` → `new http.Server()`
+ * 6. `http.ServerResponse() → `new http.ServerResponse()`
  */
 export default function transform(root: SgRoot): string | null {
 	const rootNode = root.root();
