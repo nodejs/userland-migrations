@@ -1,10 +1,11 @@
-import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
-import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
-import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
+import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
+import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
+import type { SgRoot, Edit, SgNode } from '@codemod.com/jssg-types/main';
 
 // Escape regexp characters - "crypto.fips" -> "crypto\.fips"
-const escapeRegExp = (input: string) => input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegExp = (input: string) =>
+	input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * Transform function that converts deprecated crypto.fips calls
@@ -22,10 +23,10 @@ export default function transform(root: SgRoot): string | null {
 	const cryptoVars = collectCryptoFipsVariables(root);
 
 	for (const [varName, info] of cryptoVars) {
-		if (info.type === "member" && info.base) {
+		if (info.type === 'member' && info.base) {
 			edits.push(...replaceMemberAssignments(rootNode, info.base));
 			edits.push(...replaceMemberReads(rootNode, info.base));
-		} else if (info.type === "named") {
+		} else if (info.type === 'named') {
 			edits.push(...replaceNamedAssignments(rootNode, varName));
 			edits.push(...replaceNamedReads(rootNode, varName));
 		}
@@ -42,13 +43,13 @@ export default function transform(root: SgRoot): string | null {
  * Collect all crypto fips variables
  */
 function collectCryptoFipsVariables(root: SgRoot) {
-	const map = new Map<string, { type: "member" | "named"; base?: string }>();
-	const importNodes = getNodeImportStatements(root, "crypto");
-	const requireNodes = getNodeRequireCalls(root, "crypto");
+	const map = new Map<string, { type: 'member' | 'named'; base?: string }>();
+	const importNodes = getNodeImportStatements(root, 'crypto');
+	const requireNodes = getNodeRequireCalls(root, 'crypto');
 	const allStatementNodes = [...importNodes, ...requireNodes];
 
 	for (const { base, type } of getAllCryptoFipsBases(allStatementNodes)) {
-		map.set(base, { type, base: type === "member" ? base : undefined });
+		map.set(base, { type, base: type === 'member' ? base : undefined });
 	}
 
 	return map;
@@ -77,9 +78,12 @@ function replaceMemberAssignments(rootNode: SgNode, base: string) {
 		rule: { pattern: `${base}.fips = $VALUE` },
 	});
 	for (const assign of assignments) {
-		const valueText = assign.getMatch("VALUE")?.text() ?? "";
-		const basePropRegex = new RegExp(`\\b${escapeRegExp(base)}\\.fips\\b`, "g");
-		const transformedValue = valueText.replace(basePropRegex, `${base}.getFips()`);
+		const valueText = assign.getMatch('VALUE')?.text() ?? '';
+		const basePropRegex = new RegExp(`\\b${escapeRegExp(base)}\\.fips\\b`, 'g');
+		const transformedValue = valueText.replace(
+			basePropRegex,
+			`${base}.getFips()`,
+		);
 		edits.push(assign.replace(`${base}.setFips(${transformedValue})`));
 	}
 	return edits;
@@ -91,28 +95,21 @@ function replaceMemberAssignments(rootNode: SgNode, base: string) {
 function updateCryptoImportSpecifiers(root: SgRoot): Edit[] {
 	const edits: Edit[] = [];
 
-	const importStmts = root.root().findAll({
-		rule: {
-			kind: "import_statement",
-			has: {
-				field: "source",
-				kind: "string",
-				regex: `^['"](node:)?crypto['"]$`,
-			},
-		},
-	});
+	const importStmts = getNodeImportStatements(root, 'crypto');
 
 	for (const stmt of importStmts) {
 		// import_clause contains default/namespace/named parts
-		const importClause = stmt.find({ rule: { kind: "import_clause" } });
+		const importClause = stmt.find({ rule: { kind: 'import_clause' } });
 		if (!importClause) continue;
 
 		// named_imports = `{ ... }`
-		const namedImports = importClause.find({ rule: { kind: "named_imports" } });
+		const namedImports = importClause.find({ rule: { kind: 'named_imports' } });
 		if (!namedImports) continue; // nothing to edit if there is no `{ ... }`
 
 		// All specifiers inside `{ ... }`
-		const specifiers = namedImports.findAll({ rule: { kind: "import_specifier" } });
+		const specifiers = namedImports.findAll({
+			rule: { kind: 'import_specifier' },
+		});
 		if (!specifiers || specifiers.length === 0) continue;
 
 		let hasFips = false;
@@ -124,20 +121,20 @@ function updateCryptoImportSpecifiers(root: SgRoot): Edit[] {
 		for (const spec of specifiers) {
 			// imported name is in field "name"
 			const importedNameNode = spec.find({
-				rule: { has: { field: "name", kind: "identifier" } },
+				rule: { has: { field: 'name', kind: 'identifier' } },
 			});
 			const importedName = importedNameNode
 				?.find({
-					rule: { kind: "identifier" },
+					rule: { kind: 'identifier' },
 				})
 				?.text();
 
-			if (importedName === "fips") {
+			if (importedName === 'fips') {
 				hasFips = true; // drop this one; we will add getFips/setFips instead
 				continue;
 			}
-			if (importedName === "getFips") hasGet = true;
-			if (importedName === "setFips") hasSet = true;
+			if (importedName === 'getFips') hasGet = true;
+			if (importedName === 'setFips') hasSet = true;
 
 			// Preserve other specifiers as-is (including aliases like `name as alias`)
 			keepTexts.push(spec.text());
@@ -146,11 +143,11 @@ function updateCryptoImportSpecifiers(root: SgRoot): Edit[] {
 		if (!hasFips) continue; // only rewrite when file was importing `fips`
 
 		// Ensure both getFips and setFips are present
-		if (!hasGet) keepTexts.push("getFips");
-		if (!hasSet) keepTexts.push("setFips");
+		if (!hasGet) keepTexts.push('getFips');
+		if (!hasSet) keepTexts.push('setFips');
 
 		// Replace the whole `{ ... }`
-		edits.push(namedImports.replace(`{ ${keepTexts.join(", ")} }`));
+		edits.push(namedImports.replace(`{ ${keepTexts.join(', ')} }`));
 	}
 
 	return edits;
@@ -162,17 +159,17 @@ function updateCryptoImportSpecifiers(root: SgRoot): Edit[] {
 function updateCryptoRequireDestructuring(root: SgRoot): Edit[] {
 	const edits: Edit[] = [];
 
-	const decls = getNodeRequireCalls(root, "crypto");
+	const decls = getNodeRequireCalls(root, 'crypto');
 
 	for (const decl of decls) {
-		const objPattern = decl.find({ rule: { kind: "object_pattern" } });
+		const objPattern = decl.find({ rule: { kind: 'object_pattern' } });
 		if (!objPattern) continue;
 
 		const props = objPattern.findAll({
 			rule: {
 				any: [
-					{ kind: "shorthand_property_identifier_pattern" }, // `{ foo }`
-					{ kind: "pair_pattern" }, // `{ foo: bar }`
+					{ kind: 'shorthand_property_identifier_pattern' }, // `{ foo }`
+					{ kind: 'pair_pattern' }, // `{ foo: bar }`
 				],
 			},
 		});
@@ -185,26 +182,26 @@ function updateCryptoRequireDestructuring(root: SgRoot): Edit[] {
 		const keepTexts: string[] = [];
 
 		for (const p of props) {
-			if (p.kind() === "shorthand_property_identifier_pattern") {
+			if (p.kind() === 'shorthand_property_identifier_pattern') {
 				const name = p.text().trim();
-				if (name === "fips") {
+				if (name === 'fips') {
 					hasFips = true;
 					continue;
 				}
-				if (name === "getFips") hasGet = true;
-				if (name === "setFips") hasSet = true;
+				if (name === 'getFips') hasGet = true;
+				if (name === 'setFips') hasSet = true;
 				keepTexts.push(name);
 			} else {
 				// pair_pattern: has key + value (e.g. `fips: myFips`, `getFips: gf`)
-				const keyNode = p.find({ rule: { kind: "property_identifier" } });
+				const keyNode = p.find({ rule: { kind: 'property_identifier' } });
 				const key = keyNode?.text();
 
-				if (key === "fips") {
+				if (key === 'fips') {
 					hasFips = true; // drop any alias of fips
 					continue;
 				}
-				if (key === "getFips") hasGet = true;
-				if (key === "setFips") hasSet = true;
+				if (key === 'getFips') hasGet = true;
+				if (key === 'setFips') hasSet = true;
 
 				// Keep other pairs as-is (preserves aliasing/spacing nicely)
 				keepTexts.push(p.text().trim());
@@ -213,10 +210,10 @@ function updateCryptoRequireDestructuring(root: SgRoot): Edit[] {
 
 		if (!hasFips) continue; // only rewrite when it actually destructured `fips`
 
-		if (!hasGet) keepTexts.push("getFips");
-		if (!hasSet) keepTexts.push("setFips");
+		if (!hasGet) keepTexts.push('getFips');
+		if (!hasSet) keepTexts.push('setFips');
 
-		edits.push(objPattern.replace(`{ ${keepTexts.join(", ")} }`));
+		edits.push(objPattern.replace(`{ ${keepTexts.join(', ')} }`));
 	}
 
 	return edits;
@@ -231,7 +228,7 @@ function replaceNamedReads(rootNode: SgNode, varName: string) {
 		rule: { pattern: varName },
 	});
 	for (const read of reads) {
-		edits.push(read.replace("getFips()"));
+		edits.push(read.replace('getFips()'));
 	}
 	return edits;
 }
@@ -245,7 +242,7 @@ function replaceNamedAssignments(rootNode: SgNode, varName: string) {
 		rule: { pattern: `${varName} = $VALUE` },
 	});
 	for (const assign of assignments) {
-		const valueText = assign.getMatch("VALUE")?.text() ?? "";
+		const valueText = assign.getMatch('VALUE')?.text() ?? '';
 		edits.push(assign.replace(`setFips(${valueText})`));
 	}
 	return edits;
@@ -258,19 +255,19 @@ function replaceNamedAssignments(rootNode: SgNode, varName: string) {
  * const { fips } = require("node:crypto") -> "fips"
  * const crypto = require("node:crypto") -> "crypto"
  */
-function* getCryptoFipsBase(statements: SgNode[], type: "member" | "named") {
+function* getCryptoFipsBase(statements: SgNode[], type: 'member' | 'named') {
 	for (const stmt of statements) {
-		const resolvedPath = resolveBindingPath(stmt, "$.fips");
-		if (resolvedPath?.includes(".") && type === "member") {
-			const base = resolvedPath.slice(0, resolvedPath.lastIndexOf("."));
+		const resolvedPath = resolveBindingPath(stmt, '$.fips');
+		if (resolvedPath?.includes('.') && type === 'member') {
+			const base = resolvedPath.slice(0, resolvedPath.lastIndexOf('.'));
 			yield { base, type };
-		} else if (resolvedPath && type === "named") {
+		} else if (resolvedPath && type === 'named') {
 			yield { base: resolvedPath, type };
 		}
 	}
 }
 
 function* getAllCryptoFipsBases(statements: SgNode[]) {
-	yield* getCryptoFipsBase(statements, "member");
-	yield* getCryptoFipsBase(statements, "named");
+	yield* getCryptoFipsBase(statements, 'member');
+	yield* getCryptoFipsBase(statements, 'named');
 }
