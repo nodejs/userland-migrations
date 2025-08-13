@@ -20,7 +20,7 @@ export default function transform(root: SgRoot): string | null {
 	let hasChanges = false;
 	const edits: Edit[] = [];
 
-	const cryptoBases = new Set<string>(getAllCryptoBasePaths(root));
+	const cryptoBases = new Set<string>(getAllCryptoFipsBasePaths(root));
 
 	// Handle crypto.fips = ... (value-modification)
 	const assignmentResult = replaceAssignments(rootNode, cryptoBases);
@@ -36,7 +36,7 @@ export default function transform(root: SgRoot): string | null {
 	return rootNode.commitEdits(edits);
 }
 
-function* getCryptoBasePaths(statements: SgNode[]) {
+function* getCryptoFipsBasePaths(statements: SgNode[]) {
 	for (const stmt of statements) {
 		const resolvedPath = resolveBindingPath(stmt, '$.fips');
 		if (!resolvedPath || !resolvedPath.includes('.')) continue;
@@ -44,9 +44,9 @@ function* getCryptoBasePaths(statements: SgNode[]) {
 	}
 }
 
-function* getAllCryptoBasePaths(root: SgRoot) {
-	yield* getCryptoBasePaths(getNodeRequireCalls(root, 'crypto'));
-	yield* getCryptoBasePaths(getNodeImportStatements(root, 'crypto'));
+function* getAllCryptoFipsBasePaths(root: SgRoot) {
+	yield* getCryptoFipsBasePaths(getNodeRequireCalls(root, 'crypto'));
+	yield* getCryptoFipsBasePaths(getNodeImportStatements(root, 'crypto'));
 }
 
 function replaceAssignments(rootNode: SgNode, cryptoBases: Set<string>) {
