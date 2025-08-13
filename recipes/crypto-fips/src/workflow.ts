@@ -3,7 +3,8 @@ import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import type { SgRoot, Edit, SgNode } from '@codemod.com/jssg-types/main';
 
-const escapeRegExp = (input: string) => input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const escapeRegExp = (input: string) =>
+	input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * Transform function that converts deprecated crypto.fips calls
@@ -19,9 +20,10 @@ export default function transform(root: SgRoot): string | null {
 	let hasChanges = false;
 	const edits: Edit[] = [];
 
-	const cryptoBases = new Set<string>();
-	setCryptoBases(getNodeRequireCalls(root, 'crypto'), cryptoBases);
-	setCryptoBases(getNodeImportStatements(root, 'crypto'), cryptoBases);
+	const cryptoBases = new Set<string>([
+		...getCryptoBasePaths('require', root),
+		...getCryptoBasePaths('import', root),
+	]);
 
 	const assignmentResult = replaceAssignments(rootNode, cryptoBases);
 	edits.push(...assignmentResult.edits);
@@ -35,12 +37,23 @@ export default function transform(root: SgRoot): string | null {
 	return rootNode.commitEdits(edits);
 }
 
-function setCryptoBases(statements: SgNode[], cryptoBases: Set<string>) {
+function getCryptoBasePaths(
+	callType: 'require' | 'import',
+	root: SgRoot,
+): string[] {
+	const paths: string[] = [];
+	const statements =
+		callType === 'require'
+			? getNodeRequireCalls(root, 'crypto')
+			: getNodeImportStatements(root, 'crypto');
+
 	for (const stmt of statements) {
 		const resolvedPath = resolveBindingPath(stmt, '$.fips');
 		if (!resolvedPath || !resolvedPath.includes('.')) continue;
-		cryptoBases.add(resolvedPath.slice(0, resolvedPath.lastIndexOf('.')));
+		paths.push(resolvedPath.slice(0, resolvedPath.lastIndexOf('.')));
 	}
+
+	return paths;
 }
 
 function replaceAssignments(rootNode: SgNode, cryptoBases: Set<string>) {
