@@ -1,4 +1,4 @@
-import type { SgRoot, SgNode } from '@ast-grep/napi';
+import type { SgRoot, SgNode } from '@codemod.com/jssg-types/main';
 
 /**
  *  We just catch `variable_declarator` nodes that use `require` to import a module
