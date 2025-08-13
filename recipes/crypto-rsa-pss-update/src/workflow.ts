@@ -71,13 +71,28 @@ export default function transform(root: SgRoot<JS>): string | null {
 				});
 				if (!keyNode) continue;
 				const key = keyNode.text();
+
+				// Get the value node to preserve it in the transformation
+				const valueNode = pair.find({
+					rule: {
+						kind: "string"
+					}
+				}) || pair.find({
+					rule: {
+						kind: "identifier"
+					}
+				});
+
+				if (!valueNode) continue;
+
 				hasChanges = true;
+				const value = valueNode.text();
 
 				if (key === "hash") {
-					edits.push(keyNode.replace("hashAlgorithm"));
+					edits.push(pair.replace(`hashAlgorithm: ${value}`));
 				}
 				if (key === "mgf1Hash") {
-					edits.push(keyNode.replace("mgf1HashAlgorithm"));
+					edits.push(pair.replace(`mgf1HashAlgorithm: ${value}`));
 				}
 			}
 		}
