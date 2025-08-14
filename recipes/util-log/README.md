@@ -6,7 +6,7 @@ See [DEP0059](https://nodejs.org/api/deprecations.html#DEP0059).
 
 ## Example
 
-Before:
+**Before:**
 
 ```js
 const util = require("node:util");
