@@ -37,9 +37,7 @@ export default function transform(root: SgRoot): string | null {
 	const linesToRemove: Range[] = [];
 	const bindsToReplace: BindingToReplace[] = [];
 
-	// @ts-expect-urror - ast-grep types are not fully compatible with JSSG types
 	const nodeRequires = getNodeRequireCalls(root, "util");
-	// @ts-expect-urror - ast-grep types are not fully compatible with JSSG types
 	const nodeImports = getNodeImportStatements(root, "util");
 	const path = "$.log";
 
