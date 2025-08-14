@@ -10,457 +10,363 @@ const oldImportModule = 'node:crypto'
 const newNamespace = 'tls';
 
 function handleNamespaceImport(
-	rootNode: SgRoot,
-	localNamespace: string,
-	declaration: SgNode<TypesMap, Kinds<TypesMap>>,
-	importType: 'require' | 'static' | 'dynamic-await'
+    rootNode: SgRoot,
+    localNamespace: string,
+    declaration: SgNode<TypesMap, Kinds<TypesMap>>,
+    importType: 'require' | 'static' | 'dynamic-await'
 ): Edit[] {
-	const allEdits: Edit[] = [];
+    const newNamespace = 'tls';
 
-	const usages = rootNode.root().findAll({
-		rule: {
-			kind: 'call_expression',
-			has: {
-				field: 'function',
-				kind: 'member_expression',
-				all: [
-					{ has: { field: 'object', regex: `^${localNamespace}$` } },
-					{ has: { field: 'property', regex: `^${oldFunctionName}$` } }
-				]
-			}
-		}
-	});
+    const usages = rootNode.root().findAll({
+        rule: {
+            kind: 'call_expression',
+            has: {
+                field: 'function',
+                kind: 'member_expression',
+                all: [
+                    { has: { field: 'object', regex: `^${localNamespace}$` } },
+                    { has: { field: 'property', regex: `^${oldFunctionName}$` } }
+                ]
+            }
+        }
+    });
 
-	if (usages.length === 0) {
-		return [];
-	}
+    if (usages.length === 0) {
+        return [];
+    }
 
-	for (const usage of usages) {
-		const func = usage.field('function');
-		if (func) {
-			allEdits.push(func.replace(`${newNamespace}.${newImportFunction}`));
-		}
-	}
+    const usageEdits = usages
+        .map(usage => usage.field('function'))
+        .filter((func): func is SgNode<TypesMap, Kinds<TypesMap>> => Boolean(func))
+        .map(func => func.replace(`${newNamespace}.${newImportFunction}`));
 
-	let newImportStatement = '';
-	switch (importType) {
-		case 'require':
-			newImportStatement = `const ${newNamespace} = require('${newImportModule}');`;
-			break;
-		case 'static':
-			newImportStatement = `import * as ${newNamespace} from '${newImportModule}';`;
-			break;
-		case 'dynamic-await':
-			newImportStatement = `const ${newNamespace} = await import('${newImportModule}');`;
-			break;
-	}
-
-	allEdits.push(declaration.replace(newImportStatement));
-
-	return allEdits;
+    switch (importType) {
+        case 'require':
+            return [...usageEdits, declaration.replace(`const ${newNamespace} = require('${newImportModule}');`)];
+        case 'static':
+            return [...usageEdits, declaration.replace(`import * as ${newNamespace} from '${newImportModule}';`)];
+        case 'dynamic-await':
+            return [...usageEdits, declaration.replace(`const ${newNamespace} = await import('${newImportModule}');`)];
+    }
 }
 
 function handleDestructuredImport(
-	rootNode: SgRoot,
-	idNode: SgNode<TypesMap, Kinds<TypesMap>>,
-	declaration: SgNode<TypesMap, Kinds<TypesMap>>,
-	importType: 'require' | 'static' | 'dynamic-await'
+    rootNode: SgRoot,
+    idNode: SgNode<TypesMap, Kinds<TypesMap>>,
+    declaration: SgNode<TypesMap, Kinds<TypesMap>>,
+    importType: 'require' | 'static' | 'dynamic-await'
 ): Edit[] {
-	let localFunctionName: string | null = null;
-	let targetSpecifierNode: SgNode | null = null;
-	let isAliased = false;
+    let localFunctionName: string | null = null;
+    let targetSpecifierNode: SgNode | null = null;
+    let isAliased = false;
 
-	const relevantSpecifiers = idNode.children().filter(
-		child => ['pair_pattern', 'shorthand_property_identifier_pattern', 'import_specifier'].includes(child.kind() as string)
-	);
+    const relevantSpecifiers = idNode.children().filter(
+        child => child.kind() === 'pair_pattern' 
+            || child.kind() === 'shorthand_property_identifier_pattern' 
+            || child.kind() === 'import_specifier'
+    );
 
-	for (const spec of relevantSpecifiers) {
-		let keyNode: SgNode<TypesMap, Kinds<TypesMap>> | null = null;
+    for (const spec of relevantSpecifiers) {
+        let keyNode: SgNode<TypesMap, Kinds<TypesMap>> | null = null;
 		let aliasNode: SgNode<TypesMap, Kinds<TypesMap>> | null = null;
 
-		if (spec.kind() === 'import_specifier') {
-			keyNode = spec.field('name');
-			aliasNode = spec.field('alias');
-		} else if (spec.kind() === 'pair_pattern') {
-			keyNode = spec.field('key');
-			aliasNode = spec.field('value');
-		} else {
-			keyNode = spec;
-		}
+        if (spec.kind() === 'import_specifier') {
+            keyNode = spec.field('name');
+            aliasNode = spec.field('alias');
+        } else if (spec.kind() === 'pair_pattern') {
+            keyNode = spec.field('key');
+            aliasNode = spec.field('value');
+        } else {
+            keyNode = spec;
+        }
 
-		if (keyNode?.text() === oldFunctionName) {
-			targetSpecifierNode = spec;
-			isAliased = Boolean(aliasNode);
-			localFunctionName = isAliased ? aliasNode!.text() : keyNode!.text();
-			break;
-		}
-	}
+        if (keyNode?.text() === oldFunctionName) {
+            targetSpecifierNode = spec;
+            isAliased = Boolean(aliasNode);
+            localFunctionName = isAliased ? aliasNode!.text() : keyNode!.text();
+            break;
+        }
+    }
 
-	if (localFunctionName && targetSpecifierNode) {
-		const allEdits: Edit[] = [];
+    if (localFunctionName && targetSpecifierNode) {
+        const allEdits: Edit[] = [];
 
-		if (!isAliased) {
-			const usageEdits = findAndReplaceUsages(rootNode, localFunctionName, newImportFunction);
-			allEdits.push(...usageEdits);
-		}
+        if (!isAliased) {
+            allEdits.push(...findAndReplaceUsages(rootNode, localFunctionName, newImportFunction));
+        }
 
-		const aliasSeparator = importType === 'static' ? ' as' : ':';
-		const newImportSpecifier = isAliased
-			? `{ ${newImportFunction}${aliasSeparator} ${localFunctionName} }`
-			: `{ ${newImportFunction} }`;
+        const aliasSeparator = importType === 'static' ? ' as' : ':';
+        const newImportSpecifier = isAliased
+            ? `{ ${newImportFunction}${aliasSeparator} ${localFunctionName} }`
+            : `{ ${newImportFunction} }`;
 
-		let newImportStatement = '';
-		switch (importType) {
-			case 'require':
-				newImportStatement = `const ${newImportSpecifier} = require('${newImportModule}');`;
-				break;
-			case 'static':
-				newImportStatement = `import ${newImportSpecifier} from '${newImportModule}';`;
-				break;
-			case 'dynamic-await':
-				newImportStatement = `const ${newImportSpecifier} = await import('${newImportModule}');`;
-				break;
-		}
+        let newImportStatement = '';
+        switch (importType) {
+            case 'require':
+                newImportStatement = `const ${newImportSpecifier} = require('${newImportModule}');`;
+                break;
+            case 'static':
+                newImportStatement = `import ${newImportSpecifier} from '${newImportModule}';`;
+                break;
+            case 'dynamic-await':
+                newImportStatement = `const ${newImportSpecifier} = await import('${newImportModule}');`;
+                break;
+        }
 
-		const otherSpecifiers = relevantSpecifiers.filter(s => s !== targetSpecifierNode);
-		if (otherSpecifiers.length > 0) {
-			const otherSpecifiersText = otherSpecifiers.map(s => s.text()).join(', ');
-			let modifiedOldImport = '';
-			switch (importType) {
-				case 'require':
-					modifiedOldImport = `const { ${otherSpecifiersText} } = require('${oldImportModule}');`;
-					break;
-				case 'static':
-					modifiedOldImport = `import { ${otherSpecifiersText} } from '${oldImportModule}';`;
-					break;
-				case 'dynamic-await':
-					modifiedOldImport = `const { ${otherSpecifiersText} } = await import('${oldImportModule}');`;
-					break;
-			}
-			const replacementText = `${modifiedOldImport}${EOL}${newImportStatement}`;
-			allEdits.push(declaration.replace(replacementText));
-		} else {
-			allEdits.push(declaration.replace(newImportStatement));
-		}
+        const otherSpecifiers = relevantSpecifiers.filter(s => s !== targetSpecifierNode);
+        if (otherSpecifiers.length > 0) {
+            let modifiedOldImport = '';
+            const otherSpecifiersText = otherSpecifiers.map(s => s.text()).join(', ');
+            switch (importType) {
+                case 'require':
+                    modifiedOldImport = `const { ${otherSpecifiersText} } = require('${oldImportModule}');`;
+                    break;
+                case 'static':
+                    modifiedOldImport = `import { ${otherSpecifiersText} } from '${oldImportModule}';`;
+                    break;
+                case 'dynamic-await':
+                    modifiedOldImport = `const { ${otherSpecifiersText} } = await import('${oldImportModule}');`;
+                    break;
+            }
+            allEdits.push(declaration.replace(`${modifiedOldImport}${EOL}${newImportStatement}`));
+        } else {
+            allEdits.push(declaration.replace(newImportStatement));
+        }
 
-		return allEdits;
-	}
+        return allEdits;
+    }
 
-	return [];
+    return [];
 }
-
 function findAndReplaceUsages(
-	rootNode: SgRoot,
-	localFunctionName: string,
-	newFunctionName: string,
-	object: string | null = null
+    rootNode: SgRoot,
+    localFunctionName: string,
+    newFunctionName: string,
+    object: string | null = null
 ): Edit[] {
-	const edits: Edit[] = [];
+    const functionRule = object
+        ? {
+            field: 'function',
+            kind: 'member_expression',
+            all: [
+                { has: { field: 'object', regex: `^${object}$` } },
+                { has: { field: 'property', regex: `^${localFunctionName}$` } }
+            ]
+          }
+        : {
+            field: 'function',
+            kind: 'identifier',
+            regex: `^${localFunctionName}$`
+          };
 
-	if (object) {
-		const usages = rootNode.root().findAll({
-			rule: {
-				kind: 'call_expression',
-				has: {
-					field: 'function',
-					kind: 'member_expression',
-					all: [
-						{ has: { field: 'object', regex: `^${object}$` } },
-						{ has: { field: 'property', regex: `^${localFunctionName}$` } }
-					]
-				}
-			}
-		});
+    const usages = rootNode.root().findAll({
+        rule: {
+            kind: 'call_expression',
+            has: functionRule
+        }
+    });
 
-		for (const usage of usages) {
-			const memberExpressionNode = usage.field('function');
-			const propertyNode = memberExpressionNode?.field('property');
-			if (propertyNode) {
-				edits.push(propertyNode.replace(newFunctionName));
-			}
-		}
-	} else {
-		const usages = rootNode.root().findAll({
-			rule: {
-				kind: 'call_expression',
-				has: { field: 'function', kind: 'identifier', regex: `^${localFunctionName}$` },
-			},
-		});
+    return usages
+        .map(usage => {
+            const functionNode = usage.field('function');
+            if (!functionNode) return null;
 
-		for (const usage of usages) {
-			const functionNode = usage.field('function');
-			if (functionNode) {
-				edits.push(functionNode.replace(newFunctionName));
-			}
-		}
-	}
-	return edits;
+            const nodeToReplace = object ? functionNode.field('property') : functionNode;
+            return nodeToReplace ? nodeToReplace.replace(newFunctionName) : null;
+        })
+        .filter((edit): edit is Edit => Boolean(edit));
 }
 
 function handleRequire(
-	statement: SgNode<TypesMap, Kinds<TypesMap>>,
-	rootNode: SgRoot,
+  statement: SgNode<TypesMap, Kinds<TypesMap>>,
+  rootNode: SgRoot,
 ): Edit[] {
-	const idNode = statement.child(0);
-	const declaration = statement.parent();
+  const idNode = statement.child(0);
+  const declaration = statement.parent();
+  if (!idNode || !declaration) return [];
 
-	if (!idNode || !declaration) {
-		return [];
-	}
+  if (idNode.kind() === 'identifier')
+    return handleNamespaceImport(rootNode, idNode.text(), declaration, 'require');
 
-	// Handle Namespace Imports: const crypto = require('...')
-	if (idNode.kind() === 'identifier') {
-		const localNamespace = idNode.text();
-		return handleNamespaceImport(rootNode, localNamespace, declaration, 'require');
-	}
+  if (idNode.kind() === 'object_pattern')
+    return handleDestructuredImport(rootNode, idNode, declaration, 'require');
 
-	// Handle Destructured Imports: const { ... } = require('...')
-	if (idNode.kind() === 'object_pattern') {
-		return handleDestructuredImport(rootNode, idNode, declaration, 'require');
-	}
-
-	return [];
+  return [];
 }
 
 function handleStaticImport(
-	statement: SgNode<TypesMap, Kinds<TypesMap>>,
-	rootNode: SgRoot,
+  statement: SgNode<TypesMap, Kinds<TypesMap>>,
+  rootNode: SgRoot
 ): Edit[] {
+  const importClause = statement.child(1);
+  if (importClause?.kind() !== 'import_clause') return [];
 
-	const importClause = statement.child(1);
-	if (importClause?.kind() !== 'import_clause') {
-		return [];
-	}
-	// Detects: import * as crypto from '...'
-	const clauseContent = importClause.child(0);
-	if (!clauseContent) {
-		return [];
-	}
+  const content = importClause.child(0);
+  if (!content) return [];
 
-	// Handle Namespace Imports: import * as crypto from '...'
-	if (clauseContent.kind() === 'namespace_import') {
-		const localNamespace = clauseContent.find({ rule: { kind: 'identifier' } })?.text();
-		const allEdits: Edit[] = [];
+  // Namespace imports: import * as ns from '...'
+  if (content.kind() === 'namespace_import') {
+    const ns = content.find({ rule: { kind: 'identifier' } })?.text();
+    if (!ns) return [];
 
-		const usages = rootNode.root().findAll({
-			rule: {
-				kind: 'call_expression',
-				has: {
-					field: 'function',
-					kind: 'member_expression',
-					all: [
-						{ has: { field: 'object', regex: `^${localNamespace}$` } },
-						{ has: { field: 'property', regex: `^${oldFunctionName}$` } }
-					]
-				}
-			}
-		});
+    const usages = rootNode.root().findAll({
+      rule: {
+        kind: 'call_expression',
+        has: {
+          field: 'function',
+          kind: 'member_expression',
+          all: [
+            { has: { field: 'object', regex: `^${ns}$` } },
+            { has: { field: 'property', regex: `^${oldFunctionName}$` } }
+          ]
+        }
+      }
+    });
+    if (!usages.length) return [];
 
-		if (usages.length > 0) {
+    const edits = usages
+      .map(u => u.field('function')?.replace(`${newNamespace}.${newImportFunction}`))
+      .filter(Boolean);
+    edits.push(statement.replace(`import * as ${newNamespace} from '${newImportModule}';`));
+    return edits as Edit[];
+  }
 
-			for (const usage of usages) {
-				const func = usage.field('function');
-				if (func) {
-					allEdits.push(func.replace(`${newNamespace}.${newImportFunction}`));
-				}
-			}
+  // Named imports: import { x } from '...'
+  if (content.kind() === 'named_imports') {
+    const specs = content.children().filter(c => c.kind() === 'import_specifier');
+    const target = specs.find(s => s.field('name')?.text() === oldFunctionName);
+    if (!target) return [];
 
-			const newImportStatement = `import * as ${newNamespace} from '${newImportModule}';`;
-			allEdits.push(statement.replace(newImportStatement));
+    const aliasNode = target.field('alias');
+    const localName = aliasNode?.text() || target.field('name')?.text() || "";
+    const edits = aliasNode ? [] : findAndReplaceUsages(rootNode, localName, newImportFunction);
 
-			return allEdits;
-		}
-	}
+    const newSpec = aliasNode ? `{ ${newImportFunction} as ${localName} }` : `{ ${newImportFunction} }`;
+    const newStmt = `import ${newSpec} from '${newImportModule}';`;
+    const others = specs.filter(s => s !== target);
 
-	// Handle Named Imports: import { ... } from '...'
-	if (clauseContent.kind() === 'named_imports') {
-		const namedImportsNode = clauseContent;
-		let localFunctionName: string | null = null;
-		let targetSpecifierNode: SgNode | null = null;
-		let isAliased = false;
+    return [
+      ...edits,
+      others.length
+        ? statement.replace(
+            `import { ${others.map(s => s.text()).join(', ')} } from '${oldImportModule}';${EOL}${newStmt}`
+          )
+        : statement.replace(newStmt)
+    ];
+  }
 
-		const relevantSpecifiers = namedImportsNode.children().filter(
-			child => child.kind() === 'import_specifier'
-		);
-
-		for (const spec of relevantSpecifiers) {
-			const nameNode = spec.field('name');
-			const aliasNode = spec.field('alias');
-
-
-			if (nameNode?.text() === oldFunctionName) {
-				targetSpecifierNode = spec;
-				isAliased = Boolean(aliasNode);
-				localFunctionName = isAliased ? aliasNode!.text() : nameNode!.text();
-				break;
-			}
-		}
-
-		if (localFunctionName && targetSpecifierNode) {
-			const allEdits: Edit[] = [];
-			const declaration = statement;
-
-			if (!isAliased) {
-				const usageEdits = findAndReplaceUsages(rootNode, localFunctionName, newImportFunction);
-				allEdits.push(...usageEdits);
-			} else {
-			}
-
-			const newImportSpecifier = isAliased
-				? `{ ${newImportFunction} as ${localFunctionName} }`
-				: `{ ${newImportFunction} }`;
-			const newImportStatement = `import ${newImportSpecifier} from '${newImportModule}';`;
-
-			const otherSpecifiers = relevantSpecifiers.filter(s => s !== targetSpecifierNode);
-			if (otherSpecifiers.length > 0) {
-				const modifiedOldImport = `import { ${otherSpecifiers.map(s => s.text()).join(', ')} } from '${oldImportModule}';`;
-				const replacementText = `${modifiedOldImport}${EOL}${newImportStatement}`;
-				allEdits.push(declaration.replace(replacementText));
-			} else {
-				allEdits.push(declaration.replace(newImportStatement));
-			}
-
-			return allEdits;
-		}
-	}
-
-	return [];
+  return [];
 }
 
+
 function handleDynamicImport(
-	statement: SgNode<TypesMap, Kinds<TypesMap>>,
-	rootNode: SgRoot,
+  statement: SgNode<TypesMap, Kinds<TypesMap>>,
+  rootNode: SgRoot,
 ): Edit[] {
+  const valueNode = statement.field('value');
+  const idNode = statement.child(0);
+  const declaration = statement.parent();
 
-	const valueNode = statement.field('value');
-	const idNode = statement.child(0);
-	const declaration = statement.parent();
+  // must be `const ... = await import(...)` and have a parent declaration
+  if (valueNode?.kind() !== 'await_expression' || !declaration) return [];
 
-	if (valueNode?.kind() === 'await_expression') {
-		if (!declaration) {
-			return [];
-		}
+  // Case 1: `const ns = await import(...)`
+  if (idNode?.kind() === 'identifier') {
+    const localNamespace = idNode.text();
+    if (!localNamespace) return [];
 
-		// Detects: const crypto = await import(...)
-		if (idNode?.kind() === 'identifier') {
-			const localNamespace = idNode.text();
-			const allEdits: Edit[] = [];
+    const usages = rootNode.root().findAll({
+      rule: {
+        kind: 'call_expression',
+        has: {
+          field: 'function',
+          kind: 'member_expression',
+          all: [
+            { has: { field: 'object', regex: `^${localNamespace}$` } },
+            { has: { field: 'property', regex: `^${oldFunctionName}$` } }
+          ]
+        }
+      }
+    });
 
-			const usages = rootNode.root().findAll({
-				rule: {
-					kind: 'call_expression',
-					has: {
-						field: 'function',
-						kind: 'member_expression',
-						all: [
-							{ has: { field: 'object', regex: `^${localNamespace}$` } },
-							{ has: { field: 'property', regex: `^${oldFunctionName}$` } }
-						]
-					}
-				}
-			});
+    if (!usages.length) return [];
 
-			if (usages.length > 0) {
-				for (const usage of usages) {
-					const func = usage.field('function');
-					if (func) {
-						allEdits.push(func.replace(`${newNamespace}.${newImportFunction}`));
-					}
-				}
+    const edits = usages
+      .map(u => u.field('function')?.replace(`${newNamespace}.${newImportFunction}`))
+      .filter(Boolean) as Edit[];
 
-				const newImportStatement = `const ${newNamespace} = await import('${newImportModule}');`;
-				allEdits.push(declaration.replace(newImportStatement));
+    edits.push(declaration.replace(`const ${newNamespace} = await import('${newImportModule}');`));
+    return edits;
+  }
 
-				return allEdits;
-			}
-		}
+  // Case 2: `const { ... } = await import(...)`
+  if (idNode?.kind() === 'object_pattern') {
+    const specifiers = idNode.children().filter(
+      c => c.kind() === 'pair_pattern' || c.kind() === 'shorthand_property_identifier_pattern'
+    );
 
-		// Detects: const { ... } = await import(...)
-		if (idNode?.kind() === 'object_pattern') {
-			let localFunctionName: string | null = null;
-			let targetSpecifierNode: SgNode | null = null;
-			let isAliased = false;
+    let targetSpecifier: SgNode | null = null;
+    let localFunctionName: string | null | undefined = null;
+    let isAliased = false;
 
-			const relevantSpecifiers = idNode.children().filter(
-				child => child.kind() === 'pair_pattern' || child.kind() === 'shorthand_property_identifier_pattern'
-			);
+    for (const spec of specifiers) {
+      const keyNode = spec.kind() === 'pair_pattern' ? spec.field('key') : spec;
+      if (keyNode?.text() === oldFunctionName) {
+        targetSpecifier = spec;
+        isAliased = spec.kind() === 'pair_pattern';
+        localFunctionName = isAliased ? spec.field('value')?.text() : keyNode.text();
+        break;
+      }
+    }
 
-			for (const spec of relevantSpecifiers) {
-				const key = spec.kind() === 'pair_pattern' ? spec.field('key') : spec;
-				if (key?.text() === oldFunctionName) {
-					targetSpecifierNode = spec;
-					isAliased = spec.kind() === 'pair_pattern';
-					localFunctionName = isAliased ? spec.field('value')!.text() : key.text();
-					break;
-				}
-			}
+    if (!localFunctionName || !targetSpecifier) return [];
 
-			if (localFunctionName && targetSpecifierNode) {
-				const allEdits: Edit[] = [];
+    const edits: Edit[] = [];
+    if (!isAliased) edits.push(...findAndReplaceUsages(rootNode, localFunctionName, newImportFunction));
 
-				if (!isAliased) {
-					const usageEdits = findAndReplaceUsages(rootNode, localFunctionName, newImportFunction);
-					allEdits.push(...usageEdits);
-				} else {
-				}
+    const newImportSpecifier = isAliased
+      ? `{ ${newImportFunction}: ${localFunctionName} }`
+      : `{ ${newImportFunction} }`;
 
-				const newImportSpecifier = isAliased
-					? `{ ${newImportFunction}: ${localFunctionName} }`
-					: `{ ${newImportFunction} }`;
-				const newImportStatement = `const ${newImportSpecifier} = await import('${newImportModule}');`;
+    const newImportStmt = `const ${newImportSpecifier} = await import('${newImportModule}');`;
 
-				const otherSpecifiers = relevantSpecifiers.filter(s => s !== targetSpecifierNode);
-				if (otherSpecifiers.length > 0) {
-					const modifiedOldImport = `const { ${otherSpecifiers.map(s => s.text()).join(', ')} } = await import('${oldImportModule}');`;
-					const replacementText = `${modifiedOldImport}${EOL}${newImportStatement}`;
-					allEdits.push(declaration.replace(replacementText));
-				} else {
-					allEdits.push(declaration.replace(newImportStatement));
-				}
+    const otherSpecifiers = specifiers.filter(s => s !== targetSpecifier);
+    if (otherSpecifiers.length) {
+      const remaining = `const { ${otherSpecifiers.map(s => s.text()).join(', ')} } = await import('${oldImportModule}');`;
+      edits.push(declaration.replace(`${remaining}${EOL}${newImportStmt}`));
+    } else {
+      edits.push(declaration.replace(newImportStmt));
+    }
 
-				return allEdits;
-			}
-		}
-	}
+    return edits;
+  }
 
-	return [];
+  return [];
 }
 
 export default function transform(root: SgRoot): string | null {
-	const rootNode = root.root();
-	const allEdits: Edit[] = [];
-	let wasTransformed = false;
+  const rootNode = root.root();
+  const allEdits: Edit[] = [];
+  let wasTransformed = false;
 
-	// @ts-ignore
-	const requireImports = getNodeRequireCalls(root, 'crypto');
-	// @ts-ignore
-	const staticImports = getNodeImportStatements(root, 'crypto');
-	// @ts-ignore
-	const dynamicImports = getNodeImportCalls(root, 'crypto');
+  const sources: [SgNode[] | undefined, (n: SgNode, r: SgRoot) => Edit[]][] = [
+    // @ts-ignore
+    [getNodeRequireCalls(root, 'crypto'), handleRequire],
+    // @ts-ignore
+    [getNodeImportStatements(root, 'crypto'), handleStaticImport],
+    // @ts-ignore
+    [getNodeImportCalls(root, 'crypto'), handleDynamicImport],
+  ];
 
-	for (const requireCall of requireImports) {
-		const edits = handleRequire(requireCall, root);
-		if (edits.length > 0) {
-			wasTransformed = true;
-			allEdits.push(...edits);
-		}
-	}
+  for (const [nodes, handler] of sources) {
+    for (const node of nodes || []) {
+      const edits = handler(node, root);
+      if (edits.length) {
+        wasTransformed = true;
+        allEdits.push(...edits);
+      }
+    }
+  }
 
-	for (const staticImport of staticImports) {
-		const edits = handleStaticImport(staticImport, root);
-		if (edits.length > 0) {
-			wasTransformed = true;
-			allEdits.push(...edits);
-		}
-	}
-
-	for (const dynamicImport of dynamicImports) {
-		const edits = handleDynamicImport(dynamicImport, root);
-		if (edits.length > 0) {
-			wasTransformed = true;
-			allEdits.push(...edits);
-		}
-	}
-
-	return wasTransformed ? rootNode.commitEdits(allEdits) : null;
+  return wasTransformed ? rootNode.commitEdits(allEdits) : null;
 }
