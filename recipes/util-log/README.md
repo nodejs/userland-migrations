@@ -21,7 +21,7 @@ console.log(new Date().toLocaleString(), 'Hello world');
 Case 2: Destructured import with only log
 ```
 
-Before:
+**Before:**
 
 ```js
 const { log } = require("node:util");
