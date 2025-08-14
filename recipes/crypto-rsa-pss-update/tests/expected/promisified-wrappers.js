@@ -40,7 +40,24 @@ crypto.generateKeyPair('rsa-pss', {
   hashAlgorithm: 'sha256'
 });
 
-// Case 6: Non-rsa-pss should not transform
+// Case 6: Destructured promisify import
+const { promisify } = require('util');
+const promisifyGenerate = promisify(crypto.generateKeyPair);
+
+promisifyGenerate('rsa-pss', {
+  hashAlgorithm: 'sha256',
+  mgf1HashAlgorithm: 'sha1'
+});
+
+// Case 7: Mixed destructured imports
+const { promisify: p } = require('util');
+const aliasedPromisify = p(crypto.generateKeyPair);
+
+aliasedPromisify('rsa-pss', {
+  mgf1HashAlgorithm: 'sha512'
+});
+
+// Case 8: Non-rsa-pss should not transform
 generateKeyPairAsync('rsa', {
   hash: 'sha256'
 });

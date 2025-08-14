@@ -171,7 +171,7 @@ function processRsaPssCalls(rootNode: SgNode<JS>, allCalls: SgNode<JS>[]): { edi
 					}
 				}) || pair.find({
 					rule: {
-						kind: "conditional_expression"  // For cases like condition ? 'sha512' : 'sha256'
+						kind: "ternary_expression"  // For cases like condition ? 'sha512' : 'sha256'
 					}
 				});
 
@@ -230,30 +230,58 @@ function getCryptoBindings(root: SgRoot<JS>): string[] {
  * Find promisified wrappers that use crypto bindings discovered by resolveBindingPath
  */
 function getPromisifiedBindings(root: SgRoot<JS>, existingBindings: string[]): string[] {
-	const promisifiedBindings: string[] = [];
+	const foundPromisifiedBindings: string[] = [];
 	const rootNode = root.root();
 
-	for (const binding of existingBindings) {
-		// Find: const someVar = util.promisify(crypto.generateKeyPair)
-		// or:   const someVar = util.promisify(generateKeyPair) 
-		const promisified = rootNode.findAll({
-			rule: {
-				pattern: `const $BINDING = util.promisify(${binding})`
-			}
-		});
+	// Get util imports to resolve promisify bindings
+	// @ts-ignore - ast-grep types compatibility
+	const utilImportStatements = getNodeImportStatements(root, "util");
+	// @ts-ignore - ast-grep types compatibility
+	const utilRequireCalls = getNodeRequireCalls(root, "util");
 
-		for (const decl of promisified) {
-			const bindingMatch = decl.getMatch("BINDING");
-			if (bindingMatch) {
-				const bindingName = bindingMatch.text()?.trim();
-				if (bindingName) {
-					promisifiedBindings.push(bindingName);
+	// Resolve promisify bindings from util imports
+	const promisifyBindings: string[] = [];
+	for (const stmt of [...utilImportStatements, ...utilRequireCalls]) {
+		const promisifyBinding = resolveBindingPath(stmt, "$.promisify");
+		if (promisifyBinding) {
+			promisifyBindings.push(promisifyBinding);
+		}
+	}
+
+	// If no promisify bindings found, check if there's a util import for fallback
+	if (promisifyBindings.length === 0 && [...utilImportStatements, ...utilRequireCalls].length > 0) {
+		promisifyBindings.push("util.promisify");
+	}
+
+	for (const binding of existingBindings) {
+		for (const promisifyBinding of promisifyBindings) {
+			// Find: const someVar = promisify(crypto.generateKeyPair)
+			// or:   const someVar = util.promisify(crypto.generateKeyPair)
+			const patterns = [
+				`const $BINDING = ${promisifyBinding}(${binding})`,
+				`let $BINDING = ${promisifyBinding}(${binding})`,
+				`var $BINDING = ${promisifyBinding}(${binding})`
+			];
+
+			for (const pattern of patterns) {
+				const promisified = rootNode.findAll({
+					rule: { pattern }
+				});
+
+				for (const decl of promisified) {
+					const bindingMatch = decl.getMatch("BINDING");
+					if (bindingMatch) {
+						const bindingName = bindingMatch.text()?.trim();
+						if (bindingName && !foundPromisifiedBindings.includes(bindingName)) {
+							foundPromisifiedBindings.push(bindingName);
+						}
+					}
 				}
 			}
 		}
 	}
 
-	return promisifiedBindings;
+	return foundPromisifiedBindings;
 }
 
 /**
