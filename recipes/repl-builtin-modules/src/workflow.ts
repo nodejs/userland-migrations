@@ -3,7 +3,9 @@ import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-s
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
-import type Js from "@codemod.com/jssg-types/langs/javascript";
+
+const containsBuiltinProperties = (text: string): boolean =>
+    text.includes("builtinModules") || text.includes("_builtinLibs");
 
 /**
  * Transform function that converts deprecated repl.builtinModules and repl._builtinLibs
@@ -21,16 +23,9 @@ import type Js from "@codemod.com/jssg-types/langs/javascript";
  * 7. const { _builtinLibs } = require('node:repl'); → const { builtinModules } = require('node:module');
  * 8. import { _builtinLibs } from 'node:repl'; → import { builtinModules } from 'node:module';
  */
-export default function transform(root: SgRoot<Js>): string | null {
+export default function transform(root: SgRoot): string | null {
     const rootNode = root.root();
     const edits: Edit[] = [];
-
-    // Helper functions
-    const getNewModuleSpecifier = (currentModule: string): string =>
-        currentModule.includes("node:") ? "'node:module'" : "'module'";
-
-    const containsBuiltinProperties = (text: string): boolean =>
-        text.includes("builtinModules") || text.includes("_builtinLibs");
 
     const replaceStandaloneBuiltinLibsReferences = (): void => {
         const standaloneReferences = rootNode.findAll({
@@ -55,15 +50,13 @@ export default function transform(root: SgRoot<Js>): string | null {
         const moduleSpecifier = statement.find({ rule: { kind: "string" } });
 
         if (moduleSpecifier) {
-            const currentModule = moduleSpecifier.text();
-            const newModule = getNewModuleSpecifier(currentModule);
-
+            // Always use 'node:module'
+            const newModule = "'node:module'";
             edits.push(moduleSpecifier.replace(newModule));
         }
     };
 
     // Step 1: Handle require statements
-    // @ts-ignore - ast-grep types are not fully compatible with JSSG types
     const replRequireStatements = getNodeRequireCalls(root, "repl");
 
     for (const statement of replRequireStatements) {
@@ -80,10 +73,10 @@ export default function transform(root: SgRoot<Js>): string | null {
                     rule: { kind: "pair_pattern" }
                 });
 
-                // Check if only builtin properties are destructured
-                const builtinShorthandCount = properties.filter(p =>
-                    ["builtinModules", "_builtinLibs"].includes(p.text())
-                ).length;
+				// Check if only builtin properties are destructured
+				const builtinShorthandCount = properties.filter(p =>
+					containsBuiltinProperties(p.text())
+				).length;
 
                 const builtinPairCount = pairProperties.filter(p =>
                     containsBuiltinProperties(p.text())
@@ -105,8 +98,8 @@ export default function transform(root: SgRoot<Js>): string | null {
                     }
                 } else {
                     // Split into two statements
-                    const propertiesToKeep = [];
-                    const builtinAliases = []; // Change to array to handle multiple aliases
+                    const propertiesToKeep: string[] = [];
+                    const builtinAliases: string[] = []; // Change to array to handle multiple aliases
 
                     for (const prop of properties) {
                         const propText = prop.text();
@@ -118,21 +111,18 @@ export default function transform(root: SgRoot<Js>): string | null {
                     for (const prop of pairProperties) {
                         const propText = prop.text();
 
-						if (containsBuiltinProperties(propText)) {
+                        if (containsBuiltinProperties(propText)) {
                             // Extract alias from pair pattern like "builtinModules: alias" or "_builtinLibs: alias"
                             const keyNode = prop.find({ rule: { kind: "property_identifier" } });
                             const valueNode = prop.find({ rule: { kind: "identifier" } });
 
-                            if (
+							if (
 								keyNode &&
 								valueNode &&
-                                (
-									keyNode.text() === "builtinModules" ||
-									keyNode.text() === "_builtinLibs"
-								)
+								containsBuiltinProperties(keyNode.text())
 							) {
-                                builtinAliases.push(valueNode.text());
-                            }
+								builtinAliases.push(valueNode.text());
+							}
                         } else {
                             propertiesToKeep.push(propText);
                         }
@@ -144,7 +134,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
                         if (variableDeclaration && moduleSpecifier) {
                             const currentModule = moduleSpecifier.text();
-                            const newModule = getNewModuleSpecifier(currentModule);
+                            const newModule = "'node:module'";
 
                             const reconstructedText = `{ ${propertiesToKeep.join(", ")} }`;
                             const firstStatement = `const ${reconstructedText} = require(${currentModule});`;
@@ -165,11 +155,11 @@ export default function transform(root: SgRoot<Js>): string | null {
                                     const parent = ref.parent();
 
                                     if (
-										parent &&
+                                        parent &&
                                         parent.kind() !== "object_pattern" &&
                                         parent.kind() !== "pair_pattern" &&
                                         parent.kind() !== "variable_declarator"
-									) {
+                                    ) {
                                         edits.push(ref.replace("builtinModules"));
                                     }
                                 }
@@ -218,7 +208,6 @@ export default function transform(root: SgRoot<Js>): string | null {
     }
 
     // Step 2: Handle import statements
-    // @ts-ignore - ast-grep types are not fully compatible with JSSG types
     const replImportStatements = getNodeImportStatements(root, "repl");
 
     for (const statement of replImportStatements) {
@@ -255,8 +244,7 @@ export default function transform(root: SgRoot<Js>): string | null {
                     const moduleSpecifier = statement.find({ rule: { kind: "string" } });
 
                     if (moduleSpecifier) {
-                        const currentModule = moduleSpecifier.text();
-                        const newModule = getNewModuleSpecifier(currentModule);
+                        const newModule = "'node:module'";
                         const aliasMatch = originalText.match(/(builtinModules|_builtinLibs)\s*(as\s+\w+)/);
                         const aliasText = aliasMatch ? ` ${aliasMatch[2]}` : "";
                         const newStatement = `import { builtinModules${aliasText} } from ${newModule};`;
