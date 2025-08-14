@@ -1,7 +1,7 @@
 schema_version: "1.0"
 name: "@nodejs/util-log"
 version: 1.0.0
-description: Handle DEP0059 via transforming `log.util($$$ARG)` to `console.log(new Date().toLocaleString(), $$$ARG)`.
+description: Handle DEP0059 via transforming `log.util()` to `console.log()`.
 author: Bruno Rodrigues
 license: MIT
 workflow: workflow.yaml

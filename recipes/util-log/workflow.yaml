@@ -7,7 +7,7 @@ nodes:
     name: Apply AST Transformations
     type: automatic
     steps:
-      - name: Handle DEP0059 via transforming `log.util($$$ARG)` to `console.log(new Date().toLocaleString(), $$$ARG)`.
+      - name: Handle DEP0059 via transforming `log.util()` to `console.log()`
         js-ast-grep:
           js_file: src/workflow.ts
           base_path: .
