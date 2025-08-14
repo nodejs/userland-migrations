@@ -81,6 +81,10 @@ export default function transform(root: SgRoot<JS>): string | null {
 					rule: {
 						kind: "identifier"
 					}
+				}) || pair.find({
+					rule: {
+						kind: "template_string"
+					}
 				});
 
 				if (!valueNode) continue;
