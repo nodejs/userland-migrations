@@ -1,271 +1,502 @@
 import { EOL } from 'node:os';
-import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
+import type { SgRoot, Edit, SgNode, Kinds, TypesMap } from "@codemod.com/jssg-types/main";
+import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
+import { getNodeImportCalls, getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 
-type TlsImportState = {
-    added: boolean;
-    identifier: string;
-};
+const newImportFunction = 'createSecureContext'
+const newImportModule = 'node:tls'
+const oldFunctionName = 'createCredentials';
+const oldImportModule = 'node:crypto'
 
-type HandlerResult = {
-    edits: Edit[];
-    wasTransformed: boolean;
-    newState: TlsImportState;
-};
+function handleNamespaceImport(
+	rootNode: SgRoot,
+	localNamespace: string,
+	declaration: SgNode<TypesMap, Kinds<TypesMap>>,
+	importType: 'require' | 'static' | 'dynamic-await'
+): Edit[] {
+	const allEdits: Edit[] = [];
+	const newNamespace = 'tls';
 
-type EnsureTlsResult = {
-    edits: Edit[];
-    identifier: string; // The identifier that was used or found
-    newState: TlsImportState;
-};
+	const usages = rootNode.root().findAll({
+		rule: {
+			kind: 'call_expression',
+			has: {
+				field: 'function',
+				kind: 'member_expression',
+				all: [
+					{ has: { field: 'object', regex: `^${localNamespace}$` } },
+					{ has: { field: 'property', regex: `^${oldFunctionName}$` } }
+				]
+			}
+		}
+	});
 
-type ImportType =
-    | 'DESTRUCTURED_REQUIRE'
-    | 'NAMESPACE_REQUIRE'
-    | 'DESTRUCTURED_IMPORT'
-    | 'NAMESPACE_IMPORT';
+	if (usages.length === 0) {
+		return [];
+	}
 
-const newImportModule = 'node:tls';
-const newImportFunction = 'createSecureContext';
+	for (const usage of usages) {
+		const func = usage.field('function');
+		if (func) {
+			allEdits.push(func.replace(`${newNamespace}.${newImportFunction}`));
+		}
+	}
 
-function getImportHelpers(importType: ImportType) {
-    const isEsm =
-        importType === 'DESTRUCTURED_IMPORT' || importType === 'NAMESPACE_IMPORT';
+	let newImportStatement = '';
+	switch (importType) {
+		case 'require':
+			newImportStatement = `const ${newNamespace} = require('${newImportModule}');`;
+			break;
+		case 'static':
+			newImportStatement = `import * as ${newNamespace} from '${newImportModule}';`;
+			break;
+		case 'dynamic-await':
+			newImportStatement = `const ${newNamespace} = await import('${newImportModule}');`;
+			break;
+	}
 
-    return {
-        isEsm,
-        createNamespaceImport: (id: string, mod: string) =>
-            isEsm
-                ? `import * as ${id} from '${mod}'`
-                : `const ${id} = require('${mod}')`,
-        createDestructuredImport: (specifier: string, mod: string) =>
-            isEsm
-                ? `import { ${specifier} } from '${mod}'`
-                : `const { ${specifier} } = require('${mod}')`,
-        getStatementNode: (match: SgNode): SgNode | null =>
-            isEsm ? match : match.parent(),
-    };
-}
+	allEdits.push(declaration.replace(newImportStatement));
 
-
-function ensureTlsImport(
-    rootNode: SgNode,
-    importType: ImportType,
-    currentState: TlsImportState,
-): EnsureTlsResult {
-    if (currentState.added) {
-        return { edits: [], identifier: currentState.identifier, newState: currentState };
-    }
-
-    const helpers = getImportHelpers(importType);
-    const findRule = {
-        rule: {
-            kind: helpers.isEsm ? 'import_statement' : 'variable_declarator',
-            has: {
-                field: helpers.isEsm ? 'source' : 'value',
-                has: { regex: `^['"](node:)?tls['"]$` },
-            },
-        },
-    };
-    const existingTlsImport = rootNode.find(findRule);
-
-    if (existingTlsImport) {
-        const nameNode = existingTlsImport.field('name');
-        if (nameNode?.is('identifier')) {
-            const foundIdentifier = nameNode.text();
-            return {
-                edits: [],
-                identifier: foundIdentifier,
-                newState: { added: true, identifier: foundIdentifier },
-            };
-        }
-    }
-
-    const firstNode = rootNode.children()[0];
-    if (!firstNode) {
-        return { edits: [], identifier: currentState.identifier, newState: currentState };
-    }
-
-    const tlsIdentifier = currentState.identifier;
-    const newImportText = `${helpers.createNamespaceImport(tlsIdentifier, 'node:tls')};${EOL}`;
-    const edit: Edit = {
-        startPos: firstNode.range().start.index,
-        endPos: firstNode.range().start.index,
-        insertedText: newImportText,
-    };
-
-    return {
-        edits: [edit],
-        identifier: tlsIdentifier,
-        newState: { added: true, identifier: tlsIdentifier },
-    };
+	return allEdits;
 }
 
 function handleDestructuredImport(
-    statement: SgNode,
-    rootNode: SgNode,
-    currentState: TlsImportState,
-    importType: ImportType,
-): HandlerResult {
-    const localEdits: Edit[] = [];
-    const helpers = getImportHelpers(importType);
+	rootNode: SgRoot,
+	idNode: SgNode<TypesMap, Kinds<TypesMap>>,
+	declaration: SgNode<TypesMap, Kinds<TypesMap>>,
+	importType: 'require' | 'static' | 'dynamic-await'
+): Edit[] {
+	let localFunctionName: string | null = null;
+	let targetSpecifierNode: SgNode | null = null;
+	let isAliased = false;
 
-    const specifiersNode = helpers.isEsm
-        ? statement.find({ rule: { kind: 'named_imports' } }) ?? statement.field('imports')
-        : statement.find({ rule: { kind: 'variable_declarator' } })?.field('name');
+	const relevantSpecifiers = idNode.children().filter(
+		child => ['pair_pattern', 'shorthand_property_identifier_pattern', 'import_specifier'].includes(child.kind() as string)
+	);
 
-    if (!specifiersNode) {
-        return { edits: [], wasTransformed: false, newState: currentState };
-    }
+	for (const spec of relevantSpecifiers) {
+		let keyNode, aliasNode;
 
-    const destructuredProps = specifiersNode.findAll({ rule: { any: [{ kind: 'shorthand_property_identifier_pattern' }, { kind: 'import_specifier' }]}});
-    const createCredentialsNode = destructuredProps.find((id) => id.text() === 'createCredentials');
+		if (spec.kind() === 'import_specifier') {
+			keyNode = spec.field('name');
+			aliasNode = spec.field('alias');
+		} else if (spec.kind() === 'pair_pattern') {
+			keyNode = spec.field('key');
+			aliasNode = spec.field('value');
+		} else {
+			keyNode = spec;
+		}
 
-    if (!createCredentialsNode) {
-        return { edits: [], wasTransformed: false, newState: currentState };
-    }
+		if (keyNode?.text() === oldFunctionName) {
+			targetSpecifierNode = spec;
+			isAliased = Boolean(aliasNode);
+			localFunctionName = isAliased ? aliasNode!.text() : keyNode!.text();
+			break;
+		}
+	}
 
-    const usages = rootNode.findAll({ rule: { kind: 'call_expression', has: { field: 'function', kind: 'identifier', regex: '^createCredentials$' }}});
-    for (const usage of usages) {
-        usage.field('function')?.replace('createSecureContext');
-    }
+	if (localFunctionName && targetSpecifierNode) {
+		const allEdits: Edit[] = [];
 
-    const newImportStatement = `${helpers.createDestructuredImport(newImportFunction, newImportModule)};`;
-    let finalState = currentState;
+		if (!isAliased) {
+			const usageEdits = findAndReplaceUsages(rootNode, localFunctionName, newImportFunction);
+			allEdits.push(...usageEdits);
+		}
 
-    if (destructuredProps.length === 1) {
-        localEdits.push(statement.replace(newImportStatement));
-        finalState = { ...currentState, added: true };
-    } else {
-        const otherProps = destructuredProps
-            .map(d => d.text())
-            .filter(text => text !== 'createCredentials');
+		const aliasSeparator = importType === 'static' ? ' as' : ':';
+		const newImportSpecifier = isAliased
+			? `{ ${newImportFunction}${aliasSeparator} ${localFunctionName} }`
+			: `{ ${newImportFunction} }`;
 
-        localEdits.push(specifiersNode.replace(`{ ${otherProps.join(', ')} }`));
+		let newImportStatement = '';
+		switch (importType) {
+			case 'require':
+				newImportStatement = `const ${newImportSpecifier} = require('${newImportModule}');`;
+				break;
+			case 'static':
+				newImportStatement = `import ${newImportSpecifier} from '${newImportModule}';`;
+				break;
+			case 'dynamic-await':
+				newImportStatement = `const ${newImportSpecifier} = await import('${newImportModule}');`;
+				break;
+		}
 
-        if (!currentState.added) {
-            const newEdit = {
-                startPos: statement.range().end.index,
-                endPos: statement.range().end.index,
-                insertedText: `${EOL}${newImportStatement}`,
-            };
-            localEdits.push(newEdit);
-            finalState = { ...currentState, added: true };
-        }
-    }
+		const otherSpecifiers = relevantSpecifiers.filter(s => s !== targetSpecifierNode);
+		if (otherSpecifiers.length > 0) {
+			const otherSpecifiersText = otherSpecifiers.map(s => s.text()).join(', ');
+			let modifiedOldImport = '';
+			switch (importType) {
+				case 'require':
+					modifiedOldImport = `const { ${otherSpecifiersText} } = require('${oldImportModule}');`;
+					break;
+				case 'static':
+					modifiedOldImport = `import { ${otherSpecifiersText} } from '${oldImportModule}';`;
+					break;
+				case 'dynamic-await':
+					modifiedOldImport = `const { ${otherSpecifiersText} } = await import('${oldImportModule}');`;
+					break;
+			}
+			const replacementText = `${modifiedOldImport}${EOL}${newImportStatement}`;
+			allEdits.push(declaration.replace(replacementText));
+		} else {
+			allEdits.push(declaration.replace(newImportStatement));
+		}
 
-    return { edits: localEdits, wasTransformed: true, newState: finalState };
+		return allEdits;
+	}
+
+	return [];
 }
 
-function handleNamespaceImport(
-    importOrDeclarator: SgNode,
-    rootNode: SgNode,
-    importType: ImportType,
-    currentState: TlsImportState,
-): HandlerResult {
-    const localEdits: Edit[] = [];
-    const helpers = getImportHelpers(importType);
+function findAndReplaceUsages(
+	rootNode: SgRoot,
+	localFunctionName: string,
+	newFunctionName: string,
+	object: string | null = null
+): Edit[] {
+	const edits: Edit[] = [];
 
-    const nameNode = helpers.isEsm
-        ? importOrDeclarator.find({ rule: { kind: 'namespace_import' } })?.find({ rule: { kind: 'identifier' } })
-        : importOrDeclarator.field('name');
+	if (object) {
+		const usages = rootNode.root().findAll({
+			rule: {
+				kind: 'call_expression',
+				has: {
+					field: 'function',
+					kind: 'member_expression',
+					all: [
+						{ has: { field: 'object', regex: `^${object}$` } },
+						{ has: { field: 'property', regex: `^${localFunctionName}$` } }
+					]
+				}
+			}
+		});
 
-    if (!nameNode) {
-        return { edits: [], wasTransformed: false, newState: currentState };
-    }
-    const namespaceName = nameNode.text();
+		for (const usage of usages) {
+			const memberExpressionNode = usage.field('function');
+			const propertyNode = memberExpressionNode?.field('property');
+			if (propertyNode) {
+				edits.push(propertyNode.replace(newFunctionName));
+			}
+		}
+	} else {
+		const usages = rootNode.root().findAll({
+			rule: {
+				kind: 'call_expression',
+				has: { field: 'function', kind: 'identifier', regex: `^${localFunctionName}$` },
+			},
+		});
 
-    const memberAccessUsages = rootNode.findAll({ rule: { kind: 'member_expression', all: [ { has: { field: 'object', regex: `^${namespaceName}$` } }, { has: { field: 'property', regex: '^createCredentials$' } }]}});
-    if (memberAccessUsages.length === 0) {
-        return { edits: [], wasTransformed: false, newState: currentState };
-    }
+		for (const usage of usages) {
+			const functionNode = usage.field('function');
+			if (functionNode) {
+				edits.push(functionNode.replace(newFunctionName));
+			}
+		}
+	}
+	return edits;
+}
 
-    const allUsages = rootNode.findAll({ rule: { kind: 'member_expression', has: { field: 'object', regex: `^${namespaceName}$` }}});
-    let finalState = currentState;
+function handleRequire(
+	statement: SgNode<TypesMap, Kinds<TypesMap>>,
+	rootNode: SgRoot,
+): Edit[] {
+	const idNode = statement.child(0);
+	const declaration = statement.parent();
 
-    if (allUsages.length === memberAccessUsages.length) {
-        const newTlsIdentifier = currentState.identifier;
-        const newImportStatement = `${helpers.createNamespaceImport(newTlsIdentifier, newImportModule)};`;
-        const nodeToReplace = helpers.getStatementNode(importOrDeclarator);
+	if (!idNode || !declaration) {
+		return [];
+	}
 
-        if (nodeToReplace) {
-            localEdits.push(nodeToReplace.replace(newImportStatement));
-        }
-        finalState = { ...currentState, added: true };
-        for (const usage of memberAccessUsages) {
-            localEdits.push(usage.replace(`${newTlsIdentifier}.createSecureContext`));
-        }
-    } else {
-        const ensureResult = ensureTlsImport(rootNode, importType, currentState);
-        localEdits.push(...ensureResult.edits);
-        finalState = ensureResult.newState;
-        for (const usage of memberAccessUsages) {
-            localEdits.push(usage.replace(`${ensureResult.identifier}.createSecureContext`));
-        }
-    }
+	// Handle Namespace Imports: const crypto = require('...')
+	if (idNode.kind() === 'identifier') {
+		const localNamespace = idNode.text();
+		return handleNamespaceImport(rootNode, localNamespace, declaration, 'require');
+	}
 
-    return { edits: localEdits, wasTransformed: true, newState: finalState };
+	// Handle Destructured Imports: const { ... } = require('...')
+	if (idNode.kind() === 'object_pattern') {
+		return handleDestructuredImport(rootNode, idNode, declaration, 'require');
+	}
+
+	return [];
+}
+function handleStaticImport(
+	statement: SgNode<TypesMap, Kinds<TypesMap>>,
+	rootNode: SgRoot,
+): Edit[] {
+
+	const modulePathNode = statement.field('source');
+	const importClause = statement.child(1);
+
+	if (importClause?.kind() !== 'import_clause' || !modulePathNode) {
+		return [];
+	}
+
+	const clauseContent = importClause.child(0);
+
+	if (!clauseContent) {
+		return [];
+	}
+
+	// Handle Namespace Imports: import * as crypto from '...'
+	if (clauseContent.kind() === 'namespace_import') {
+		const localNamespace = clauseContent.find({ rule: { kind: 'identifier' } })?.text();
+		const allEdits: Edit[] = [];
+
+		const usages = rootNode.root().findAll({
+			rule: {
+				kind: 'call_expression',
+				has: {
+					field: 'function',
+					kind: 'member_expression',
+					all: [
+						{ has: { field: 'object', regex: `^${localNamespace}$` } },
+						{ has: { field: 'property', regex: `^${oldFunctionName}$` } }
+					]
+				}
+			}
+		});
+
+		if (usages.length > 0) {
+			const newNamespace = 'tls';
+
+			for (const usage of usages) {
+				const func = usage.field('function');
+				if (func) {
+					allEdits.push(func.replace(`${newNamespace}.${newImportFunction}`));
+				}
+			}
+
+			const newImportStatement = `import * as ${newNamespace} from '${newImportModule}';`;
+			allEdits.push(statement.replace(newImportStatement));
+
+			return allEdits;
+		}
+	}
+
+	// Handle Named Imports: import { ... } from '...'
+	if (clauseContent.kind() === 'named_imports') {
+		const namedImportsNode = clauseContent;
+		let localFunctionName: string | null = null;
+		let targetSpecifierNode: SgNode | null = null;
+		let isAliased = false;
+
+		const relevantSpecifiers = namedImportsNode.children().filter(
+			child => child.kind() === 'import_specifier'
+		);
+
+		for (const spec of relevantSpecifiers) {
+			const nameNode = spec.field('name');
+			const aliasNode = spec.field('alias');
+
+
+			if (nameNode?.text() === oldFunctionName) {
+				targetSpecifierNode = spec;
+				isAliased = Boolean(aliasNode);
+				localFunctionName = isAliased ? aliasNode!.text() : nameNode!.text();
+				break;
+			}
+		}
+
+		if (localFunctionName && targetSpecifierNode) {
+			const allEdits: Edit[] = [];
+			const declaration = statement;
+
+			if (!isAliased) {
+				const usageEdits = findAndReplaceUsages(rootNode, localFunctionName, newImportFunction);
+				allEdits.push(...usageEdits);
+			} else {
+			}
+
+			const newImportSpecifier = isAliased
+				? `{ ${newImportFunction} as ${localFunctionName} }`
+				: `{ ${newImportFunction} }`;
+			const newImportStatement = `import ${newImportSpecifier} from '${newImportModule}';`;
+
+			const otherSpecifiers = relevantSpecifiers.filter(s => s !== targetSpecifierNode);
+			if (otherSpecifiers.length > 0) {
+				const modifiedOldImport = `import { ${otherSpecifiers.map(s => s.text()).join(', ')} } from '${oldImportModule}';`;
+				const replacementText = `${modifiedOldImport}${EOL}${newImportStatement}`;
+				allEdits.push(declaration.replace(replacementText));
+			} else {
+				allEdits.push(declaration.replace(newImportStatement));
+			}
+
+			return allEdits;
+		}
+	}
+
+	return [];
+}
+
+function handleDynamicImport(
+	statement: SgNode<TypesMap, Kinds<TypesMap>>,
+	rootNode: SgRoot,
+): Edit[] {
+
+	const valueNode = statement.field('value');
+	const idNode = statement.child(0);
+	const declaration = statement.parent();
+
+	if (valueNode?.kind() === 'call_expression' && idNode?.kind() === 'identifier') {
+		const functionNode = valueNode.field('function');
+		const isThenCall = functionNode?.kind() === 'member_expression' && functionNode.field('property')?.text() === 'then';
+		const awaitNode = functionNode?.field('object')?.find({ rule: { kind: 'await_expression' } });
+
+		const importModuleStringNode = awaitNode?.find({
+			rule: {
+				kind: 'string',
+				has: { kind: 'string_fragment', regex: `^${oldImportModule}$` }
+			}
+		});
+
+		if (isThenCall && importModuleStringNode) {
+			const allEdits: Edit[] = [];
+
+			const usageEdits = findAndReplaceUsages(rootNode, idNode.text(), newImportFunction);
+
+			allEdits.push(...usageEdits);
+			allEdits.push(idNode.replace(newImportFunction));
+			allEdits.push(importModuleStringNode.replace(`'${newImportModule}'`));
+
+			const thenCallback = valueNode.field('arguments')?.child(0);
+			const callbackBody = thenCallback?.field('body');
+			if (callbackBody?.kind() === 'member_expression') {
+				const propertyNode = callbackBody.field('property');
+				if (propertyNode?.text() === oldFunctionName) {
+					allEdits.push(propertyNode.replace(newImportFunction));
+				}
+			}
+
+			return allEdits;
+		}
+	}
+
+	if (valueNode?.kind() === 'await_expression') {
+		if (!declaration) {
+			return [];
+		}
+
+		if (idNode?.kind() === 'identifier') {
+			const localNamespace = idNode.text();
+			const allEdits: Edit[] = [];
+
+			const usages = rootNode.root().findAll({
+				rule: {
+					kind: 'call_expression',
+					has: {
+						field: 'function',
+						kind: 'member_expression',
+						all: [
+							{ has: { field: 'object', regex: `^${localNamespace}$` } },
+							{ has: { field: 'property', regex: `^${oldFunctionName}$` } }
+						]
+					}
+				}
+			});
+
+			if (usages.length > 0) {
+				const newNamespace = 'tls';
+
+				for (const usage of usages) {
+					const func = usage.field('function');
+					if (func) {
+						allEdits.push(func.replace(`${newNamespace}.${newImportFunction}`));
+					}
+				}
+
+				const newImportStatement = `const ${newNamespace} = await import('${newImportModule}');`;
+				allEdits.push(declaration.replace(newImportStatement));
+
+				return allEdits;
+			}
+		}
+
+		if (idNode?.kind() === 'object_pattern') {
+			let localFunctionName: string | null = null;
+			let targetSpecifierNode: SgNode | null = null;
+			let isAliased = false;
+
+			const relevantSpecifiers = idNode.children().filter(
+				child => child.kind() === 'pair_pattern' || child.kind() === 'shorthand_property_identifier_pattern'
+			);
+
+			for (const spec of relevantSpecifiers) {
+				const key = spec.kind() === 'pair_pattern' ? spec.field('key') : spec;
+				if (key?.text() === oldFunctionName) {
+					targetSpecifierNode = spec;
+					isAliased = spec.kind() === 'pair_pattern';
+					localFunctionName = isAliased ? spec.field('value')!.text() : key.text();
+					break;
+				}
+			}
+
+			if (localFunctionName && targetSpecifierNode) {
+				const allEdits: Edit[] = [];
+
+				if (!isAliased) {
+					const usageEdits = findAndReplaceUsages(rootNode, localFunctionName, newImportFunction);
+					allEdits.push(...usageEdits);
+				} else {
+				}
+
+				const newImportSpecifier = isAliased
+					? `{ ${newImportFunction}: ${localFunctionName} }`
+					: `{ ${newImportFunction} }`;
+				const newImportStatement = `const ${newImportSpecifier} = await import('${newImportModule}');`;
+
+				const otherSpecifiers = relevantSpecifiers.filter(s => s !== targetSpecifierNode);
+				if (otherSpecifiers.length > 0) {
+					const modifiedOldImport = `const { ${otherSpecifiers.map(s => s.text()).join(', ')} } = await import('${oldImportModule}');`;
+					const replacementText = `${modifiedOldImport}${EOL}${newImportStatement}`;
+					allEdits.push(declaration.replace(replacementText));
+				} else {
+					allEdits.push(declaration.replace(newImportStatement));
+				}
+
+				return allEdits;
+			}
+		}
+	}
+
+	return [];
 }
 
 export default function transform(root: SgRoot): string | null {
-    const rootNode = root.root();
-    const allEdits: Edit[] = [];
-    let wasTransformed = false;
-    let currentTlsImportState: TlsImportState = {
-        added: false,
-        identifier: 'tls',
-    };
+	const rootNode = root.root();
+	const allEdits: Edit[] = [];
+	let wasTransformed = false;
 
-    const cryptoImportsRule = {
-        rule: {
-            any: [
-                { kind: 'variable_declarator', has: { field: 'value', kind: 'call_expression', has: { field: 'arguments', has: { regex: "^['\"](node:)?crypto['\"]$" }}}},
-                { kind: 'import_statement', has: { field: 'source', regex: "^['\"](node:)?crypto['\"]$" }},
-            ],
-        },
-    };
-    const cryptoImports = rootNode.findAll(cryptoImportsRule);
+	// @ts-ignore
+	const requireImports = getNodeRequireCalls(root, 'crypto');
+	// @ts-ignore
+	const staticImports = getNodeImportStatements(root, 'crypto');
+	// @ts-ignore
+	const dynamicImports = getNodeImportCalls(root, 'crypto');
 
-    for (const importMatch of cryptoImports) {
-        const nameNode = importMatch.field('imports') ?? importMatch.field('name');
-        let importType: ImportType | undefined;
+	for (const requireCall of requireImports) {
+		const edits = handleRequire(requireCall, root);
+		if (edits.length > 0) {
+			wasTransformed = true;
+			allEdits.push(...edits);
+		}
+	}
 
-        if (importMatch.kind() === 'import_statement') {
-            importType = importMatch.find({ rule: { kind: 'namespace_import' } })
-                ? 'NAMESPACE_IMPORT' : 'DESTRUCTURED_IMPORT';
-        } else if (nameNode?.is('object_pattern')) {
-            importType = 'DESTRUCTURED_REQUIRE';
-        } else if (nameNode?.is('identifier')) {
-            importType = 'NAMESPACE_REQUIRE';
-        }
+	for (const staticImport of staticImports) {
+		const edits = handleStaticImport(staticImport, root);
+		if (edits.length > 0) {
+			wasTransformed = true;
+			allEdits.push(...edits);
+		}
+	}
 
-        if (importType === undefined) continue;
+	for (const dynamicImport of dynamicImports) {
+		const edits = handleDynamicImport(dynamicImport, root);
+		if (edits.length > 0) {
+			wasTransformed = true;
+			allEdits.push(...edits);
+		}
+	}
 
-        let result: HandlerResult | undefined;
-        const helpers = getImportHelpers(importType);
-
-        switch (importType) {
-            case 'DESTRUCTURED_REQUIRE':
-            case 'DESTRUCTURED_IMPORT': {
-                const statement = helpers.getStatementNode(importMatch);
-                if (statement) {
-                    result = handleDestructuredImport(statement, rootNode, currentTlsImportState, importType);
-                }
-                break;
-            }
-            case 'NAMESPACE_REQUIRE':
-            case 'NAMESPACE_IMPORT':
-                result = handleNamespaceImport(importMatch, rootNode, importType, currentTlsImportState);
-                break;
-        }
-
-        if (result) {
-            allEdits.push(...result.edits);
-            currentTlsImportState = result.newState;
-            if (result.wasTransformed) {
-                wasTransformed = true;
-            }
-        }
-    }
-
-    return wasTransformed ? rootNode.commitEdits(allEdits) : null;
+	return wasTransformed ? rootNode.commitEdits(allEdits) : null;
 }
