@@ -7,6 +7,7 @@ const newImportFunction = 'createSecureContext'
 const newImportModule = 'node:tls'
 const oldFunctionName = 'createCredentials';
 const oldImportModule = 'node:crypto'
+const newNamespace = 'tls';
 
 function handleNamespaceImport(
 	rootNode: SgRoot,
@@ -15,7 +16,6 @@ function handleNamespaceImport(
 	importType: 'require' | 'static' | 'dynamic-await'
 ): Edit[] {
 	const allEdits: Edit[] = [];
-	const newNamespace = 'tls';
 
 	const usages = rootNode.root().findAll({
 		rule: {
@@ -75,7 +75,8 @@ function handleDestructuredImport(
 	);
 
 	for (const spec of relevantSpecifiers) {
-		let keyNode, aliasNode;
+		let keyNode: SgNode<TypesMap, Kinds<TypesMap>> | null = null;
+		let aliasNode: SgNode<TypesMap, Kinds<TypesMap>> | null = null;
 
 		if (spec.kind() === 'import_specifier') {
 			keyNode = spec.field('name');
@@ -220,20 +221,18 @@ function handleRequire(
 
 	return [];
 }
+
 function handleStaticImport(
 	statement: SgNode<TypesMap, Kinds<TypesMap>>,
 	rootNode: SgRoot,
 ): Edit[] {
 
-	const modulePathNode = statement.field('source');
 	const importClause = statement.child(1);
-
-	if (importClause?.kind() !== 'import_clause' || !modulePathNode) {
+	if (importClause?.kind() !== 'import_clause') {
 		return [];
 	}
-
+	// Detects: import * as crypto from '...'
 	const clauseContent = importClause.child(0);
-
 	if (!clauseContent) {
 		return [];
 	}
@@ -258,7 +257,6 @@ function handleStaticImport(
 		});
 
 		if (usages.length > 0) {
-			const newNamespace = 'tls';
 
 			for (const usage of usages) {
 				const func = usage.field('function');
@@ -338,6 +336,7 @@ function handleDynamicImport(
 	const idNode = statement.child(0);
 	const declaration = statement.parent();
 
+	// Detects: const x = (await import(...)).then(...)
 	if (valueNode?.kind() === 'call_expression' && idNode?.kind() === 'identifier') {
 		const functionNode = valueNode.field('function');
 		const isThenCall = functionNode?.kind() === 'member_expression' && functionNode.field('property')?.text() === 'then';
@@ -377,6 +376,7 @@ function handleDynamicImport(
 			return [];
 		}
 
+		// Detects: const crypto = await import(...)
 		if (idNode?.kind() === 'identifier') {
 			const localNamespace = idNode.text();
 			const allEdits: Edit[] = [];
@@ -396,8 +396,6 @@ function handleDynamicImport(
 			});
 
 			if (usages.length > 0) {
-				const newNamespace = 'tls';
-
 				for (const usage of usages) {
 					const func = usage.field('function');
 					if (func) {
@@ -412,6 +410,7 @@ function handleDynamicImport(
 			}
 		}
 
+		// Detects: const { ... } = await import(...)
 		if (idNode?.kind() === 'object_pattern') {
 			let localFunctionName: string | null = null;
 			let targetSpecifierNode: SgNode | null = null;
