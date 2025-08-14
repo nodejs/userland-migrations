@@ -1,7 +1,9 @@
 schema_version: "1.0"
 name: "@nodejs/crypto-rsa-pss-update"
 version: 1.0.0
-description: Handle DEP0154 via transforming deprecated RSA-PSS crypto options `hash` to `hashAlgorithm` and `mgf1Hash` to `mgf1HashAlgorithm`
+description: >-
+  Handle DEP0154 via transforming deprecated RSA-PSS crypto options `hash` to
+  `hashAlgorithm` and `mgf1Hash` to `mgf1HashAlgorithm`
 author: Mauro Nievas
 license: MIT
 workflow: workflow.yaml
