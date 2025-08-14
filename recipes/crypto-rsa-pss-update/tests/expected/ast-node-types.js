@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 
-// Test case 1: member_expression - acceso a constantes
+// Test case 1: member_expression - accessing constants
 const constants = { 
   SECURE_HASH: 'sha512',
   MGF_HASH: 'sha256'
@@ -12,7 +12,7 @@ crypto.generateKeyPair('rsa-pss', {
   saltLength: 32
 });
 
-// Test case 2: call_expression - funciones que retornan algoritmos
+// Test case 2: call_expression - functions returning algorithms
 function getSecureHash() {
   return 'sha256';
 }
@@ -27,7 +27,7 @@ crypto.generateKeyPairSync('rsa-pss', {
   mgf1HashAlgorithm: getMgfHash     // ← call_expression
 });
 
-// Test case 3: binary_expression - concatenación de strings
+// Test case 3: binary_expression - string concatenation
 const bitLength = '256';
 crypto.generateKeyPair('rsa-pss', {
   modulusLength: 2048,
@@ -35,7 +35,7 @@ crypto.generateKeyPair('rsa-pss', {
   mgf1HashAlgorithm: 'sha'      // ← binary_expression
 });
 
-// Test case 4: conditional_expression - operador ternario
+// Test case 4: conditional_expression - ternary operator
 const isProduction = true;
 const useStrongSecurity = false;
 
@@ -45,7 +45,7 @@ crypto.generateKeyPairSync('rsa-pss', {
   mgf1HashAlgorithm: 'sha256'              // ← conditional_expression
 });
 
-// Test case 5: Casos complejos mezclados
+// Test case 5: Complex mixed cases
 crypto.generateKeyPair('rsa-pss', {
   modulusLength: 2048,
   hashAlgorithm: 'production',  // ← multiple types

@@ -30,7 +30,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const allCalls = findCryptoCalls(rootNode, cryptoBindings);
 
 	// Process all RSA-PSS calls and get transformations
-	const { edits, hasChanges } = processRsaPssCalls(allCalls);
+	const { edits, hasChanges } = processRsaPssCalls(rootNode, allCalls);
 
 	if (!hasChanges) return null;
 
@@ -38,9 +38,50 @@ export default function transform(root: SgRoot<JS>): string | null {
 }
 
 /**
+ * Resolves a variable identifier to its string literal value if it's 'rsa-pss'
+ */
+function resolveVariableValue(rootNode: SgNode<JS>, identifier: string): boolean {
+	// Look for variable declarations like: const keyType = 'rsa-pss'
+	const declarations = rootNode.findAll({
+		rule: {
+			pattern: `const ${identifier} = $VALUE`
+		}
+	});
+
+	for (const decl of declarations) {
+		const valueMatch = decl.getMatch("VALUE");
+		if (valueMatch) {
+			const valueText = valueMatch.text()?.trim();
+			if (valueText && /^['"]rsa-pss['"]$/.test(valueText)) {
+				return true;
+			}
+		}
+	}
+
+	// Also check let declarations
+	const letDeclarations = rootNode.findAll({
+		rule: {
+			pattern: `let ${identifier} = $VALUE`
+		}
+	});
+
+	for (const decl of letDeclarations) {
+		const valueMatch = decl.getMatch("VALUE");
+		if (valueMatch) {
+			const valueText = valueMatch.text()?.trim();
+			if (valueText && /^['"]rsa-pss['"]$/.test(valueText)) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+/**
  * Processes RSA-PSS generateKeyPair calls and transforms deprecated options
  */
-function processRsaPssCalls(allCalls: SgNode<JS>[]): { edits: Edit[], hasChanges: boolean } {
+function processRsaPssCalls(rootNode: SgNode<JS>, allCalls: SgNode<JS>[]): { edits: Edit[], hasChanges: boolean } {
 	const edits: Edit[] = [];
 	let hasChanges = false;
 
@@ -52,7 +93,16 @@ function processRsaPssCalls(allCalls: SgNode<JS>[]): { edits: Edit[], hasChanges
 
 		// Only process 'rsa-pss' key type
 		const typeText = typeMatch.text()?.trim();
-		if (!typeText || !/^['"]rsa-pss['"]$/.test(typeText)) {
+		if (!typeText) continue;
+
+		// Check if it's a string literal 'rsa-pss' or "rsa-pss"
+		const isStringLiteral = /^['"]rsa-pss['"]$/.test(typeText);
+		
+		// Check if it's a variable that resolves to 'rsa-pss'
+		const isVariableWithRsaPss = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(typeText) && 
+			resolveVariableValue(rootNode, typeText);
+
+		if (!isStringLiteral && !isVariableWithRsaPss) {
 			continue;
 		}
 

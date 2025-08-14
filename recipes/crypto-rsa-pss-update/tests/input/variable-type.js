@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const keyType = 'rsa-pss';
 const algorithm = 'sha256';
 
-// Variable type parameter - currently NOT supported by codemod
+// Variable type parameter - now supported by codemod
 crypto.generateKeyPair(keyType, {
   modulusLength: 2048,
   hash: algorithm,

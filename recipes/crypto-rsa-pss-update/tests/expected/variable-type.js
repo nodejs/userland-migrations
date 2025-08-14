@@ -3,10 +3,10 @@ const crypto = require('crypto');
 const keyType = 'rsa-pss';
 const algorithm = 'sha256';
 
-// Variable type parameter - currently NOT supported by codemod
+// Variable type parameter - now supported by codemod
 crypto.generateKeyPair(keyType, {
   modulusLength: 2048,
-  hash: algorithm,
+  hashAlgorithm: algorithm,
   saltLength: 32
 }, (err, publicKey, privateKey) => {
   console.log('Generated keys with variable type');
@@ -16,5 +16,5 @@ crypto.generateKeyPair(keyType, {
 const rsaPssType = 'rsa-pss';
 crypto.generateKeyPairSync(rsaPssType, {
   modulusLength: 2048,
-  mgf1Hash: 'sha1'
+  mgf1HashAlgorithm: 'sha1'
 });
