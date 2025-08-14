@@ -1,6 +1,6 @@
 import * as crypto from 'node:crypto';
 
 const credentials = crypto.createCredentials({
-  key: privateKey,
-  cert: certificate
+  key: fs.readFileSync('server-key.pem'),
+  cert: fs.readFileSync('server-cert.pem')
 });

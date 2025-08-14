@@ -1,4 +1,4 @@
-import * as tls from 'node:tls';
+const tls = require('node:tls');
 
 const credentials = tls.createSecureContext({
   key: privateKey,
