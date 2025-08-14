@@ -29,7 +29,7 @@ log("Application started");
 log("Processing request");
 ```
 
-After:
+**After:**
 
 ```js
 console.log(new Date().toLocaleString(), "Application started");
