@@ -46,9 +46,8 @@ export default function transform(root: SgRoot): string | null {
 	for (const node of [...nodeRequires, ...nodeImports]) {
 		const bind = resolveBindingPath(node, path);
 
-		if (!bind) {
-			continue;
-		}
+		// if `log` function ins't coming from `node:util`
+		if (!bind) continue;
 
 		bindsToReplace.push({
 			rule: {
