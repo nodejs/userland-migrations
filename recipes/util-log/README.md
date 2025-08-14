@@ -17,8 +17,7 @@ util.log("Hello world");
 **After:**
 
 ```js
-console.log(new Date().toLocaleString(), 'Hello world');
-Case 2: Destructured import with only log
+console.log(new Date().toLocaleString(), "Hello world");
 ```
 
 **Before:**
