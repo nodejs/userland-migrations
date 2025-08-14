@@ -1,5 +1,5 @@
 schema_version: "1.0"
-name: "@nodejs/util-log"
+name: "@nodejs/util-log-to-console-log"
 version: 1.0.0
 description: Handle DEP0059 via transforming `log.util()` to `console.log()`.
 author: Bruno Rodrigues

@@ -1,5 +1,5 @@
 {
-  "name": "@nodejs/util-log",
+  "name": "@nodejs/util-log-to-console-log",
   "version": "1.0.0",
   "description": "Handle DEP0059 via transforming `log.util()` to `console.log()`",
   "type": "module",
@@ -9,12 +9,12 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nodejs/userland-migrations.git",
-    "directory": "recipes/util-log",
+    "directory": "recipes/util-log-to-console-log",
     "bugs": "https://github.com/nodejs/userland-migrations/issues"
   },
   "author": "Bruno Rodrigues",
   "license": "MIT",
-  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/util-log/README.md",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/util-log-to-console-log/README.md",
   "devDependencies": {
     "@codemod.com/jssg-types": "^1.0.3"
   },
