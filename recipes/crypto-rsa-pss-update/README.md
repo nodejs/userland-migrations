@@ -31,7 +31,7 @@ crypto.generateKeyPair(
 	},
 );
 
-crypto.generateKeyPairSync("node:rsa-pss", {
+crypto.generateKeyPairSync("rsa-pss", {
 	modulusLength: 2048,
 	hash: "sha256",
 });
