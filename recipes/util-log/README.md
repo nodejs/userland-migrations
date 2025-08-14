@@ -14,7 +14,7 @@ const util = require("node:util");
 util.log("Hello world");
 ```
 
-After:
+**After:**
 
 ```js
 console.log(new Date().toLocaleString(), 'Hello world');
