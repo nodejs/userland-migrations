@@ -336,41 +336,6 @@ function handleDynamicImport(
 	const idNode = statement.child(0);
 	const declaration = statement.parent();
 
-	// Detects: const x = (await import(...)).then(...)
-	if (valueNode?.kind() === 'call_expression' && idNode?.kind() === 'identifier') {
-		const functionNode = valueNode.field('function');
-		const isThenCall = functionNode?.kind() === 'member_expression' && functionNode.field('property')?.text() === 'then';
-		const awaitNode = functionNode?.field('object')?.find({ rule: { kind: 'await_expression' } });
-
-		const importModuleStringNode = awaitNode?.find({
-			rule: {
-				kind: 'string',
-				has: { kind: 'string_fragment', regex: `^${oldImportModule}$` }
-			}
-		});
-
-		if (isThenCall && importModuleStringNode) {
-			const allEdits: Edit[] = [];
-
-			const usageEdits = findAndReplaceUsages(rootNode, idNode.text(), newImportFunction);
-
-			allEdits.push(...usageEdits);
-			allEdits.push(idNode.replace(newImportFunction));
-			allEdits.push(importModuleStringNode.replace(`'${newImportModule}'`));
-
-			const thenCallback = valueNode.field('arguments')?.child(0);
-			const callbackBody = thenCallback?.field('body');
-			if (callbackBody?.kind() === 'member_expression') {
-				const propertyNode = callbackBody.field('property');
-				if (propertyNode?.text() === oldFunctionName) {
-					allEdits.push(propertyNode.replace(newImportFunction));
-				}
-			}
-
-			return allEdits;
-		}
-	}
-
 	if (valueNode?.kind() === 'await_expression') {
 		if (!declaration) {
 			return [];
