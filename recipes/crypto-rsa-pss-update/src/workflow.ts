@@ -14,8 +14,10 @@ import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-bindi
  * 2. Function call targeting: Only crypto.generateKeyPair() and crypto.generateKeyPairSync()
  * 3. Key type filtering: Only applies to 'rsa-pss' key type (ignores 'rsa', 'ed25519', etc.)
  * 4. Import pattern support: ES6 imports, CommonJS requires, destructuring, aliases, namespace imports
- * 5. Value preservation: Maintains string literals, identifiers, template literals, and variable references
- * 6. Template literal handling: Extracts identifiers from template strings like `${variable}`
+ * 5. Variable key type support: Handles variables containing 'rsa-pss' (e.g., const keyType = 'rsa-pss')
+ * 6. Promisified wrapper support: Handles util.promisify(crypto.generateKeyPair) patterns
+ * 7. Value preservation: Maintains string literals, identifiers, template literals, and variable references
+ * 8. Template literal handling: Extracts identifiers from template strings like `${variable}`
  *
  * Only applies to crypto.generateKeyPair() and crypto.generateKeyPairSync()
  * calls with 'rsa-pss' as the first argument.
@@ -217,7 +219,41 @@ function getCryptoBindings(root: SgRoot<JS>): string[] {
 		}
 	}
 
+	// Find promisified assignments that use the discovered bindings
+	const promisifiedBindings = getPromisifiedBindings(root, bindings);
+	bindings.push(...promisifiedBindings);
+
 	return bindings;
+}
+
+/**
+ * Find promisified wrappers that use crypto bindings discovered by resolveBindingPath
+ */
+function getPromisifiedBindings(root: SgRoot<JS>, existingBindings: string[]): string[] {
+	const promisifiedBindings: string[] = [];
+	const rootNode = root.root();
+
+	for (const binding of existingBindings) {
+		// Find: const someVar = util.promisify(crypto.generateKeyPair)
+		// or:   const someVar = util.promisify(generateKeyPair) 
+		const promisified = rootNode.findAll({
+			rule: {
+				pattern: `const $BINDING = util.promisify(${binding})`
+			}
+		});
+
+		for (const decl of promisified) {
+			const bindingMatch = decl.getMatch("BINDING");
+			if (bindingMatch) {
+				const bindingName = bindingMatch.text()?.trim();
+				if (bindingName) {
+					promisifiedBindings.push(bindingName);
+				}
+			}
+		}
+	}
+
+	return promisifiedBindings;
 }
 
 /**
