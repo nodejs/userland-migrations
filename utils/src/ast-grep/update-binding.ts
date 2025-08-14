@@ -13,27 +13,44 @@ type UpdateBindingOptions = {
 };
 
 /**
- * Update a specific binding from an import or require statement.
+ * Update or remove a specific binding from an import or require statement.
  *
- * Analyzes the provided AST node to find and remove a specific binding from destructured imports.
- * If the binding is the only one in the statement, the entire import line is marked for removal.
- * If there are multiple bindings, only the specified binding is removed from the destructuring pattern.
+ * Analyzes the provided AST node to find and update a specific binding from destructured imports.
+ * If `newBinding` is provided in options, the binding will be replaced with the new name.
+ * If `newBinding` is not provided, the binding will be removed.
+ * If the binding is the only one in the statement and no replacement is provided, the entire import line is marked for removal.
  *
  * @param node - The AST node representing the import or require statement
- * @param binding - The name of the binding to remove (e.g., "isNativeError")
+ * @param binding - The name of the binding to update or remove (e.g., "isNativeError")
+ * @param options - Optional configuration object
+ * @param options.newBinding - The new binding name to replace the old one. If not provided, the binding is removed.
  * @returns An object containing either an edit operation or a line range to remove, or undefined if no binding found
  *
  * @example
  * ```typescript
  * // Given an import: const {types, isNativeError} = require("node:util")
- * // And binding: "isNativeError"
+ * // And binding: "isNativeError", options: {newBinding: "isError"}
+ * // Returns: an edit object that transforms to: const {types, isError} = require("node:util")
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Given an import: const {types, isNativeError} = require("node:util")
+ * // And binding: "isNativeError", options: undefined
  * // Returns: an edit object that transforms to: const {types} = require("node:util")
  * ```
  *
  * @example
  * ```typescript
  * // Given an import: const {isNativeError} = require("node:util")
- * // And binding: "isNativeError"
+ * // And binding: "isNativeError", options: {newBinding: "isError"}
+ * // Returns: an edit object that transforms to: const {isError} = require("node:util")
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Given an import: const {isNativeError} = require("node:util")
+ * // And binding: "isNativeError", options: undefined
  * // Returns: {lineToRemove: Range} to remove the entire line
  * ```
  *
