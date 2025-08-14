@@ -40,8 +40,9 @@ export default function transform(root: SgRoot): string | null {
 	const nodeRequires = getNodeRequireCalls(root, "util");
 	const nodeImports = getNodeImportStatements(root, "util");
 	const path = "$.log";
+	const importRequireStatement = [...nodeRequires, ...nodeImports];
 
-	for (const node of [...nodeRequires, ...nodeImports]) {
+	for (const node of importRequireStatement) {
 		const bind = resolveBindingPath(node, path);
 
 		// if `log` function ins't coming from `node:util`
