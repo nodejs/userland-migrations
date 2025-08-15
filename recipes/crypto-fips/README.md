@@ -1,6 +1,6 @@
 # `crypto.fips` DEP0093
 
-This recipe provides a guide for migrating from the deprecated `crypto.fips` to `crypto.getFips()` and `crypto.setFips()`.
+This recipe transforms the usage from the deprecated `crypto.fips` to `crypto.getFips()` and `crypto.setFips()`.
 
 See [DEP0093](https://nodejs.org/api/deprecations.html#DEP0093).
 
