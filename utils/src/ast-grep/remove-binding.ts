@@ -43,7 +43,7 @@ type RemoveBindingReturnType = {
 export function removeBinding(
 	node: SgNode<TypesMap, Kinds<TypesMap>>,
 	binding: string,
-): RemoveBindingReturnType {
+): RemoveBindingReturnType | undefined {
 	const nodeKind = node.kind().toString();
 
 	const identifier = node.find({
@@ -83,7 +83,7 @@ export function removeBinding(
 function handleNamedImportBindings(
 	node: SgNode<TypesMap, Kinds<TypesMap>>,
 	binding: string,
-): RemoveBindingReturnType {
+): RemoveBindingReturnType | undefined {
 	const namespaceImport = node.find({
 		rule: {
 			kind: "identifier",
@@ -173,7 +173,7 @@ function handleNamedImportBindings(
 function handleNamedRequireBindings(
 	node: SgNode<TypesMap, Kinds<TypesMap>>,
 	binding: string,
-): RemoveBindingReturnType {
+): RemoveBindingReturnType | undefined {
 	const objectPattern = node.find({
 		rule: {
 			kind: "object_pattern",
