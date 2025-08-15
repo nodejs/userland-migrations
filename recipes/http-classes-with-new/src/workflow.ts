@@ -39,10 +39,7 @@ export default function transform(root: SgRoot): string | null {
 		const classesWithoutNew = rootNode.findAll({
 			rule: {
 				not: { follows: { pattern: 'new' } },
-				any: [
-					{ pattern: `${cls}()` },
-					{ pattern: `${cls}($ARGS)` },
-					{ pattern: `${cls}($ARGS, $CALLBACK)` },
+        { pattern: `${cls}($$$ARGS)` },
 				],
 			},
 		});
