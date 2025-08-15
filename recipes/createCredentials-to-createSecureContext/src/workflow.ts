@@ -15,8 +15,6 @@ function handleNamespaceImport(
     declaration: SgNode<TypesMap, Kinds<TypesMap>>,
     importType: 'require' | 'static' | 'dynamic-await'
 ): Edit[] {
-    const newNamespace = 'tls';
-
     const usages = rootNode.root().findAll({
         rule: {
             kind: 'call_expression',
@@ -61,8 +59,8 @@ function handleDestructuredImport(
     let isAliased = false;
 
     const relevantSpecifiers = idNode.children().filter(
-        child => child.kind() === 'pair_pattern' 
-            || child.kind() === 'shorthand_property_identifier_pattern' 
+        child => child.kind() === 'pair_pattern'
+            || child.kind() === 'shorthand_property_identifier_pattern'
             || child.kind() === 'import_specifier'
     );
 
