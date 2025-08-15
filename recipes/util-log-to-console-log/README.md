@@ -1,6 +1,6 @@
 # `util.log` DEP0059
 
-This recipe transforms the usage of `log.util($$$ARG)` to use `console.log(new Date().toLocaleString(), $$$ARG)`.
+This recipe transforms the usage of `log.util()` to use `console.log()`.
 
 See [DEP0059](https://nodejs.org/api/deprecations.html#DEP0059).
 
