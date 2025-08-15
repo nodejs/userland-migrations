@@ -343,8 +343,6 @@ function handleDynamicImport(
 export default function transform(root: SgRoot): string | null {
   const rootNode = root.root();
   const allEdits: Edit[] = [];
-  let wasTransformed = false;
-
   const sources: [SgNode[] | undefined, (n: SgNode, r: SgRoot) => Edit[]][] = [
     // @ts-ignore
     [getNodeRequireCalls(root, 'crypto'), handleRequire],
@@ -358,11 +356,12 @@ export default function transform(root: SgRoot): string | null {
     for (const node of nodes || []) {
       const edits = handler(node, root);
       if (edits.length) {
-        wasTransformed = true;
         allEdits.push(...edits);
       }
     }
   }
 
-  return wasTransformed ? rootNode.commitEdits(allEdits) : null;
+  if (!allEdits.length) return null;
+
+	return rootNode.commitEdits(allEdits);
 }
