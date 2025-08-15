@@ -29,9 +29,7 @@ function handleNamespaceImport(
         }
     });
 
-    if (usages.length === 0) {
-        return [];
-    }
+    if (usages.length === 0) return [];
 
     const usageEdits = usages
         .map(usage => usage.field('function'))
