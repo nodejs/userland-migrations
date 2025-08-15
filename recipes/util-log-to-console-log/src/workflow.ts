@@ -42,6 +42,8 @@ export default function transform(root: SgRoot): string | null {
 	const path = "$.log";
 	const importRequireStatement = [...nodeRequires, ...nodeImports];
 
+	if (!importRequireStatement.lenght()) return null;
+
 	for (const node of importRequireStatement) {
 		const bind = resolveBindingPath(node, path);
 
