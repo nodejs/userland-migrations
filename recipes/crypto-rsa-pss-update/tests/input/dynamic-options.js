@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 
-// Dynamic options object - currently NOT supported by codemod
+// Dynamic options object - now supported by codemod
 const options = {
   modulusLength: 2048,
   hash: 'sha256',

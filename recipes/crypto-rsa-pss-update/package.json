@@ -4,7 +4,7 @@
   "description": "Handle DEP0154 via transforming deprecated RSA-PSS crypto options `hash` to `hashAlgorithm` and `mgf1Hash` to `mgf1HashAlgorithm`.",
   "type": "module",
   "scripts": {
-    "test": "npx codemod@next jssg test -l typescript ./src/workflow.ts ./"
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
   },
   "repository": {
     "type": "git",

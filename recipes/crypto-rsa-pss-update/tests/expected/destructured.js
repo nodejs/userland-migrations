@@ -27,13 +27,13 @@ aliasedGenerateKeyPair('rsa-pss', {
   mgf1HashAlgorithm: 'sha256'
 });
 
-// Aliased destructuring with short names (like destructured-renamed.js)
+// Aliased destructuring with short names
 foo('rsa-pss', {
   modulusLength: 2048,
   hashAlgorithm: 'sha384'
 });
 
-// Namespace import with alias (from import-aliases.js)
+// Namespace import with alias
 nodeCrypto.generateKeyPair('rsa-pss', {
   modulusLength: 2048,
   hashAlgorithm: 'sha256',
@@ -42,13 +42,13 @@ nodeCrypto.generateKeyPair('rsa-pss', {
   console.log('Generated keys with aliased import');
 });
 
-// Function alias from destructuring (from import-aliases.js)
+// Function alias from destructuring
 keyGen('rsa-pss', {
   modulusLength: 2048,
   mgf1HashAlgorithm: 'sha1'
 });
 
-// Variable assignment (from import-aliases.js)
+// Variable assignment
 cryptoLib.generateKeyPairSync('rsa-pss', {
   modulusLength: 2048,
   hashAlgorithm: 'sha512'

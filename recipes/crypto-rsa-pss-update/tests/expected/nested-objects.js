@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 
-// Nested object structure - codemod transforms ALL hash/mgf1Hash properties in object tree
+// Nested object structure test
 crypto.generateKeyPair('rsa-pss', {
   modulusLength: 2048,
   hashAlgorithm: 'sha256',
@@ -12,6 +12,6 @@ crypto.generateKeyPair('rsa-pss', {
 // Mixed nested and direct properties
 crypto.generateKeyPairSync('rsa-pss', {
   modulusLength: 2048,
-  hashAlgorithm: 'sha256',  // Direct property - should be transformed
+  hashAlgorithm: 'sha256',
   mgf1HashAlgorithm: 'sha1'
 });

@@ -6,7 +6,7 @@ const baseOptions = {
 };
 
 const hashOptions = {
-  hash: 'sha256'
+  hashAlgorithm: 'sha256'
 };
 
 // Spread operator with hash option

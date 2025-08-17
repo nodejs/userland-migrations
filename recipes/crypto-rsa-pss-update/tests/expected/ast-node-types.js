@@ -8,7 +8,7 @@ const constants = {
 
 crypto.generateKeyPair('rsa-pss', {
   modulusLength: 2048,
-  hashAlgorithm: constants,  // ← member_expression
+  hashAlgorithm: constants.SECURE_HASH,  // ← member_expression
   saltLength: 32
 });
 
@@ -23,16 +23,16 @@ function getMgfHash() {
 
 crypto.generateKeyPairSync('rsa-pss', {
   modulusLength: 2048,
-  hashAlgorithm: getSecureHash,     // ← call_expression
-  mgf1HashAlgorithm: getMgfHash     // ← call_expression
+  hashAlgorithm: getSecureHash(),     // ← call_expression
+  mgf1HashAlgorithm: getMgfHash()     // ← call_expression
 });
 
 // Test case 3: binary_expression - string concatenation
 const bitLength = '256';
 crypto.generateKeyPair('rsa-pss', {
   modulusLength: 2048,
-  hashAlgorithm: 'sha',   // ← binary_expression
-  mgf1HashAlgorithm: 'sha'      // ← binary_expression
+  hashAlgorithm: 'sha' + bitLength,   // ← binary_expression
+  mgf1HashAlgorithm: 'sha' + '1'      // ← binary_expression
 });
 
 // Test case 4: conditional_expression - ternary operator
@@ -41,13 +41,13 @@ const useStrongSecurity = false;
 
 crypto.generateKeyPairSync('rsa-pss', {
   modulusLength: 2048,
-  hashAlgorithm: 'sha512',                    // ← conditional_expression
-  mgf1HashAlgorithm: 'sha256'              // ← conditional_expression
+  hashAlgorithm: isProduction ? 'sha512' : 'sha256',                    // ← conditional_expression
+  mgf1HashAlgorithm: useStrongSecurity ? 'sha256' : 'sha1'              // ← conditional_expression
 });
 
 // Test case 5: Complex mixed cases
 crypto.generateKeyPair('rsa-pss', {
   modulusLength: 2048,
-  hashAlgorithm: 'production',  // ← multiple types
+  hashAlgorithm: process.env.NODE_ENV === 'production' ? crypto.constants.defaultHash || 'sha512' : 'sha256',  // ← multiple types
   saltLength: 32
 });

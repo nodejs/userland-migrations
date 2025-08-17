@@ -64,12 +64,15 @@ crypto.generateKeyPairSync("rsa-pss", {
 ## Usage
 
 ```bash
-npx codemod@next @nodejs/crypto-rsa-pss-update
+npx codemod @nodejs/crypto-rsa-pss-update
 ```
 
 ## Supports
 
 - Both `crypto.generateKeyPair()` and `crypto.generateKeyPairSync()`
 - Destructured imports: `const { generateKeyPair } = require('crypto')`
+- Variable references: `const options = { hash: 'sha256' }`
+- Function calls: `getKeyOptions()` returning crypto options
+- This property patterns: `this.options = { hash: 'sha256' }`
 - Only transforms `'rsa-pss'` key type calls
 - Preserves all other options and call structure

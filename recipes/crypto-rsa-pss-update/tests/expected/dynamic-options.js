@@ -1,9 +1,9 @@
 const crypto = require('crypto');
 
-// Dynamic options object - currently NOT supported by codemod
+// Dynamic options object - now supported by codemod
 const options = {
   modulusLength: 2048,
-  hash: 'sha256',
+  hashAlgorithm: 'sha256',
   saltLength: 32
 };
 
@@ -15,7 +15,7 @@ crypto.generateKeyPair('rsa-pss', options, (err, publicKey, privateKey) => {
 function getKeyOptions() {
   return {
     modulusLength: 2048,
-    mgf1Hash: 'sha1'
+    mgf1HashAlgorithm: 'sha1'
   };
 }
 
