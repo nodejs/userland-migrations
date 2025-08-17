@@ -29,12 +29,12 @@ export default function transform(root: SgRoot<JS>): string | null {
 
     if (!hasNodeUrlImport) return null;
 
-    // 1) Replace parse calls with new URL() using binding-aware patterns
+	// 1) Replace parse calls with new URL() using binding-aware patterns
     // @ts-ignore - type difference between jssg and ast-grep wrappers
     const importNodes = getNodeImportStatements(root, "url");
     // @ts-ignore - type difference between jssg and ast-grep wrappers
     const requireNodes = getNodeRequireCalls(root, "url");
-    const parseCallPatterns = new Set<string>();
+	const parseCallPatterns = new Set<string>();
 
     for (const node of [...importNodes, ...requireNodes]) {
         // @ts-ignore resolve across wrappers
@@ -43,35 +43,55 @@ export default function transform(root: SgRoot<JS>): string | null {
         parseCallPatterns.add(`${binding}($ARG)`);
     }
 
-    for (const pattern of parseCallPatterns) {
-        const calls = rootNode.findAll({ rule: { pattern } });
+	// 1.a) Identify variables assigned from parse(...) so we only rewrite legacy
+	// properties (auth, path, hostname) on those specific objects
+	const parseResultVars = new Set<string>();
+	for (const pattern of parseCallPatterns) {
+		// const/let/var declarations
+		const declKinds = ["const", "let", "var"] as const;
+		for (const kind of declKinds) {
+			const decls = rootNode.findAll({ rule: { pattern: `${kind} $OBJ = ${pattern}` } });
+			for (const d of decls) {
+				const obj = d.getMatch("OBJ");
+				if (!obj) continue;
+				const name = obj.text();
+				// Only simple identifiers
+				if (/^[$A-Z_a-z][$\w]*$/.test(name)) parseResultVars.add(name);
+			}
+		}
+		// simple assignments
+		const assigns = rootNode.findAll({ rule: { pattern: `$OBJ = ${pattern}` } });
+		for (const a of assigns) {
+			const obj = a.getMatch("OBJ");
+			if (!obj) continue;
+			const name = obj.text();
+			if (/^[$A-Z_a-z][$\w]*$/.test(name)) parseResultVars.add(name);
+		}
+	}
 
-        for (const call of calls) {
-            const arg = call.getMatch("ARG");
-            if (!arg) continue;
+	// 1.b) Replace parse calls with new URL()
+	for (const pattern of parseCallPatterns) {
+		const calls = rootNode.findAll({ rule: { pattern } });
 
-            const replacement = `new URL(${arg.text()})`;
-            edits.push(call.replace(replacement));
-        }
-    }
+		for (const call of calls) {
+			const arg = call.getMatch("ARG");
+			if (!arg) continue;
+
+			const replacement = `new URL(${arg.text()})`;
+			edits.push(call.replace(replacement));
+		}
+	}
 
     // 2) Transform legacy properties on URL object
     //    - auth => `${obj.username}:${obj.password}`
     //    - path => `${obj.pathname}${obj.search}`
     //    - hostname => obj.hostname.replace(/^[\[|\]]$/, '')  (strip square brackets)
 
-    // Property access: obj.auth -> `${obj.username}:${obj.password}`
-    const authAccesses = rootNode.findAll({ rule: { pattern: "$OBJ.auth" } });
-    for (const node of authAccesses) {
-        const base = node.getMatch("OBJ");
-        if (!base) continue;
-
-        const replacement = `\`\${${base.text()}.username}:\${${base.text()}.password}\``;
-        edits.push(node.replace(replacement));
-    }
-
+    // We will only transform legacy properties when the base object is either:
+    // - a variable assigned from url.parse/parse(...)
+    // - a direct url.parse/parse(...) call expression
     // Destructuring: const { auth } = obj -> const auth = `${obj.username}:${obj.password}`
-	const fieldsToReplace = [
+    const fieldsToReplace = [
 		{
 			key: "auth",
 			replaceFn: (base: string, hadSemi: boolean) =>
@@ -90,32 +110,79 @@ export default function transform(root: SgRoot<JS>): string | null {
 	];
 
 	for (const { key, replaceFn } of fieldsToReplace) {
-		// Handle property access
-		const propertyAccesses = rootNode.findAll({ rule: { pattern: `$OBJ.${key}` } });
-		for (const node of propertyAccesses) {
-			const base = node.getMatch("OBJ");
-			if (!base) continue;
-
-			let replacement = "";
-			if (key === "auth") {
-				replacement = `\`\${${base.text()}.username}:\${${base.text()}.password}\``;
-			} else if (key === "path") {
-				replacement = `\`\${${base.text()}.pathname}\${${base.text()}.search}\``;
-			} else if (key === "hostname") {
-				replacement = `${base.text()}.hostname.replace(/^\\[|\\]$/, '')`;
+		// 2.a) Handle property access for identifiers that originate from parse(...)
+		for (const varName of parseResultVars) {
+			const propertyAccesses = rootNode.findAll({ rule: { pattern: `${varName}.${key}` } });
+			for (const node of propertyAccesses) {
+				let replacement = "";
+				if (key === "auth") {
+					replacement = `\`\${${varName}.username}:\${${varName}.password}\``;
+				} else if (key === "path") {
+					replacement = `\`\${${varName}.pathname}\${${varName}.search}\``;
+				} else if (key === "hostname") {
+					replacement = `${varName}.hostname.replace(/^\\[|\\]$/, '')`;
+				}
+				edits.push(node.replace(replacement));
 			}
 
+			// destructuring for identifiers
+			const destructures = rootNode.findAll({ rule: { pattern: `const { ${key} } = ${varName}` } });
+			for (const node of destructures) {
+				const hadSemi = /;\s*$/.test(node.text());
+				const replacement = replaceFn(varName, hadSemi);
+				edits.push(node.replace(replacement));
+			}
+		}
+
+		// 2.b) Handle direct call expressions like parse(...).auth and
+		// destructuring from parse(...)
+		for (const pattern of parseCallPatterns) {
+			const directAccesses = rootNode.findAll({ rule: { pattern: `${pattern}.${key}` } });
+			for (const node of directAccesses) {
+				// Reconstruct base as the matched expression before .key
+				const baseExpr = node.text().replace(new RegExp(`\\.${key}$`), "");
+				let replacement = "";
+				if (key === "auth") {
+					replacement = `\`\${${baseExpr}.username}:\${${baseExpr}.password}\``;
+				} else if (key === "path") {
+					replacement = `\`\${${baseExpr}.pathname}\${${baseExpr}.search}\``;
+				} else if (key === "hostname") {
+					replacement = `${baseExpr}.hostname.replace(/^\\[|\\]$/, '')`;
+				}
+				edits.push(node.replace(replacement));
+			}
+
+			const directDestructures = rootNode.findAll({ rule: { pattern: `const { ${key} } = ${pattern}` } });
+			for (const node of directDestructures) {
+				const hadSemi = /;\s*$/.test(node.text());
+				// Extract base expression text (the pattern text matches the whole RHS)
+				const rhsText = node.text().replace(/^[^{]+{\s*[^}]+\s*}\s*=\s*/, "");
+				const replacement = replaceFn(rhsText, hadSemi);
+				edits.push(node.replace(replacement));
+			}
+		}
+
+		// 2.c) Handle property access and destructuring after parse calls were
+		// replaced with new URL($ARG)
+		const newURLAccesses = rootNode.findAll({ rule: { pattern: `new URL($ARG).${key}` } });
+		for (const node of newURLAccesses) {
+			const baseExpr = node.text().replace(new RegExp(`\\.${key}$`), "");
+			let replacement = "";
+			if (key === "auth") {
+				replacement = `\`\${${baseExpr}.username}:\${${baseExpr}.password}\``;
+			} else if (key === "path") {
+				replacement = `\`\${${baseExpr}.pathname}\${${baseExpr}.search}\``;
+			} else if (key === "hostname") {
+				replacement = `${baseExpr}.hostname.replace(/^\\[|\\]$/, '')`;
+			}
 			edits.push(node.replace(replacement));
 		}
 
-		// Handle destructuring
-		const destructures = rootNode.findAll({ rule: { pattern: `const { ${key} } = $OBJ` } });
-		for (const node of destructures) {
-			const base = node.getMatch("OBJ");
-			if (!base) continue;
-
+		const newURLDestructures = rootNode.findAll({ rule: { pattern: `const { ${key} } = new URL($ARG)` } });
+		for (const node of newURLDestructures) {
 			const hadSemi = /;\s*$/.test(node.text());
-			const replacement = replaceFn(base.text(), hadSemi);
+			const rhsText = node.text().replace(/^[^{]+{\s*[^}]+\s*}\s*=\s*/, "");
+			const replacement = replaceFn(rhsText, hadSemi);
 			edits.push(node.replace(replacement));
 		}
 	}

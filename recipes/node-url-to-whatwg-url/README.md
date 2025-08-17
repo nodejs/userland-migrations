@@ -12,14 +12,30 @@ See [DEP0116](https://nodejs.org/api/deprecations.html#DEP0116).
 ```js
 const url = require('node:url');
 
-const myUrl = new url.URL('https://example.com');
-const urlAuth = legacyURL.auth;
+const myURL = url.parse('https://example.com/path?query=string#hash');
+
+const { auth } = myURL;
+const urlAuth = myURL.auth;
+
+const { path } = myURL;
+const urlPath = myURL.path;
+
+const { hostname } = myURL;
+const urlHostname = myURL.hostname;
 ```
 
 **After:**
 ```js
-const myUrl = new URL('https://example.com');
-const urlAuth = `${myUrl.username}:${myUrl.password}`;
+const myURL = new URL('https://example.com/path?query=string#hash');
+
+const auth = `${myURL.username}:${myURL.password}`;
+const urlAuth = `${myURL.username}:${myURL.password}`;
+
+const path = `${myURL.pathname}${myURL.search}`;
+const urlPath = `${myURL.pathname}${myURL.search}`;
+
+const hostname = myURL.hostname.replace(/^\[|\]$/, '');
+const urlHostname = myURL.hostname.replace(/^\[|\]$/, '');
 ```
 
 ### `url.format` to `myUrl.toString()
@@ -63,3 +79,6 @@ resolve('/one/two/three', 'four');         // '/one/two/four'
 resolve('http://example.com/', '/one');    // 'http://example.com/one'
 resolve('http://example.com/one', '/two'); // 'http://example.com/two'
 ```
+
+If you are using `url.parse().auth`, `url.parse().username`, or `url.parse().password`. Will transform to `new URL().auth` which is not valid WHATWG url property. So you have to manually construct the `auth`, `path`, and `hostname` properties as shown in the examples above.
+

@@ -10,3 +10,9 @@ const urlPath = myURL.path;
 
 const { hostname } = myURL;
 const urlHostname = myURL.hostname;
+
+const someObject = {
+	auth: 'life is a waterfall'
+}
+
+console.log(someObject.auth);

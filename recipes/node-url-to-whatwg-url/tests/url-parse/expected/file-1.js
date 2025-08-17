@@ -10,3 +10,9 @@ const urlPath = `${myURL.pathname}${myURL.search}`;
 
 const hostname = myURL.hostname.replace(/^\[|\]$/, '');
 const urlHostname = myURL.hostname.replace(/^\[|\]$/, '');
+
+const someObject = {
+	auth: 'life is a waterfall'
+}
+
+console.log(someObject.auth);
