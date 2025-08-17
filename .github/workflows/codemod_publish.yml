@@ -106,11 +106,11 @@ jobs:
       - name: Authenticate with Codemod registry
         env:
           CODEMOD_TOKEN: ${{ secrets.CODEMOD_TOKEN }}
-        run: npx codemod@next login --api-key "$CODEMOD_TOKEN"
+        run: npx codemod login --api-key "$CODEMOD_TOKEN"
 
       - name: Publish codemod
         working-directory: ${{ steps.parse-tag.outputs.codemod-path }}
-        run: npx codemod@next publish
+        run: npx codemod publish
 
       - name: Create release summary
         env:

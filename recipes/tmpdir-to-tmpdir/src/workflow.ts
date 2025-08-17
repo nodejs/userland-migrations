@@ -1,6 +1,6 @@
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import type { SgRoot, Edit } from "@ast-grep/napi";
+import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
 
 /**
  * Transform function that updates code to replace deprecated `tmpDir` usage
