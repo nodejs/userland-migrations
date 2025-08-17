@@ -26,6 +26,8 @@ const containsBuiltinProperties = (text: string): boolean =>
 export default function transform(root: SgRoot): string | null {
     const rootNode = root.root();
     const edits: Edit[] = [];
+    // Reusable quoted module specifier for generating new statements
+    const newModule = "'node:module'";
 
     const replaceStandaloneBuiltinLibsReferences = (): void => {
         const standaloneReferences = rootNode.findAll({
@@ -47,12 +49,11 @@ export default function transform(root: SgRoot): string | null {
     };
 
     const updateModuleSpecifier = (statement: SgNode): void => {
-        const moduleSpecifier = statement.find({ rule: { kind: "string" } });
+        const moduleSpecifier = statement.find({ rule: { kind: "string_fragment" } });
 
         if (moduleSpecifier) {
             // Always use 'node:module'
-            const newModule = "'node:module'";
-            edits.push(moduleSpecifier.replace(newModule));
+            edits.push(moduleSpecifier.replace('node:module'));
         }
     };
 
@@ -134,7 +135,6 @@ export default function transform(root: SgRoot): string | null {
 
                         if (variableDeclaration && moduleSpecifier) {
                             const currentModule = moduleSpecifier.text();
-                            const newModule = "'node:module'";
 
                             const reconstructedText = `{ ${propertiesToKeep.join(", ")} }`;
                             const firstStatement = `const ${reconstructedText} = require(${currentModule});`;
@@ -244,7 +244,6 @@ export default function transform(root: SgRoot): string | null {
                     const moduleSpecifier = statement.find({ rule: { kind: "string" } });
 
                     if (moduleSpecifier) {
-                        const newModule = "'node:module'";
                         const aliasMatch = originalText.match(/(builtinModules|_builtinLibs)\s*(as\s+\w+)/);
                         const aliasText = aliasMatch ? ` ${aliasMatch[2]}` : "";
                         const newStatement = `import { builtinModules${aliasText} } from ${newModule};`;
