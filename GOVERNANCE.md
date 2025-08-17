@@ -52,6 +52,6 @@ Maintainers are also responsible for creating tags on the repository's `HEAD` br
 
 ## Team Expulsion
 
-A team member who violates Node.js's code of conduct or who is acting against the interests or mandate of the team, or acts in bad faith may be expelled by vote of the team; such a vote requires a quorum of ⅔ of active members passing by ⅗ super majority. If a vote passes a simple majority but fails a super majority, the team member will be asked to voluntarily exit. Expulsion votes are confidential and are not conveyed to the expulee (they may be verified in confidence by the TSC).
-
+A team member who violates Node.js's code of conduct, acts against the interests or mandate of the team, or acts in bad faith may be expelled by a vote of the team. Such a vote requires a quorum of ⅔ of active members and passes with a ⅗ super majority. If a vote passes with a simple majority but fails a super majority, the team member will be asked to voluntarily exit. Expulsion votes are confidential and are not conveyed to the expulee (they may be verified in confidence by the TSC).
+Additionally, the [TSC](https://github.com/nodejs/TSC) and the [OpenJS Foundation](https://openjsf.org/) reserve the right to expel team members for any reason, including violations of their respective policies.
 When expulsion proceedings are commenced, team membership is frozen until the vote has settled.
