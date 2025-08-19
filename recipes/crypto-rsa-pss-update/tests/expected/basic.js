@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 
-// Basic case with hash option
+// Basic case with hash option only
 crypto.generateKeyPair('rsa-pss', {
   modulusLength: 2048,
   hashAlgorithm: 'sha256',
@@ -9,16 +9,9 @@ crypto.generateKeyPair('rsa-pss', {
   console.log('Generated keys');
 });
 
-// Basic case with mgf1Hash option
+// Both hash and mgf1Hash options together
 crypto.generateKeyPairSync('rsa-pss', {
   modulusLength: 2048,
-  mgf1HashAlgorithm: 'sha256'
-});
-
-// Both options together
-crypto.generateKeyPair('rsa-pss', {
-  modulusLength: 2048,
   hashAlgorithm: 'sha256',
-  mgf1HashAlgorithm: 'sha1',
-  saltLength: 32
+  mgf1HashAlgorithm: 'sha1'
 });

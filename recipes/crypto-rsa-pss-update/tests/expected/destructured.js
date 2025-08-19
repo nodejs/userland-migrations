@@ -53,3 +53,15 @@ cryptoLib.generateKeyPairSync('rsa-pss', {
   modulusLength: 2048,
   hashAlgorithm: 'sha512'
 });
+
+// Mixed CJS + ESM imports (consolidated from mixed-imports.js)
+import { constants, randomBytes } from 'crypto';
+
+// Using constants from ESM import
+const optionsMixed = {
+  hashAlgorithm: constants.defaultCipherName || 'sha256',
+  mgf1HashAlgorithm: 'sha1',
+  modulusLength: 2048
+};
+
+cryptoLib.generateKeyPair('rsa-pss', optionsMixed);
