@@ -4,7 +4,7 @@
   "description": "Handle DEP0026, DEP0027, DEP0028, DEP0029 via transforming `util.print|puts|debug|error()` to `console.log|error()`",
   "type": "module",
   "scripts": {
-    "test": "npx codemod jssg test --update-snapshots -l typescript ./src/workflow.ts ./"
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
   },
   "repository": {
     "type": "git",
