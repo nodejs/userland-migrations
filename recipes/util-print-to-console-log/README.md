@@ -1,4 +1,4 @@
-# `util.print, util.puts, util.debug, util.error` DEP0059,DEP0026,DEP0027,DEP0028,DEP0029
+# `util.print, util.puts, util.debug, util.error` DEP0026,DEP0027,DEP0028,DEP0029
 
 This recipe transforms the usage of log functions from util, `print`, `puts`, `debug`, `error` to use `console.log()` or `console.error()`.
 

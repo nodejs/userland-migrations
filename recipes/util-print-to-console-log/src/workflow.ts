@@ -40,13 +40,16 @@ const updates = [
 ];
 
 /*
- * Transforms `util.log($$$ARG)` usage to `console.log(new Date().toLocaleString(), $$$ARG)`.
+ * Transforms `util.print($$$ARG)` usage to `console.log($$$ARG)`.
+ * Transforms `util.puts($$$ARG)` usage to `console.log($$$ARG)`.
+ * Transforms `util.debug($$$ARG)` usage to `console.error($$$ARG)`.
+ * Transforms `util.error($$$ARG)` usage to `console.error($$$ARG)`.
  *
  * Steps:
  *
- * Locate all util.log imports, noting the replacement rule, import node, and binding name.
+ * Locate all `util.print|puts|debug|error` import imports, noting the replacement rule, import node, and binding name.
  *
- * For each binding, replace calls to util.log($$$ARG) with the new console.log format,
+ * For each binding, replace calls to util.print|puts|debug|error($$$ARG) with the new console.log|error format,
  * and determine if the import line should be updated or removed.
  *
  * Apply all changes, removing or updating the import line as needed.
@@ -67,7 +70,7 @@ export default function transform(root: SgRoot): string | null {
 		for (const update of updates) {
 			const bind = resolveBindingPath(node, update.oldBind);
 
-			// if `log` function ins't coming from `node:util`
+			// if `fn` function ins't coming from `node:util`
 			if (!bind) continue;
 
 			bindsToReplace.push({
