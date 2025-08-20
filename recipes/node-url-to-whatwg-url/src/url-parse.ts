@@ -1,5 +1,4 @@
 import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
-import type JS from "@codemod.com/jssg-types/langs/javascript";
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
@@ -16,28 +15,23 @@ import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-bindi
  * 2. `foo.parse(urlString)` → `new URL(urlString)`
  * 3. `foo(urlString)` → `new URL(urlString)`
  */
-export default function transform(root: SgRoot<JS>): string | null {
+export default function transform(root: SgRoot): string | null {
     const rootNode = root.root();
     const edits: Edit[] = [];
 
     // Safety: only run on files that import/require node:url
     const hasNodeUrlImport =
-		// @ts-ignore
         getNodeImportStatements(root, "url").length > 0 ||
-        // @ts-ignore
 		getNodeRequireCalls(root, "url").length > 0;
 
-    if (!hasNodeUrlImport) return null;
+	if (!hasNodeUrlImport) return null;
 
 	// 1) Replace parse calls with new URL() using binding-aware patterns
-    // @ts-ignore - type difference between jssg and ast-grep wrappers
     const importNodes = getNodeImportStatements(root, "url");
-    // @ts-ignore - type difference between jssg and ast-grep wrappers
     const requireNodes = getNodeRequireCalls(root, "url");
 	const parseCallPatterns = new Set<string>();
 
-    for (const node of [...importNodes, ...requireNodes]) {
-        // @ts-ignore resolve across wrappers
+	for (const node of [...importNodes, ...requireNodes]) {
         const binding = resolveBindingPath(node, "$.parse");
         if (!binding) continue;
         parseCallPatterns.add(`${binding}($ARG)`);
@@ -47,22 +41,18 @@ export default function transform(root: SgRoot<JS>): string | null {
 	// properties (auth, path, hostname) on those specific objects
 	const parseResultVars = new Set<string>();
 	for (const pattern of parseCallPatterns) {
-		// const/let/var declarations
-		const declKinds = ["const", "let", "var"] as const;
-		for (const kind of declKinds) {
-			const decls = rootNode.findAll({ rule: { pattern: `${kind} $OBJ = ${pattern}` } });
-			for (const d of decls) {
-				const obj = d.getMatch("OBJ");
-				if (!obj) continue;
-				const name = obj.text();
-				// Only simple identifiers
-				if (/^[$A-Z_a-z][$\w]*$/.test(name)) parseResultVars.add(name);
+		const matches = rootNode.findAll({
+			rule: {
+				any: [
+					{ pattern: `const $OBJ = ${pattern}` },
+					{ pattern: `let $OBJ = ${pattern}` },
+					{ pattern: `var $OBJ = ${pattern}` },
+					{ pattern: `$OBJ = ${pattern}` }
+				]
 			}
-		}
-		// simple assignments
-		const assigns = rootNode.findAll({ rule: { pattern: `$OBJ = ${pattern}` } });
-		for (const a of assigns) {
-			const obj = a.getMatch("OBJ");
+		});
+		for (const m of matches) {
+			const obj = m.getMatch("OBJ");
 			if (!obj) continue;
 			const name = obj.text();
 			if (/^[$A-Z_a-z][$\w]*$/.test(name)) parseResultVars.add(name);
@@ -70,6 +60,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 	}
 
 	// 1.b) Replace parse calls with new URL()
+	//      Also, for declarations using `var`, upgrade to `let` while keeping `const` as-is.
 	for (const pattern of parseCallPatterns) {
 		const calls = rootNode.findAll({ rule: { pattern } });
 
@@ -80,32 +71,41 @@ export default function transform(root: SgRoot<JS>): string | null {
 			const replacement = `new URL(${arg.text()})`;
 			edits.push(call.replace(replacement));
 		}
+
+		// Upgrade `var` → `let` when a declaration's initializer matches parse(...)
+		const varDecls = rootNode.findAll({ rule: { pattern: `var $OBJ = ${pattern}` } });
+		for (const decl of varDecls) {
+			const text = decl.text();
+			const updated = text.replace(/^var\b/, "let");
+			if (updated !== text) edits.push(decl.replace(updated));
+		}
 	}
 
     // 2) Transform legacy properties on URL object
     //    - auth => `${obj.username}:${obj.password}`
     //    - path => `${obj.pathname}${obj.search}`
     //    - hostname => obj.hostname.replace(/^[\[|\]]$/, '')  (strip square brackets)
-
-    // We will only transform legacy properties when the base object is either:
-    // - a variable assigned from url.parse/parse(...)
-    // - a direct url.parse/parse(...) call expression
-    // Destructuring: const { auth } = obj -> const auth = `${obj.username}:${obj.password}`
-    const fieldsToReplace = [
+	const fieldsToReplace = [
 		{
 			key: "auth",
-			replaceFn: (base: string, hadSemi: boolean) =>
-				`const auth = \`\${${base}.username}:\${${base}.password}\`${hadSemi ? ";" : ""}`,
+			replaceFn: (base: string, hadSemi: boolean, declKind: "const" | "let" | "var") => {
+				const kind = declKind === "var" ? "let" : declKind;
+				return `${kind} auth = \`\${${base}.username}:\${${base}.password}\`${hadSemi ? ";" : ""}`;
+			},
 		},
 		{
 			key: "path",
-			replaceFn: (base: string, hadSemi: boolean) =>
-				`const path = \`\${${base}.pathname}\${${base}.search}\`${hadSemi ? ";" : ""}`,
+			replaceFn: (base: string, hadSemi: boolean, declKind: "const" | "let" | "var") => {
+				const kind = declKind === "var" ? "let" : declKind;
+				return `${kind} path = \`\${${base}.pathname}\${${base}.search}\`${hadSemi ? ";" : ""}`;
+			},
 		},
 		{
 			key: "hostname",
-			replaceFn: (base: string, hadSemi: boolean) =>
-				`const hostname = ${base}.hostname.replace(/^\\[|\\]$/, '')${hadSemi ? ";" : ""}`,
+			replaceFn: (base: string, hadSemi: boolean, declKind: "const" | "let" | "var") => {
+				const kind = declKind === "var" ? "let" : declKind;
+				return `${kind} hostname = ${base}.hostname.replace(/^\\[|\\]$/, '')${hadSemi ? ";" : ""}`;
+			},
 		},
 	];
 
@@ -125,11 +125,21 @@ export default function transform(root: SgRoot<JS>): string | null {
 				edits.push(node.replace(replacement));
 			}
 
-			// destructuring for identifiers
-			const destructures = rootNode.findAll({ rule: { pattern: `const { ${key} } = ${varName}` } });
+			// destructuring for identifiers without looping kinds
+			const destructures = rootNode.findAll({
+				rule: {
+					any: [
+						{ pattern: `const { ${key} } = ${varName}` },
+						{ pattern: `let { ${key} } = ${varName}` },
+						{ pattern: `var { ${key} } = ${varName}` }
+					]
+				}
+			});
 			for (const node of destructures) {
-				const hadSemi = /;\s*$/.test(node.text());
-				const replacement = replaceFn(varName, hadSemi);
+				const text = node.text();
+				const hadSemi = /;\s*$/.test(text);
+				const declKind: "const" | "let" | "var" = text.trimStart().startsWith("var ") ? "var" : (text.trimStart().startsWith("const ") ? "const" : "let");
+				const replacement = replaceFn(varName, hadSemi, declKind);
 				edits.push(node.replace(replacement));
 			}
 		}
@@ -152,12 +162,24 @@ export default function transform(root: SgRoot<JS>): string | null {
 				edits.push(node.replace(replacement));
 			}
 
-			const directDestructures = rootNode.findAll({ rule: { pattern: `const { ${key} } = ${pattern}` } });
+
+
+			// direct destructuring from parse(...), cover all kinds in a single query
+			const directDestructures = rootNode.findAll({
+				rule: {
+					any: [
+						{ pattern: `const { ${key} } = ${pattern}` },
+						{ pattern: `let { ${key} } = ${pattern}` },
+						{ pattern: `var { ${key} } = ${pattern}` }
+					]
+				}
+			});
 			for (const node of directDestructures) {
-				const hadSemi = /;\s*$/.test(node.text());
-				// Extract base expression text (the pattern text matches the whole RHS)
-				const rhsText = node.text().replace(/^[^{]+{\s*[^}]+\s*}\s*=\s*/, "");
-				const replacement = replaceFn(rhsText, hadSemi);
+				const text = node.text();
+				const hadSemi = /;\s*$/.test(text);
+				const rhsText = text.replace(/^[^{]+{\s*[^}]+\s*}\s*=\s*/, "");
+				const declKind: "const" | "let" | "var" = text.trimStart().startsWith("var ") ? "var" : (text.trimStart().startsWith("const ") ? "const" : "let");
+				const replacement = replaceFn(rhsText, hadSemi, declKind);
 				edits.push(node.replace(replacement));
 			}
 		}
@@ -178,11 +200,22 @@ export default function transform(root: SgRoot<JS>): string | null {
 			edits.push(node.replace(replacement));
 		}
 
-		const newURLDestructures = rootNode.findAll({ rule: { pattern: `const { ${key} } = new URL($ARG)` } });
+		// destructuring from new URL, single query for all kinds
+		const newURLDestructures = rootNode.findAll({
+			rule: {
+				any: [
+					{ pattern: `const { ${key} } = new URL($ARG)` },
+					{ pattern: `let { ${key} } = new URL($ARG)` },
+					{ pattern: `var { ${key} } = new URL($ARG)` }
+				]
+			}
+		});
 		for (const node of newURLDestructures) {
-			const hadSemi = /;\s*$/.test(node.text());
-			const rhsText = node.text().replace(/^[^{]+{\s*[^}]+\s*}\s*=\s*/, "");
-			const replacement = replaceFn(rhsText, hadSemi);
+			const text = node.text();
+			const hadSemi = /;\s*$/.test(text);
+			const rhsText = text.replace(/^[^{]+{\s*[^}]+\s*}\s*=\s*/, "");
+			const declKind: "const" | "let" | "var" = text.trimStart().startsWith("var ") ? "var" : (text.trimStart().startsWith("const ") ? "const" : "let");
+			const replacement = replaceFn(rhsText, hadSemi, declKind);
 			edits.push(node.replace(replacement));
 		}
 	}

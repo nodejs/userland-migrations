@@ -1,8 +1,14 @@
-import type { SgRoot, Edit, Range } from "@codemod.com/jssg-types/main";
+import type { SgRoot, SgNode, Edit, Range } from "@codemod.com/jssg-types/main";
 import type JS from "@codemod.com/jssg-types/langs/javascript";
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
+
+const isBindingUsed = (rootNode: SgNode<JS>, name: string): boolean => {
+        const refs = rootNode.findAll({ rule: { pattern: name } });
+        // Heuristic: declaration counts as one; any other usage yields > 1
+        return refs.length > 1;
+    };
 
 /**
  * Clean up unused imports/requires from 'node:url' after transforms using shared utils
@@ -10,12 +16,6 @@ import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
 export default function transform(root: SgRoot<JS>): string | null {
     const rootNode = root.root();
     const edits: Edit[] = [];
-
-    const isBindingUsed = (name: string): boolean => {
-        const refs = rootNode.findAll({ rule: { pattern: name } });
-        // Heuristic: declaration counts as one; any other usage yields > 1
-        return refs.length > 1;
-    };
 
     const linesToRemove: Range[] = [];
 
@@ -28,7 +28,7 @@ export default function transform(root: SgRoot<JS>): string | null {
         let removed = false;
         if (clause) {
             const nsId = clause.find({ rule: { kind: "namespace_import" } })?.find({ rule: { kind: "identifier" } });
-            if (nsId && !isBindingUsed(nsId.text())) {
+            if (nsId && !isBindingUsed(rootNode, nsId.text())) {
                 linesToRemove.push(imp.range());
                 removed = true;
             }
@@ -38,7 +38,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 
             if (specs.length === 0 && !nsId) {
                 const defaultId = clause.find({ rule: { kind: "identifier" } });
-                if (defaultId && !isBindingUsed(defaultId.text())) {
+                if (defaultId && !isBindingUsed(rootNode, defaultId.text())) {
                     linesToRemove.push(imp.range());
                     removed = true;
                 }
@@ -50,7 +50,7 @@ export default function transform(root: SgRoot<JS>): string | null {
                 for (const spec of specs) {
                     const text = spec.text().trim();
                     const bindingName = text.includes(" as ") ? text.split(/\s+as\s+/)[1] : text;
-                    if (bindingName && isBindingUsed(bindingName)) keepTexts.push(text);
+                    if (bindingName && isBindingUsed(rootNode, bindingName)) keepTexts.push(text);
                 }
                 if (keepTexts.length === 0) {
                     linesToRemove.push(imp.range());
@@ -71,7 +71,7 @@ export default function transform(root: SgRoot<JS>): string | null {
         const hasObjectPattern = decl.find({ rule: { kind: "object_pattern" } });
 
         if (id && !hasObjectPattern) {
-            if (!isBindingUsed(id.text())) linesToRemove.push(decl.parent().range());
+            if (!isBindingUsed(rootNode, id.text())) linesToRemove.push(decl.parent().range());
             continue;
         }
 
@@ -86,10 +86,10 @@ export default function transform(root: SgRoot<JS>): string | null {
             }
 
             const usedTexts: string[] = [];
-            for (const s of shorts) if (isBindingUsed(s.text())) usedTexts.push(s.text());
+            for (const s of shorts) if (isBindingUsed(rootNode, s.text())) usedTexts.push(s.text());
             for (const pair of pairs) {
                 const aliasId = pair.find({ rule: { kind: "identifier" } });
-                if (aliasId && isBindingUsed(aliasId.text())) usedTexts.push(pair.text());
+                if (aliasId && isBindingUsed(rootNode, aliasId.text())) usedTexts.push(pair.text());
             }
 
             if (usedTexts.length === 0) {
@@ -105,10 +105,23 @@ export default function transform(root: SgRoot<JS>): string | null {
 
     let source = rootNode.commitEdits(edits);
 
-    source = removeLines(source, linesToRemove.map(range => ({
-        start: { line: range.start.line, column: 0, index: 0 },
-        end: { line: range.end.line + 1, column: 0, index: 0 }
-    })));
+    // Only remove the next line if it is blank; don't delete non-empty following lines.
+    const srcLines = source.split("\n");
+    const adjustedRanges = linesToRemove.map((range) => {
+        const startLine = range.start.line;
+        let endLine = range.end.line;
+        const nextLine = endLine + 1;
+        if (nextLine < srcLines.length) {
+            const isNextLineBlank = /^\s*$/.test(srcLines[nextLine] ?? "");
+            if (isNextLineBlank) endLine = nextLine;
+        }
+        return {
+            start: { line: startLine, column: 0, index: 0 },
+            end: { line: endLine, column: 0, index: 0 },
+        } as Range;
+    });
+
+    source = removeLines(source, adjustedRanges);
 
     return source;
 };

@@ -1,15 +1,16 @@
 import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
-import type JS from "@codemod.com/jssg-types/langs/javascript";
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
+
+type V = { literal: true; text: string } | { literal: false; code: string };
 
 /**
  * Get the literal text value of a node, if it exists.
  * @param node The node to extract the literal text from
  * @returns The literal text value, or undefined if not found
  */
-const getLiteralText = (node: SgNode<JS> | null | undefined): string | undefined => {
+const getLiteralText = (node: SgNode | null | undefined): string | undefined => {
 	if (!node) return undefined;
 	const kind = node.kind();
 
@@ -23,33 +24,11 @@ const getLiteralText = (node: SgNode<JS> | null | undefined): string | undefined
 };
 
 /**
- * Transforms url.format() calls to new URL().toString()
- * @param callNode The AST nodes representing the url.format() calls
- * @param edits The edits collector
+ * Get the value of a pair node.
+ * @param pair The pair node to extract the value from
+ * @returns The value of the pair node, or undefined if not found
  */
-function urlFormatToUrlToString(callNode: SgNode<JS>[], edits: Edit[]): void {
-	for (const call of callNode) {
-		const optionsMatch = call.getMatch("OPTIONS");
-		if (!optionsMatch) continue;
-
-		// Find the object node that contains the URL options
-		const objectNode = optionsMatch.find({ rule: { kind: "object" } });
-		if (!objectNode) continue;
-
-		type V = { literal: true; text: string } | { literal: false; code: string };
-		const urlState: {
-			protocol?: V;
-			auth?: V; // user:pass
-			host?: V; // host:port
-			hostname?: V;
-			port?: V;
-			pathname?: V;
-			search?: V; // ?a=b
-			hash?: V; // #frag
-			queryParams?: Array<[string, string]>;
-		} = {};
-
-		const getValue = (pair: SgNode<JS>): V | undefined => {
+const getValue = (pair: SgNode): V | undefined => {
 			// string/number/bool
 			const litNode = pair.find({
 				rule: { any: [{ kind: "string" }, { kind: "number" }, { kind: "true" }, { kind: "false" }] },
@@ -72,6 +51,32 @@ function urlFormatToUrlToString(callNode: SgNode<JS>[], edits: Edit[]): void {
 			return undefined;
 		};
 
+/**
+ * Transforms url.format() calls to new URL().toString()
+ * @param callNode The AST nodes representing the url.format() calls
+ * @param edits The edits collector
+ */
+function urlFormatToUrlToString(callNode: SgNode[], edits: Edit[]): void {
+	for (const call of callNode) {
+		const optionsMatch = call.getMatch("OPTIONS");
+		if (!optionsMatch) continue;
+
+		// Find the object node that contains the URL options
+		const objectNode = optionsMatch.find({ rule: { kind: "object" } });
+		if (!objectNode) continue;
+
+		const urlState: {
+			protocol?: V;
+			auth?: V; // user:pass
+			host?: V; // host:port
+			hostname?: V;
+			port?: V;
+			pathname?: V;
+			search?: V; // ?a=b
+			hash?: V; // #frag
+			queryParams?: Array<[string, string]>;
+		} = {};
+
 		const pairs = objectNode.findAll({ rule: { kind: "pair" } });
 
 		for (const pair of pairs) {
@@ -88,7 +93,14 @@ function urlFormatToUrlToString(callNode: SgNode<JS>[], edits: Edit[]): void {
 					for (const qp of qpairs) {
 						const qkeyNode = qp.find({ rule: { kind: "property_identifier" } });
 						const qvalLiteral = getLiteralText(
-							qp.find({ rule: { any: [{ kind: "string" }, { kind: "number" }, { kind: "true" }, { kind: "false" }] } }),
+							qp.find({ rule:{
+								any: [
+									{ kind: "string" },
+									{ kind: "number" },
+									{ kind: "true" },
+									{ kind: "false" }
+								]
+							} }),
 						);
 						if (qkeyNode && qvalLiteral !== undefined) list.push([qkeyNode.text(), qvalLiteral]);
 					}
@@ -101,43 +113,14 @@ function urlFormatToUrlToString(callNode: SgNode<JS>[], edits: Edit[]): void {
 			const val = getValue(pair);
 			if (!val) continue;
 
-			switch (key) {
-				case "protocol": {
-					if (val.literal) urlState.protocol = { literal: true, text: val.text.replace(/:$/, "") };
-					else urlState.protocol = val;
-					break;
+			const handledProps = ["protocol", "auth", "host", "hostname", "port", "pathname", "search", "hash"];
+			if (handledProps.includes(key)) {
+				if (key === "protocol" && val.literal) {
+					urlState.protocol = { literal: true, text: val.text.replace(/:$/, "") };
+				} else {
+					// biome-ignore lint/suspicious/noExplicitAny: IDK how to solve that
+					(urlState as any)[key] = val;
 				}
-				case "auth": {
-					urlState.auth = val;
-					break;
-				}
-				case "host": {
-					urlState.host = val;
-					break;
-				}
-				case "hostname": {
-					urlState.hostname = val;
-					break;
-				}
-				case "port": {
-					urlState.port = val;
-					break;
-				}
-				case "pathname": {
-					urlState.pathname = val;
-					break;
-				}
-				case "search": {
-					urlState.search = val;
-					break;
-				}
-				case "hash": {
-					urlState.hash = val;
-					break;
-				}
-				default:
-					// ignore unknown options in this simple mapping
-					break;
 			}
 		}
 
@@ -146,33 +129,10 @@ function urlFormatToUrlToString(callNode: SgNode<JS>[], edits: Edit[]): void {
 		for (const sh of shorthands) {
 			const name = sh.text();
 			const v: V = { literal: false, code: name };
-			switch (name) {
-				case "protocol":
-					urlState.protocol = v;
-					break;
-				case "auth":
-					urlState.auth = v;
-					break;
-				case "host":
-					urlState.host = v;
-					break;
-				case "hostname":
-					urlState.hostname = v;
-					break;
-				case "port":
-					urlState.port = v;
-					break;
-				case "pathname":
-					urlState.pathname = v;
-					break;
-				case "search":
-					urlState.search = v;
-					break;
-				case "hash":
-					urlState.hash = v;
-					break;
-				default:
-					break;
+			const handledProps = ['protocol', 'auth', 'host', 'hostname', 'port', 'pathname', 'search', 'hash'];
+			if (handledProps.includes(name)) {
+				// biome-ignore lint/suspicious/noExplicitAny: IDK how to solve that
+				(urlState as any)[name] = v;
 			}
 		}
 
@@ -278,13 +238,13 @@ function urlFormatToUrlToString(callNode: SgNode<JS>[], edits: Edit[]): void {
  * 2. `foo.format(options)` → `new URL().toString()`
  * 3. `foo(options)` → `new URL().toString()`
  */
-export default function transform(root: SgRoot<JS>): string | null {
+export default function transform(root: SgRoot): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 
 	// Safety: only run on files that import/require node:url
-    const importNodes = getNodeImportStatements(root as undefined, "url");
-    const requireNodes = getNodeRequireCalls(root as undefined, "url");
+    const importNodes = getNodeImportStatements(root, "url");
+	const requireNodes = getNodeRequireCalls(root, "url");
 	const requiresImports = [...importNodes, ...requireNodes]
 
     if (!requiresImports.length) return null;
@@ -292,15 +252,9 @@ export default function transform(root: SgRoot<JS>): string | null {
     const parseCallPatterns = new Set<string>();
 
     for (const node of requiresImports) {
-		// @ts-ignore - helper accepts ast-grep SgNode; runtime compatible
 		const binding = resolveBindingPath(node, "$.format");
 		if (binding) parseCallPatterns.add(`${binding}($OPTIONS)`);
 	}
-
-	// Fallbacks for common names and tests
-	["url.format($OPTIONS)", "nodeUrl.format($OPTIONS)", "format($OPTIONS)", "urlFormat($OPTIONS)"].forEach((p) =>
-		parseCallPatterns.add(p),
-	);
 
 	for (const pattern of parseCallPatterns) {
 		const calls = rootNode.findAll({ rule: { pattern } });
