@@ -5,6 +5,33 @@ import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-bindi
 
 type V = { literal: true; text: string } | { literal: false; code: string };
 
+type UrlState = {
+	protocol?: V;
+	auth?: V; // user:pass
+	host?: V; // host:port
+	hostname?: V;
+	port?: V;
+	pathname?: V;
+	search?: V; // ?a=b
+	hash?: V; // #frag
+	queryParams?: Array<[string, string]>;
+};
+
+const handledProps: (keyof UrlState)[] = [
+	"protocol",
+	"auth",
+	"host",
+	"hostname",
+	"port",
+	"pathname",
+	"search",
+	"hash",
+];
+
+const isHandledProp = (key: string): key is (typeof handledProps)[number] => {
+	return handledProps.includes(key as (typeof handledProps)[number]);
+};
+
 /**
  * Get the literal text value of a node, if it exists.
  * @param node The node to extract the literal text from
@@ -29,27 +56,27 @@ const getLiteralText = (node: SgNode | null | undefined): string | undefined => 
  * @returns The value of the pair node, or undefined if not found
  */
 const getValue = (pair: SgNode): V | undefined => {
-			// string/number/bool
-			const litNode = pair.find({
-				rule: { any: [{ kind: "string" }, { kind: "number" }, { kind: "true" }, { kind: "false" }] },
-			});
-			const lit = getLiteralText(litNode);
-			if (lit !== undefined) return { literal: true, text: lit };
+	// string/number/bool
+	const litNode = pair.find({
+		rule: { any: [{ kind: "string" }, { kind: "number" }, { kind: "true" }, { kind: "false" }] },
+	});
+	const lit = getLiteralText(litNode);
+	if (lit !== undefined) return { literal: true, text: lit };
 
-			// identifier value
-			const idNode = pair.find({ rule: { kind: "identifier" } });
-			if (idNode) return { literal: false, code: idNode.text() };
+	// identifier value
+	const idNode = pair.find({ rule: { kind: "identifier" } });
+	if (idNode) return { literal: false, code: idNode.text() };
 
-			// shorthand property
-			const shorthand = pair.find({ rule: { kind: "shorthand_property_identifier" } });
-			if (shorthand) return { literal: false, code: shorthand.text() };
+	// shorthand property
+	const shorthand = pair.find({ rule: { kind: "shorthand_property_identifier" } });
+	if (shorthand) return { literal: false, code: shorthand.text() };
 
-			// template string value
-			const template = pair.find({ rule: { kind: "template_string" } });
-			if (template) return { literal: false, code: template.text() };
+	// template string value
+	const template = pair.find({ rule: { kind: "template_string" } });
+	if (template) return { literal: false, code: template.text() };
 
-			return undefined;
-		};
+	return undefined;
+};
 
 /**
  * Transforms url.format() calls to new URL().toString()
@@ -65,17 +92,7 @@ function urlFormatToUrlToString(callNode: SgNode[], edits: Edit[]): void {
 		const objectNode = optionsMatch.find({ rule: { kind: "object" } });
 		if (!objectNode) continue;
 
-		const urlState: {
-			protocol?: V;
-			auth?: V; // user:pass
-			host?: V; // host:port
-			hostname?: V;
-			port?: V;
-			pathname?: V;
-			search?: V; // ?a=b
-			hash?: V; // #frag
-			queryParams?: Array<[string, string]>;
-		} = {};
+		const urlState: UrlState = {};
 
 		const pairs = objectNode.findAll({ rule: { kind: "pair" } });
 
@@ -93,14 +110,16 @@ function urlFormatToUrlToString(callNode: SgNode[], edits: Edit[]): void {
 					for (const qp of qpairs) {
 						const qkeyNode = qp.find({ rule: { kind: "property_identifier" } });
 						const qvalLiteral = getLiteralText(
-							qp.find({ rule:{
-								any: [
-									{ kind: "string" },
-									{ kind: "number" },
-									{ kind: "true" },
-									{ kind: "false" }
-								]
-							} }),
+							qp.find({
+								rule: {
+									any: [
+										{ kind: "string" },
+										{ kind: "number" },
+										{ kind: "true" },
+										{ kind: "false" },
+									],
+								},
+							}),
 						);
 						if (qkeyNode && qvalLiteral !== undefined) list.push([qkeyNode.text(), qvalLiteral]);
 					}
@@ -113,13 +132,13 @@ function urlFormatToUrlToString(callNode: SgNode[], edits: Edit[]): void {
 			const val = getValue(pair);
 			if (!val) continue;
 
-			const handledProps = ["protocol", "auth", "host", "hostname", "port", "pathname", "search", "hash"];
-			if (handledProps.includes(key)) {
+			if (isHandledProp(key)) {
 				if (key === "protocol" && val.literal) {
 					urlState.protocol = { literal: true, text: val.text.replace(/:$/, "") };
 				} else {
-					// biome-ignore lint/suspicious/noExplicitAny: IDK how to solve that
-					(urlState as any)[key] = val;
+					if (key !== "queryParams") {
+						urlState[key] = val;
+					}
 				}
 			}
 		}
@@ -129,23 +148,23 @@ function urlFormatToUrlToString(callNode: SgNode[], edits: Edit[]): void {
 		for (const sh of shorthands) {
 			const name = sh.text();
 			const v: V = { literal: false, code: name };
-			const handledProps = ['protocol', 'auth', 'host', 'hostname', 'port', 'pathname', 'search', 'hash'];
-			if (handledProps.includes(name)) {
-				// biome-ignore lint/suspicious/noExplicitAny: IDK how to solve that
-				(urlState as any)[name] = v;
+			if (isHandledProp(name)) {
+				if (name !== "queryParams") {
+					urlState[name] = v;
+				}
 			}
 		}
 
 		// Build output segments
 		type Seg = { type: "lit"; text: string } | { type: "expr"; code: string };
 		const segs: Seg[] = [];
-	const pushVal = (v?: V) => {
+		const pushVal = (v?: V) => {
 			if (!v) return;
 			if (v.literal) {
 				if (v.text) segs.push({ type: "lit", text: v.text });
 			} else {
-		// v is the non-literal branch here
-		segs.push({ type: "expr", code: (v as Extract<V, { literal: false }>).code });
+				// v is the non-literal branch here
+				segs.push({ type: "expr", code: (v as Extract<V, { literal: false }>).code });
 			}
 		};
 
@@ -213,16 +232,17 @@ function urlFormatToUrlToString(callNode: SgNode[], edits: Edit[]): void {
 		const hasExpr = segs.some((s) => s.type === "expr");
 		let finalExpr: string;
 		if (hasExpr) {
-			const esc = (s: string) => s.replace(/`/g, "\\`").replace(/\\\$/g, "\\\\$").replace(/\$\{/g, "\\${");
+			const esc = (s: string) =>
+				s.replace(/`/g, "\\`").replace(/\\\$/g, "\\\\$").replace(/\$\{/g, "\\${");
 			finalExpr = `\`${segs.map((s) => (s.type === "lit" ? esc(s.text) : `\${${s.code}}`)).join("")}\``;
 		} else {
 			finalExpr = `'${segs.map((s) => (s.type === "lit" ? s.text : "")).join("")}'`;
 		}
 
-	// Include semicolon if original statement had one
-	const hadSemi = /;\s*$/.test(call.text());
-	const replacement = `new URL(${finalExpr}).toString()${hadSemi ? ';' : ''}`;
-	edits.push(call.replace(replacement));
+		// Include semicolon if original statement had one
+		const hadSemi = /;\s*$/.test(call.text());
+		const replacement = `new URL(${finalExpr}).toString()${hadSemi ? ";" : ""}`;
+		edits.push(call.replace(replacement));
 	}
 }
 
@@ -243,15 +263,15 @@ export default function transform(root: SgRoot): string | null {
 	const edits: Edit[] = [];
 
 	// Safety: only run on files that import/require node:url
-    const importNodes = getNodeImportStatements(root, "url");
+	const importNodes = getNodeImportStatements(root, "url");
 	const requireNodes = getNodeRequireCalls(root, "url");
-	const requiresImports = [...importNodes, ...requireNodes]
+	const requiresImports = [...importNodes, ...requireNodes];
 
-    if (!requiresImports.length) return null;
+	if (!requiresImports.length) return null;
 
-    const parseCallPatterns = new Set<string>();
+	const parseCallPatterns = new Set<string>();
 
-    for (const node of requiresImports) {
+	for (const node of requiresImports) {
 		const binding = resolveBindingPath(node, "$.format");
 		if (binding) parseCallPatterns.add(`${binding}($OPTIONS)`);
 	}
@@ -265,4 +285,4 @@ export default function transform(root: SgRoot): string | null {
 	if (!edits.length) return null;
 
 	return rootNode.commitEdits(edits);
-};
+}
