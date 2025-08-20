@@ -1,10 +1,9 @@
 import type { SgRoot, SgNode, Edit, Range } from "@codemod.com/jssg-types/main";
-import type JS from "@codemod.com/jssg-types/langs/javascript";
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
 
-const isBindingUsed = (rootNode: SgNode<JS>, name: string): boolean => {
+const isBindingUsed = (rootNode: SgNode, name: string): boolean => {
         const refs = rootNode.findAll({ rule: { pattern: name } });
         // Heuristic: declaration counts as one; any other usage yields > 1
         return refs.length > 1;
@@ -13,14 +12,13 @@ const isBindingUsed = (rootNode: SgNode<JS>, name: string): boolean => {
 /**
  * Clean up unused imports/requires from 'node:url' after transforms using shared utils
  */
-export default function transform(root: SgRoot<JS>): string | null {
+export default function transform(root: SgRoot): string | null {
     const rootNode = root.root();
     const edits: Edit[] = [];
 
     const linesToRemove: Range[] = [];
 
     // 1) ES Module imports: import ... from 'node:url'
-    // @ts-ignore - ast-grep types vs jssg types
     const esmImports = getNodeImportStatements(root, "url");
 
     for (const imp of esmImports) {
@@ -63,7 +61,6 @@ export default function transform(root: SgRoot<JS>): string | null {
     }
 
     // 2) CommonJS requires: const ... = require('node:url')
-    // @ts-ignore - ast-grep types vs jssg types
     const requireDecls = getNodeRequireCalls(root, "url");
 
     for (const decl of requireDecls) {
@@ -77,16 +74,21 @@ export default function transform(root: SgRoot<JS>): string | null {
 
         if (hasObjectPattern) {
             const names: string[] = [];
-            const shorts = decl.findAll({ rule: { kind: "shorthand_property_identifier_pattern" } });
+            const shorts = decl.findAll({
+				rule: { kind: "shorthand_property_identifier_pattern" }
+			});
             for (const s of shorts) names.push(s.text());
             const pairs = decl.findAll({ rule: { kind: "pair_pattern" } });
+
             for (const pair of pairs) {
                 const aliasId = pair.find({ rule: { kind: "identifier" } });
                 if (aliasId) names.push(aliasId.text());
             }
 
             const usedTexts: string[] = [];
-            for (const s of shorts) if (isBindingUsed(rootNode, s.text())) usedTexts.push(s.text());
+            for (const s of shorts) {
+                if (isBindingUsed(rootNode, s.text())) usedTexts.push(s.text());
+            }
             for (const pair of pairs) {
                 const aliasId = pair.find({ rule: { kind: "identifier" } });
                 if (aliasId && isBindingUsed(rootNode, aliasId.text())) usedTexts.push(pair.text());
@@ -103,25 +105,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 
     if (edits.length === 0 && linesToRemove.length === 0) return null;
 
-    let source = rootNode.commitEdits(edits);
+    const source = rootNode.commitEdits(edits);
 
-    // Only remove the next line if it is blank; don't delete non-empty following lines.
-    const srcLines = source.split("\n");
-    const adjustedRanges = linesToRemove.map((range) => {
-        const startLine = range.start.line;
-        let endLine = range.end.line;
-        const nextLine = endLine + 1;
-        if (nextLine < srcLines.length) {
-            const isNextLineBlank = /^\s*$/.test(srcLines[nextLine] ?? "");
-            if (isNextLineBlank) endLine = nextLine;
-        }
-        return {
-            start: { line: startLine, column: 0, index: 0 },
-            end: { line: endLine, column: 0, index: 0 },
-        } as Range;
-    });
-
-    source = removeLines(source, adjustedRanges);
-
-    return source;
+    return removeLines(source, linesToRemove);
 };
