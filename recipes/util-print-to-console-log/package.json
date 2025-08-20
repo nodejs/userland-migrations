@@ -1,0 +1,24 @@
+{
+  "name": "@nodejs/util-print-to-console-log",
+  "version": "1.0.0",
+  "description": "Handle DEP0026, DEP0027, DEP0028, DEP0029 via transforming `util.print|puts|debug|error()` to `console.log|error()`",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod jssg test --update-snapshots -l typescript ./src/workflow.ts ./"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/util-print-to-console-log",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "Bruno Rodrigues",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/util-print-to-console-log/README.md",
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.0.3"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
+  }
+}
