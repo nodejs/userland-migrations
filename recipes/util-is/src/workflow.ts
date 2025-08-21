@@ -9,10 +9,56 @@ import {
 import { removeBinding } from "@nodejs/codemod-utils/ast-grep/remove-binding";
 import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
-import type { SgRoot, Edit, Range } from "@ast-grep/napi";
+import type { SgRoot, Edit, Range } from "@codemod.com/jssg-types/main";
+import type { SgNode } from "@ast-grep/napi";
+
+// Clean up unused imports using removeBinding
+const allIsMethods = [
+    'isArray',
+    'isBoolean',
+    'isBuffer',
+    'isDate',
+    'isError',
+    'isFunction',
+    'isNull',
+    'isNullOrUndefined',
+    'isNumber',
+    'isObject',
+    'isPrimitive',
+    'isRegExp',
+    'isString',
+    'isSymbol',
+    'isUndefined'
+];
+
+// helper to test named import specifiers (kept at module root so it's not re-created per run)
+function hasAnyOtherNamedImports(spec: SgNode): boolean {
+    const firstIdent = spec.find({ rule: { kind: 'identifier' } });
+    const name = firstIdent?.text();
+    return Boolean(name && allIsMethods.includes(name));
+}
+
+// Map deprecated util.is*() calls to their modern equivalents
+const replacements = new Map<string, (arg: string) => string>([
+	['isArray', (arg: string) => `Array.isArray(${arg})`],
+	['isBoolean', (arg: string) => `typeof ${arg} === 'boolean'`],
+	['isBuffer', (arg: string) => `Buffer.isBuffer(${arg})`],
+	['isDate', (arg: string) => `${arg} instanceof Date`],
+	['isError', (arg: string) => `Error.isError(${arg})`],
+	['isFunction', (arg: string) => `typeof ${arg} === 'function'`],
+	['isNull', (arg: string) => `${arg} === null`],
+	['isNullOrUndefined', (arg: string) => `${arg} == null`],
+	['isNumber', (arg: string) => `typeof ${arg} === 'number'`],
+	['isObject', (arg: string) => `${arg} && typeof ${arg} === 'object'`],
+	['isPrimitive', (arg: string) => `Object(${arg}) !== ${arg}`],
+	['isRegExp', (arg: string) => `${arg} instanceof RegExp`],
+	['isString', (arg: string) => `typeof ${arg} === 'string'`],
+	['isSymbol', (arg: string) => `typeof ${arg} === 'symbol'`],
+	['isUndefined', (arg: string) => `typeof ${arg} === 'undefined'`],
+]);
 
 /**
- * Transform function that converts deprecated util.is**() calls
+ * Transform function that converts deprecated util.is*() calls
  * to their modern equivalents.
  *
  * Handles:
@@ -37,24 +83,6 @@ export default function transform(root: SgRoot): string | null {
     const edits: Edit[] = [];
     const linesToRemove: Range[] = [];
 
-    const replacements = {
-        isArray: (arg: string) => `Array.isArray(${arg})`,
-        isBoolean: (arg: string) => `typeof ${arg} === 'boolean'`,
-        isBuffer: (arg: string) => `Buffer.isBuffer(${arg})`,
-        isDate: (arg: string) => `${arg} instanceof Date`,
-        isError: (arg: string) => `Error.isError(${arg})`,
-        isFunction: (arg: string) => `typeof ${arg} === 'function'`,
-        isNull: (arg: string) => `${arg} === null`,
-        isNullOrUndefined: (arg: string) => `${arg} == null`,
-        isNumber: (arg: string) => `typeof ${arg} === 'number'`,
-        isObject: (arg: string) => `${arg} && typeof ${arg} === 'object'`,
-        isPrimitive: (arg: string) => `Object(${arg}) !== ${arg}`,
-        isRegExp: (arg: string) => `${arg} instanceof RegExp`,
-        isString: (arg: string) => `typeof ${arg} === 'string'`,
-        isSymbol: (arg: string) => `typeof ${arg} === 'symbol'`,
-        isUndefined: (arg: string) => `typeof ${arg} === 'undefined'`
-    };
-
     const usedMethods = new Set<string>();
     const nonIsMethodsUsed = new Set<string>();
 
@@ -77,9 +105,15 @@ export default function transform(root: SgRoot): string | null {
         }
 
         // default import: import util from 'node:util'
-        const importClause = node.kind() === 'import_statement' || node.kind() === 'import_clause'
-            ? node.find({ rule: { kind: 'import_clause' } }) ?? node
-            : null;
+        const importClause = (
+			node.kind() === 'import_statement'
+			|| node.kind() === 'import_clause'
+        )
+        && (
+			node.find({ rule: { kind: 'import_clause' } })
+			?? node
+        );
+
         if (importClause) {
             const hasNamed = Boolean(
                 importClause.find({ rule: { kind: 'named_imports' } })
@@ -93,7 +127,7 @@ export default function transform(root: SgRoot): string | null {
         }
 
         // require namespace: const util = require('node:util')
-    const reqNs = getRequireNamespaceIdentifier(node);
+		const reqNs = getRequireNamespaceIdentifier(node);
         if (reqNs) namespaceBindings.add(reqNs.text());
     }
 
@@ -104,14 +138,14 @@ export default function transform(root: SgRoot): string | null {
             const methodMatch = usage.getMatch('METHOD');
             if (methodMatch) {
                 const methodName = methodMatch.text();
-                if (!(methodName in replacements)) nonIsMethodsUsed.add(methodName);
+                if (!replacements.has(methodName)) nonIsMethodsUsed.add(methodName);
             }
         }
     }
 
     // Resolve local bindings for each util.is* and replace invocations
     const localRefsByMethod = new Map<string, Set<string>>();
-    for (const [method] of Object.entries(replacements)) {
+    for (const method of replacements.keys()) {
         localRefsByMethod.set(method, new Set());
         for (const node of importOrRequireNodes) {
             const resolved = resolveBindingPath(node, `$.${method}`);
@@ -119,10 +153,13 @@ export default function transform(root: SgRoot): string | null {
         }
     }
 
-    for (const [method, replacement] of Object.entries(replacements)) {
+    for (const [method, replacement] of replacements) {
         const refs = localRefsByMethod.get(method)!;
         for (const ref of refs) {
             const calls = rootNode.findAll({ rule: { pattern: `${ref}($ARG)` } });
+
+			if (!calls.length) continue;
+
             for (const call of calls) {
                 const arg = call.getMatch('ARG');
                 if (!arg) continue;
@@ -135,13 +172,6 @@ export default function transform(root: SgRoot): string | null {
 
     if (!edits.length) return null;
 
-    // Clean up unused imports using removeBinding
-    const allIsMethods = [
-        'isArray', 'isBoolean', 'isBuffer', 'isDate', 'isError', 'isFunction',
-        'isNull', 'isNullOrUndefined', 'isNumber', 'isObject', 'isPrimitive',
-        'isRegExp', 'isString', 'isSymbol', 'isUndefined'
-    ];
-
     const importStatements = getNodeImportStatements(root, 'util');
     for (const importNode of importStatements) {
     const hasNamespace = Boolean(importNode.find({ rule: { kind: 'namespace_import' } }));
@@ -152,24 +182,20 @@ export default function transform(root: SgRoot): string | null {
         // If all named specifiers are util.is* and there is no default or namespace, drop whole line
         if (
             hasNamed && !defaultIdentifier && !hasNamespace &&
-            namedImportSpecifiers.every((spec) => {
-                const firstIdent = spec.find({ rule: { kind: 'identifier' } });
-                const name = firstIdent?.text();
-                return name ? allIsMethods.includes(name) : false;
-            })
+            namedImportSpecifiers.every(spec => hasAnyOtherNamedImports(spec as SgNode))
         ) {
             linesToRemove.push(importNode.range());
             continue;
         }
 
-        // Otherwise, remove named is* bindings; after replacement they are unused
+        // Otherwise, remove only named is* bindings; after replacement they are unused
         for (const method of allIsMethods) {
             const change = removeBinding(importNode, method);
             if (change?.edit) edits.push(change.edit);
             if (change?.lineToRemove) linesToRemove.push(change.lineToRemove);
         }
 
-        // If no other util.* methods are used, drop default/namespace imports entirely
+        // If no other util.is* methods are used, drop default/namespace imports entirely
         if (nonIsMethodsUsed.size === 0) {
             if ((hasNamespace && !hasNamed) || (defaultIdentifier && !hasNamed)) {
                 linesToRemove.push(importNode.range());
@@ -195,7 +221,7 @@ export default function transform(root: SgRoot): string | null {
             }
         }
 
-        // Otherwise, remove named is* bindings; after replacement they are unused
+        // Otherwise, remove named util.is* bindings; after replacement they are unused
         for (const method of allIsMethods) {
             const change = removeBinding(requireNode, method);
             if (change?.edit) edits.push(change.edit);

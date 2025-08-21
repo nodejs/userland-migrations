@@ -7,7 +7,7 @@ nodes:
     runtime:
       type: direct
     steps:
-      - name: "Replaces deprecated `util.is**()` methods with their modern equivalents."
+      - name: "Replaces deprecated `util.is*()` methods with their modern equivalents."
         js-ast-grep:
           js_file: src/workflow.ts
           base_path: .

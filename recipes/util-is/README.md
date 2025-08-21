@@ -1,8 +1,6 @@
 # `util.is**()`
 
-This codemod replaces deprecated `util.is**()` methods with their modern equivalents.
-
-See these deprecations handled by this codemod:
+This codemod replaces the following deprecated `util.is**()` methods with their modern equivalents:
 - [DEP0044: `util.isArray()`](https://nodejs.org/docs/latest/api/deprecations.html#DEP0044)
 - [DEP0045: `util.isBoolean()`](https://nodejs.org/docs/latest/api/deprecations.html#dep0045-utilisboolean)
 - [DEP0046: `util.isBuffer()`](https://nodejs.org/docs/latest/api/deprecations.html#dep0046-utilisbuffer)
@@ -21,103 +19,20 @@ See these deprecations handled by this codemod:
 
 ## Examples
 
-**Before:**
-```js
-import util from 'node:util';
-
-if (util.isArray(someValue)) {
-  console.log('someValue is an array');
-}
-if (util.isBoolean(someValue)) {
-  console.log('someValue is a boolean');
-}
-if (util.isBuffer(someValue)) {
-  console.log('someValue is a buffer');
-}
-if (util.isDate(someValue)) {
-  console.log('someValue is a date');
-}
-if (util.isError(someValue)) {
-  console.log('someValue is an error');
-}
-if (util.isFunction(someValue)) {
-  console.log('someValue is a function');
-}
-if (util.isNull(someValue)) {
-  console.log('someValue is null');
-}
-if (util.isNullOrUndefined(someValue)) {
-  console.log('someValue is null or undefined');
-}
-if (util.isNumber(someValue)) {
-  console.log('someValue is a number');
-}
-if (util.isObject(someValue)) {
-  console.log('someValue is an object');
-}
-if (util.isPrimitive(someValue)) {
-  console.log('someValue is a primitive');
-}
-if (util.isRegExp(someValue)) {
-  console.log('someValue is a regular expression');
-}
-if (util.isString(someValue)) {
-  console.log('someValue is a string');
-}
-if (util.isSymbol(someValue)) {
-  console.log('someValue is a symbol');
-}
-if (util.isUndefined(someValue)) {
-  console.log('someValue is undefined');
-}
-```
-
-**After:**
-```js
-
-if (Array.isArray(someValue)) {
-	console.log('someValue is an array');
-}
-if (typeof someValue === 'boolean') {
-	console.log('someValue is a boolean');
-}
-if (Buffer.isBuffer(someValue)) {
-	console.log('someValue is a buffer');
-}
-if (someValue instanceof Date) {
-	console.log('someValue is a date');
-}
-if (Error.isError(someValue)) {
-	console.log('someValue is an error');
-}
-if (typeof someValue === 'function') {
-	console.log('someValue is a function');
-}
-if (someValue === null) {
-	console.log('someValue is null');
-}
-if (someValue == null) {
-	console.log('someValue is null or undefined');
-}
-if (typeof someValue === 'number') {
-	console.log('someValue is a number');
-}
-if (someValue && typeof someValue === 'object') {
-	console.log('someValue is an object');
-}
-if (Object(someValue) !== someValue) {
-	console.log('someValue is a primitive');
-}
-if (someValue instanceof RegExp) {
-	console.log('someValue is a regular expression');
-}
-if (typeof someValue === 'string') {
-	console.log('someValue is a string');
-}
-if (typeof someValue === 'symbol') {
-	console.log('someValue is a symbol');
-}
-if (typeof someValue === 'undefined') {
-	console.log('someValue is undefined');
-}
-```
+| **Before**                     | **After**                      |
+|--------------------------------|---------------------------------|
+| `util.isArray(someValue`       | `Array.isArray(someValue`       |
+| `util.isBoolean(someValue`     | `typeof someValue === 'boolean'`|
+| `util.isBuffer(someValue`      | `Buffer.isBuffer(someValue`     |
+| `util.isDate(someValue`        | `someValue instanceof Date`     |
+| `util.isError(someValue`       | `Error.isError(someValue`       |
+| `util.isFunction(someValue`    | `typeof someValue === 'function'`|
+| `util.isNull(someValue`        | `someValue === null`            |
+| `util.isNullOrUndefined(someValue` | `someValue == null`         |
+| `util.isNumber(someValue`      | `typeof someValue === 'number'` |
+| `util.isObject(someValue`      | `someValue && typeof someValue === 'object'` |
+| `util.isPrimitive(someValue`   | `Object(someValue) !== someValue`|
+| `util.isRegExp(someValue`      | `someValue instanceof RegExp`   |
+| `util.isString(someValue`      | `typeof someValue === 'string'` |
+| `util.isSymbol(someValue`      | `typeof someValue === 'symbol'` |
+| `util.isUndefined(someValue`   | `typeof someValue === 'undefined'` |
