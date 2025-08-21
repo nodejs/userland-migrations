@@ -99,8 +99,8 @@ function getText(node: SgNode<JS> | undefined): string | null {
 }
 
 function getModuleStatements(root: SgRoot<JS>, moduleName: string): SgNode<JS>[] {
-	const importStatements = getNodeImportStatements(root as any, moduleName);
-	const requireCalls = getNodeRequireCalls(root as any, moduleName);
+	const importStatements = getNodeImportStatements(root, moduleName);
+	const requireCalls = getNodeRequireCalls(root, moduleName);
 	return [...importStatements, ...requireCalls] as unknown as SgNode<JS>[];
 }
 
@@ -110,7 +110,7 @@ function resolveBindings(statements: SgNode<JS>[], paths: string | string[]): st
 	
 	return statements.flatMap(stmt => 
 		pathArray
-			.map(path => resolveBindingPath(stmt as any, path))
+			.map(path => resolveBindingPath(stmt, path))
 			.filter(Boolean)
 	);
 }
