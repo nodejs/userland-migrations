@@ -1,5 +1,4 @@
-import type { Kinds, TypesMap } from "@ast-grep/napi/types/staticTypes.js";
-import type { SgNode, Edit, Range } from "@ast-grep/napi";
+import type { SgNode, Edit, Range, Kinds, TypesMap } from "@codemod.com/jssg-types/main";
 
 const requireKinds = ["lexical_declaration", "variable_declarator"];
 const importKinds = ["import_statement", "import_clause"];
@@ -44,7 +43,7 @@ type RemoveBindingReturnType = {
 export function removeBinding(
 	node: SgNode<TypesMap, Kinds<TypesMap>>,
 	binding: string,
-): RemoveBindingReturnType {
+): RemoveBindingReturnType | undefined {
 	const nodeKind = node.kind().toString();
 
 	const identifier = node.find({
@@ -84,7 +83,7 @@ export function removeBinding(
 function handleNamedImportBindings(
 	node: SgNode<TypesMap, Kinds<TypesMap>>,
 	binding: string,
-): RemoveBindingReturnType {
+): RemoveBindingReturnType | undefined {
 	const namespaceImport = node.find({
 		rule: {
 			kind: "identifier",
@@ -174,7 +173,7 @@ function handleNamedImportBindings(
 function handleNamedRequireBindings(
 	node: SgNode<TypesMap, Kinds<TypesMap>>,
 	binding: string,
-): RemoveBindingReturnType {
+): RemoveBindingReturnType | undefined {
 	const objectPattern = node.find({
 		rule: {
 			kind: "object_pattern",

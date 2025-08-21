@@ -1,5 +1,4 @@
-import type { Kinds, TypesMap } from "@ast-grep/napi/types/staticTypes.js";
-import type { SgNode } from "@ast-grep/napi";
+import type { SgNode, Kinds, TypesMap } from "@codemod.com/jssg-types/main";
 
 const requireKinds = ["lexical_declaration", "variable_declarator"];
 const importKinds = ["import_statement", "import_clause"];

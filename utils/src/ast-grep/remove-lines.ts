@@ -1,4 +1,4 @@
-import type { Range } from "@ast-grep/napi";
+import type { Range } from "@codemod.com/jssg-types/main";
 
 export function removeLines(sourceCode: string, ranges: Range[]) {
 	const lines = sourceCode.split("\n");

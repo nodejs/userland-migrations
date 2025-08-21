@@ -36,6 +36,6 @@
   },
   "devDependencies": {
     "@nodejs/codemod-utils": "*",
-    "@types/node": "^24.2.0"
+    "@types/node": "^24.2.1"
   }
 }
