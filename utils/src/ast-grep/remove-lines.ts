@@ -3,6 +3,8 @@ import type { Range } from "@codemod.com/jssg-types/main";
 export function removeLines(sourceCode: string, ranges: Range[]) {
 	const lines = sourceCode.split("\n");
 
+	// Remove duplicate ranges to prevent attempting to delete the same range multiple times,
+	// which could cause inconsistent behavior
 	const uniqueRemoves = new Map<string, Range>();
 
 	for (const range of ranges) {
