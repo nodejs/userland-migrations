@@ -1,4 +1,4 @@
-import type { SgRoot, SgNode, Edit } from "@codemod.com/jssg-types/main";
+import type { SgRoot, SgNode, Edit, TypesMap, Kinds } from "@codemod.com/jssg-types/main";
 import type JS from "@codemod.com/jssg-types/langs/javascript";
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
@@ -81,7 +81,7 @@ function getPromisifiedBindings(root: SgRoot<JS>, existingBindings: string[]): s
 	);
 }
 
-function findCryptoCalls(rootNode: SgNode<JS>, bindings: string[]) {
+function findCryptoCalls(rootNode: SgNode<JS>, bindings: string[]): SgNode<JS>[] {
 	return bindings
 		.flatMap(bindingName => rootNode.findAll({
 			rule: {
@@ -99,8 +99,8 @@ function getText(node: SgNode<JS> | undefined): string | null {
 }
 
 function getModuleStatements(root: SgRoot<JS>, moduleName: string): SgNode<JS>[] {
-	const importStatements = getNodeImportStatements(root, moduleName);
-	const requireCalls = getNodeRequireCalls(root, moduleName);
+	const importStatements = getNodeImportStatements(root as unknown as SgRoot, moduleName);
+	const requireCalls = getNodeRequireCalls(root as unknown as SgRoot, moduleName);
 	return [...importStatements, ...requireCalls] as unknown as SgNode<JS>[];
 }
 
@@ -110,7 +110,7 @@ function resolveBindings(statements: SgNode<JS>[], paths: string | string[]): st
 	
 	return statements.flatMap(stmt => 
 		pathArray
-			.map(path => resolveBindingPath(stmt, path))
+			.map(path => resolveBindingPath(stmt as unknown as SgNode<TypesMap, Kinds<TypesMap>>, path))
 			.filter(Boolean)
 	);
 }
