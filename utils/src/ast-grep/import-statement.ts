@@ -1,18 +1,19 @@
-import type { SgRoot, SgNode } from '@codemod.com/jssg-types/main';
+import type { SgNode, SgRoot } from '@codemod.com/jssg-types/main';
+import type Js from "@codemod.com/jssg-types/langs/javascript";
 
-export const getNodeImportStatements = (rootNode: SgRoot, nodeModuleName: string): SgNode[] =>
+export const getNodeImportStatements = (rootNode: SgRoot<Js>, nodeModuleName: string): SgNode<Js>[] =>
 	rootNode
-		.root()
-		.findAll({
-			rule: {
-				kind: "import_statement",
-				has: {
-					field: "source",
-					kind: "string",
-					regex: `^['"](node:)?${nodeModuleName}['"]$`
-				}
+	.root()
+	.findAll({
+		rule: {
+			kind: "import_statement",
+			has: {
+				field: "source",
+				kind: "string",
+				regex: `^['"](node:)?${nodeModuleName}['"]$`
 			}
-		});
+		}
+	});
 
 /**
  * We just catch `variable_declarator` nodes that use `import` to import a module
@@ -22,8 +23,8 @@ export const getNodeImportStatements = (rootNode: SgRoot, nodeModuleName: string
  * We also don't catch pending promises, like `const pending = import("node:module");`
  * because it's will became to complex to handle in codemod context. (storing var name, checking is method is used, etc.)
  */
-export const getNodeImportCalls = (rootNode: SgRoot, nodeModuleName: string): SgNode[] =>
-	rootNode
+export const getNodeImportCalls = (node: SgRoot<Js>, nodeModuleName: string): SgNode<Js>[] =>
+	node
 	.root()
 	.findAll({
 		rule: {

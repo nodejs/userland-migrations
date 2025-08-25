@@ -1,4 +1,5 @@
 import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
+import type Js from "@codemod.com/jssg-types/langs/javascript";
 
 /**
  * Transform function that converts import assertions to import attributes
@@ -11,7 +12,7 @@ import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
  * 1. import { something } from './module.json' with { type: 'json' };
  * 2. import('./module.json', { with: { type: 'json' } })
  */
-export default async function transform(root: SgRoot): Promise<string> {
+export default async function transform(root: SgRoot<Js>): Promise<string> {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 

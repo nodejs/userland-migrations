@@ -1,13 +1,12 @@
-import type { Edit, SgRoot } from "@codemod.com/jssg-types/main";
-import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import type Js from "@codemod.com/jssg-types/langs/javascript";
+import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call"
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
+import type { Edit, SgRoot } from "@codemod.com/jssg-types/main";
+import type Js from "@codemod.com/jssg-types/langs/javascript";
 
 export default function tranform(root: SgRoot<Js>): string | null {
   const rootNode = root.root();
   const edits: Edit[] = [];
 
-  // @ts-expect-error - ast-grep types are not fully compatible with JSSG types
   const requireStatements = getNodeRequireCalls(root, "fs");
 
   for (const statement of requireStatements) {
@@ -27,7 +26,6 @@ export default function tranform(root: SgRoot<Js>): string | null {
     };
   }
 
-  // @ts-expect-error - ast-grep types are not fully compatible with JSSG types
   const importStatements = getNodeImportStatements(root, "fs");
   let promisesImportName = '';
 
