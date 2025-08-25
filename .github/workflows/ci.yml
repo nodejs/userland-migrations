@@ -2,7 +2,7 @@
 
 # For more information see: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow
 
-name: CI
+name: Quality Assurance
 
 on:
   push:
@@ -30,7 +30,7 @@ permissions:
 
 jobs:
   get-matrix:
-    name: Configure Node LTS environment matrix
+    name: Configure Node environment matrix
     runs-on: ubuntu-latest
 
     outputs:
@@ -65,7 +65,7 @@ jobs:
         with:
           persist-credentials: false
           show-progress: false
-      - name: Set up Node.js LTS
+      - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           cache: "npm"
@@ -93,7 +93,7 @@ jobs:
         run: yamllint -c .yamllint.yaml -f github ./
 
   test:
-    name: Unit, e2e, coverage
+    name: Codemod JSSG tests
 
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
 
@@ -117,7 +117,7 @@ jobs:
         with:
           persist-credentials: false
           show-progress: false
-      - name: Set up Node.js LTS
+      - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           cache: "npm"
@@ -127,7 +127,7 @@ jobs:
       - run: node --run test
 
   legacy-tests:
-    name: Unit, e2e, coverage
+    name: Run legacy tests
 
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
 
