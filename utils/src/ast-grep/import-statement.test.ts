@@ -155,4 +155,15 @@ describe("import-statement", () => {
 		const moduleCalls = getNodeImportCalls(ast, "fs");
 		assert.strictEqual(moduleCalls.length, 0, "dynamic import without then shouldn't be caught");
 	});
+
+	it("should get variable declarator with module", () => {
+		const code = dedent`
+			const variable = 'node:fs'
+			import(variable).then(console.log);
+		`;
+		const ast = astGrep.parse(astGrep.Lang.JavaScript, code);
+
+		const moduleCalls = getNodeImportCalls(ast, "fs");
+		assert.strictEqual(moduleCalls.length, 1, "dynamic import without then shouldn't be caught");
+	});
 });

@@ -7,7 +7,10 @@ export const getNodeImportStatements = (rootNode: SgRoot, nodeModuleName: string
 			has: {
 				field: "source",
 				kind: "string",
-				regex: `^['"](node:)?${nodeModuleName}['"]$`,
+				has: {
+					kind: "string_fragment",
+					regex: `(node:)?${nodeModuleName}$`,
+				},
 			},
 		},
 	});
@@ -50,7 +53,10 @@ export const getNodeImportCalls = (rootNode: SgRoot, nodeModuleName: string): Sg
 										kind: "arguments",
 										has: {
 											kind: "string",
-											regex: `^['"](node:)?${nodeModuleName}['"]$`,
+											has: {
+												kind: "string_fragment",
+												regex: `(node:)?${nodeModuleName}$`,
+											},
 										},
 									},
 								},
@@ -61,6 +67,29 @@ export const getNodeImportCalls = (rootNode: SgRoot, nodeModuleName: string): Sg
 			],
 		},
 	});
+
+	const variableDeclarator = rootNode.root().findAll({
+		rule: {
+			kind: "identifier",
+			inside: {
+				kind: "variable_declarator",
+				has: {
+					kind: "string",
+					has: {
+						kind: "string_fragment",
+						regex: `(node:)?${nodeModuleName}$`,
+					},
+				},
+			},
+		},
+	});
+
+	const variablesRules = variableDeclarator.map((variableName) => ({
+		has: {
+			kind: "identifier",
+			regex: variableName.text(),
+		},
+	}));
 
 	const dynamicImports = rootNode.root().findAll({
 		rule: {
@@ -76,10 +105,18 @@ export const getNodeImportCalls = (rootNode: SgRoot, nodeModuleName: string): Sg
 					has: {
 						field: "arguments",
 						kind: "arguments",
-						has: {
-							kind: "string",
-							regex: `^['"](node:)?${nodeModuleName}['"]$`,
-						},
+						any: [
+							{
+								has: {
+									kind: "string",
+									has: {
+										kind: "string_fragment",
+										regex: `^(node:)?${nodeModuleName}$`,
+									},
+								},
+							},
+							...variablesRules,
+						],
 					},
 				},
 			],
