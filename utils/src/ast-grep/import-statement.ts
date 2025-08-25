@@ -1,18 +1,16 @@
-import type { SgRoot, SgNode } from '@codemod.com/jssg-types/main';
+import type { SgRoot, SgNode } from "@codemod.com/jssg-types/main";
 
 export const getNodeImportStatements = (rootNode: SgRoot, nodeModuleName: string): SgNode[] =>
-	rootNode
-		.root()
-		.findAll({
-			rule: {
-				kind: "import_statement",
-				has: {
-					field: "source",
-					kind: "string",
-					regex: `^['"](node:)?${nodeModuleName}['"]$`
-				}
-			}
-		});
+	rootNode.root().findAll({
+		rule: {
+			kind: "import_statement",
+			has: {
+				field: "source",
+				kind: "string",
+				regex: `^['"](node:)?${nodeModuleName}['"]$`,
+			},
+		},
+	});
 
 /**
  * We just catch `variable_declarator` nodes that use `import` to import a module
@@ -22,21 +20,16 @@ export const getNodeImportStatements = (rootNode: SgRoot, nodeModuleName: string
  * We also don't catch pending promises, like `const pending = import("node:module");`
  * because it's will became to complex to handle in codemod context. (storing var name, checking is method is used, etc.)
  */
-export const getNodeImportCalls = (rootNode: SgRoot, nodeModuleName: string): SgNode[] =>
-	rootNode
-	.root()
-	.findAll({
+export const getNodeImportCalls = (rootNode: SgRoot, nodeModuleName: string): SgNode[] => {
+	const nodes = rootNode.root().findAll({
 		rule: {
 			kind: "variable_declarator",
 			all: [
 				{
 					has: {
 						field: "name",
-						any: [
-							{ kind: "object_pattern" },
-							{ kind: "identifier" }
-						]
-					}
+						any: [{ kind: "object_pattern" }, { kind: "identifier" }],
+					},
 				},
 				{
 					has: {
@@ -48,8 +41,8 @@ export const getNodeImportCalls = (rootNode: SgRoot, nodeModuleName: string): Sg
 								{
 									has: {
 										field: "function",
-										kind: "import"
-									}
+										kind: "import",
+									},
 								},
 								{
 									has: {
@@ -57,14 +50,55 @@ export const getNodeImportCalls = (rootNode: SgRoot, nodeModuleName: string): Sg
 										kind: "arguments",
 										has: {
 											kind: "string",
-											regex: `^['"](node:)?${nodeModuleName}['"]$`
-										}
-									}
-								}
-							]
-						}
-					}
-				}
-			]
-		}
+											regex: `^['"](node:)?${nodeModuleName}['"]$`,
+										},
+									},
+								},
+							],
+						},
+					},
+				},
+			],
+		},
 	});
+
+	const dynamicImports = rootNode.root().findAll({
+		rule: {
+			kind: "call_expression",
+			all: [
+				{
+					has: {
+						field: "function",
+						kind: "import",
+					},
+				},
+				{
+					has: {
+						field: "arguments",
+						kind: "arguments",
+						has: {
+							kind: "string",
+							regex: `^['"](node:)?${nodeModuleName}['"]$`,
+						},
+					},
+				},
+			],
+		},
+	});
+
+	for (const node of dynamicImports) {
+		let parentNode = node.parent();
+		// iterate through all chained methods until reaching the expression_statement
+		// that marks the beginning of the import line
+		while (parentNode !== null && parentNode.kind() !== "expression_statement") {
+			parentNode = parentNode.parent();
+		}
+
+		// if it is a valid import add to list of nodes that will be retuned
+		if (parentNode?.kind() === "expression_statement") {
+			nodes.push(parentNode);
+		}
+	}
+
+	return nodes;
+};
