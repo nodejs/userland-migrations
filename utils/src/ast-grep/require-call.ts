@@ -1,4 +1,4 @@
-import type { SgRoot, SgNode } from '@ast-grep/napi';
+import type { SgRoot, SgNode } from '@codemod.com/jssg-types/main';
 
 /**
  *  We just catch `variable_declarator` nodes that use `require` to import a module
@@ -25,24 +25,58 @@ export const getNodeRequireCalls = (rootNode: SgRoot, nodeModuleName: string): S
 					{
 						has: {
 							field: "value",
-							kind: "call_expression",
-							all: [
+							any: [
 								{
-									has: {
-										field: "function",
-										kind: "identifier",
-										regex: "^require$"
-									}
+									kind: "call_expression",
+									all: [
+										{
+											has: {
+												field: "function",
+												kind: "identifier",
+												regex: "^require$"
+											}
+										},
+										{
+											has: {
+												field: "arguments",
+												kind: "arguments",
+												has: {
+													kind: "string",
+													regex: `^['"](node:)?${nodeModuleName}['"]$`
+												}
+											}
+										}
+									]
 								},
 								{
-									has: {
-										field: "arguments",
-										kind: "arguments",
-										has: {
-											kind: "string",
-											regex: `^['"](node:)?${nodeModuleName}['"]$`
+									kind: "member_expression",
+									all: [
+										{
+											has: {
+												field: "object",
+												kind: "call_expression",
+												all: [
+												{
+													has: {
+														field: "function",
+														kind: "identifier",
+														regex: "^require$"
+													}
+												},
+												{
+													has: {
+														field: "arguments",
+														kind: "arguments",
+														has: {
+															kind: "string",
+															regex: `^['"](node:)?${nodeModuleName}['"]$`
+														}
+													}
+												}
+												]
+											}
 										}
-									}
+									]
 								}
 							]
 						}
