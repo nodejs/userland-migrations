@@ -92,7 +92,41 @@ jobs:
       - name: Validate YAML files
         run: yamllint -c .yamllint.yaml -f github ./
 
-  tests:
+  test:
+    name: Unit, e2e, coverage
+
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+          - windows-latest
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@ec9f2d5744a09debf3a187a3f4f675c53b671911 # v2.13.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          show-progress: false
+      - name: Set up Node.js LTS
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          cache: "npm"
+          check-latest: true
+          node-version-file: ".nvmrc"
+      - run: npm ci
+      - run: node --run test
+
+  legacy-tests:
     name: Unit, e2e, coverage
 
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
@@ -126,10 +160,9 @@ jobs:
           check-latest: true
           node-version: ${{ matrix.node-version }}
       - run: npm ci
-      - name: Run recipe tests
-        run: >-
-          node
-          --run test
-          --test-coverage-lines=0.8
-          --test-reporter-destination=./coverage.lcov
-          --test-reporter=lcov
+      # Codemod has changed its paradigm, but there is still a recipe that uses the old one, which is why we run it alongside it.
+      # The old paradigm used node to run codemod, which is why we run it on several versions.
+      # REF: https://codemod.com/blog/new-codemod-cli
+      - name: Run legacy recipe tests
+        run: node --run test-legacy
+
