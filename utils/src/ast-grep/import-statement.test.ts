@@ -145,4 +145,14 @@ describe("import-statement", () => {
 		const moduleCalls = getNodeImportCalls(ast, "fs");
 		assert.strictEqual(moduleCalls.length, 1, "thenable import calls should be caught");
 	});
+
+	it("shouldn't catch when there is no 'then'", () => {
+		const code = dedent`
+			import("node:fs").catch(console.log);
+		`;
+		const ast = astGrep.parse(astGrep.Lang.JavaScript, code);
+
+		const moduleCalls = getNodeImportCalls(ast, "fs");
+		assert.strictEqual(moduleCalls.length, 0, "dynamic import without then shouldn't be caught");
+	});
 });

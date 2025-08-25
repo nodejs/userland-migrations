@@ -96,7 +96,19 @@ export const getNodeImportCalls = (rootNode: SgRoot, nodeModuleName: string): Sg
 
 		// if it is a valid import add to list of nodes that will be retuned
 		if (parentNode?.kind() === "expression_statement") {
-			nodes.push(parentNode);
+			const thenBlock = parentNode.find({
+				rule: {
+					kind: "member_expression",
+					has: {
+						kind: "property_identifier",
+						regex: "then",
+					},
+				},
+			});
+
+			if (thenBlock !== null) {
+				nodes.push(parentNode);
+			}
 		}
 	}
 
