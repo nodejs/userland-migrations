@@ -7,5 +7,6 @@
     "editor.wordWrapColumn": 100,
     "[markdown]": {
         "editor.wordWrap": "off"
-    }
+    },
+    "typescript.experimental.useTsgo": true
 }

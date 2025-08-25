@@ -8,7 +8,7 @@
     "lint": "biome lint ./",
     "pre-commit": "node --run lint:fix; node --run type-check; node --run test",
     "test": "npm run test --workspaces",
-    "type-check": "tsc"
+    "type-check": "tsgo"
   },
   "repository": {
     "type": "git",
@@ -28,7 +28,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.1.4",
     "@types/node": "^24.2.1",
-    "typescript": "^5.9.2"
+    "@typescript/native-preview": "^7.0.0-dev.20250825.1"
   },
   "workspaces": [
     "./recipes/*",

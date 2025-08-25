@@ -1,21 +1,20 @@
-import type {
-	Edit,
-	Kinds,
-	Range,
-	Rule,
-	SgNode,
-	SgRoot,
-	TypesMap,
-} from "@codemod.com/jssg-types/main";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 import { removeBinding } from "@nodejs/codemod-utils/ast-grep/remove-binding";
 import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
+import type {
+	Edit,
+	Range,
+	Rule,
+	SgNode,
+	SgRoot,
+} from "@codemod.com/jssg-types/main";
+import type Js from "@codemod.com/jssg-types/langs/javascript";
 
 type BindingToReplace = {
-	rule: Rule<TypesMap>;
-	node: SgNode<TypesMap, Kinds<TypesMap>>;
+	rule: Rule<Js>;
+	node: SgNode<Js>;
 	binding: string;
 };
 
@@ -31,7 +30,7 @@ type BindingToReplace = {
  *
  * Apply all changes, removing or updating the import line as needed.
  */
-export default function transform(root: SgRoot): string | null {
+export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];

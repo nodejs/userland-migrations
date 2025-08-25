@@ -2,6 +2,7 @@ import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-s
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
+import type Js from "@codemod.com/jssg-types/langs/javascript";
 
 /**
  * Transform function that converts deprecated fs.rmdir calls
@@ -13,7 +14,7 @@ import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
  * 3. fs.rmdirSync(path, { recursive: true }) -> fs.rmSync(path, { recursive: true, force: true })
  * 4. fs.promises.rmdir(path, { recursive: true }) -> fs.promises.rm(path, { recursive: true, force: true })
  */
-export default function transform(root: SgRoot): string | null {
+export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	let hasChanges = false;
 	const edits: Edit[] = [];

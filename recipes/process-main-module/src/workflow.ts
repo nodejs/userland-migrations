@@ -1,7 +1,8 @@
-import type { Edit, SgRoot, Range } from "@codemod.com/jssg-types/main";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
 import { removeBinding } from "@nodejs/codemod-utils/ast-grep/remove-binding";
+import type { Edit, SgRoot, Range } from "@codemod.com/jssg-types/main";
+import type Js from "@codemod.com/jssg-types/langs/javascript";
 
 /**
  * Transforms `process.mainModule` usage to `require.main`. Handles direct global access
@@ -19,7 +20,7 @@ import { removeBinding } from "@nodejs/codemod-utils/ast-grep/remove-binding";
  *    - Change 'mainModule' → 'require.main'
  *    - Change 'process.mainModule' → 'require.main'
  */
-export default function transform(root: SgRoot): string | null {
+export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
