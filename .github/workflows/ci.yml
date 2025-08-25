@@ -165,4 +165,3 @@ jobs:
       # REF: https://codemod.com/blog/new-codemod-cli
       - name: Run legacy recipe tests
         run: node --run test-legacy
-
