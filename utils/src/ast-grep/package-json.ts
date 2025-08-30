@@ -6,10 +6,10 @@ import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
  * @returns The "scripts" node, or null if not found.
  */
 export const getScriptsNode = (packageJsonRootNode: SgRoot) => {
-    const scriptsNodes = packageJsonRootNode
-        .root()
-        .findAll({
-            rule: {
+	const scriptsNodes = packageJsonRootNode
+		.root()
+		.findAll({
+			rule: {
 				kind: "pair",
 				has: {
 					field: "key",
@@ -19,13 +19,13 @@ export const getScriptsNode = (packageJsonRootNode: SgRoot) => {
 						regex: "scripts"
 					}
 				}
-            }
-        });
+			}
+		});
 
-    if (scriptsNodes.length > 1)
-        throw new Error(`Multiple "scripts" fields found in ${packageJsonRootNode.filename()}`);
+	if (scriptsNodes.length > 1)
+		throw new Error(`Multiple "scripts" fields found in ${packageJsonRootNode.filename()}`);
 
-    return scriptsNodes[0] ?? null;
+	return scriptsNodes[0] ?? null;
 };
 
 /**

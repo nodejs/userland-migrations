@@ -89,6 +89,22 @@ describe("package-json utilities", () => {
 			assert.strictEqual(result[0].text(), "node another-script.js");
 		});
 
+		it("should catch `node.exe`", () => {
+			const input = dedent`
+				{
+					"scripts": {
+						"start": "node.exe script.js",
+						"test": "echo \\"Error: no test specified\\" && exit 1"
+					}
+				}
+			`;
+
+			const result = getNodeJsUsage(parse('json', input));
+
+			assert.strictEqual(result.length, 1);
+			assert.strictEqual(result[0].text(), "node.exe script.js");
+		});
+
 		it("should return empty array if no Node.js usage is found", () => {
 			const input = dedent`
 				{
