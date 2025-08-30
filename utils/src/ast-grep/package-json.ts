@@ -6,7 +6,9 @@ import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
  * @returns The "scripts" node, or null if not found.
  */
 export const getScriptsNode = (packageJsonRootNode: SgRoot) =>
-	packageJsonRootNode.root().findAll({
+	packageJsonRootNode
+	.root()
+	.findAll({
 		rule: {
 			kind: "pair",
 			inside: {
@@ -31,12 +33,9 @@ export const getScriptsNode = (packageJsonRootNode: SgRoot) =>
  * @param packageJsonRootNode The root node of the package.json AST.
  * @returns An array of nodes representing the usage of Node.js.
  */
-export const getNodeJsUsage = (packageJsonRootNode: SgRoot) => {
-	const scriptsNode = getScriptsNode(packageJsonRootNode);
-
-	if (!scriptsNode) return [];
-
-	return scriptsNode.flatMap((node) =>
+export const getNodeJsUsage = (packageJsonRootNode: SgRoot) =>
+	getScriptsNode(packageJsonRootNode)
+	.flatMap((node) =>
 		node.findAll({
 			rule: {
 				kind: "string_content",
@@ -50,7 +49,6 @@ export const getNodeJsUsage = (packageJsonRootNode: SgRoot) => {
 			}
 		})
 	);
-};
 
 /**
  * Replace Node.js arguments in the "scripts" node of a package.json AST.
@@ -59,17 +57,15 @@ export const getNodeJsUsage = (packageJsonRootNode: SgRoot) => {
  * @param edits An array to collect the edits made.
  */
 export const replaceNodeJsArgs = (packageJsonRootNode: SgRoot, argsToValues: Record<string, string>, edits: Edit[]) => {
-	const nodeJsUsageNodes = getNodeJsUsage(packageJsonRootNode);
-
-	if (!nodeJsUsageNodes.length) return;
-
-	for (const nodeJsUsageNode of nodeJsUsageNodes) {
+	for (const nodeJsUsageNode of getNodeJsUsage(packageJsonRootNode)) {
 		const text = nodeJsUsageNode.text();
 
 		for (const [argC, argP] of Object.entries(argsToValues)) {
 			const regex = new RegExp(`(?<!\\S)${argC}(?!\\S)`, 'g'); // Match standalone arguments
+
 			if (regex.test(text)) {
 				const newText = text.replace(regex, argP);
+
 				edits.push(nodeJsUsageNode.replace(newText));
 			}
 		}
