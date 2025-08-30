@@ -14,7 +14,7 @@ describe("package-json utilities", () => {
 			const input = dedent`
 				{
 					"scripts": {
-						"test": "echo \\"Error: no test specified\\" && exit 1"
+						"test": "echo \"Error: no test specified\" && exit 1"
 					}
 				}
 			`;
@@ -22,7 +22,7 @@ describe("package-json utilities", () => {
 			const result = getScriptsNode(parse('json', input));
 
 			assert(result);
-			assert.strictEqual(result.children().length, 3); // curly braces + pair + curly braces
+			assert.strictEqual(result.length, 1); // Number of children in the scripts node
 		});
 
 		it("should return empty array if any scripts is present", () => {
@@ -37,23 +37,6 @@ describe("package-json utilities", () => {
 
 			assert.strictEqual(result.length, 0);
 		});
-
-		it("should throw an error if multiple scripts nodes are found", () => {
-			const input = dedent`
-				{
-					"scripts": {
-						"test": "echo \\"Error: no test specified\\" && exit 1"
-					},
-					"scripts": {
-						"start": "node index.js"
-					}
-				}
-			`;
-
-			assert.throws(() => getScriptsNode(parse('json', input)), {
-				message: /Multiple "scripts" fields found/
-			});
-		});
 	});
 
 	describe("getNodeJsUsage", () => {
@@ -62,7 +45,7 @@ describe("package-json utilities", () => {
 				{
 					"scripts": {
 						"start": "node script.js",
-						"test": "echo \\"Error: no test specified\\" && exit 1"
+						"test": "echo \"Error: no test specified\" && exit 1"
 					}
 				}
 			`;
@@ -94,7 +77,7 @@ describe("package-json utilities", () => {
 				{
 					"scripts": {
 						"start": "node.exe script.js",
-						"test": "echo \\"Error: no test specified\\" && exit 1"
+						"test": "echo \"Error: no test specified\" && exit 1"
 					}
 				}
 			`;
@@ -110,7 +93,7 @@ describe("package-json utilities", () => {
 				{
 					"scripts": {
 						"start": "npm run build",
-						"test": "echo \\"Error: no test specified\\" && exit 1"
+						"test": "echo \"Error: no test specified\" && exit 1"
 					}
 				}
 			`;

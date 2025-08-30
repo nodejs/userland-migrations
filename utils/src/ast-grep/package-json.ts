@@ -5,28 +5,26 @@ import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
  * @param packageJsonRootNode The root node of the package.json AST.
  * @returns The "scripts" node, or null if not found.
  */
-export const getScriptsNode = (packageJsonRootNode: SgRoot) => {
-	const scriptsNodes = packageJsonRootNode
-		.root()
-		.findAll({
-			rule: {
-				kind: "pair",
-				has: {
-					field: "key",
-					kind: "string",
+export const getScriptsNode = (packageJsonRootNode: SgRoot) =>
+	packageJsonRootNode.root().findAll({
+		rule: {
+			kind: "pair",
+			inside: {
+				kind: "object",
+				inside: {
+					kind: "pair",
 					has: {
-						kind: "string_content",
-						regex: "scripts"
-					}
-				}
-			}
-		});
-
-	if (scriptsNodes.length > 1)
-		throw new Error(`Multiple "scripts" fields found in ${packageJsonRootNode.filename()}`);
-
-	return scriptsNodes[0] ?? null;
-};
+						field: "key",
+						kind: "string",
+						has: {
+							kind: "string_content",
+							regex: "scripts",
+						},
+					},
+				},
+			},
+		},
+	});
 
 /**
  * Get all usage of Node.js in the "scripts" node of a package.json AST.
@@ -38,8 +36,8 @@ export const getNodeJsUsage = (packageJsonRootNode: SgRoot) => {
 
 	if (!scriptsNode) return [];
 
-	return scriptsNode
-		.findAll({
+	return scriptsNode.flatMap((node) =>
+		node.findAll({
 			rule: {
 				kind: "string_content",
 				regex: "\\bnode(\\.exe)?\\b",
@@ -50,7 +48,8 @@ export const getNodeJsUsage = (packageJsonRootNode: SgRoot) => {
 					}
 				}
 			}
-		});
+		})
+	);
 };
 
 /**
