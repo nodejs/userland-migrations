@@ -14,7 +14,7 @@ import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
  * 4. fs.promises.rmdir(path, { recursive: true }) -> fs.promises.rm(path, { recursive: true, force: true })
  */
 export default function transform(root: SgRoot): string | null {
-	const rootNode = root.root()
+	const rootNode = root.root();
 	let hasChanges = false;
 	const edits: Edit[] = [];
 
