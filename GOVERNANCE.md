@@ -2,9 +2,12 @@
 
 Meet the current team members of the Node.js userland migrations:
 
+- [@alexbit-codemod](https://github.com/alexbit-codemod) - **Alex Bit**
 - [@AugustinMauroy](https://github.com/AugustinMauroy) - **Augustin Mauroy** (he/him)
 - [@avivkeller](https://github.com/avivkeller) - **Aviv Keller** (he/him)
 - [@bmuenzenmeyer](https://github.com/bmuenzenmeyer) - **Brian Muenzenmeyer** (he/him)
+- [@brunocroh](https://github.com/brunocroh) - **Bruno Rodrigues**
+- [@mohebifar](https://github.com/mohebifar) - **Mohammad Mohebifar**
 - [@JakobJingleheimer](https://github.com/JakobJingleheimer) - **Jacob Smith** (he/him) - Maintainer
 - [@ljharb](https://github.com/ljharb) - **Jordan Harband** (he/him)
 
