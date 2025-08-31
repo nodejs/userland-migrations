@@ -1,6 +1,7 @@
-# `util.is**()`
+# `util.is*()`
 
-This codemod replaces the following deprecated `util.is**()` methods with their modern equivalents:
+This codemod replaces the following deprecated `util.is*()` methods with their modern equivalents:
+
 - [DEP0044: `util.isArray()`](https://nodejs.org/docs/latest/api/deprecations.html#DEP0044)
 - [DEP0045: `util.isBoolean()`](https://nodejs.org/docs/latest/api/deprecations.html#dep0045-utilisboolean)
 - [DEP0046: `util.isBuffer()`](https://nodejs.org/docs/latest/api/deprecations.html#dep0046-utilisbuffer)
@@ -19,20 +20,20 @@ This codemod replaces the following deprecated `util.is**()` methods with their 
 
 ## Examples
 
-| **Before**                     | **After**                      |
-|--------------------------------|---------------------------------|
-| `util.isArray(someValue`       | `Array.isArray(someValue`       |
-| `util.isBoolean(someValue`     | `typeof someValue === 'boolean'`|
-| `util.isBuffer(someValue`      | `Buffer.isBuffer(someValue`     |
-| `util.isDate(someValue`        | `someValue instanceof Date`     |
-| `util.isError(someValue`       | `Error.isError(someValue`       |
-| `util.isFunction(someValue`    | `typeof someValue === 'function'`|
-| `util.isNull(someValue`        | `someValue === null`            |
-| `util.isNullOrUndefined(someValue` | `someValue == null`         |
-| `util.isNumber(someValue`      | `typeof someValue === 'number'` |
-| `util.isObject(someValue`      | `someValue && typeof someValue === 'object'` |
-| `util.isPrimitive(someValue`   | `Object(someValue) !== someValue`|
-| `util.isRegExp(someValue`      | `someValue instanceof RegExp`   |
-| `util.isString(someValue`      | `typeof someValue === 'string'` |
-| `util.isSymbol(someValue`      | `typeof someValue === 'symbol'` |
-| `util.isUndefined(someValue`   | `typeof someValue === 'undefined'` |
+| **Before**                        | **After**                                   |
+|-----------------------------------|---------------------------------------------|
+| `util.isArray(value)`             | `Array.isArray(value)`                      |
+| `util.isBoolean(value)`           | `typeof value === 'boolean'`               |
+| `util.isBuffer(value)`            | `Buffer.isBuffer(value)`                   |
+| `util.isDate(value)`              | `value instanceof Date`                    |
+| `util.isError(value)`             | `Error.isError(value)`                     |
+| `util.isFunction(value)`          | `typeof value === 'function'`              |
+| `util.isNull(value)`              | `value === null`                           |
+| `util.isNullOrUndefined(value)`   | `value === null || value === undefined`    |
+| `util.isNumber(value)`            | `typeof value === 'number'`                |
+| `util.isObject(value)`            | `value && typeof value === 'object'`       |
+| `util.isPrimitive(value)`         | `Object(value) !== value`                  |
+| `util.isRegExp(value)`            | `value instanceof RegExp`                  |
+| `util.isString(value)`            | `typeof value === 'string'`                |
+| `util.isSymbol(value)`            | `typeof value === 'symbol'`                |
+| `util.isUndefined(value)`         | `typeof value === 'undefined'`             |

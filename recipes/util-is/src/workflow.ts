@@ -47,7 +47,7 @@ const replacements = new Map<string, (arg: string) => string>([
 	['isError', (arg: string) => `Error.isError(${arg})`],
 	['isFunction', (arg: string) => `typeof ${arg} === 'function'`],
 	['isNull', (arg: string) => `${arg} === null`],
-	['isNullOrUndefined', (arg: string) => `${arg} == null`],
+	['isNullOrUndefined', (arg: string) => `${arg} === null || ${arg} === undefined`],
 	['isNumber', (arg: string) => `typeof ${arg} === 'number'`],
 	['isObject', (arg: string) => `${arg} && typeof ${arg} === 'object'`],
 	['isPrimitive', (arg: string) => `Object(${arg}) !== ${arg}`],
@@ -69,7 +69,7 @@ const replacements = new Map<string, (arg: string) => string>([
  * 5. util.isError() → value instanceof Error
  * 6. util.isFunction() → typeof value === 'function'
  * 7. util.isNull() → value === null
- * 8. util.isNullOrUndefined() → value == null
+ * 8. util.isNullOrUndefined() → value === null || value === undefined
  * 9. util.isNumber() → typeof value === 'number'
  * 10. util.isObject() → typeof value === 'object' && value !== null
  * 11. util.isPrimitive() → value !== Object(value)
@@ -207,7 +207,9 @@ export default function transform(root: SgRoot): string | null {
     for (const requireNode of requireStatements) {
         const objectPattern = requireNode.find({ rule: { kind: 'object_pattern' } });
         if (objectPattern) {
-            const shorthand = objectPattern.findAll({ rule: { kind: 'shorthand_property_identifier_pattern' } });
+            const shorthand = objectPattern.findAll({
+				rule: { kind: 'shorthand_property_identifier_pattern' }
+			});
             const pairs = objectPattern.findAll({ rule: { kind: 'pair_pattern' } });
             const importedNames: string[] = [];
             for (const s of shorthand) importedNames.push(s.text());

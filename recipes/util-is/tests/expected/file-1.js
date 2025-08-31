@@ -20,7 +20,7 @@ if (typeof someValue === 'function') {
 if (someValue === null) {
 	console.log('someValue is null');
 }
-if (someValue == null) {
+if (someValue === null || someValue === undefined) {
 	console.log('someValue is null or undefined');
 }
 if (typeof someValue === 'number') {
