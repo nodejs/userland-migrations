@@ -1,3 +1,4 @@
+import astGrep from "codemod:ast-grep";
 import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
 
 /**
@@ -39,6 +40,7 @@ export const getNodeJsUsage = (packageJsonRootNode: SgRoot) =>
 		node.findAll({
 			rule: {
 				kind: "string_content",
+				// we can use bash sub-parsing but it's will be overkill
 				regex: "\\bnode(\\.exe)?\\b",
 				inside: {
 					kind: "string",
@@ -59,15 +61,31 @@ export const getNodeJsUsage = (packageJsonRootNode: SgRoot) =>
 export const replaceNodeJsArgs = (packageJsonRootNode: SgRoot, argsToValues: Record<string, string>, edits: Edit[]) => {
 	for (const nodeJsUsageNode of getNodeJsUsage(packageJsonRootNode)) {
 		const text = nodeJsUsageNode.text();
+		const bashAST = astGrep.parse("bash", text).root();
 
-		for (const [argC, argP] of Object.entries(argsToValues)) {
-			const regex = new RegExp(`(?<!\\S)${argC}(?!\\S)`, 'g'); // Match standalone arguments
+		const command = bashAST.findAll({
+			rule: { kind: "command" }
+		});
 
-			if (regex.test(text)) {
-				const newText = text.replace(regex, argP);
+		for (const cmd of command) {
+			const args = cmd.findAll({
+				rule: {
+					kind: "word",
+					not: {
+						inside: {
+							kind: "command_name"
+						}
+					}
+				}
+			});
 
-				edits.push(nodeJsUsageNode.replace(newText));
+			for (const arg of args) {
+				const newValue = argsToValues[arg.text()];
+
+				if (newValue) edits.push(arg.replace(newValue));
 			}
 		}
 	}
 };
+
+// TODO: add removeNodeJsArgs
