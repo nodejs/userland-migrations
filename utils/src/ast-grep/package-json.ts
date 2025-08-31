@@ -36,21 +36,28 @@ export const getScriptsNode = (packageJsonRootNode: SgRoot) =>
  */
 export const getNodeJsUsage = (packageJsonRootNode: SgRoot) =>
 	getScriptsNode(packageJsonRootNode)
-	.flatMap((node) =>
-		node.findAll({
-			rule: {
-				kind: "string_content",
-				// we can use bash sub-parsing but it's will be overkill
-				regex: "\\bnode(\\.exe)?\\b",
-				inside: {
+		.flatMap((node) =>
+			node.findAll({
+				rule: {
 					kind: "string",
+					regex: "\\bnode(\\.exe)?\\b",
 					inside: {
+						field: "value",
 						kind: "pair",
-					}
+					},
+				},
+			}).map((n) => {
+				const raw = n.text();
+				let unquoted = raw;
+				if (unquoted.startsWith('"') && unquoted.endsWith('"')) {
+					unquoted = unquoted.slice(1, -1);
 				}
-			}
-		})
-	);
+				return {
+					node: n,
+					text: () => unquoted,
+				};
+			})
+		);
 
 /**
  * Replace Node.js arguments in the "scripts" node of a package.json AST.
@@ -59,30 +66,25 @@ export const getNodeJsUsage = (packageJsonRootNode: SgRoot) =>
  * @param edits An array to collect the edits made.
  */
 export const replaceNodeJsArgs = (packageJsonRootNode: SgRoot, argsToValues: Record<string, string>, edits: Edit[]) => {
-	for (const nodeJsUsageNode of getNodeJsUsage(packageJsonRootNode)) {
-		const text = nodeJsUsageNode.text();
+	for (const usage of getNodeJsUsage(packageJsonRootNode)) {
+		const text = usage.text();
 		const bashAST = astGrep.parse("bash", text).root();
-
-		const command = bashAST.findAll({
-			rule: { kind: "command" }
-		});
-
+		const command = bashAST.findAll({ rule: { kind: "command" } });
 		for (const cmd of command) {
 			const args = cmd.findAll({
 				rule: {
 					kind: "word",
 					not: {
-						inside: {
-							kind: "command_name"
-						}
-					}
-				}
+						inside: { kind: "command_name" },
+					},
+				},
 			});
-
 			for (const arg of args) {
-				const newValue = argsToValues[arg.text()];
-
-				if (newValue) edits.push(arg.replace(newValue));
+				const oldArg = arg.text();
+				const newValue = argsToValues[oldArg];
+				if (newValue) {
+					edits.push(arg.replace(newValue));
+				}
 			}
 		}
 	}

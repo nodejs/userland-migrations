@@ -99,6 +99,20 @@ describe("package-json utilities", () => {
 
 			assert.strictEqual(result.length, 0);
 		});
+
+		it("should not catch node in the key", () => {
+			const input = dedent`
+				{
+					"scripts": {
+						"node": "echo \"foo\""
+					}
+				}
+			`;
+
+			const result = getNodeJsUsage(parse('json', input) as SgRoot);
+
+			assert.strictEqual(result.length, 0);
+		});
 	});
 
 	describe("replaceNodeJsArgs", () => {
