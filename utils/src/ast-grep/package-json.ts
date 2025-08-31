@@ -91,3 +91,36 @@ export const replaceNodeJsArgs = (packageJsonRootNode: SgRoot, argsToValues: Rec
 };
 
 // TODO: add removeNodeJsArgs
+/**
+ * Remove Node.js arguments in the "scripts" node of a package.json AST.
+ * @param packageJsonRootNode The root node of the package.json AST.
+ * @param argsToRemove An array of arguments to remove.
+ * @param edits An array to collect the edits made.
+ */
+export const removeNodeJsArgs = (
+	packageJsonRootNode: SgRoot,
+	argsToRemove: string[],
+	edits: Edit[]
+) => {
+	for (const usage of getNodeJsUsage(packageJsonRootNode)) {
+		const text = usage.text();
+		const bashAST = astGrep.parse("bash", text).root();
+		const command = bashAST.findAll({ rule: { kind: "command" } });
+		for (const cmd of command) {
+			const args = cmd.findAll({
+				rule: {
+					kind: "word",
+					not: {
+						inside: { kind: "command_name" },
+					},
+				},
+			});
+			for (const arg of args) {
+				const oldArg = arg.text();
+				if (argsToRemove.includes(oldArg)) {
+					edits.push(arg.replace(""));
+				}
+			}
+		}
+	}
+};

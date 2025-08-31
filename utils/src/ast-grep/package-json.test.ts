@@ -3,7 +3,12 @@ import { describe, it } from "node:test";
 import dedent from "dedent";
 import { parse } from "@ast-grep/napi";
 import type { Edit, SgRoot } from "@codemod.com/jssg-types/main";
-import { getScriptsNode, getNodeJsUsage, replaceNodeJsArgs } from "./package-json.ts";
+import {
+	getScriptsNode,
+	getNodeJsUsage,
+	replaceNodeJsArgs,
+	removeNodeJsArgs
+} from "./package-json.ts";
 
 describe("package-json utilities", () => {
 	describe("getScriptsNode", () => {
@@ -67,6 +72,79 @@ describe("package-json utilities", () => {
 
 			assert.strictEqual(result.length, 1);
 			assert.strictEqual(result[0].text(), "node another-script.js");
+
+	describe("removeNodeJsArgs", () => {
+		it("should remove a single Node.js arg in scripts", () => {
+			const input = dedent`
+				{
+					"scripts": {
+						"start": "node --trace-deprecation app.js"
+					}
+				}
+			`;
+			const root = parse('json', input) as SgRoot;
+			const edits: Edit[] = [];
+			removeNodeJsArgs(root, ["--trace-deprecation"], edits);
+			assert.strictEqual(edits.length, 1);
+		});
+
+		it("should remove multiple args in one command", () => {
+			const input = dedent`
+				{
+					"scripts": {
+						"start": "node --foo --bar app.js"
+					}
+				}
+			`;
+			const root = parse('json', input) as SgRoot;
+			const edits: Edit[] = [];
+			removeNodeJsArgs(root, ["--foo", "--bar"], edits);
+			assert.strictEqual(edits.length, 2);
+		});
+
+		it("should handle node.exe commands too", () => {
+			const input = dedent`
+				{
+					"scripts": {
+						"start": "node.exe --flag app.js"
+					}
+				}
+			`;
+			const root = parse('json', input) as SgRoot;
+			const edits: Edit[] = [];
+			removeNodeJsArgs(root, ["--flag"], edits);
+			assert.strictEqual(edits.length, 1);
+		});
+
+		it("should ignore scripts that do not use node (e.g., node_modules bins)", () => {
+			const input = dedent`
+				{
+					"scripts": {
+						"start": "node_modules/.bin/some-tool",
+						"test": "node script.js"
+					}
+				}
+			`;
+			const root = parse('json', input) as SgRoot;
+			const edits: Edit[] = [];
+			removeNodeJsArgs(root, ["script.js"], edits);
+			assert.strictEqual(edits.length, 1);
+		});
+
+		it("should be a no-op when no args match", () => {
+			const input = dedent`
+				{
+					"scripts": {
+						"start": "node app.js"
+					}
+				}
+			`;
+			const root = parse('json', input) as SgRoot;
+			const edits: Edit[] = [];
+			removeNodeJsArgs(root, ["--not-present"], edits);
+			assert.strictEqual(edits.length, 0);
+		});
+	});
 		});
 
 		it("should catch `node.exe`", () => {
