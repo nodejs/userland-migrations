@@ -1,0 +1,21 @@
+schema_version: "1.0"
+name: "@nodejs/util-print-to-console-log"
+version: 1.0.0
+description: Replace `axios` with `fetch`
+author: Bruno Rodrigues
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+
+registry:
+  access: public
+  visibility: public
