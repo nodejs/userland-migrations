@@ -1,0 +1,24 @@
+{
+  "name": "@nodejs/http-classes-with-new",
+  "version": "1.0.0",
+  "description": "Handle DEP0195: Instantiating node:http classes without new.",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/http-classes-with-new",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "Usman S.",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/http-classes-with-new/README.md",
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.0.3"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
+  }
+}
