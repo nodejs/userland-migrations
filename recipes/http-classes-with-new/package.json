@@ -1,7 +1,7 @@
 {
   "name": "@nodejs/http-classes-with-new",
   "version": "1.0.0",
-  "description": "feat: handle DEP0195: Instantiating node:http classes without new.",
+  "description": "Handle DEP0195: Instantiating node:http classes without new.",
   "type": "module",
   "scripts": {
     "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"

@@ -6,14 +6,14 @@ import type { SgRoot, Edit, SgNode } from '@codemod.com/jssg-types/main';
 /**
  * Classes of the http module
  */
-const CLASS_NAMES = Object.freeze([
+const CLASS_NAMES = [
 	'Agent',
 	'ClientRequest',
 	'IncomingMessage',
 	'OutgoingMessage',
 	'Server',
 	'ServerResponse',
-]);
+];
 
 /**
  * Transform function that converts deprecated node:http classes to use the `new` keyword
