@@ -1,0 +1,24 @@
+{
+  "name": "@nodejs/node-url-to-whatwg-url",
+  "version": "1.0.0",
+  "description": "Handle DEP0116 via transforming `url.parse` to `new URL()`",
+  "type": "module",
+  "scripts": {
+  "test": "node --run test:import-process && node --run test:url-format && node --run test:url-parse",
+  "test:import-process": "npx codemod jssg test -l typescript ./src/import-process.ts ./tests/ --filter import-process",
+  "test:url-format": "npx codemod jssg test -l typescript ./src/url-format.ts ./tests/ --filter url-format",
+  "test:url-parse": "npx codemod jssg test -l typescript ./src/url-parse.ts ./tests/ --filter url-parse"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/node-url-to-whatwg-url",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "Augustin Mauroy",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/tree/main/node-url-to-whatwg-url#readme",
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.0.3"
+  }
+}
