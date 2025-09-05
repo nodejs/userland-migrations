@@ -13,6 +13,7 @@ describe("require-call", () => {
 		require("no:assignment");
 		require(variable);
 		require(\`backticks\`);
+		const cpus = require("node:os").cpus;
 	`;
 	const ast = astGrep.parse(astGrep.Lang.JavaScript, code);
 
@@ -33,5 +34,9 @@ describe("require-call", () => {
 		const utilRequires = getNodeRequireCalls(ast, 'util');
 		assert.strictEqual(utilRequires.length, 1);
 		assert.strictEqual(utilRequires[0].field('value')?.text(), 'require("node:util")');
+
+		const osRequires = getNodeRequireCalls(ast, "os");
+		assert.strictEqual(osRequires.length, 1);
+		assert.strictEqual(osRequires[0].field('value')?.text(), 'require("node:os").cpus');
 	});
 });

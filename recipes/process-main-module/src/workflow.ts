@@ -29,7 +29,6 @@ export default function transform(root: SgRoot): string | null {
 		},
 	];
 
-	// @ts-ignore - ast-grep types are not fully compatible with JSSG types
 	const requireDeclarations = getNodeRequireCalls(root, "process");
 
 	const destructureDeclarations = rootNode.findAll({
@@ -48,7 +47,6 @@ export default function transform(root: SgRoot): string | null {
 	for (const declarationNode of [...requireDeclarations, ...destructureDeclarations]) {
 		// Step 1: Get all requires from module nodule:process that is destructuring mainModule:
 		if (declarationNode.text().includes("mainModule")) {
-			// @ts-ignore - ast-grep types are not fully compatible with JSSG types
 			const result = removeBinding(declarationNode, "mainModule");
 
 			if (result) {

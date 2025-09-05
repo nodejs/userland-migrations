@@ -14,7 +14,8 @@
   "license": "MIT",
   "type": "module",
   "devDependencies": {
-    "@ast-grep/napi": "^0.39.2",
+    "@ast-grep/napi": "^0.39.4",
+    "@codemod.com/jssg-types": "^1.0.3",
     "dedent": "^1.6.0"
   }
 }
