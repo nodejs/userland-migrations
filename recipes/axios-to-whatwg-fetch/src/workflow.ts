@@ -12,6 +12,7 @@ import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-s
 import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 import { removeBinding } from "@nodejs/codemod-utils/ast-grep/remove-binding";
 import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
+import dedent from "dedent";
 
 type BindingToReplace = {
 	rule: Rule<TypesMap>;
@@ -27,7 +28,12 @@ const updates = [
 	},
 	{
 		oldBind: "$.get",
-		replaceFn: (arg: string) => `console.log(${arg})`,
+		replaceFn: (arg: string) =>
+			dedent`
+			fetch(${arg})
+				.then(async (res) => Object.assign(res, { data: await res.json() }))
+				.catch(() => null)
+			`,
 	},
 	{
 		oldBind: "$.post",
@@ -56,10 +62,10 @@ const updates = [
 ];
 
 /*
- * Transforms `util.print($$$ARG)` usage to `console.log($$$ARG)`.
- * Transforms `util.puts($$$ARG)` usage to `console.log($$$ARG)`.
- * Transforms `util.debug($$$ARG)` usage to `console.error($$$ARG)`.
- * Transforms `util.error($$$ARG)` usage to `console.error($$$ARG)`.
+ * Transforms `util.requestj($$$ARG)` usage to `console.log($$$ARG)`.
+ * Transforms `util.get($$$ARG)` usage to `console.log($$$ARG)`.
+ * Transforms `util.post($$$ARG)` usage to `console.error($$$ARG)`.
+ * Transforms `util.put($$$ARG)` usage to `console.error($$$ARG)`.
  *
  * Steps:
  *
@@ -76,8 +82,8 @@ export default function transform(root: SgRoot): string | null {
 	const linesToRemove: Range[] = [];
 	const bindsToReplace: BindingToReplace[] = [];
 
-	const nodeRequires = getNodeRequireCalls(root, "util");
-	const nodeImports = getNodeImportStatements(root, "util");
+	const nodeRequires = getNodeRequireCalls(root, "axios");
+	const nodeImports = getNodeImportStatements(root, "axios");
 	const importRequireStatement = [...nodeRequires, ...nodeImports];
 
 	if (!importRequireStatement.length) return null;
@@ -86,7 +92,6 @@ export default function transform(root: SgRoot): string | null {
 		for (const update of updates) {
 			const bind = resolveBindingPath(node, update.oldBind);
 
-			// if `fn` function ins't coming from `node:util`
 			if (!bind) continue;
 
 			bindsToReplace.push({
@@ -122,6 +127,9 @@ export default function transform(root: SgRoot): string | null {
 			const replace = match.replace(bind.replaceFn(argsStr));
 			edits.push(replace);
 
+			// const replace = match.replace(bind.replaceFn(argsStr));
+			// edits.push(replace);
+			//
 			const result = removeBinding(bind.node, bind.binding.split(".").at(0));
 
 			if (result?.lineToRemove) {
