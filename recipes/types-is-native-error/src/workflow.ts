@@ -88,9 +88,9 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
 
-	// @ts-ignore - ast-grep types are not fully compatible with JSSG types
+	// @ts-expect-error - ast-grep types are not fully compatible with JSSG types
 	const nodeRequires = getNodeRequireCalls(root, "util");
-	// @ts-ignore - ast-grep types are not fully compatible with JSSG types
+	// @ts-expect-error - ast-grep types are not fully compatible with JSSG types
 	const nodeImports = getNodeImportStatements(root, "util");
 	const path = "$.types.isNativeError";
 
