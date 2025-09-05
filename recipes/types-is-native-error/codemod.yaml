@@ -1,0 +1,21 @@
+schema_version: "1.0"
+name: "@nodejs/types-is-native-error"
+version: 1.0.0
+description: Handle DEP0197 via transforming `types.isNativeError` to `Error.isError`
+author: Bruno Rodrigues
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+
+registry:
+  access: public
+  visibility: public

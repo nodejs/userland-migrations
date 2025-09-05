@@ -188,17 +188,28 @@ function handleNamedRequireBindings(
 		},
 	});
 
+	if (declarations.length === 0) return;
+
 	if (declarations.length === 1) {
 		return {
 			lineToRemove: node.range(),
 		};
 	}
 
-	if (declarations.length > 1) {
-		const restDeclarations = declarations.map((d) => d.text()).filter((d) => d !== binding);
+	for (const declaration of declarations) {
+		if (declaration.text() === binding) {
+			const parent = declaration.parent();
+			const parentDeclarations = parent.findAll({
+				rule: {
+					kind: "shorthand_property_identifier_pattern",
+				},
+			});
 
-		return {
-			edit: objectPattern.replace(`{ ${restDeclarations.join(", ")} }`),
-		};
+			const restDeclarations = parentDeclarations.map((d) => d.text()).filter((d) => d !== binding);
+
+			return {
+				edit: parent.replace(`{ ${restDeclarations.join(", ")} }`),
+			};
+		}
 	}
 }
