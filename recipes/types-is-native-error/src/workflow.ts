@@ -46,7 +46,7 @@ function createPropBinding(
 	}
 
 	const lastPropertyAccess = pathArr.at(-1);
-	const propertyAccess = pathArr.slice(0, pathArr.length - 1).join(".");
+	const propertyAccess = pathArr.slice(0, -1).join(".");
 
 	if (!propertyAccess) {
 		return {
