@@ -1,5 +1,4 @@
 import type { Edit, Range, SgNode, SgRoot } from "@codemod.com/jssg-types/main";
-import type JS from "@codemod.com/jssg-types/langs/javascript";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
@@ -48,15 +47,6 @@ function createPropBinding(
 	const lastPropertyAccess = pathArr.at(-1);
 	const propertyAccess = pathArr.slice(0, -1).join(".");
 
-	if (!propertyAccess) {
-		return {
-			path,
-			propertyAccess,
-			lastPropertyAccess,
-			depth: pathArr.length,
-		};
-	}
-
 	return {
 		path,
 		propertyAccess,
@@ -82,15 +72,13 @@ function createPropBinding(
  *    isNativeError have been replaced
  *
  */
-export default function transform(root: SgRoot<JS>): string | null {
+export default function transform(root: SgRoot): string | null {
 	const rootNode = root.root();
 	const bindings: Binding[] = [];
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
 
-	// @ts-expect-error - ast-grep types are not fully compatible with JSSG types
 	const nodeRequires = getNodeRequireCalls(root, "util");
-	// @ts-expect-error - ast-grep types are not fully compatible with JSSG types
 	const nodeImports = getNodeImportStatements(root, "util");
 	const path = "$.types.isNativeError";
 
@@ -125,11 +113,11 @@ export default function transform(root: SgRoot<JS>): string | null {
 		}
 
 		if (nodes.length === nodesToEdit.length) {
-			const result = removeBinding(
-				// @ts-ignore - ast-grep types are not fully compatible with JSSG types
-				binding.node,
-				binding.path.split(".").at(0),
-			);
+			const bindToRemove = binding.path.includes(".")
+				? binding.path.split(".").at(0)!
+				: binding.path;
+
+			const result = removeBinding(binding.node, bindToRemove);
 
 			if (result?.edit) {
 				edits.push(result.edit);
