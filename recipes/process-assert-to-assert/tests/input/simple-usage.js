@@ -1,1 +1,0 @@
-process.assert(condition, "Assertion failed");
