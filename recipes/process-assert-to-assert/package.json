@@ -1,0 +1,25 @@
+{
+  "name": "@nodejs/process-assert-to-assert",
+  "version": "1.0.0",
+  "description": "Handle DEP0100 via transforming `process.assert` to `assert`.",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod jssg test -l typescript --ignore-whitespace ./src/workflow.ts ./",
+    "test:u": "npx codemod jssg test -l typescript -u ./src/workflow.ts ./"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/process-assert-to-assert",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "matheusmorett2",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/process-assert-to-assert/README.md",
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.0.3"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
+  }
+}

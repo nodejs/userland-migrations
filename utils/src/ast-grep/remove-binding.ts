@@ -184,7 +184,14 @@ function handleNamedRequireBindings(
 
 	const declarations = node.findAll({
 		rule: {
-			kind: "shorthand_property_identifier_pattern",
+			any: [
+				{
+					kind: "pair_pattern",
+				},
+				{
+					kind: "shorthand_property_identifier_pattern",
+				},
+			]
 		},
 	});
 
@@ -195,7 +202,18 @@ function handleNamedRequireBindings(
 	}
 
 	if (declarations.length > 1) {
-		const restDeclarations = declarations.map((d) => d.text()).filter((d) => d !== binding);
+		const restDeclarations = declarations.map((d) => {
+			if (d.kind() === 'pair_pattern') {
+				const alias = d.find({
+					rule: {
+						kind: 'identifier',
+					}
+				})
+
+				return alias.text()
+			}
+			return d.text()
+		}).filter((d) => d !== binding);
 
 		return {
 			edit: objectPattern.replace(`{ ${restDeclarations.join(", ")} }`),

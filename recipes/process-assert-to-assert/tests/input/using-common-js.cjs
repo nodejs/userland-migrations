@@ -1,0 +1,1 @@
+process.assert(config.port, "Port must be configured");
