@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, only } from "node:test";
 import astGrep from "@ast-grep/napi";
 import dedent from "dedent";
 import { removeBinding } from "./remove-binding.ts";
@@ -28,6 +28,29 @@ describe("remove-binding", () => {
 			end: { line: 0, column: 34, index: 34 },
 		});
 	});
+
+	only("should not remove non-related named requires", () => {
+		const code = dedent`
+			const { assert: nodeAssert, env } = require("process");
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root();
+
+		const requireStatement = node.find({
+			rule: {
+				kind: "lexical_declaration",
+			},
+		});
+
+		const change = removeBinding(requireStatement!, "nodeAssert");
+
+		const sourceCode = node.commitEdits([change?.edit!]);
+		assert.strictEqual(sourceCode, `const { env } = require("process");`);
+
+		assert.notEqual(change, null);
+		assert.strictEqual(change?.lineToRemove, undefined);
+	})
 
 	it("should return undefined when the binding does not match the imported name", () => {
 		const code = dedent`
