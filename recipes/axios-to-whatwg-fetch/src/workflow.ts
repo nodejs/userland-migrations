@@ -21,7 +21,7 @@ type BindingToReplace = {
 	replaceFn: (arg: SgNode[]) => string;
 };
 
-const transformOptionsNode = (options: SgNode) => {
+const transformOptionsNode = (options: SgNode, prepend?: string) => {
 	if (!options) return '';
 
 	const headers = options.find({
@@ -39,7 +39,14 @@ const transformOptionsNode = (options: SgNode) => {
 	});
 
 	if (headers?.kind()) {
-		return dedent`, {
+		if (prepend) {
+			return dedent.withOptions({ alignValues: true })`{
+			${prepend}
+			headers: ${headers.text()},
+		}`;
+		}
+
+		return dedent.withOptions({ alignValues: true })`{
 			headers: ${headers.text()},
 		}`;
 	}
@@ -57,7 +64,7 @@ const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
 				const url = args.length > 0 && args[0];
 				const options = transformOptionsNode(args[1]);
 				return dedent.withOptions({ alignValues: true })`
-			fetch(${url.text()}${options})
+			fetch(${url.text()}${options ? `, ${options}` : ''})
 				.then(async (res) => Object.assign(res, { data: await res.json() }))
 				.catch(() => null)
 			`;
@@ -77,15 +84,45 @@ const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
 		},
 		{
 			oldBind: '$.delete',
-			replaceFn: (arg: FunctionArgs) => `console.error(${arg})`,
+			replaceFn: (args) => {
+				const url = args.length > 0 && args[0];
+				const options = args[1]
+					? transformOptionsNode(args[1], `method: 'DELETE',`)
+					: `{ method: 'DELETE' }`;
+				return dedent.withOptions({ alignValues: true })`
+			fetch(${url.text()}, ${options})
+				.then(async (res) => Object.assign(res, { data: await res.json() }))
+				.catch(() => null)
+			`;
+			},
 		},
 		{
 			oldBind: '$.head',
-			replaceFn: (arg: FunctionArgs) => `console.error(${arg})`,
+			replaceFn: (args) => {
+				const url = args.length > 0 && args[0];
+				const options = args[1]
+					? transformOptionsNode(args[1], `method: 'HEAD',`)
+					: `{ method: 'HEAD' }`;
+				return dedent.withOptions({ alignValues: true })`
+			fetch(${url.text()}, ${options})
+				.then(async (res) => Object.assign(res, { data: await res.json() }))
+				.catch(() => null)
+			`;
+			},
 		},
 		{
 			oldBind: '$.options',
-			replaceFn: (arg: FunctionArgs) => `console.error(${arg})`,
+			replaceFn: (args) => {
+				const url = args.length > 0 && args[0];
+				const options = args[1]
+					? transformOptionsNode(args[1], `method: 'OPTIONS',`)
+					: `{ method: 'OPTIONS' }`;
+				return dedent.withOptions({ alignValues: true })`
+			fetch(${url.text()}, ${options})
+				.then(async (res) => Object.assign(res, { data: await res.json() }))
+				.catch(() => null)
+			`;
+			},
 		},
 	];
 
