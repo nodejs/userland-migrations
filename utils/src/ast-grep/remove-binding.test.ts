@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it, only } from "node:test";
+import { describe, it } from "node:test";
 import astGrep from "@ast-grep/napi";
 import dedent from "dedent";
 import { removeBinding } from "./remove-binding.ts";
@@ -29,7 +29,7 @@ describe("remove-binding", () => {
 		});
 	});
 
-	only("should not remove non-related named requires", () => {
+	it("should not remove non-related named requires", () => {
 		const code = dedent`
 			const { assert: nodeAssert, env } = require("process");
 		`;

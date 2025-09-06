@@ -86,7 +86,6 @@ export default function transform(root: SgRoot): string | null {
 				}
 			}
 
-
 			edits.push(node.replace("assert"))
 		}
 	}
