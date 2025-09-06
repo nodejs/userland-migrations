@@ -4,7 +4,8 @@
   "description": "Replace `axios` with `fetch`",
   "type": "module",
   "scripts": {
-    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./",
+    "testu": "npx codemod jssg test -l typescript -u ./src/workflow.ts ./"
   },
   "repository": {
     "type": "git",

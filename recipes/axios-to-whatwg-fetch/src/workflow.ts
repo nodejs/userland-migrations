@@ -6,60 +6,98 @@ import type {
 	SgNode,
 	SgRoot,
 	TypesMap,
-} from "@codemod.com/jssg-types/main";
-import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
-import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
-import { removeBinding } from "@nodejs/codemod-utils/ast-grep/remove-binding";
-import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
-import dedent from "dedent";
+} from '@codemod.com/jssg-types/main';
+import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
+import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
+import { removeBinding } from '@nodejs/codemod-utils/ast-grep/remove-binding';
+import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
+import dedent from 'dedent';
 
 type BindingToReplace = {
 	rule: Rule<TypesMap>;
 	node: SgNode<TypesMap, Kinds<TypesMap>>;
 	binding: string;
-	replaceFn: (arg: string) => string;
+	replaceFn: (arg: SgNode[]) => string;
 };
 
-const updates = [
-	{
-		oldBind: "$.request",
-		replaceFn: (arg: string) => `console.log(${arg})`,
-	},
-	{
-		oldBind: "$.get",
-		replaceFn: (arg: string) =>
-			dedent`
-			fetch(${arg})
+const transformOptions = (args: SgNode[]) => {
+	console.log({ argsLength: args.length, args: args.map((t) => t.text()) });
+};
+
+const transformBody = (args: SgNode[]) => {
+	console.log({ argsLength: args.length, args: args.map((t) => t.text()) });
+
+	return;
+};
+
+const transformOptionsNode = (options: SgNode) => {
+	if (!options) return '';
+
+	const headers = options.find({
+		rule: {
+			kind: 'object',
+			inside: {
+				kind: 'pair',
+				has: {
+					kind: 'property_identifier',
+					field: 'key',
+					regex: 'headers',
+				},
+			},
+		},
+	});
+
+	if (headers?.kind()) {
+		return dedent`, {
+			headers: ${headers.text()},
+		}`;
+	}
+};
+
+const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
+	[
+		{
+			oldBind: '$.request',
+			replaceFn: (arg) => `console.log(${arg})`,
+		},
+		{
+			oldBind: '$.get',
+			replaceFn: (args) => {
+				const url = args.length > 0 && args[0];
+				const options = transformOptionsNode(args[1]);
+				return dedent.withOptions({ alignValues: true })`
+			fetch(${url.text()}${options})
 				.then(async (res) => Object.assign(res, { data: await res.json() }))
 				.catch(() => null)
-			`,
-	},
-	{
-		oldBind: "$.post",
-		replaceFn: (arg: string) => `console.error(${arg})`,
-	},
-	{
-		oldBind: "$.put",
-		replaceFn: (arg: string) => `console.error(${arg})`,
-	},
-	{
-		oldBind: "$.patch",
-		replaceFn: (arg: string) => `console.error(${arg})`,
-	},
-	{
-		oldBind: "$.delete",
-		replaceFn: (arg: string) => `console.error(${arg})`,
-	},
-	{
-		oldBind: "$.head",
-		replaceFn: (arg: string) => `console.error(${arg})`,
-	},
-	{
-		oldBind: "$.options",
-		replaceFn: (arg: string) => `console.error(${arg})`,
-	},
-];
+			`;
+			},
+		},
+		{
+			oldBind: '$.post',
+			replaceFn: (arg: FunctionArgs) => `console.error(${arg})`,
+		},
+		{
+			oldBind: '$.put',
+			replaceFn: (arg: FunctionArgs) => `console.error(${arg})`,
+		},
+		{
+			oldBind: '$.patch',
+			replaceFn: (arg: FunctionArgs) => `console.error(${arg})`,
+		},
+		{
+			oldBind: '$.delete',
+			replaceFn: (arg: FunctionArgs) => `console.error(${arg})`,
+		},
+		{
+			oldBind: '$.head',
+			replaceFn: (arg: FunctionArgs) => `console.error(${arg})`,
+		},
+		{
+			oldBind: '$.options',
+			replaceFn: (arg: FunctionArgs) => `console.error(${arg})`,
+		},
+	];
 
 /*
  * Transforms `util.requestj($$$ARG)` usage to `console.log($$$ARG)`.
@@ -82,8 +120,8 @@ export default function transform(root: SgRoot): string | null {
 	const linesToRemove: Range[] = [];
 	const bindsToReplace: BindingToReplace[] = [];
 
-	const nodeRequires = getNodeRequireCalls(root, "axios");
-	const nodeImports = getNodeImportStatements(root, "axios");
+	const nodeRequires = getNodeRequireCalls(root, 'axios');
+	const nodeImports = getNodeImportStatements(root, 'axios');
 	const importRequireStatement = [...nodeRequires, ...nodeImports];
 
 	if (!importRequireStatement.length) return null;
@@ -111,26 +149,16 @@ export default function transform(root: SgRoot): string | null {
 		});
 
 		for (const match of matches) {
-			const args = match.getMultipleMatches("ARG");
+			const argsAndCommaas = match.getMultipleMatches('ARG');
+			const args = argsAndCommaas.filter((arg) => arg.text() !== ',');
 
-			const argsStr = args
-				.map((arg) => {
-					const text = arg.text();
-					if (text === ",") {
-						// if arg is a comman, add a space at end
-						return text.padEnd(2, " ");
-					}
-					return text;
-				})
-				.join("");
-
-			const replace = match.replace(bind.replaceFn(argsStr));
+			const replace = match.replace(bind.replaceFn(args));
 			edits.push(replace);
 
 			// const replace = match.replace(bind.replaceFn(argsStr));
 			// edits.push(replace);
 			//
-			const result = removeBinding(bind.node, bind.binding.split(".").at(0));
+			const result = removeBinding(bind.node, bind.binding.split('.').at(0));
 
 			if (result?.lineToRemove) {
 				linesToRemove.push(result.lineToRemove);
