@@ -21,16 +21,6 @@ type BindingToReplace = {
 	replaceFn: (arg: SgNode[]) => string;
 };
 
-const transformOptions = (args: SgNode[]) => {
-	console.log({ argsLength: args.length, args: args.map((t) => t.text()) });
-};
-
-const transformBody = (args: SgNode[]) => {
-	console.log({ argsLength: args.length, args: args.map((t) => t.text()) });
-
-	return;
-};
-
 const transformOptionsNode = (options: SgNode) => {
 	if (!options) return '';
 
