@@ -1,0 +1,24 @@
+{
+  "name": "@nodejs/crypto-rsa-pss-update",
+  "version": "1.0.0",
+  "description": "Handle DEP0154 via transforming deprecated RSA-PSS crypto options `hash` to `hashAlgorithm` and `mgf1Hash` to `mgf1HashAlgorithm`.",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/crypto-rsa-pss-update",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "Mauro Nievas",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/crypto-rsa-pss-update/README.md",
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.0.3"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
+  }
+}
