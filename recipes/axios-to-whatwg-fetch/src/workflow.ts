@@ -87,7 +87,6 @@ const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
 		{
 			oldBind: '$.post',
 			replaceFn: (args) => {
-				console.log('pOST');
 				const url = args.length > 0 && args[0];
 				const options = createOptions({
 					oldOptions: args[2],
@@ -103,11 +102,35 @@ const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
 		},
 		{
 			oldBind: '$.put',
-			replaceFn: (arg: FunctionArgs) => `console.error(${arg})`,
+			replaceFn: (args) => {
+				const url = args.length > 0 && args[0];
+				const options = createOptions({
+					oldOptions: args[2],
+					method: 'PUT',
+					body: args[1]?.text(),
+				});
+				return dedent.withOptions({ alignValues: true })`
+			fetch(${url.text()}${options ? `, ${options}` : ''})
+				.then(async (res) => Object.assign(res, { data: await res.json() }))
+				.catch(() => null)
+			`;
+			},
 		},
 		{
 			oldBind: '$.patch',
-			replaceFn: (arg: FunctionArgs) => `console.error(${arg})`,
+			replaceFn: (args) => {
+				const url = args.length > 0 && args[0];
+				const options = createOptions({
+					oldOptions: args[2],
+					method: 'PATCH',
+					body: args[1]?.text(),
+				});
+				return dedent.withOptions({ alignValues: true })`
+			fetch(${url.text()}${options ? `, ${options}` : ''})
+				.then(async (res) => Object.assign(res, { data: await res.json() }))
+				.catch(() => null)
+			`;
+			},
 		},
 		{
 			oldBind: '$.delete',
