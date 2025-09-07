@@ -1,7 +1,6 @@
-const base = 'https://dummyjson.com/todos';
+const base = 'https://dummyjson.com/todos/1';
 
-const all = await fetch(base, { method: 'DELETE' })
+const deletedTodo = await fetch(base, { method: 'DELETE' })
 	.then(async (res) => Object.assign(res, { data: await res.json() }))
 	.catch(() => null);
-console.log('\nGET /todos ->', all.status);
-console.log(`Preview: ${all.data.todos.length} todos`);
+console.log('\nDELETE /todos ->', deletedTodo);

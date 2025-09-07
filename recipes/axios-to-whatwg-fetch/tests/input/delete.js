@@ -1,6 +1,5 @@
 import axios from 'axios';
-const base = 'https://dummyjson.com/todos';
+const base = 'https://dummyjson.com/todos/1';
 
-const all = await axios.delete(base);
-console.log('\nGET /todos ->', all.status);
-console.log(`Preview: ${all.data.todos.length} todos`);
+const deletedTodo = await axios.delete(base);
+console.log('\nDELETE /todos ->', deletedTodo);
