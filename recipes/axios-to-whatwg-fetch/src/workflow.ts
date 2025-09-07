@@ -13,6 +13,7 @@ import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-bindi
 import { removeBinding } from '@nodejs/codemod-utils/ast-grep/remove-binding';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
 import dedent from 'dedent';
+import os from 'node:os';
 
 type BindingToReplace = {
 	rule: Rule<TypesMap>;
@@ -21,10 +22,14 @@ type BindingToReplace = {
 	replaceFn: (arg: SgNode[]) => string;
 };
 
-const transformOptionsNode = (options: SgNode, prepend?: string) => {
-	if (!options) return '';
-
-	const headers = options.find({
+type CreateOptionsType = {
+	oldOptions?: SgNode;
+	method?: string;
+	body?: string;
+};
+const createOptions = ({ oldOptions, method, body }: CreateOptionsType) => {
+	if (!oldOptions && !method && !body) return '';
+	const headers = oldOptions?.find({
 		rule: {
 			kind: 'object',
 			inside: {
@@ -38,18 +43,25 @@ const transformOptionsNode = (options: SgNode, prepend?: string) => {
 		},
 	});
 
-	if (headers?.kind()) {
-		if (prepend) {
-			return dedent.withOptions({ alignValues: true })`{
-			${prepend}
-			headers: ${headers.text()},
-		}`;
-		}
+	const options = [];
 
-		return dedent.withOptions({ alignValues: true })`{
-			headers: ${headers.text()},
-		}`;
+	if (method) {
+		options.push(`method: '${method}'`);
 	}
+
+	if (headers) {
+		options.push(`headers: ${headers?.text()}`);
+	}
+
+	if (body) {
+		options.push(`body: JSON.stringify(${body})`);
+	}
+
+	if (options.length === 1) return `{ ${options.toString()} }`;
+
+	return dedent.withOptions({ alignValues: true })`{
+		${options.join(`,${os.EOL}`)}
+	}`;
 };
 
 const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
@@ -62,7 +74,9 @@ const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
 			oldBind: '$.get',
 			replaceFn: (args) => {
 				const url = args.length > 0 && args[0];
-				const options = transformOptionsNode(args[1]);
+				const options = createOptions({
+					oldOptions: args[1],
+				});
 				return dedent.withOptions({ alignValues: true })`
 			fetch(${url.text()}${options ? `, ${options}` : ''})
 				.then(async (res) => Object.assign(res, { data: await res.json() }))
@@ -72,7 +86,20 @@ const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
 		},
 		{
 			oldBind: '$.post',
-			replaceFn: (arg: FunctionArgs) => `console.error(${arg})`,
+			replaceFn: (args) => {
+				console.log('pOST');
+				const url = args.length > 0 && args[0];
+				const options = createOptions({
+					oldOptions: args[2],
+					method: 'POST',
+					body: args[1]?.text(),
+				});
+				return dedent.withOptions({ alignValues: true })`
+			fetch(${url.text()}${options ? `, ${options}` : ''})
+				.then(async (res) => Object.assign(res, { data: await res.json() }))
+				.catch(() => null)
+			`;
+			},
 		},
 		{
 			oldBind: '$.put',
@@ -86,9 +113,10 @@ const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
 			oldBind: '$.delete',
 			replaceFn: (args) => {
 				const url = args.length > 0 && args[0];
-				const options = args[1]
-					? transformOptionsNode(args[1], `method: 'DELETE',`)
-					: `{ method: 'DELETE' }`;
+				const options = createOptions({
+					oldOptions: args[1],
+					method: 'DELETE',
+				});
 				return dedent.withOptions({ alignValues: true })`
 			fetch(${url.text()}, ${options})
 				.then(async (res) => Object.assign(res, { data: await res.json() }))
@@ -100,9 +128,10 @@ const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
 			oldBind: '$.head',
 			replaceFn: (args) => {
 				const url = args.length > 0 && args[0];
-				const options = args[1]
-					? transformOptionsNode(args[1], `method: 'HEAD',`)
-					: `{ method: 'HEAD' }`;
+				const options = createOptions({
+					oldOptions: args[1],
+					method: 'HEAD',
+				});
 				return dedent.withOptions({ alignValues: true })`
 			fetch(${url.text()}, ${options})
 				.then(async (res) => Object.assign(res, { data: await res.json() }))
@@ -114,9 +143,10 @@ const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
 			oldBind: '$.options',
 			replaceFn: (args) => {
 				const url = args.length > 0 && args[0];
-				const options = args[1]
-					? transformOptionsNode(args[1], `method: 'OPTIONS',`)
-					: `{ method: 'OPTIONS' }`;
+				const options = createOptions({
+					oldOptions: args[1],
+					method: 'OPTIONS',
+				});
 				return dedent.withOptions({ alignValues: true })`
 			fetch(${url.text()}, ${options})
 				.then(async (res) => Object.assign(res, { data: await res.json() }))
