@@ -6,6 +6,7 @@ import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-s
 export default function tranform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
+	const patterns = ['F_OK', 'R_OK', 'W_OK', 'X_OK'];
 
 	// @ts-expect-error - ast-grep types are not fully compatible with JSSG types
 	const requireStatements = getNodeRequireCalls(root, 'fs');
@@ -22,7 +23,7 @@ export default function tranform(root: SgRoot<Js>): string | null {
 				})
 				.map((v) => v.text());
 			objPatArr = objPatArr.filter(
-				(v) => !['F_OK', 'R_OK', 'W_OK', 'X_OK'].includes(v),
+				(v) => !patterns.includes(v),
 			);
 			objPatArr.push('constants');
 			edits.push(objectPattern.replace(`{ ${objPatArr.join(', ')} }`));
@@ -45,7 +46,7 @@ export default function tranform(root: SgRoot<Js>): string | null {
 				})
 				.map((v) => v.text());
 			objPatArr = objPatArr.filter(
-				(v) => !['F_OK', 'R_OK', 'W_OK', 'X_OK'].includes(v),
+				(v) => !patterns.includes(v),
 			);
 			const promisesImport = objPatArr.find((v) => v.startsWith('promises'));
 			if (promisesImport) {
@@ -65,15 +66,13 @@ export default function tranform(root: SgRoot<Js>): string | null {
 		}
 	}
 
-	for (const _OK of ['F_OK', 'R_OK', 'W_OK', 'X_OK']) {
+	for (const _OK of patterns) {
 		for (const [prefix, replacement] of [
 			['fs.', 'fs.constants.'],
 			['', `${promisesImportName ? promisesImportName : ''}constants.`],
 		]) {
 			const patterns = rootNode.findAll({
-				rule: {
-					pattern: `${prefix}${_OK}`,
-				},
+				rule: { pattern: `${prefix}${_OK}` },
 			});
 			for (const pattern of patterns) {
 				edits.push(pattern.replace(`${replacement}${_OK}`));
