@@ -8,7 +8,6 @@ export default function tranform(root: SgRoot<Js>): string | null {
 	const edits: Edit[] = [];
 	const patterns = ['F_OK', 'R_OK', 'W_OK', 'X_OK'];
 
-	// @ts-expect-error - ast-grep types are not fully compatible with JSSG types
 	const requireStatements = getNodeRequireCalls(root, 'fs');
 
 	for (const statement of requireStatements) {
@@ -30,7 +29,6 @@ export default function tranform(root: SgRoot<Js>): string | null {
 		}
 	}
 
-	// @ts-expect-error - ast-grep types are not fully compatible with JSSG types
 	const importStatements = getNodeImportStatements(root, 'fs');
 	let promisesImportName = '';
 
