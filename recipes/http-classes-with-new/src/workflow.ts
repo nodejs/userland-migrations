@@ -2,6 +2,7 @@ import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-s
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import type { SgRoot, Edit, SgNode } from '@codemod.com/jssg-types/main';
+import type JS from "@codemod.com/jssg-types/langs/javascript";
 
 /**
  * Classes of the http module
@@ -26,7 +27,7 @@ const CLASS_NAMES = [
  * 5. `http.Server()` → `new http.Server()`
  * 6. `http.ServerResponse() → `new http.ServerResponse()`
  */
-export default function transform(root: SgRoot): string | null {
+export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 
@@ -59,7 +60,7 @@ export default function transform(root: SgRoot): string | null {
  * @param statements - The import & require statements to search for the http classes
  * @returns The base path of the http classes
  */
-function* getHttpClassBasePaths(statements: SgNode[]) {
+function* getHttpClassBasePaths(statements: SgNode<JS>[]) {
 	for (const cls of CLASS_NAMES) {
 		for (const stmt of statements) {
 			const resolvedPath = resolveBindingPath(stmt, `$.${cls}`);

@@ -4,13 +4,14 @@ import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-s
 import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
 import { removeBinding } from "@nodejs/codemod-utils/ast-grep/remove-binding";
+import type JS from "@codemod.com/jssg-types/langs/javascript";
 
 type Binding = {
 	path: string;
 	lastPropertyAccess?: string;
 	propertyAccess?: string;
 	depth: number;
-	node: SgNode;
+	node: SgNode<JS>;
 };
 
 /**
@@ -72,7 +73,7 @@ function createPropBinding(
  *    isNativeError have been replaced
  *
  */
-export default function transform(root: SgRoot): string | null {
+export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
 	const bindings: Binding[] = [];
 	const edits: Edit[] = [];
