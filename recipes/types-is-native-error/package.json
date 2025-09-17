@@ -1,7 +1,7 @@
 {
-  "name": "@nodejs/util-print-to-console-log",
+  "name": "@nodejs/types-is-native-error",
   "version": "1.0.0",
-  "description": "Handle DEP0026, DEP0027, DEP0028, DEP0029 via transforming `util.print|puts|debug|error()` to `console.log|error()`",
+  "description": "Handle DEP0197 via transforming `types.isNativeError` to `Error.isError`",
   "type": "module",
   "scripts": {
     "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
@@ -9,12 +9,11 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nodejs/userland-migrations.git",
-    "directory": "recipes/util-print-to-console-log",
+    "directory": "recipes/rmdirs",
     "bugs": "https://github.com/nodejs/userland-migrations/issues"
   },
   "author": "Bruno Rodrigues",
-  "license": "MIT",
-  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/util-print-to-console-log/README.md",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/types-is-native-error/README.md",
   "devDependencies": {
     "@codemod.com/jssg-types": "^1.0.8"
   },
