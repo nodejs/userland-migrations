@@ -1,4 +1,5 @@
-import type { SgNode, Kinds, TypesMap } from "@codemod.com/jssg-types/main";
+import type { SgNode } from "@codemod.com/jssg-types/main";
+import type Js from "@codemod.com/jssg-types/langs/javascript";
 
 const requireKinds = ["lexical_declaration", "variable_declarator"];
 const importKinds = ["import_statement", "import_clause"];
@@ -35,7 +36,7 @@ const supportedKinds = [...requireKinds, ...importKinds];
  * // Returns: "utilTypes.isNativeError"
  * ```
  */
-export function resolveBindingPath(node: SgNode<TypesMap, Kinds<TypesMap>>, path: string) {
+export function resolveBindingPath(node: SgNode<Js>, path: string) {
 	const activeNode = node;
 	const rootKind = activeNode.kind().toString();
 
@@ -54,7 +55,7 @@ export function resolveBindingPath(node: SgNode<TypesMap, Kinds<TypesMap>>, path
 	}
 }
 
-function resolveBindingPathRequire(node: SgNode<TypesMap, Kinds<TypesMap>>, path: string) {
+function resolveBindingPathRequire(node: SgNode<Js>, path: string) {
 	const pathArr = path.split(".");
 	let activeNode = node;
 	const rootKind = node.kind();
@@ -125,7 +126,7 @@ function resolveBindingPathRequire(node: SgNode<TypesMap, Kinds<TypesMap>>, path
 	}
 }
 
-function resolveBindingPathImport(node: SgNode<TypesMap, Kinds<TypesMap>>, path: string) {
+function resolveBindingPathImport(node: SgNode<Js>, path: string) {
 	const pathArr = path.split(".");
 	let activeNode = node;
 	const rootKind = node.kind();

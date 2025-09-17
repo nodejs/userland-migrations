@@ -1,4 +1,5 @@
-import type { SgNode, Edit, Range, Kinds, TypesMap } from "@codemod.com/jssg-types/main";
+import type { SgNode, Edit, Range } from "@codemod.com/jssg-types/main";
+import type Js from "@codemod.com/jssg-types/langs/javascript";
 
 const requireKinds = ["lexical_declaration", "variable_declarator"];
 const importKinds = ["import_statement", "import_clause"];
@@ -41,7 +42,7 @@ type RemoveBindingReturnType = {
  * ```
  */
 export function removeBinding(
-	node: SgNode<TypesMap, Kinds<TypesMap>>,
+	node: SgNode<Js>,
 	binding: string,
 ): RemoveBindingReturnType | undefined {
 	const nodeKind = node.kind().toString();
@@ -81,7 +82,7 @@ export function removeBinding(
 }
 
 function handleNamedImportBindings(
-	node: SgNode<TypesMap, Kinds<TypesMap>>,
+	node: SgNode<Js>,
 	binding: string,
 ): RemoveBindingReturnType | undefined {
 	const namespaceImport = node.find({
@@ -171,7 +172,7 @@ function handleNamedImportBindings(
 }
 
 function handleNamedRequireBindings(
-	node: SgNode<TypesMap, Kinds<TypesMap>>,
+	node: SgNode<Js>,
 	binding: string,
 ): RemoveBindingReturnType | undefined {
 	const objectPattern = node.find({
@@ -188,17 +189,28 @@ function handleNamedRequireBindings(
 		},
 	});
 
+	if (declarations.length === 0) return;
+
 	if (declarations.length === 1) {
 		return {
 			lineToRemove: node.range(),
 		};
 	}
 
-	if (declarations.length > 1) {
-		const restDeclarations = declarations.map((d) => d.text()).filter((d) => d !== binding);
+	for (const declaration of declarations) {
+		if (declaration.text() === binding) {
+			const parent = declaration.parent();
+			const parentDeclarations = parent.findAll({
+				rule: {
+					kind: "shorthand_property_identifier_pattern",
+				},
+			});
 
-		return {
-			edit: objectPattern.replace(`{ ${restDeclarations.join(", ")} }`),
-		};
+			const restDeclarations = parentDeclarations.map((d) => d.text()).filter((d) => d !== binding);
+
+			return {
+				edit: parent.replace(`{ ${restDeclarations.join(", ")} }`),
+			};
+		}
 	}
 }

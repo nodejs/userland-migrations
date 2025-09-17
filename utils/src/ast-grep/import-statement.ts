@@ -1,14 +1,18 @@
-import type { SgRoot, SgNode } from "@codemod.com/jssg-types/main";
+import type { SgNode, SgRoot } from '@codemod.com/jssg-types/main';
+import type Js from '@codemod.com/jssg-types/langs/javascript';
 
-export const getNodeImportStatements = (rootNode: SgRoot, nodeModuleName: string): SgNode[] =>
+export const getNodeImportStatements = (
+	rootNode: SgRoot<Js>,
+	nodeModuleName: string,
+): SgNode<Js>[] =>
 	rootNode.root().findAll({
 		rule: {
-			kind: "import_statement",
+			kind: 'import_statement',
 			has: {
-				field: "source",
-				kind: "string",
+				field: 'source',
+				kind: 'string',
 				has: {
-					kind: "string_fragment",
+					kind: 'string_fragment',
 					regex: `(node:)?${nodeModuleName}$`,
 				},
 			},
@@ -23,38 +27,41 @@ export const getNodeImportStatements = (rootNode: SgRoot, nodeModuleName: string
  * We also don't catch pending promises, like `const pending = import("node:module");`
  * because it's will became to complex to handle in codemod context. (storing var name, checking is method is used, etc.)
  */
-export const getNodeImportCalls = (rootNode: SgRoot, nodeModuleName: string): SgNode[] => {
+export const getNodeImportCalls = (
+	rootNode: SgRoot<Js>,
+	nodeModuleName: string,
+): SgNode<Js>[] => {
 	const nodes = rootNode.root().findAll({
 		rule: {
-			kind: "variable_declarator",
+			kind: 'variable_declarator',
 			all: [
 				{
 					has: {
-						field: "name",
-						any: [{ kind: "object_pattern" }, { kind: "identifier" }],
+						field: 'name',
+						any: [{ kind: 'object_pattern' }, { kind: 'identifier' }],
 					},
 				},
 				{
 					has: {
-						field: "value",
-						kind: "await_expression",
+						field: 'value',
+						kind: 'await_expression',
 						has: {
-							kind: "call_expression",
+							kind: 'call_expression',
 							all: [
 								{
 									has: {
-										field: "function",
-										kind: "import",
+										field: 'function',
+										kind: 'import',
 									},
 								},
 								{
 									has: {
-										field: "arguments",
-										kind: "arguments",
+										field: 'arguments',
+										kind: 'arguments',
 										has: {
-											kind: "string",
+											kind: 'string',
 											has: {
-												kind: "string_fragment",
+												kind: 'string_fragment',
 												regex: `(node:)?${nodeModuleName}$`,
 											},
 										},
@@ -70,13 +77,13 @@ export const getNodeImportCalls = (rootNode: SgRoot, nodeModuleName: string): Sg
 
 	const variableDeclarator = rootNode.root().findAll({
 		rule: {
-			kind: "identifier",
+			kind: 'identifier',
 			inside: {
-				kind: "variable_declarator",
+				kind: 'variable_declarator',
 				has: {
-					kind: "string",
+					kind: 'string',
 					has: {
-						kind: "string_fragment",
+						kind: 'string_fragment',
 						regex: `(node:)?${nodeModuleName}$`,
 					},
 				},
@@ -86,31 +93,31 @@ export const getNodeImportCalls = (rootNode: SgRoot, nodeModuleName: string): Sg
 
 	const variablesRules = variableDeclarator.map((variableName) => ({
 		has: {
-			kind: "identifier",
+			kind: 'identifier',
 			regex: variableName.text(),
 		},
 	}));
 
 	const dynamicImports = rootNode.root().findAll({
 		rule: {
-			kind: "call_expression",
+			kind: 'call_expression',
 			all: [
 				{
 					has: {
-						field: "function",
-						kind: "import",
+						field: 'function',
+						kind: 'import',
 					},
 				},
 				{
 					has: {
-						field: "arguments",
-						kind: "arguments",
+						field: 'arguments',
+						kind: 'arguments',
 						any: [
 							{
 								has: {
-									kind: "string",
+									kind: 'string',
 									has: {
-										kind: "string_fragment",
+										kind: 'string_fragment',
 										regex: `^(node:)?${nodeModuleName}$`,
 									},
 								},
@@ -127,18 +134,21 @@ export const getNodeImportCalls = (rootNode: SgRoot, nodeModuleName: string): Sg
 		let parentNode = node.parent();
 		// iterate through all chained methods until reaching the expression_statement
 		// that marks the beginning of the import line
-		while (parentNode !== null && parentNode.kind() !== "expression_statement") {
+		while (
+			parentNode !== null &&
+			parentNode.kind() !== 'expression_statement'
+		) {
 			parentNode = parentNode.parent();
 		}
 
 		// if it is a valid import add to list of nodes that will be retuned
-		if (parentNode?.kind() === "expression_statement") {
+		if (parentNode?.kind() === 'expression_statement') {
 			const thenBlock = parentNode.find({
 				rule: {
-					kind: "member_expression",
+					kind: 'member_expression',
 					has: {
-						kind: "property_identifier",
-						regex: "then",
+						kind: 'property_identifier',
+						regex: 'then',
 					},
 				},
 			});

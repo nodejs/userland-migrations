@@ -1,0 +1,23 @@
+{
+  "name": "@nodejs/types-is-native-error",
+  "version": "1.0.0",
+  "description": "Handle DEP0197 via transforming `types.isNativeError` to `Error.isError`",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/rmdirs",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "Bruno Rodrigues",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/types-is-native-error/README.md",
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.0.8"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
+  }
+}
