@@ -12,7 +12,7 @@ export default function transform(root: SgRoot<Js>): string | null {
   const requireStatements = getNodeRequireCalls(root, 'buffer');
   const atobFunctionCalls = rootNode.findAll({
     rule: {
-      pattern: `buffer.atob($ARG)`
+      pattern: 'buffer.atob($ARG)'
     }
   });
 
@@ -33,7 +33,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
   const btoaFunctionCalls = rootNode.findAll({
     rule: {
-      pattern: `buffer.btoa($ARG)`
+      pattern: 'buffer.btoa($ARG)'
     }
   });
 
