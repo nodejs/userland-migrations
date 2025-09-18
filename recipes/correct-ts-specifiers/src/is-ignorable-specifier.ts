@@ -47,10 +47,10 @@ export function isIgnorableSpecifier(
 
 		resolvedSpecifier = getNotFoundUrl(err);
 	} finally {
-		/* biome-ignore lint/correctness/noUnsafeFinally: This does not blindly override the control
-		flow the rule is meant to protect */
-		if (resolvesToNodeModule(resolvedSpecifier!, parentPath, specifier))
+		if (resolvesToNodeModule(resolvedSpecifier!, parentPath, specifier)) {
+			/* biome-ignore lint/correctness/noUnsafeFinally: This does not blindly override the control flow the rule is meant to protect */
 			return true;
+		}
 	}
 
 	return false;
