@@ -6,8 +6,8 @@
   "scripts": {
     "lint:fix": "biome lint --fix ./",
     "lint": "biome lint ./",
-    "format": "biome format --fix ./",
-    "pre-commit": "node --run lint:fix; node --run format; node --run type-check; node --run test",
+    "format:fix": "biome format --fix ./",
+    "pre-commit": "node --run lint:fix; node --run format:fix; node --run type-check; node --run test",
     "test": "npm run test --workspaces --if-present",
     "test-legacy": "npm run test-legacy --workspaces --if-present",
     "type-check": "tsgo --noEmit"
