@@ -1,4 +1,4 @@
-import type { SgNode, SgRoot } from '@codemod.com/jssg-types/main';
+import type { Rule, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 export const getNodeImportStatements = (
@@ -91,7 +91,7 @@ export const getNodeImportCalls = (
 		},
 	});
 
-	const variablesRules = variableDeclarator.map((variableName) => ({
+	const variablesRules: Rule<Js>[] = variableDeclarator.map((variableName) => ({
 		has: {
 			kind: 'identifier',
 			regex: variableName.text(),
