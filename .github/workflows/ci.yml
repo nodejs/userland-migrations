@@ -73,6 +73,7 @@ jobs:
           node-version-file: ".nvmrc"
       - run: npm ci
       - run: node --run lint
+      - run: node --run format
       - run: node --run type-check
 
   validate-yaml:
