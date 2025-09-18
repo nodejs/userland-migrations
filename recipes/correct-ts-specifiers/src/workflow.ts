@@ -36,13 +36,19 @@ export async function workflow({ contexts, files }: Api) {
 
 			if (!importSpecifier) return;
 
-			const { isType, replacement } = await mapImports(filepath, importSpecifier.text());
+			const { isType, replacement } = await mapImports(
+				filepath,
+				importSpecifier.text(),
+			);
 
 			if (!replacement) return;
 
 			const edits = [importSpecifier.replace(replacement)];
 
-			if (isType && !statement.children().some((node) => node.kind() === 'type')) {
+			if (
+				isType &&
+				!statement.children().some((node) => node.kind() === 'type')
+			) {
 				const clause = statement.find({
 					rule: {
 						any: [{ kind: 'import_clause' }, { kind: 'export_clause' }],

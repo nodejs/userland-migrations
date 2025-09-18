@@ -21,7 +21,8 @@ export function resolveSpecifier(
 	parentPath: FSAbsolutePath | ResolvedSpecifier,
 	specifier: Specifier,
 ): FSAbsolutePath | NodeModSpecifier {
-	if (URL.canParse(specifier)) return fileURLToPath(specifier) as FSAbsolutePath;
+	if (URL.canParse(specifier))
+		return fileURLToPath(specifier) as FSAbsolutePath;
 
 	// import.meta.resolve() gives access to node's resolution algorithm, which is necessary to handle
 	// a myriad of non-obvious routes, like pjson subimports and the result of any hooks that may be
@@ -32,9 +33,13 @@ export function resolveSpecifier(
 	) as ResolvedSpecifier;
 
 	try {
-		const interimResolvedUrl = import.meta.resolve(specifier, parentUrl) as ResolvedSpecifier;
+		const interimResolvedUrl = import.meta.resolve(
+			specifier,
+			parentUrl,
+		) as ResolvedSpecifier;
 
-		if (resolvesToNodeModule(interimResolvedUrl, parentUrl, specifier)) return specifier as NodeModSpecifier;
+		if (resolvesToNodeModule(interimResolvedUrl, parentUrl, specifier))
+			return specifier as NodeModSpecifier;
 
 		resolvedSpecifierUrl = interimResolvedUrl; //! let continue to `fileURLToPath` below
 	} catch (err) {

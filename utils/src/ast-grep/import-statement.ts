@@ -1,18 +1,19 @@
 import type { SgNode, SgRoot } from '@codemod.com/jssg-types/main';
-import type Js from "@codemod.com/jssg-types/langs/javascript";
+import type Js from '@codemod.com/jssg-types/langs/javascript';
 
-export const getNodeImportStatements = (rootNode: SgRoot<Js>, nodeModuleName: string): SgNode<Js>[] =>
-	rootNode
-	.root()
-	.findAll({
+export const getNodeImportStatements = (
+	rootNode: SgRoot<Js>,
+	nodeModuleName: string,
+): SgNode<Js>[] =>
+	rootNode.root().findAll({
 		rule: {
-			kind: "import_statement",
+			kind: 'import_statement',
 			has: {
-				field: "source",
-				kind: "string",
-				regex: `^['"](node:)?${nodeModuleName}['"]$`
-			}
-		}
+				field: 'source',
+				kind: 'string',
+				regex: `^['"](node:)?${nodeModuleName}['"]$`,
+			},
+		},
 	});
 
 /**
@@ -23,49 +24,47 @@ export const getNodeImportStatements = (rootNode: SgRoot<Js>, nodeModuleName: st
  * We also don't catch pending promises, like `const pending = import("node:module");`
  * because it's will became to complex to handle in codemod context. (storing var name, checking is method is used, etc.)
  */
-export const getNodeImportCalls = (node: SgRoot<Js>, nodeModuleName: string): SgNode<Js>[] =>
-	node
-	.root()
-	.findAll({
+export const getNodeImportCalls = (
+	node: SgRoot<Js>,
+	nodeModuleName: string,
+): SgNode<Js>[] =>
+	node.root().findAll({
 		rule: {
-			kind: "variable_declarator",
+			kind: 'variable_declarator',
 			all: [
 				{
 					has: {
-						field: "name",
-						any: [
-							{ kind: "object_pattern" },
-							{ kind: "identifier" }
-						]
-					}
+						field: 'name',
+						any: [{ kind: 'object_pattern' }, { kind: 'identifier' }],
+					},
 				},
 				{
 					has: {
-						field: "value",
-						kind: "await_expression",
+						field: 'value',
+						kind: 'await_expression',
 						has: {
-							kind: "call_expression",
+							kind: 'call_expression',
 							all: [
 								{
 									has: {
-										field: "function",
-										kind: "import"
-									}
+										field: 'function',
+										kind: 'import',
+									},
 								},
 								{
 									has: {
-										field: "arguments",
-										kind: "arguments",
+										field: 'arguments',
+										kind: 'arguments',
 										has: {
-											kind: "string",
-											regex: `^['"](node:)?${nodeModuleName}['"]$`
-										}
-									}
-								}
-							]
-						}
-					}
-				}
-			]
-		}
+											kind: 'string',
+											regex: `^['"](node:)?${nodeModuleName}['"]$`,
+										},
+									},
+								},
+							],
+						},
+					},
+				},
+			],
+		},
 	});

@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { type Mock, after, afterEach, before, describe, it, mock } from 'node:test';
+import {
+	type Mock,
+	after,
+	afterEach,
+	before,
+	describe,
+	it,
+	mock,
+} from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { dExts, jsExts, suspectExts, tsExts } from './exts.ts';
@@ -9,11 +17,17 @@ import type { FSAbsolutePath } from './index.d.ts';
 type MockModuleContext = ReturnType<typeof mock.module>;
 
 type Logger = typeof import('@nodejs/codemod-utils/logger').logger;
-type ReplaceJSExtWithTSExt = typeof import('./replace-js-ext-with-ts-ext.ts').replaceJSExtWithTSExt;
+type ReplaceJSExtWithTSExt =
+	typeof import('./replace-js-ext-with-ts-ext.ts').replaceJSExtWithTSExt;
 
 describe('Correcting ts file extensions', { concurrency: true }, () => {
-	const originatingFilePath = fileURLToPath(import.meta.resolve('./test.ts')) as FSAbsolutePath;
-	const fixturesDir = path.join(import.meta.dirname, 'fixtures/e2e') as FSAbsolutePath;
+	const originatingFilePath = fileURLToPath(
+		import.meta.resolve('./test.ts'),
+	) as FSAbsolutePath;
+	const fixturesDir = path.join(
+		import.meta.dirname,
+		'fixtures/e2e',
+	) as FSAbsolutePath;
 	const catSpecifier = path.join(fixturesDir, 'Cat.ts') as FSAbsolutePath;
 
 	let mock__log: Mock<Logger>['mock'];
@@ -27,7 +41,9 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 			namedExports: { logger },
 		});
 
-		({ replaceJSExtWithTSExt } = await import('./replace-js-ext-with-ts-ext.ts'));
+		({ replaceJSExtWithTSExt } = await import(
+			'./replace-js-ext-with-ts-ext.ts'
+		));
 	});
 
 	afterEach(() => {
@@ -46,9 +62,15 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 		describe('unambiguous match', () => {
 			it('should return an updated specifier', async () => {
 				for (const jsExt of jsExts) {
-					const output = await replaceJSExtWithTSExt(originatingFilePath, `./fixtures/rep${jsExt}`);
+					const output = await replaceJSExtWithTSExt(
+						originatingFilePath,
+						`./fixtures/rep${jsExt}`,
+					);
 
-					assert.equal(output.replacement, `./fixtures/rep${suspectExts[jsExt]}`);
+					assert.equal(
+						output.replacement,
+						`./fixtures/rep${suspectExts[jsExt]}`,
+					);
 					assert.equal(output.isType, false);
 				}
 			});
@@ -58,13 +80,17 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 			describe('ambiguous match', () => {
 				it('should skip and log error', async () => {
 					const base = './fixtures/d/ambiguous/index';
-					const output = await replaceJSExtWithTSExt(originatingFilePath, `${base}.js`);
+					const output = await replaceJSExtWithTSExt(
+						originatingFilePath,
+						`${base}.js`,
+					);
 
 					assert.equal(output.replacement, null);
 
 					const { 2: msg } = mock__log.calls[0].arguments;
 					assert.match(msg, /disambiguate/);
-					for (const dExt of dExts) assert.match(msg, new RegExp(`${base}${dExt}`));
+					for (const dExt of dExts)
+						assert.match(msg, new RegExp(`${base}${dExt}`));
 				});
 			});
 
@@ -72,7 +98,10 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 				it('should return an updated specifier', async () => {
 					for (const dExt of dExts) {
 						const base = `./fixtures/d/unambiguous/${dExt.split('.').pop()}/index`;
-						const output = await replaceJSExtWithTSExt(originatingFilePath, `${base}.js`);
+						const output = await replaceJSExtWithTSExt(
+							originatingFilePath,
+							`${base}.js`,
+						);
 
 						assert.equal(output.replacement, `${base}${dExt}`);
 						assert.equal(output.isType, true);
@@ -96,7 +125,10 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 	describe('mapped extension does NOT exist', () => {
 		it('should skip and log error', async () => {
 			for (const jsExt of jsExts) {
-				const output = await replaceJSExtWithTSExt(originatingFilePath, `./fixtures/skip${jsExt}`);
+				const output = await replaceJSExtWithTSExt(
+					originatingFilePath,
+					`./fixtures/skip${jsExt}`,
+				);
 
 				assert.equal(output.replacement, null);
 				assert.equal(output.isType, undefined);
@@ -115,7 +147,10 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 						base,
 					);
 
-					assert.equal(output.replacement, `${base}${base.endsWith('/') ? '' : '/'}index${jsExt}`);
+					assert.equal(
+						output.replacement,
+						`${base}${base.endsWith('/') ? '' : '/'}index${jsExt}`,
+					);
 					assert.equal(output.isType, false);
 				}
 
@@ -127,7 +162,10 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 						base,
 					);
 
-					assert.equal(output.replacement, `${base}${base.endsWith('/') ? '' : '/'}index${tsExt}`);
+					assert.equal(
+						output.replacement,
+						`${base}${base.endsWith('/') ? '' : '/'}index${tsExt}`,
+					);
 					assert.equal(output.isType, false);
 				}
 			}
@@ -165,7 +203,10 @@ describe('Correcting ts file extensions', { concurrency: true }, () => {
 	describe('specifier contains a directory with a file extension', () => {
 		it('should replace only the file extension', async () => {
 			const originalSpecifier = './fixtures/e2e/qux.js';
-			const { isType, replacement } = await replaceJSExtWithTSExt(originatingFilePath, originalSpecifier);
+			const { isType, replacement } = await replaceJSExtWithTSExt(
+				originatingFilePath,
+				originalSpecifier,
+			);
 
 			assert.equal(isType, false);
 			assert.equal(replacement, `${originalSpecifier}/index.ts`);

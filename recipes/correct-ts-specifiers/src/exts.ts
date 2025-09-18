@@ -19,7 +19,9 @@ export const suspectExts = {
 export type SuspectExt = keyof typeof suspectExts;
 export type JSExt = keyof typeof jsToTSExts;
 export const jsExts = Object.keys(jsToTSExts) as ReadonlyArray<JSExt>;
-export const tsExts = Object.values(jsToTSExts) as ReadonlyArray<typeof jsToTSExts[JSExt]>;
+export const tsExts = Object.values(jsToTSExts) as ReadonlyArray<
+	(typeof jsToTSExts)[JSExt]
+>;
 export type TSExt = (typeof tsExts)[number];
 
 /**

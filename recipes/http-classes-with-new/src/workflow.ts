@@ -2,7 +2,7 @@ import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-s
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import type { SgRoot, Edit, SgNode } from '@codemod.com/jssg-types/main';
-import type JS from "@codemod.com/jssg-types/langs/javascript";
+import type JS from '@codemod.com/jssg-types/langs/javascript';
 
 /**
  * Classes of the http module

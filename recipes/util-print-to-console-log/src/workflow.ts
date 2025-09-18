@@ -1,16 +1,16 @@
-import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
-import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
-import { removeBinding } from "@nodejs/codemod-utils/ast-grep/remove-binding";
-import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
+import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
+import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
+import { removeBinding } from '@nodejs/codemod-utils/ast-grep/remove-binding';
+import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
 import type {
 	Edit,
 	Range,
 	Rule,
 	SgNode,
 	SgRoot,
-} from "@codemod.com/jssg-types/main";
-import type Js from "@codemod.com/jssg-types/langs/javascript";
+} from '@codemod.com/jssg-types/main';
+import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 type BindingToReplace = {
 	rule: Rule<Js>;
@@ -21,19 +21,19 @@ type BindingToReplace = {
 
 const updates = [
 	{
-		oldBind: "$.print",
+		oldBind: '$.print',
 		replaceFn: (arg: string) => `console.log(${arg})`,
 	},
 	{
-		oldBind: "$.puts",
+		oldBind: '$.puts',
 		replaceFn: (arg: string) => `console.log(${arg})`,
 	},
 	{
-		oldBind: "$.debug",
+		oldBind: '$.debug',
 		replaceFn: (arg: string) => `console.error(${arg})`,
 	},
 	{
-		oldBind: "$.error",
+		oldBind: '$.error',
 		replaceFn: (arg: string) => `console.error(${arg})`,
 	},
 ];
@@ -59,8 +59,8 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const linesToRemove: Range[] = [];
 	const bindsToReplace: BindingToReplace[] = [];
 
-	const nodeRequires = getNodeRequireCalls(root, "util");
-	const nodeImports = getNodeImportStatements(root, "util");
+	const nodeRequires = getNodeRequireCalls(root, 'util');
+	const nodeImports = getNodeImportStatements(root, 'util');
 	const importRequireStatement = [...nodeRequires, ...nodeImports];
 
 	if (!importRequireStatement.length) return null;
@@ -89,23 +89,23 @@ export default function transform(root: SgRoot<Js>): string | null {
 		});
 
 		for (const match of matches) {
-			const args = match.getMultipleMatches("ARG");
+			const args = match.getMultipleMatches('ARG');
 
 			const argsStr = args
 				.map((arg) => {
 					const text = arg.text();
-					if (text === ",") {
+					if (text === ',') {
 						// if arg is a comman, add a space at end
-						return text.padEnd(2, " ");
+						return text.padEnd(2, ' ');
 					}
 					return text;
 				})
-				.join("");
+				.join('');
 
 			const replace = match.replace(bind.replaceFn(argsStr));
 			edits.push(replace);
 
-			const result = removeBinding(bind.node, bind.binding.split(".").at(0));
+			const result = removeBinding(bind.node, bind.binding.split('.').at(0));
 
 			if (result?.lineToRemove) {
 				linesToRemove.push(result.lineToRemove);

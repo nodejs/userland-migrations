@@ -12,7 +12,10 @@ import { getNotFoundUrl } from './get-not-found-url.ts';
  * @param parentPath The module containing the provided specifier
  * @param specifier The specifier to check.
  */
-export function isIgnorableSpecifier(parentPath: FSAbsolutePath, specifier: string) {
+export function isIgnorableSpecifier(
+	parentPath: FSAbsolutePath,
+	specifier: string,
+) {
 	if (isBuiltin(specifier)) return true;
 	if (specifier.startsWith('data:')) return true;
 
@@ -34,11 +37,11 @@ export function isIgnorableSpecifier(parentPath: FSAbsolutePath, specifier: stri
 		resolvedSpecifier = import.meta.resolve(
 			specifier,
 			pathToFileURL(parentPath).href,
-		) as ResolvedSpecifier;  // This requires `--experimental-import-meta-resolve`
+		) as ResolvedSpecifier; // This requires `--experimental-import-meta-resolve`
 	} catch (err) {
 		if (
-			!(err instanceof Error)
-			|| !IGNORABLE_RESOLVE_ERRORS.has((err as NodeJS.ErrnoException).code!)
+			!(err instanceof Error) ||
+			!IGNORABLE_RESOLVE_ERRORS.has((err as NodeJS.ErrnoException).code!)
 		)
 			throw err;
 
@@ -46,7 +49,8 @@ export function isIgnorableSpecifier(parentPath: FSAbsolutePath, specifier: stri
 	} finally {
 		/* biome-ignore lint/correctness/noUnsafeFinally: This does not blindly override the control
 		flow the rule is meant to protect */
-		if (resolvesToNodeModule(resolvedSpecifier!, parentPath, specifier)) return true;
+		if (resolvesToNodeModule(resolvedSpecifier!, parentPath, specifier))
+			return true;
 	}
 
 	return false;

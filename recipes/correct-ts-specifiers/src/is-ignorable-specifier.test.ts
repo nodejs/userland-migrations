@@ -14,13 +14,22 @@ describe('Is ignorable specifier', { concurrency: true }, () => {
 	});
 
 	it('should ignore data URLs', () => {
-		assert.equal(isIgnorableSpecifier(parentPath, 'data:,export const foo = "foo"'), true);
 		assert.equal(
-			isIgnorableSpecifier(parentPath, 'data:text/plain,export const foo = "foo"'),
+			isIgnorableSpecifier(parentPath, 'data:,export const foo = "foo"'),
 			true,
 		);
 		assert.equal(
-			isIgnorableSpecifier(parentPath, 'data:text/plain;base64,ZXhwb3J0IGNvbnN0IGZvbyA9ICJmb28i'),
+			isIgnorableSpecifier(
+				parentPath,
+				'data:text/plain,export const foo = "foo"',
+			),
+			true,
+		);
+		assert.equal(
+			isIgnorableSpecifier(
+				parentPath,
+				'data:text/plain;base64,ZXhwb3J0IGNvbnN0IGZvbyA9ICJmb28i',
+			),
 			true,
 		);
 	});

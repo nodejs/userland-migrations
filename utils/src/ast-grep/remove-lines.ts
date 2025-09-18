@@ -1,7 +1,7 @@
-import type { Range } from "@codemod.com/jssg-types/main";
+import type { Range } from '@codemod.com/jssg-types/main';
 
 export function removeLines(sourceCode: string, ranges: Range[]) {
-	const lines = sourceCode.split("\n");
+	const lines = sourceCode.split('\n');
 
 	// Remove duplicate ranges to prevent attempting to delete the same range multiple times,
 	// which could cause inconsistent behavior
@@ -26,5 +26,5 @@ export function removeLines(sourceCode: string, ranges: Range[]) {
 		removeCounter += removedLines.length;
 	}
 
-	return lines.join("\n");
+	return lines.join('\n');
 }

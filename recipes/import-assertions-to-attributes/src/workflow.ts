@@ -1,5 +1,5 @@
 import type { SgRoot, Edit } from '@codemod.com/jssg-types/main';
-import type JS from "@codemod.com/jssg-types/langs/javascript";
+import type JS from '@codemod.com/jssg-types/langs/javascript';
 
 /**
  * Transform function that converts import assertions to import attributes

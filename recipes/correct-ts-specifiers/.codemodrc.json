@@ -9,11 +9,6 @@
   "arguments": [],
   "meta": {
     "git": "https://github.com/nodejs/userland-migrations/tree/main/recipes/correct-ts-specifiers",
-    "tags": [
-      "esm",
-      "import",
-      "node",
-      "typescript"
-    ]
+    "tags": ["esm", "import", "node", "typescript"]
   }
 }

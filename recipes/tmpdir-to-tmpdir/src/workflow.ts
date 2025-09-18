@@ -1,7 +1,7 @@
-import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
-import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
-import type Js from "@codemod.com/jssg-types/langs/javascript";
+import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
+import type { SgRoot, Edit } from '@codemod.com/jssg-types/main';
+import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 /**
  * Transform function that updates code to replace deprecated `tmpDir` usage
@@ -22,66 +22,66 @@ import type Js from "@codemod.com/jssg-types/langs/javascript";
  * 3. Preserves original variable names and declaration types.
  */
 export default function transform(root: SgRoot<Js>): string | null {
-  const rootNode = root.root();
-  const edits: Edit[] = [];
-  let hasChanges = false;
+	const rootNode = root.root();
+	const edits: Edit[] = [];
+	let hasChanges = false;
 
-  // Step 1: Find and update destructuring assignments from require('os') or require('node:os')
-  const requireStatements = getNodeRequireCalls(root, "os");
+	// Step 1: Find and update destructuring assignments from require('os') or require('node:os')
+	const requireStatements = getNodeRequireCalls(root, 'os');
 
-  for (const statement of requireStatements) {
-    // Find the object pattern (destructuring)
-    const objectPattern = statement.find({
-      rule: {
-        kind: "object_pattern"
-      }
-    });
+	for (const statement of requireStatements) {
+		// Find the object pattern (destructuring)
+		const objectPattern = statement.find({
+			rule: {
+				kind: 'object_pattern',
+			},
+		});
 
-    if (objectPattern) {
-      const originalText = objectPattern.text();
+		if (objectPattern) {
+			const originalText = objectPattern.text();
 
-      if (originalText.includes('tmpDir')) {
-        const newText = originalText.replace(/\btmpDir\b/g, 'tmpdir');
-        edits.push(objectPattern.replace(newText));
-        hasChanges = true;
-      }
-    }
-  }
+			if (originalText.includes('tmpDir')) {
+				const newText = originalText.replace(/\btmpDir\b/g, 'tmpdir');
+				edits.push(objectPattern.replace(newText));
+				hasChanges = true;
+			}
+		}
+	}
 
-  const importStatements = getNodeImportStatements(root, "os");
+	const importStatements = getNodeImportStatements(root, 'os');
 
-  for (const statement of importStatements) {
-    // Find the named imports
-    const namedImports = statement.find({
-      rule: {
-        kind: "named_imports"
-      }
-    });
+	for (const statement of importStatements) {
+		// Find the named imports
+		const namedImports = statement.find({
+			rule: {
+				kind: 'named_imports',
+			},
+		});
 
-    if (namedImports) {
-      const originalText = namedImports.text();
+		if (namedImports) {
+			const originalText = namedImports.text();
 
-      if (originalText.includes('tmpDir')) {
-        const newText = originalText.replace(/\btmpDir\b/g, 'tmpdir');
-        edits.push(namedImports.replace(newText));
-        hasChanges = true;
-      }
-    }
-  }
+			if (originalText.includes('tmpDir')) {
+				const newText = originalText.replace(/\btmpDir\b/g, 'tmpdir');
+				edits.push(namedImports.replace(newText));
+				hasChanges = true;
+			}
+		}
+	}
 
-  // Step 2: Find and replace tmpDir function calls
-  const functionCalls = rootNode.findAll({
-    rule: {
-      pattern: 'tmpDir',
-    }
-  });
+	// Step 2: Find and replace tmpDir function calls
+	const functionCalls = rootNode.findAll({
+		rule: {
+			pattern: 'tmpDir',
+		},
+	});
 
-  for (const call of functionCalls) {
-    edits.push(call.replace('tmpdir'));
-    hasChanges = true;
-  }
+	for (const call of functionCalls) {
+		edits.push(call.replace('tmpdir'));
+		hasChanges = true;
+	}
 
-  if (!hasChanges) return null;
+	if (!hasChanges) return null;
 
-  return rootNode.commitEdits(edits);
+	return rootNode.commitEdits(edits);
 }

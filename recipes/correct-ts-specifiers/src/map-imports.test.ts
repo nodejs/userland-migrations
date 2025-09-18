@@ -5,12 +5,13 @@ import { fileURLToPath } from 'node:url';
 import { dExts } from './exts.ts';
 import type { FSAbsolutePath } from './index.d.ts';
 
-
 type Logger = typeof import('@nodejs/codemod-utils/logger').logger;
 type MapImports = typeof import('./map-imports.ts').mapImports;
 
 describe('Map Imports', { concurrency: true }, () => {
-	const originatingFilePath = fileURLToPath(import.meta.resolve('./test.ts')) as FSAbsolutePath;
+	const originatingFilePath = fileURLToPath(
+		import.meta.resolve('./test.ts'),
+	) as FSAbsolutePath;
 	let mock__log: Mock<Logger>['mock'];
 	let mapImports: MapImports;
 
@@ -77,7 +78,10 @@ describe('Map Imports', { concurrency: true }, () => {
 		for (const dExt of dExts) {
 			const extType = dExt.split('.').pop();
 			const specifierBase = `./fixtures/d/unambiguous/${extType}/index`;
-			const output = await mapImports(originatingFilePath, `${specifierBase}.js`);
+			const output = await mapImports(
+				originatingFilePath,
+				`${specifierBase}.js`,
+			);
 
 			assert.equal(output.replacement, `${specifierBase}${dExt}`);
 			assert.equal(output.isType, true);
