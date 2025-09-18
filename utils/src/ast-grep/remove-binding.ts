@@ -1,8 +1,8 @@
-import type { SgNode, Edit, Range } from "@codemod.com/jssg-types/main";
-import type Js from "@codemod.com/jssg-types/langs/javascript";
+import type { SgNode, Edit, Range } from '@codemod.com/jssg-types/main';
+import type Js from '@codemod.com/jssg-types/langs/javascript';
 
-const requireKinds = ["lexical_declaration", "variable_declarator"];
-const importKinds = ["import_statement", "import_clause"];
+const requireKinds = ['lexical_declaration', 'variable_declarator'];
+const importKinds = ['import_statement', 'import_clause'];
 
 type RemoveBindingReturnType = {
 	edit?: Edit;
@@ -51,15 +51,15 @@ export function removeBinding(
 		rule: {
 			any: [
 				{
-					kind: "identifier",
+					kind: 'identifier',
 					inside: {
-						kind: "variable_declarator",
+						kind: 'variable_declarator',
 					},
 				},
 				{
-					kind: "identifier",
+					kind: 'identifier',
 					inside: {
-						kind: "import_clause",
+						kind: 'import_clause',
 					},
 				},
 			],
@@ -87,9 +87,9 @@ function handleNamedImportBindings(
 ): RemoveBindingReturnType | undefined {
 	const namespaceImport = node.find({
 		rule: {
-			kind: "identifier",
+			kind: 'identifier',
 			inside: {
-				kind: "namespace_import",
+				kind: 'namespace_import',
 			},
 		},
 	});
@@ -102,12 +102,12 @@ function handleNamedImportBindings(
 
 	const namedImports = node.findAll({
 		rule: {
-			kind: "import_specifier",
+			kind: 'import_specifier',
 			// ignore imports with alias (renamed imports)
 			not: {
 				has: {
-					field: "alias",
-					kind: "identifier",
+					field: 'alias',
+					kind: 'identifier',
 				},
 			},
 		},
@@ -124,13 +124,15 @@ function handleNamedImportBindings(
 
 			const namedImportsNode = node.find({
 				rule: {
-					kind: "named_imports",
+					kind: 'named_imports',
 				},
 			});
-			const restNamedImports = namedImports.map((d) => d.text()).filter((d) => d !== binding);
+			const restNamedImports = namedImports
+				.map((d) => d.text())
+				.filter((d) => d !== binding);
 
 			return {
-				edit: namedImportsNode.replace(`{ ${restNamedImports.join(", ")} }`),
+				edit: namedImportsNode.replace(`{ ${restNamedImports.join(', ')} }`),
 			};
 		}
 	}
@@ -138,8 +140,8 @@ function handleNamedImportBindings(
 	const renamedImports = node.findAll({
 		rule: {
 			has: {
-				field: "alias",
-				kind: "identifier",
+				field: 'alias',
+				kind: 'identifier',
 			},
 		},
 	});
@@ -154,7 +156,7 @@ function handleNamedImportBindings(
 
 			const namedImportsNode = node.find({
 				rule: {
-					kind: "named_imports",
+					kind: 'named_imports',
 				},
 			});
 
@@ -165,7 +167,7 @@ function handleNamedImportBindings(
 				.filter((d) => d !== renamedImport.parent().text());
 
 			return {
-				edit: namedImportsNode.replace(`{ ${restNamedImports.join(", ")} }`),
+				edit: namedImportsNode.replace(`{ ${restNamedImports.join(', ')} }`),
 			};
 		}
 	}
@@ -177,7 +179,7 @@ function handleNamedRequireBindings(
 ): RemoveBindingReturnType | undefined {
 	const objectPattern = node.find({
 		rule: {
-			kind: "object_pattern",
+			kind: 'object_pattern',
 		},
 	});
 
@@ -185,7 +187,7 @@ function handleNamedRequireBindings(
 
 	const declarations = node.findAll({
 		rule: {
-			kind: "shorthand_property_identifier_pattern",
+			kind: 'shorthand_property_identifier_pattern',
 		},
 	});
 
@@ -202,14 +204,16 @@ function handleNamedRequireBindings(
 			const parent = declaration.parent();
 			const parentDeclarations = parent.findAll({
 				rule: {
-					kind: "shorthand_property_identifier_pattern",
+					kind: 'shorthand_property_identifier_pattern',
 				},
 			});
 
-			const restDeclarations = parentDeclarations.map((d) => d.text()).filter((d) => d !== binding);
+			const restDeclarations = parentDeclarations
+				.map((d) => d.text())
+				.filter((d) => d !== binding);
 
 			return {
-				edit: parent.replace(`{ ${restDeclarations.join(", ")} }`),
+				edit: parent.replace(`{ ${restDeclarations.join(', ')} }`),
 			};
 		}
 	}

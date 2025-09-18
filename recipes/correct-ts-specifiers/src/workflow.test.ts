@@ -23,7 +23,9 @@ describe('workflow', () => {
 			},
 		);
 
-		const result = await readFile(resolve(e2eFixtPath, 'test.ts'), { encoding: 'utf-8' });
+		const result = await readFile(resolve(e2eFixtPath, 'test.ts'), {
+			encoding: 'utf-8',
+		});
 
 		t.assert.snapshot(result);
 	});

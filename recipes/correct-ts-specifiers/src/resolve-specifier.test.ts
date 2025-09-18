@@ -6,18 +6,27 @@ import type { FSAbsolutePath } from './index.d.ts';
 import { resolveSpecifier } from './resolve-specifier.ts';
 
 describe('Resolve specifier', { concurrency: true }, () => {
-	const fixturesDir = path.join(import.meta.dirname, 'fixtures/e2e') as FSAbsolutePath;
+	const fixturesDir = path.join(
+		import.meta.dirname,
+		'fixtures/e2e',
+	) as FSAbsolutePath;
 	const catSpecifier = `${fixturesDir}/Cat.ts` as FSAbsolutePath;
 
 	it('should strip an already resolved specifier (file url → path)', () => {
-		const resolvedSpecifier = resolveSpecifier(`${fixturesDir}/test.ts`, `file://${catSpecifier}`);
+		const resolvedSpecifier = resolveSpecifier(
+			`${fixturesDir}/test.ts`,
+			`file://${catSpecifier}`,
+		);
 
 		assert.equal(resolvedSpecifier, catSpecifier);
 	});
 
 	describe('node modules', () => {
 		it('should ignore a bare specifier', () => {
-			const resolvedSpecifier = resolveSpecifier(catSpecifier, 'animal-features');
+			const resolvedSpecifier = resolveSpecifier(
+				catSpecifier,
+				'animal-features',
+			);
 
 			assert.equal(resolvedSpecifier, 'animal-features');
 		});
@@ -32,7 +41,10 @@ describe('Resolve specifier', { concurrency: true }, () => {
 
 	describe('own modules', () => {
 		it('should resolve and return a file path', () => {
-			const resolvedSpecifier = resolveSpecifier(`${fixturesDir}/test.ts`, './Cat.ts');
+			const resolvedSpecifier = resolveSpecifier(
+				`${fixturesDir}/test.ts`,
+				'./Cat.ts',
+			);
 
 			assert.equal(resolvedSpecifier, catSpecifier);
 		});

@@ -2,8 +2,19 @@ import { extname } from 'node:path';
 
 import { logger } from '@nodejs/codemod-utils/logger';
 
-import type { FSAbsolutePath, NodeModSpecifier, ResolvedSpecifier, Specifier } from './index.d.ts';
-import { type DExt, type JSExt, type TSExt, extSets, suspectExts } from './exts.ts';
+import type {
+	FSAbsolutePath,
+	NodeModSpecifier,
+	ResolvedSpecifier,
+	Specifier,
+} from './index.d.ts';
+import {
+	type DExt,
+	type JSExt,
+	type TSExt,
+	extSets,
+	suspectExts,
+} from './exts.ts';
 import { fexists } from './fexists.ts';
 
 import { isDir } from './is-dir.ts';
@@ -33,14 +44,20 @@ export const replaceJSExtWithTSExt = async (
 	if (!extname(specifier)) {
 		specifier += '.js';
 
-		if (await fexists(parentPath, specifier)) return { replacement: specifier, isType: false };
+		if (await fexists(parentPath, specifier))
+			return { replacement: specifier, isType: false };
 	}
 
 	const oExt = extname(specifier) as JSExt;
 
-	const replacement = composeReplacement(specifier, oExt, rExt ?? suspectExts[oExt] ?? '');
+	const replacement = composeReplacement(
+		specifier,
+		oExt,
+		rExt ?? suspectExts[oExt] ?? '',
+	);
 
-	if (await fexists(parentPath, replacement)) return { replacement, isType: false };
+	if (await fexists(parentPath, replacement))
+		return { replacement, isType: false };
 
 	for (const extSet of extSets) {
 		const result = await checkSet(parentPath, specifier, oExt, extSet);
@@ -61,7 +78,8 @@ const composeReplacement = (
 	specifier: Specifier,
 	oExt: JSExt,
 	rExt: DExt | JSExt | TSExt | '',
-): Specifier => (oExt ? replaceFileExt(specifier, oExt, rExt) : `${specifier}${rExt}`);
+): Specifier =>
+	oExt ? replaceFileExt(specifier, oExt, rExt) : `${specifier}${rExt}`;
 
 /**
  * Replace a file extension within a potentially complex fs path or specifier.
@@ -72,7 +90,11 @@ const composeReplacement = (
  * @example replaceExt('./qux.js/index.js', '.js', '.ts') → './qux.js/index.ts'
  * @example replaceExt('./qux.cjs/index.cjs', '.cjs', '.cts') → './qux.cjs/index.cts'
  */
-function replaceFileExt(str: string, oExt: JSExt, rExt: DExt | JSExt | TSExt | '') {
+function replaceFileExt(
+	str: string,
+	oExt: JSExt,
+	rExt: DExt | JSExt | TSExt | '',
+) {
 	const i = str.lastIndexOf(oExt);
 	return `${str.slice(0, i)}${rExt}${str.slice(i + oExt.length)}`;
 }
@@ -99,11 +121,13 @@ async function checkSet<Ext extends DExt | JSExt | TSExt>(
 	for (const ext of exts) {
 		if (ext === oExt) continue;
 		const potential = composeReplacement(specifier, oExt, ext);
-		if (await fexists(parentPath, potential)) found.add((replacement = potential));
+		if (await fexists(parentPath, potential))
+			found.add((replacement = potential));
 	}
 
 	if (found.size) {
-		if (found.size === 1) return { isType: exts[0].startsWith('.d'), replacement: replacement! };
+		if (found.size === 1)
+			return { isType: exts[0].startsWith('.d'), replacement: replacement! };
 
 		logger(
 			parentPath,

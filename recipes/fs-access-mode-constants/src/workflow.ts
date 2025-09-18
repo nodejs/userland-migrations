@@ -21,9 +21,7 @@ export default function tranform(root: SgRoot<Js>): string | null {
 					rule: { kind: 'shorthand_property_identifier_pattern' },
 				})
 				.map((v) => v.text());
-			objPatArr = objPatArr.filter(
-				(v) => !patterns.includes(v),
-			);
+			objPatArr = objPatArr.filter((v) => !patterns.includes(v));
 			objPatArr.push('constants');
 			edits.push(objectPattern.replace(`{ ${objPatArr.join(', ')} }`));
 		}
@@ -43,9 +41,7 @@ export default function tranform(root: SgRoot<Js>): string | null {
 					rule: { kind: 'import_specifier' },
 				})
 				.map((v) => v.text());
-			objPatArr = objPatArr.filter(
-				(v) => !patterns.includes(v),
-			);
+			objPatArr = objPatArr.filter((v) => !patterns.includes(v));
 			const promisesImport = objPatArr.find((v) => v.startsWith('promises'));
 			if (promisesImport) {
 				if (promisesImport.includes('as')) {

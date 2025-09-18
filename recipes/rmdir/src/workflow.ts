@@ -1,8 +1,8 @@
-import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
-import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
-import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
-import type Js from "@codemod.com/jssg-types/langs/javascript";
+import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
+import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
+import type { SgRoot, Edit } from '@codemod.com/jssg-types/main';
+import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 /**
  * Transform function that converts deprecated fs.rmdir calls
@@ -23,30 +23,30 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const rmdirSyncCalls = rootNode.findAll({
 		rule: {
 			any: [
-				{ pattern: "fs.rmdirSync($PATH, $OPTIONS)" },
-				{ pattern: "rmdirSync($PATH, $OPTIONS)" }
-			]
-		}
+				{ pattern: 'fs.rmdirSync($PATH, $OPTIONS)' },
+				{ pattern: 'rmdirSync($PATH, $OPTIONS)' },
+			],
+		},
 	});
 
 	const rmdirCalls = rootNode.findAll({
 		rule: {
 			any: [
-				{ pattern: "fs.rmdir($PATH, $OPTIONS, $CALLBACK)" },
-				{ pattern: "fs.rmdir($PATH, $OPTIONS)" },
-				{ pattern: "rmdir($PATH, $OPTIONS, $CALLBACK)" },
-				{ pattern: "rmdir($PATH, $OPTIONS)" }
-			]
-		}
+				{ pattern: 'fs.rmdir($PATH, $OPTIONS, $CALLBACK)' },
+				{ pattern: 'fs.rmdir($PATH, $OPTIONS)' },
+				{ pattern: 'rmdir($PATH, $OPTIONS, $CALLBACK)' },
+				{ pattern: 'rmdir($PATH, $OPTIONS)' },
+			],
+		},
 	});
 
 	const promisesRmdirCalls = rootNode.findAll({
 		rule: {
 			any: [
-				{ pattern: "fs.promises.rmdir($PATH, $OPTIONS)" },
-				{ pattern: "promises.rmdir($PATH, $OPTIONS)" }
-			]
-		}
+				{ pattern: 'fs.promises.rmdir($PATH, $OPTIONS)' },
+				{ pattern: 'promises.rmdir($PATH, $OPTIONS)' },
+			],
+		},
 	});
 
 	let needsRmImport = false;
@@ -54,17 +54,17 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	// Transform rmdirSync calls
 	for (const call of rmdirSyncCalls) {
-		const optionsMatch = call.getMatch("OPTIONS");
+		const optionsMatch = call.getMatch('OPTIONS');
 		if (!optionsMatch) continue;
 		const optionsText = optionsMatch.text();
-		if (!optionsText.includes("recursive") || !optionsText.includes("true")) {
+		if (!optionsText.includes('recursive') || !optionsText.includes('true')) {
 			continue;
 		}
 
-		const path = call.getMatch("PATH")?.text();
+		const path = call.getMatch('PATH')?.text();
 		const callText = call.text();
 
-		if (callText.includes("fs.rmdirSync(")) {
+		if (callText.includes('fs.rmdirSync(')) {
 			const newCallText = `fs.rmSync(${path}, { recursive: true, force: true })`;
 			edits.push(call.replace(newCallText));
 		} else {
@@ -78,21 +78,21 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	// Transform rmdir calls
 	for (const call of rmdirCalls) {
-		const optionsMatch = call.getMatch("OPTIONS");
+		const optionsMatch = call.getMatch('OPTIONS');
 		if (!optionsMatch) continue;
 		const optionsText = optionsMatch.text();
-		if (!optionsText.includes("recursive") || !optionsText.includes("true")) {
+		if (!optionsText.includes('recursive') || !optionsText.includes('true')) {
 			continue;
 		}
 
-		const path = call.getMatch("PATH")?.text();
+		const path = call.getMatch('PATH')?.text();
 		const callText = call.text();
 
-		if (callText.includes("fs.rmdir(")) {
+		if (callText.includes('fs.rmdir(')) {
 			// Handle fs.rmdir → fs.rm
-			if (call.getMatch("CALLBACK")) {
+			if (call.getMatch('CALLBACK')) {
 				// Has callback
-				const callback = call.getMatch("CALLBACK")?.text();
+				const callback = call.getMatch('CALLBACK')?.text();
 				const newCallText = `fs.rm(${path}, { recursive: true, force: true }, ${callback})`;
 				edits.push(call.replace(newCallText));
 			} else {
@@ -102,9 +102,9 @@ export default function transform(root: SgRoot<Js>): string | null {
 			}
 		} else {
 			// destructured call like rmdir(...)
-			if (call.getMatch("CALLBACK")) {
+			if (call.getMatch('CALLBACK')) {
 				// Has callback
-				const callback = call.getMatch("CALLBACK")?.text();
+				const callback = call.getMatch('CALLBACK')?.text();
 				const newCallText = `rm(${path}, { recursive: true, force: true }, ${callback})`;
 				edits.push(call.replace(newCallText));
 			} else {
@@ -119,17 +119,17 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	// Transform fs.promises.rmdir calls
 	for (const call of promisesRmdirCalls) {
-		const optionsMatch = call.getMatch("OPTIONS");
+		const optionsMatch = call.getMatch('OPTIONS');
 		if (!optionsMatch) continue;
 		const optionsText = optionsMatch.text();
-		if (!optionsText.includes("recursive") || !optionsText.includes("true")) {
+		if (!optionsText.includes('recursive') || !optionsText.includes('true')) {
 			continue;
 		}
 
-		const path = call.getMatch("PATH")?.text();
+		const path = call.getMatch('PATH')?.text();
 		const callText = call.text();
 
-		if (callText.includes("fs.promises.rmdir(")) {
+		if (callText.includes('fs.promises.rmdir(')) {
 			const newCallText = `fs.promises.rm(${path}, { recursive: true, force: true })`;
 			edits.push(call.replace(newCallText));
 		} else {
@@ -142,11 +142,11 @@ export default function transform(root: SgRoot<Js>): string | null {
 	}
 
 	// Transform named alias import when recursive set to true
-	const importStatements = getNodeImportStatements(root, "fs");
+	const importStatements = getNodeImportStatements(root, 'fs');
 
 	for (const eachNode of importStatements) {
 		// Get in file reference alias name (import {rmdir as foo} from "node:fs" -> foo)
-		const referenceNameInFile = resolveBindingPath(eachNode, "$.rmdir");
+		const referenceNameInFile = resolveBindingPath(eachNode, '$.rmdir');
 		if (!referenceNameInFile) continue;
 		// Get in file reference node
 		const referenceFunctionNode = rootNode.find({
@@ -162,10 +162,10 @@ export default function transform(root: SgRoot<Js>): string | null {
 			},
 		});
 		if (!referenceFunctionNode) continue;
-		const optionsMatch = referenceFunctionNode.getMatch("OPTIONS");
+		const optionsMatch = referenceFunctionNode.getMatch('OPTIONS');
 		if (!optionsMatch) continue;
 		const optionsText = optionsMatch.text();
-		if (!optionsText.includes("recursive") || !optionsText.includes("true")) {
+		if (!optionsText.includes('recursive') || !optionsText.includes('true')) {
 			continue;
 		}
 		// Proceed with the change since { recursive: true }
@@ -173,18 +173,18 @@ export default function transform(root: SgRoot<Js>): string | null {
 			rule: {
 				any: [
 					{
-						kind: "import_specifier",
+						kind: 'import_specifier',
 						all: [
 							{
 								has: {
-									field: "alias",
-									pattern: "$ALIAS",
+									field: 'alias',
+									pattern: '$ALIAS',
 								},
 							},
 							{
 								has: {
-									field: "name",
-									pattern: "$ORIGINAL",
+									field: 'name',
+									pattern: '$ORIGINAL',
 								},
 							},
 						],
@@ -195,15 +195,15 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 		for (const eachAliasNode of aliasNodes) {
 			// Narrow down to rmdir alias
-			if (eachAliasNode.text().includes("rmdir")) {
+			if (eachAliasNode.text().includes('rmdir')) {
 				const rmdirNode = eachAliasNode.find({
 					rule: {
-						pattern: "rmdir",
-						kind: "identifier",
+						pattern: 'rmdir',
+						kind: 'identifier',
 					},
 				});
 				// Change rmdir to rm
-				edits.push(rmdirNode!.replace("rm"));
+				edits.push(rmdirNode!.replace('rm'));
 				hasChanges = true;
 			}
 		}
@@ -222,21 +222,22 @@ export default function transform(root: SgRoot<Js>): string | null {
 			let importText = importNode.text();
 			let updated = false;
 
-			if (needsRmImport
-				&& importText.includes("rmdir")
-				&& !importText.includes(" rm,")
-				&& !importText.includes(" rm ")
-				&& !importText.includes("{rm,")
-				&& !importText.includes("{rm }")
+			if (
+				needsRmImport &&
+				importText.includes('rmdir') &&
+				!importText.includes(' rm,') &&
+				!importText.includes(' rm ') &&
+				!importText.includes('{rm,') &&
+				!importText.includes('{rm }')
 			) {
 				// Add rm to imports
-				importText = importText.replace(/{\s*/, "{ rm, ");
+				importText = importText.replace(/{\s*/, '{ rm, ');
 				updated = true;
 			}
 
-			if (needsRmSyncImport && importText.includes("rmdirSync")) {
+			if (needsRmSyncImport && importText.includes('rmdirSync')) {
 				// Replace rmdirSync with rmSync
-				importText = importText.replace(/rmdirSync/g, "rmSync");
+				importText = importText.replace(/rmdirSync/g, 'rmSync');
 				updated = true;
 			}
 
@@ -253,21 +254,22 @@ export default function transform(root: SgRoot<Js>): string | null {
 			let requireText = requireNode.text();
 			let updated = false;
 
-			if (needsRmImport
-				&& requireText.includes("rmdir")
-				&& !requireText.includes(" rm,")
-				&& !requireText.includes(" rm ")
-				&& !requireText.includes("{rm,")
-				&& !requireText.includes("{rm }")
+			if (
+				needsRmImport &&
+				requireText.includes('rmdir') &&
+				!requireText.includes(' rm,') &&
+				!requireText.includes(' rm ') &&
+				!requireText.includes('{rm,') &&
+				!requireText.includes('{rm }')
 			) {
 				// Add rm to requires
-				requireText = requireText.replace(/{\s*/, "{ rm, ");
+				requireText = requireText.replace(/{\s*/, '{ rm, ');
 				updated = true;
 			}
 
-			if (needsRmSyncImport && requireText.includes("rmdirSync")) {
+			if (needsRmSyncImport && requireText.includes('rmdirSync')) {
 				// Replace rmdirSync with rmSync
-				requireText = requireText.replace(/rmdirSync/g, "rmSync");
+				requireText = requireText.replace(/rmdirSync/g, 'rmSync');
 				updated = true;
 			}
 

@@ -3,9 +3,7 @@
     "rootDir": "./",
 
     "target": "ESNext",
-    "lib": [
-      "ESNext"
-    ],
+    "lib": ["ESNext"],
     /* Modules */
     "module": "NodeNext",
     "moduleResolution": "nodenext",
@@ -38,14 +36,11 @@
     /* Completeness */
     "skipLibCheck": true
   },
-  "include": [
-    "./recipes/",
-    "./utils"
-  ],
+  "include": ["./recipes/", "./utils"],
   "exclude": [
     "**/tests/**",
     // For correct-ts-specifiers
     "**/*.test.ts",
     "**/fixtures/**"
-  ],
+  ]
 }

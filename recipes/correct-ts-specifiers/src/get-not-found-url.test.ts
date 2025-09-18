@@ -8,9 +8,11 @@ describe('Get module not found url', { concurrency: true }, () => {
 	const errUrl = `file://${errPath}`;
 	function makeError(setUrlProp = false) {
 		const err = new Error(
-			['[ERR_MODULE_NOT_FOUND]: Cannot find module', `'${errPath}'`, 'imported from /tmp/bar'].join(
-				' ',
-			),
+			[
+				'[ERR_MODULE_NOT_FOUND]: Cannot find module',
+				`'${errPath}'`,
+				'imported from /tmp/bar',
+			].join(' '),
 		);
 
 		if (setUrlProp) Object.assign(err, { url: errPath });

@@ -1,12 +1,12 @@
 {
-    "editor.formatOnSave": true,
-    "javascript.updateImportsOnFileMove.enabled": "always",
-    "typescript.updateImportsOnFileMove.enabled": "always",
-    "editor.formatOnPaste": true,
-    "editor.wordWrap": "wordWrapColumn",
-    "editor.wordWrapColumn": 100,
-    "[markdown]": {
-        "editor.wordWrap": "off"
-    },
-    "typescript.experimental.useTsgo": true
+  "editor.formatOnSave": true,
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "editor.formatOnPaste": true,
+  "editor.wordWrap": "wordWrapColumn",
+  "editor.wordWrapColumn": 100,
+  "[markdown]": {
+    "editor.wordWrap": "off"
+  },
+  "typescript.experimental.useTsgo": true
 }

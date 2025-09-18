@@ -17,7 +17,5 @@
     "target": "esnext"
   },
   "include": ["./"],
-  "exclude": [
-    "tests/**"
-  ]
+  "exclude": ["tests/**"]
 }
