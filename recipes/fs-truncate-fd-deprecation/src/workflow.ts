@@ -1,5 +1,6 @@
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
+import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
 import type Js from "@codemod.com/jssg-types/langs/javascript";
 
@@ -19,95 +20,98 @@ export default function transform(root: SgRoot<Js>): string | null {
   const rootNode = root.root();
   const edits: Edit[] = [];
 
-  // Track what imports need to be updated
+  // Bindings we care about and their replacements for truncate -> ftruncate
+  const checks = [
+    {
+			path: "$.truncate",
+			prop: "truncate",
+			replaceFn: (name: string) => name.replace(/truncate$/, "ftruncate"),
+			isSync: false
+		},
+    {
+			path: "$.truncateSync",
+			prop: "truncateSync",
+			replaceFn: (name: string) => name.replace(/truncateSync$/, "ftruncateSync"),
+			isSync: true
+		},
+    {
+			path: "$.promises.truncate",
+			prop: "truncate",
+			replaceFn: (name: string) => name.replace(/truncate$/, "ftruncate"),
+			isSync: false
+		},
+  ];
+
+  // Gather fs import/require statements to resolve local binding names
+  const stmtNodes = [
+    ...getNodeRequireCalls(root, "fs"),
+    ...getNodeImportStatements(root, "fs"),
+  ];
+
   let usedTruncate = false;
   let usedTruncateSync = false;
 
-  // Find fs.truncate and fs.truncateSync calls (these are always safe to transform)
-  const fsTruncateCalls = rootNode.findAll({
-    rule: {
-      any: [
-        { pattern: "fs.truncate($FD, $LEN, $CALLBACK)" },
-        { pattern: "fs.truncate($FD, $LEN)" },
-        { pattern: "fs.truncateSync($FD, $LEN)" }
-      ]
-    }
-  });
+  for (const stmt of stmtNodes) {
+    for (const check of checks) {
+      const local = resolveBindingPath(stmt, check.path);
+      if (!local) continue;
 
-  // Transform fs.truncate calls
-  for (const call of fsTruncateCalls) {
-    const fdMatch = call.getMatch("FD");
-    const lenMatch = call.getMatch("LEN");
-    const callbackMatch = call.getMatch("CALLBACK");
+      // property name to look for on fs (e.g. 'truncate' or 'truncateSync')
+      const propName = check.prop;
 
-    if (!fdMatch || !lenMatch) continue;
+      // Find call sites for the resolved local binding and for fs.<prop>
+      const calls = rootNode.findAll({
+        rule: {
+          any: [
+            { pattern: `${local}($FD, $LEN, $CALLBACK)` },
+            { pattern: `${local}($FD, $LEN)` },
+            { pattern: `fs.${propName}($FD, $LEN, $CALLBACK)` },
+            { pattern: `fs.${propName}($FD, $LEN)` },
+          ],
+        },
+      });
 
-    const fd = fdMatch.text();
-    const len = lenMatch.text();
-    const callback = callbackMatch?.text();
-    const callText = call.text();
+      let transformedAny = false;
+      for (const call of calls) {
+        const fdMatch = call.getMatch("FD");
+        if (!fdMatch) continue;
+        const fdText = fdMatch.text();
 
-    let newCallText: string;
-    if (callText.includes("fs.truncateSync(")) {
-      newCallText = `fs.ftruncateSync(${fd}, ${len})`;
-    } else {
-      newCallText = callback
-        ? `fs.ftruncate(${fd}, ${len}, ${callback})`
-        : `fs.ftruncate(${fd}, ${len})`;
-    }
+        // only transform when first arg is likely a file descriptor
+        if (!isLikelyFileDescriptor(fdText, rootNode)) continue;
 
-    edits.push(call.replace(newCallText));
-  }
+        // Replace callee name (handles local alias and fs.<prop> usages)
+        let newCallText = call.text();
 
-  // Find destructured truncate/truncateSync calls (need scope analysis)
-  const destructuredCalls = rootNode.findAll({
-    rule: {
-      any: [
-        { pattern: "truncate($FD, $LEN, $CALLBACK)" },
-        { pattern: "truncate($FD, $LEN)" },
-        { pattern: "truncateSync($FD, $LEN)" }
-      ]
-    }
-  });
+        // Replace occurrences of the local binding (e.g. "truncate" or alias)
 
-  // Transform destructured calls only if they're from fs imports/requires
-  for (const call of destructuredCalls) {
-    if (isFromFsModule(call, root)) {
-      const fdMatch = call.getMatch("FD");
-      const lenMatch = call.getMatch("LEN");
-      const callbackMatch = call.getMatch("CALLBACK");
+				const escapedLocal = local.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+				newCallText = newCallText.replace(new RegExp(`\\b${escapedLocal}\\b`), check.replaceFn(local));
 
-      if (!fdMatch || !lenMatch) continue;
-
-      const fd = fdMatch.text();
-      const len = lenMatch.text();
-      const callback = callbackMatch?.text();
-      const callText = call.text();
-
-      // Check if this looks like a file descriptor
-      if (isLikelyFileDescriptor(fd, rootNode)) {
-        let newCallText: string;
-
-        if (callText.includes("truncateSync(")) {
-          newCallText = `ftruncateSync(${fd}, ${len})`;
-          usedTruncateSync = true;
-        } else {
-          newCallText = callback
-            ? `ftruncate(${fd}, ${len}, ${callback})`
-            : `ftruncate(${fd}, ${len})`;
-          usedTruncate = true;
-        }
+        // Also replace fs.truncate / fs.truncateSync usages
+        newCallText = newCallText.replace(new RegExp(`\\bfs\\.${propName}\\b`, "g"), `fs.${check.replaceFn(propName)}`);
 
         edits.push(call.replace(newCallText));
+        transformedAny = true;
+        if (check.isSync) usedTruncateSync = true; else usedTruncate = true;
+      }
+
+      // Update import/destructure to include/rename to ftruncate/ftruncateSync where necessary
+      const namedNode = stmt.find({ rule: { kind: "object_pattern" } }) || stmt.find({ rule: { kind: "named_imports" } });
+      if (transformedAny && namedNode?.text().includes(propName)) {
+        const original = namedNode.text();
+        const newText = original.replace(new RegExp(`\\b${propName}\\b`, "g"), check.replaceFn(propName));
+        if (newText !== original) {
+          edits.push(namedNode.replace(newText));
+        }
       }
     }
   }
 
-  // Update imports/requires if we have destructured calls that were transformed
-  if (usedTruncate || usedTruncateSync) {
-    updateImportsAndRequires(root, usedTruncate, usedTruncateSync, edits);
-  }
-	if (edits.length === 0) return null;
+  // Update import/require statements to reflect renamed bindings
+  updateImportsAndRequires(root, usedTruncate, usedTruncateSync, edits);
+
+  if (!edits.length) return null;
 
   return rootNode.commitEdits(edits);
 }
@@ -116,9 +120,7 @@ export default function transform(root: SgRoot<Js>): string | null {
  * Update import and require statements to replace truncate functions with ftruncate
  */
 function updateImportsAndRequires(root: SgRoot<Js>, usedTruncate: boolean, usedTruncateSync: boolean, edits: Edit[]): void {
-  // @ts-ignore - ast-grep types are not fully compatible with JSSG types
   const importStatements = getNodeImportStatements(root, 'fs');
-  // @ts-ignore - ast-grep types are not fully compatible with JSSG types
   const requireStatements = getNodeRequireCalls(root, 'fs');
 
   // Update import and require statements
@@ -140,31 +142,6 @@ function updateImportsAndRequires(root: SgRoot<Js>, usedTruncate: boolean, usedT
       edits.push(statement.replace(text));
     }
   }
-}
-
-/**
- * Check if a call expression is from a destructured fs import/require
- */
-function isFromFsModule(call: SgNode<Js>, root: SgRoot<Js>): boolean {
-  // @ts-ignore - ast-grep types are not fully compatible with JSSG types
-  const importStatements = getNodeImportStatements(root, 'fs');
-  // @ts-ignore - ast-grep types are not fully compatible with JSSG types
-  const requireStatements = getNodeRequireCalls(root, 'fs');
-
-  // Get the function name being called (truncate or truncateSync)
-  const callExpression = call.child(0);
-  const functionName = callExpression?.text();
-  if (!functionName) return false;
-
-  // Check if this function name appears in any fs import/require destructuring
-  for (const statement of [...importStatements, ...requireStatements]) {
-    const text = statement.text();
-    if (text.includes("{") && text.includes(functionName)) {
-      return true;
-    }
-  }
-
-  return false;
 }
 
 /**
