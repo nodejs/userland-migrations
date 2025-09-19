@@ -18,7 +18,6 @@ import type Js from "@codemod.com/jssg-types/langs/javascript";
 export default function transform(root: SgRoot<Js>): string | null {
   const rootNode = root.root();
   const edits: Edit[] = [];
-  let hasChanges = false;
 
   // Track what imports need to be updated
   let usedTruncate = false;
@@ -58,7 +57,6 @@ export default function transform(root: SgRoot<Js>): string | null {
     }
 
     edits.push(call.replace(newCallText));
-    hasChanges = true;
   }
 
   // Find destructured truncate/truncateSync calls (need scope analysis)
@@ -101,7 +99,6 @@ export default function transform(root: SgRoot<Js>): string | null {
         }
 
         edits.push(call.replace(newCallText));
-        hasChanges = true;
       }
     }
   }
@@ -109,10 +106,8 @@ export default function transform(root: SgRoot<Js>): string | null {
   // Update imports/requires if we have destructured calls that were transformed
   if (usedTruncate || usedTruncateSync) {
     updateImportsAndRequires(root, usedTruncate, usedTruncateSync, edits);
-    hasChanges = true;
   }
-
-  if (!hasChanges) return null;
+	if (edits.length === 0) return null;
 
   return rootNode.commitEdits(edits);
 }
