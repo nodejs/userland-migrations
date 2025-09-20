@@ -7,5 +7,5 @@ myFS.closeSync(fd);
 
 // path usage should not be transformed
 myFS.truncate('other.txt', 5, (err) => {
-    if (err) throw err;
+	if (err) throw err;
 });

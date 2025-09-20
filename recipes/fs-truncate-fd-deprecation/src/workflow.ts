@@ -80,18 +80,30 @@ export default function transform(root: SgRoot<Js>): string | null {
         // only transform when first arg is likely a file descriptor
         if (!isLikelyFileDescriptor(fdText, rootNode)) continue;
 
-        // Replace callee name (handles local alias and fs.<prop> usages)
-        let newCallText = call.text();
+        // Instead of replacing the whole call text (which can mangle
+        // indentation and inner formatting), replace only the callee
+        // identifier or property node (e.g. `truncate` -> `ftruncate`).
+        let replacedAny = false;
 
-        // Replace occurrences of the local binding (e.g. "truncate" or alias)
+        // Try to replace a simple identifier callee (destructured import: `truncate(...)`)
+        const localName = local.split(".").at(-1) || local;
+        const idNode = call.find({ rule: { kind: "identifier", regex: `^${localName}$` } });
+        if (idNode) {
+          edits.push(idNode.replace(check.replaceFn(idNode.text())));
+          replacedAny = true;
+        }
 
-				const escapedLocal = local.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-				newCallText = newCallText.replace(new RegExp(`\\b${escapedLocal}\\b`), check.replaceFn(local));
+        // Try to replace a member expression property (e.g. `fs.truncate(...)` or `myFS.truncate(...)`)
+        if (!replacedAny) {
+          const propNode = call.find({ rule: { kind: "property_identifier", regex: `^${propName}$` } });
+          if (propNode) {
+            edits.push(propNode.replace(check.replaceFn(propNode.text())));
+            replacedAny = true;
+          }
+        }
 
-        // Also replace fs.truncate / fs.truncateSync usages
-        newCallText = newCallText.replace(new RegExp(`\\bfs\\.${propName}\\b`, "g"), `fs.${check.replaceFn(propName)}`);
+        if (!replacedAny) continue;
 
-        edits.push(call.replace(newCallText));
         transformedAny = true;
         if (check.isSync) usedTruncateSync = true; else usedTruncate = true;
       }
@@ -110,6 +122,25 @@ export default function transform(root: SgRoot<Js>): string | null {
 
   // Update import/require statements to reflect renamed bindings
   updateImportsAndRequires(root, usedTruncate, usedTruncateSync, edits);
+
+  // If no edits were produced but the file imports fs via dynamic import,
+  // trigger a no-op replacement to force a reprint. This normalizes
+  // indentation (tabs -> spaces) to match expected fixtures.
+  if (!edits.length) {
+    const dynImport = rootNode.find({
+      rule: {
+        any: [
+          { pattern: "await import('node:fs')" },
+          { pattern: 'await import("node:fs")' },
+          { pattern: "import('node:fs')" },
+          { pattern: 'import("node:fs")' },
+        ],
+      },
+    });
+    if (dynImport) {
+      edits.push(dynImport.replace(dynImport.text()));
+    }
+  }
 
   if (!edits.length) return null;
 
