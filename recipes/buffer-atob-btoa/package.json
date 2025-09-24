@@ -1,0 +1,21 @@
+{
+  "name": "@nodejs/buffer-atob-btoa",
+  "version": "1.0.0",
+  "description": "Migrates usage of the legacy APIs `buffer.atob()` and `buffer.btoa()` to the current recommended approaches",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/buffer-atob-btoa",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "nekojanai (Jana)",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/buffer-atob-btoa/README.md",
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
+  }
+}
