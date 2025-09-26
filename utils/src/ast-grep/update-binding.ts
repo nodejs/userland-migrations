@@ -286,7 +286,6 @@ function updateObjectPattern(
 			continue;
 		}
 
-		console.log({ newObjectPattern, oldBinding });
 		newObjectPattern.push(oldBinding.text());
 	}
 
