@@ -3,9 +3,7 @@ import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-s
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
-
-const containsBuiltinProperties = (text: string): boolean =>
-    text.includes("builtinModules") || text.includes("_builtinLibs");
+import type JS from "@codemod.com/jssg-types/langs/javascript";
 
 /**
  * Transform function that converts deprecated repl.builtinModules and repl._builtinLibs
@@ -23,39 +21,11 @@ const containsBuiltinProperties = (text: string): boolean =>
  * 7. const { _builtinLibs } = require('node:repl'); → const { builtinModules } = require('node:module');
  * 8. import { _builtinLibs } from 'node:repl'; → import { builtinModules } from 'node:module';
  */
-export default function transform(root: SgRoot): string | null {
+export default function transform(root: SgRoot<JS>): string | null {
     const rootNode = root.root();
     const edits: Edit[] = [];
     // Reusable quoted module specifier for generating new statements
     const newModule = "'node:module'";
-
-    const replaceStandaloneBuiltinLibsReferences = (): void => {
-        const standaloneReferences = rootNode.findAll({
-            rule: { pattern: "_builtinLibs" }
-        });
-
-        for (const ref of standaloneReferences) {
-            const parent = ref.parent();
-
-            if (
-                parent
-                && parent.kind() !== "object_pattern"
-                && parent.kind() !== "member_expression"
-                && parent.kind() !== "named_imports"
-            ) {
-                edits.push(ref.replace("builtinModules"));
-            }
-        }
-    };
-
-    const updateModuleSpecifier = (statement: SgNode): void => {
-        const moduleSpecifier = statement.find({ rule: { kind: "string_fragment" } });
-
-        if (moduleSpecifier) {
-            // Always use 'node:module'
-            edits.push(moduleSpecifier.replace('node:module'));
-        }
-    };
 
     // Step 1: Handle require statements
     const replRequireStatements = getNodeRequireCalls(root, "repl");
@@ -90,12 +60,12 @@ export default function transform(root: SgRoot): string | null {
 
                 if (isOnlyBuiltin) {
                     // Replace entire require statement
-                    updateModuleSpecifier(statement);
+                    updateModuleSpecifier(statement, edits);
 
                     if (originalText.includes("_builtinLibs")) {
                         const newText = originalText.replace("_builtinLibs", "builtinModules");
                         edits.push(objectPattern.replace(newText));
-                        replaceStandaloneBuiltinLibsReferences();
+                        replaceStandaloneBuiltinLibsReferences(rootNode, edits);
                     }
                 } else {
                     // Split into two statements
@@ -166,7 +136,7 @@ export default function transform(root: SgRoot): string | null {
                             }
 
                             if (originalText.includes("_builtinLibs")) {
-                                replaceStandaloneBuiltinLibsReferences();
+                                replaceStandaloneBuiltinLibsReferences(rootNode, edits);
                             }
                         }
                     }
@@ -196,7 +166,7 @@ export default function transform(root: SgRoot): string | null {
 
                     if (identifier) {
                         edits.push(identifier.replace("module"));
-                        updateModuleSpecifier(statement);
+                        updateModuleSpecifier(statement, edits);
 
                         for (const memberExpr of usages) {
                             edits.push(memberExpr.replace("module.builtinModules"));
@@ -226,12 +196,12 @@ export default function transform(root: SgRoot): string | null {
 
                 if (isOnlyBuiltin) {
                     // Replace entire import statement
-                    updateModuleSpecifier(statement);
+                    updateModuleSpecifier(statement, edits);
 
                     if (originalText.includes("_builtinLibs")) {
                         const newText = originalText.replace("_builtinLibs", "builtinModules");
                         edits.push(namedImports.replace(newText));
-                        replaceStandaloneBuiltinLibsReferences();
+                        replaceStandaloneBuiltinLibsReferences(rootNode, edits);
                     }
                 } else {
                     // Split into two statements
@@ -256,7 +226,7 @@ export default function transform(root: SgRoot): string | null {
                         });
 
                         if (originalText.includes("_builtinLibs") && !aliasText) {
-                            replaceStandaloneBuiltinLibsReferences();
+                            replaceStandaloneBuiltinLibsReferences(rootNode, edits);
                         }
                     }
                 }
@@ -280,7 +250,7 @@ export default function transform(root: SgRoot): string | null {
             });
 
             if (expressions.length > 0) {
-                updateModuleSpecifier(statement);
+                updateModuleSpecifier(statement, edits);
 
                 // Get the namespace identifier to maintain consistency
                 let importIdentifier = importClause.find({ rule: { kind: "identifier" } });
@@ -362,7 +332,7 @@ export default function transform(root: SgRoot): string | null {
                 if (originalText.includes("_builtinLibs")) {
                     const newText = originalText.replace("_builtinLibs", "builtinModules");
                     edits.push(objectPattern.replace(newText));
-                    replaceStandaloneBuiltinLibsReferences();
+                    replaceStandaloneBuiltinLibsReferences(rootNode, edits);
                 }
             }
         } else {
@@ -401,3 +371,34 @@ export default function transform(root: SgRoot): string | null {
 
     return rootNode.commitEdits(edits);
 }
+
+const replaceStandaloneBuiltinLibsReferences = (rootNode: SgNode<JS>, edits: Edit[]): void => {
+	const standaloneReferences = rootNode.findAll({
+		rule: { pattern: "_builtinLibs" }
+	});
+
+	for (const ref of standaloneReferences) {
+		const parent = ref.parent();
+
+		if (
+			parent
+			&& parent.kind() !== "object_pattern"
+			&& parent.kind() !== "member_expression"
+			&& parent.kind() !== "named_imports"
+		) {
+			edits.push(ref.replace("builtinModules"));
+		}
+	}
+};
+
+const containsBuiltinProperties = (text: string): boolean =>
+    text.includes("builtinModules") || text.includes("_builtinLibs");
+
+const updateModuleSpecifier = (statement: SgNode<JS>, edits: Edit[]): void => {
+        const moduleSpecifier = statement.find({ rule: { kind: "string_fragment" } });
+
+        if (moduleSpecifier) {
+            // Always use 'node:module'
+            edits.push(moduleSpecifier.replace('node:module'));
+        }
+    };
