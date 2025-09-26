@@ -1,7 +1,8 @@
-import type { SgNode, Edit, Range, Kinds, TypesMap } from "@codemod.com/jssg-types/main";
+import type { SgNode, Edit, Range, Kinds } from '@codemod.com/jssg-types/main';
+import type Js from '@codemod.com/jssg-types/langs/javascript';
 
-const requireKinds = ["lexical_declaration", "variable_declarator"];
-const importKinds = ["import_statement", "import_clause"];
+const requireKinds = ['lexical_declaration', 'variable_declarator'];
+const importKinds = ['import_statement', 'import_clause'];
 
 type UpdateBindingReturnType = {
 	edit?: Edit;
@@ -62,7 +63,7 @@ type UpdateBindingOptions = {
  * ```
  */
 export function updateBinding(
-	node: SgNode<TypesMap, Kinds<TypesMap>>,
+	node: SgNode<Js> | SgNode<Js, Kinds<Js>>,
 	binding: string,
 	options?: UpdateBindingOptions,
 ): UpdateBindingReturnType {
@@ -72,15 +73,15 @@ export function updateBinding(
 		rule: {
 			any: [
 				{
-					kind: "identifier",
+					kind: 'identifier',
 					inside: {
-						kind: "variable_declarator",
+						kind: 'variable_declarator',
 					},
 				},
 				{
-					kind: "identifier",
+					kind: 'identifier',
 					inside: {
-						kind: "import_clause",
+						kind: 'import_clause',
 					},
 				},
 			],
@@ -103,15 +104,15 @@ export function updateBinding(
 }
 
 function handleNamedImportBindings(
-	node: SgNode<TypesMap, Kinds<TypesMap>>,
+	node: SgNode<Js>,
 	binding: string,
 	options: UpdateBindingOptions,
 ): UpdateBindingReturnType {
 	const namespaceImport = node.find({
 		rule: {
-			kind: "identifier",
+			kind: 'identifier',
 			inside: {
-				kind: "namespace_import",
+				kind: 'namespace_import',
 			},
 		},
 	});
@@ -130,12 +131,12 @@ function handleNamedImportBindings(
 
 	const namedImports = node.findAll({
 		rule: {
-			kind: "import_specifier",
+			kind: 'import_specifier',
 			// ignore imports with alias (renamed imports)
 			not: {
 				has: {
-					field: "alias",
-					kind: "identifier",
+					field: 'alias',
+					kind: 'identifier',
 				},
 			},
 		},
@@ -150,14 +151,8 @@ function handleNamedImportBindings(
 				};
 			}
 
-			const namedImportsNode = node.find({
-				rule: {
-					kind: "named_imports",
-				},
-			});
-
 			return {
-				edit: namedImportsNode.replace(updateObjectPattern(namedImports, binding, options)),
+				edit: updateObjectPattern(namedImports, binding, options),
 			};
 		}
 	}
@@ -165,15 +160,19 @@ function handleNamedImportBindings(
 	const renamedImports = node.findAll({
 		rule: {
 			has: {
-				field: "alias",
-				kind: "identifier",
+				field: 'alias',
+				kind: 'identifier',
 			},
 		},
 	});
 
 	for (const renamedImport of renamedImports) {
 		if (renamedImport.text() === binding) {
-			if (!options?.newBinding && renamedImports.length === 1 && namedImports.length === 0) {
+			if (
+				!options?.newBinding &&
+				renamedImports.length === 1 &&
+				namedImports.length === 0
+			) {
 				return {
 					lineToRemove: node.range(),
 				};
@@ -181,7 +180,7 @@ function handleNamedImportBindings(
 
 			const namedImportsNode = node.find({
 				rule: {
-					kind: "named_imports",
+					kind: 'named_imports',
 				},
 			});
 
@@ -191,8 +190,8 @@ function handleNamedImportBindings(
 						const importName = renamedImport.parent().find({
 							rule: {
 								has: {
-									field: "name",
-									kind: "identifier",
+									field: 'name',
+									kind: 'identifier',
 								},
 							},
 						});
@@ -208,7 +207,7 @@ function handleNamedImportBindings(
 					.filter((d) => d !== renamedImport.parent().text());
 
 				return {
-					edit: namedImportsNode.replace(`{ ${newNamedImports.join(", ")} }`),
+					edit: namedImportsNode.replace(`{ ${newNamedImports.join(', ')} }`),
 				};
 			}
 		}
@@ -216,13 +215,13 @@ function handleNamedImportBindings(
 }
 
 function handleNamedRequireBindings(
-	node: SgNode<TypesMap, Kinds<TypesMap>>,
+	node: SgNode<Js>,
 	binding: string,
 	options: UpdateBindingOptions,
 ): UpdateBindingReturnType {
 	const objectPattern = node.find({
 		rule: {
-			kind: "object_pattern",
+			kind: 'object_pattern',
 		},
 	});
 
@@ -230,7 +229,7 @@ function handleNamedRequireBindings(
 
 	const declarations = node.findAll({
 		rule: {
-			kind: "shorthand_property_identifier_pattern",
+			kind: 'shorthand_property_identifier_pattern',
 		},
 	});
 
@@ -241,28 +240,55 @@ function handleNamedRequireBindings(
 	}
 
 	return {
-		edit: objectPattern.replace(updateObjectPattern(declarations, binding, options)),
+		edit: updateObjectPattern(declarations, binding, options),
 	};
 }
 
 function updateObjectPattern(
-	previous: SgNode<TypesMap, Kinds<TypesMap>>[],
+	previouses: SgNode<Js>[],
 	binding: string,
 	options: UpdateBindingOptions,
-): string {
-	let newObjectPattern: string[];
+): Edit {
+	let newObjectPattern: string[] = [];
 
-	if (options?.newBinding) {
-		newObjectPattern = previous.map((d) => {
-			const text = d.text();
-			if (text === binding) {
-				return options.newBinding;
-			}
-			return text;
-		});
-	} else {
-		newObjectPattern = previous.map((d) => d.text()).filter((d) => d !== binding);
+	let parentNode;
+	for (const previous of previouses) {
+		if (previous.text() === binding) {
+			parentNode = previous.parent();
+			break;
+		}
 	}
 
-	return `{ ${newObjectPattern.join(", ")} }`;
+	const oldBindings = parentNode.findAll({
+		rule: {
+			any: [
+				{
+					kind: 'shorthand_property_identifier_pattern',
+				},
+				{
+					kind: 'import_specifier',
+					not: {
+						has: {
+							field: 'alias',
+							kind: 'identifier',
+						},
+					},
+				},
+			],
+		},
+	});
+
+	for (const oldBinding of oldBindings) {
+		if (oldBinding.text() === binding) {
+			if (options.newBinding) {
+				newObjectPattern.push(options.newBinding);
+			}
+			continue;
+		}
+
+		console.log({ newObjectPattern, oldBinding });
+		newObjectPattern.push(oldBinding.text());
+	}
+
+	return parentNode.replace(`{ ${newObjectPattern.join(', ')} }`);
 }

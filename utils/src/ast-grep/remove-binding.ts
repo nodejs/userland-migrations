@@ -1,5 +1,6 @@
-import type { SgNode, Edit, Range, Kinds, TypesMap } from "@codemod.com/jssg-types/main";
-import { updateBinding } from "./update-binding.ts";
+import { updateBinding } from './update-binding.ts';
+import type { SgNode, Kinds } from '@codemod.com/jssg-types/main';
+import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 /**
  * Removes a specific binding from an import or require statement.
@@ -33,7 +34,10 @@ import { updateBinding } from "./update-binding.ts";
  * // Returns: undefined (no destructured binding found)
  * ```
  */
-export function removeBinding(node: SgNode<TypesMap, Kinds<TypesMap>>, binding: string) {
+export function removeBinding(
+	node: SgNode<Js> | SgNode<Js, Kinds<Js>>,
+	binding: string,
+) {
 	return updateBinding(node, binding, {
 		newBinding: undefined,
 	});
