@@ -22,14 +22,15 @@ describe('Is a directory', { concurrency: true }, () => {
 		mock_resolveSpecifier = resolveSpecifier.mock;
 
 		mock.module('node:fs/promises', { namedExports: { lstat } });
-		mock.module('./resolve-specifier.ts', { namedExports: { resolveSpecifier } });
+		mock.module('./resolve-specifier.ts', {
+			namedExports: { resolveSpecifier },
+		});
 
 		({ isDir } = await import('./is-dir.ts'));
 	});
 
 	it('should try to resolve an unresolved specifier', async () => {
 		mock_resolveSpecifier.mockImplementationOnce(
-			// @ts-ignore
 			function mock_resolveSpecifier() {
 				return resolvedPath;
 			},
@@ -42,7 +43,6 @@ describe('Is a directory', { concurrency: true }, () => {
 
 	it('should ignore unrelated errors', async () => {
 		mock_resolveSpecifier.mockImplementationOnce(
-			// @ts-ignore
 			function mock_resolveSpecifier() {
 				const err = Object.assign(new Error(), { code: 'ERR_OTHER' });
 				throw err;
@@ -56,9 +56,10 @@ describe('Is a directory', { concurrency: true }, () => {
 
 	it('should signal `null` when the specifier is unresolvable or cannot be found', async () => {
 		mock_resolveSpecifier.mockImplementationOnce(
-			// @ts-ignore
 			function mock_resolveSpecifier() {
-				const err = Object.assign(new Error(), { code: 'ERR_MODULE_NOT_FOUND' });
+				const err = Object.assign(new Error(), {
+					code: 'ERR_MODULE_NOT_FOUND',
+				});
 				throw err;
 			},
 		);

@@ -338,4 +338,26 @@ describe("remove-binding", () => {
 		assert.strictEqual(change?.lineToRemove, undefined);
 		assert.strictEqual(sourceCode, "import { diff as utilDiffs } from 'node:util';");
 	});
+
+	it("should remove only the specific import binding from nested destructuring when multiple bindings exist", () => {
+		const code = dedent`
+			const { types: { isNativeError, isMap } } = require("util");
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root();
+
+		const importStatement = node.find({
+			rule: {
+				kind: "lexical_declaration",
+			},
+		});
+
+		const change = removeBinding(importStatement!, "isNativeError");
+		const sourceCode = node.commitEdits([change?.edit!]);
+
+		assert.notEqual(change, null);
+		assert.strictEqual(change?.lineToRemove, undefined);
+		assert.strictEqual(sourceCode, `const { types: { isMap } } = require("util");`);
+	});
 });

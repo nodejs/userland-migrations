@@ -124,4 +124,35 @@ describe("remove-lines", () => {
 
 		assert.strictEqual(expected, output);
 	});
+
+	it("Should remove the correct lines when receiving duplicated ranges to remove", () => {
+		const code = dedent`
+			line 1
+			line 2
+			line 3
+			line 4
+		`;
+
+		const expected = dedent`
+			line 1
+			line 4
+		`;
+
+		const range: Range = {
+			start: {
+				line: 1,
+				column: 0,
+				index: 0,
+			},
+			end: {
+				line: 2,
+				column: 0,
+				index: 0,
+			},
+		};
+
+		const output = removeLines(code, [range, range, range, range, range]);
+
+		assert.strictEqual(expected, output);
+	});
 });
