@@ -302,6 +302,101 @@ export default function transform(root: SgRoot): string | null {
         }
     }
 
+    // Step 3: Handle dynamic imports
+    const dynamicImportDeclarators = rootNode.findAll({
+        rule: {
+            kind: "variable_declarator",
+            has: {
+                field: "value",
+                kind: "await_expression",
+                has: {
+                    kind: "call_expression",
+                    all: [
+                        {
+                            has: {
+                                field: "function",
+                                kind: "import"
+                            }
+                        },
+                        {
+                            has: {
+                                field: "arguments",
+                                kind: "arguments",
+                                has: {
+                                    kind: "string",
+                                    has: {
+                                        kind: "string_fragment",
+                                        regex: "(node:)?repl$"
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    });
+
+    for (const variableDeclarator of dynamicImportDeclarators) {
+        // Find the string fragment to replace
+        const stringFragment = variableDeclarator.find({
+            rule: {
+                kind: "string_fragment",
+                regex: "(node:)?repl$"
+            }
+        });
+
+        if (stringFragment) {
+            edits.push(stringFragment.replace("node:module"));
+        }
+
+        // Handle the variable assignment for dynamic imports
+        const objectPattern = variableDeclarator.find({
+            rule: { kind: "object_pattern" }
+        });
+
+        if (objectPattern) {
+            // For cases like: const { builtinModules } = await import('node:repl');
+            const originalText = objectPattern.text();
+            if (containsBuiltinProperties(originalText)) {
+                if (originalText.includes("_builtinLibs")) {
+                    const newText = originalText.replace("_builtinLibs", "builtinModules");
+                    edits.push(objectPattern.replace(newText));
+                    replaceStandaloneBuiltinLibsReferences();
+                }
+            }
+        } else {
+            // For cases like: const repl = await import('node:repl');
+            const identifier = variableDeclarator.find({
+                rule: { kind: "identifier" }
+            });
+
+            if (identifier) {
+                const builtinModulesPath = resolveBindingPath(variableDeclarator, "$.builtinModules");
+                const builtinLibsPath = resolveBindingPath(variableDeclarator, "$._builtinLibs");
+
+                const usages = rootNode.findAll({
+                    rule: {
+                        any: [
+                            { pattern: builtinModulesPath },
+                            { pattern: builtinLibsPath }
+                        ]
+                    }
+                });
+
+                if (usages.length > 0) {
+                    // Replace variable name from 'repl' to 'module'
+                    edits.push(identifier.replace("module"));
+
+                    // Replace all usages to use builtinModules
+                    for (const usage of usages) {
+                        edits.push(usage.replace("module.builtinModules"));
+                    }
+                }
+            }
+        }
+    }
+
     if (!edits.length) return null;
 
     return rootNode.commitEdits(edits);
