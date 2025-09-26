@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import dedent from "dedent";
 import { parse } from "@ast-grep/napi";
-import type { Edit, SgRoot } from "@codemod.com/jssg-types/main";
 import {
 	getScriptsNode,
 	getNodeJsUsage,
@@ -21,7 +20,7 @@ describe("package-json utilities", () => {
 				}
 			`;
 
-			const result = getScriptsNode(parse('json', input) as SgRoot);
+			const result = getScriptsNode(parse('json', input));
 
 			assert(result);
 			assert.strictEqual(result.length, 1); // Number of children in the scripts node
@@ -35,7 +34,7 @@ describe("package-json utilities", () => {
 				}
 			`;
 
-			const result = getNodeJsUsage(parse('json', input) as SgRoot);
+			const result = getNodeJsUsage(parse('json', input));
 
 			assert.strictEqual(result.length, 0);
 		});
@@ -52,7 +51,7 @@ describe("package-json utilities", () => {
 				}
 			`;
 
-			const result = getNodeJsUsage(parse('json', input) as SgRoot);
+			const result = getNodeJsUsage(parse('json', input));
 
 			assert.strictEqual(result.length, 1);
 			assert.strictEqual(result[0].text(), "node script.js");
@@ -68,7 +67,7 @@ describe("package-json utilities", () => {
 				}
 			`;
 
-			const result = getNodeJsUsage(parse('json', input) as SgRoot);
+			const result = getNodeJsUsage(parse('json', input));
 
 			assert.strictEqual(result.length, 1);
 			assert.strictEqual(result[0].text(), "node another-script.js");
@@ -82,9 +81,10 @@ describe("package-json utilities", () => {
 					}
 				}
 			`;
-			const root = parse('json', input) as SgRoot;
-			const edits: Edit[] = [];
-			removeNodeJsArgs(root, ["--trace-deprecation"], edits);
+			const root = parse('json', input);
+
+			const edits = removeNodeJsArgs(root, ["--trace-deprecation"]);
+
 			assert.strictEqual(edits.length, 1);
 		});
 
@@ -96,9 +96,10 @@ describe("package-json utilities", () => {
 					}
 				}
 			`;
-			const root = parse('json', input) as SgRoot;
-			const edits: Edit[] = [];
-			removeNodeJsArgs(root, ["--foo", "--bar"], edits);
+			const root = parse('json', input);
+
+			const edits = removeNodeJsArgs(root, ["--foo", "--bar"]);
+
 			assert.strictEqual(edits.length, 2);
 		});
 
@@ -110,9 +111,10 @@ describe("package-json utilities", () => {
 					}
 				}
 			`;
-			const root = parse('json', input) as SgRoot;
-			const edits: Edit[] = [];
-			removeNodeJsArgs(root, ["--flag"], edits);
+			const root = parse('json', input);
+
+			const edits = removeNodeJsArgs(root, ["--flag"]);
+
 			assert.strictEqual(edits.length, 1);
 		});
 
@@ -125,9 +127,10 @@ describe("package-json utilities", () => {
 					}
 				}
 			`;
-			const root = parse('json', input) as SgRoot;
-			const edits: Edit[] = [];
-			removeNodeJsArgs(root, ["script.js"], edits);
+			const root = parse('json', input);
+
+			const edits = removeNodeJsArgs(root, ["script.js"]);
+
 			assert.strictEqual(edits.length, 1);
 		});
 
@@ -139,9 +142,10 @@ describe("package-json utilities", () => {
 					}
 				}
 			`;
-			const root = parse('json', input) as SgRoot;
-			const edits: Edit[] = [];
-			removeNodeJsArgs(root, ["--not-present"], edits);
+			const root = parse('json', input);
+
+			const edits = removeNodeJsArgs(root, ["--not-present"]);
+
 			assert.strictEqual(edits.length, 0);
 		});
 	});
@@ -157,7 +161,7 @@ describe("package-json utilities", () => {
 				}
 			`;
 
-			const result = getNodeJsUsage(parse('json', input) as SgRoot);
+			const result = getNodeJsUsage(parse('json', input));
 
 			assert.strictEqual(result.length, 1);
 			assert.strictEqual(result[0].text(), "node.exe script.js");
@@ -173,7 +177,7 @@ describe("package-json utilities", () => {
 				}
 			`;
 
-			const result = getNodeJsUsage(parse('json', input) as SgRoot);
+			const result = getNodeJsUsage(parse('json', input));
 
 			assert.strictEqual(result.length, 0);
 		});
@@ -187,7 +191,7 @@ describe("package-json utilities", () => {
 				}
 			`;
 
-			const result = getNodeJsUsage(parse('json', input) as SgRoot);
+			const result = getNodeJsUsage(parse('json', input));
 
 			assert.strictEqual(result.length, 0);
 		});
@@ -202,10 +206,10 @@ describe("package-json utilities", () => {
 					}
 				}
 			`;
+			const root = parse('json', input);
 
-			const root = parse('json', input) as SgRoot;
-			const edits: Edit[] = [];
-			replaceNodeJsArgs(root, { "--trace-deprecation": "--trace-warnings" }, edits);
+			const edits = replaceNodeJsArgs(root, { "--trace-deprecation": "--trace-warnings" });
+
 			assert.strictEqual(edits.length, 1);
 		});
 
@@ -217,10 +221,10 @@ describe("package-json utilities", () => {
 					}
 				}
 			`;
+			const root = parse('json', input);
 
-			const root = parse('json', input) as SgRoot;
-			const edits: Edit[] = [];
-			replaceNodeJsArgs(root, { "--foo": "--x", "--bar": "--y" }, edits);
+			const edits = replaceNodeJsArgs(root, { "--foo": "--x", "--bar": "--y" });
+
 			assert.strictEqual(edits.length, 2);
 		});
 
@@ -232,10 +236,10 @@ describe("package-json utilities", () => {
 					}
 				}
 			`;
+			const root = parse('json', input);
 
-			const root = parse('json', input) as SgRoot;
-			const edits: Edit[] = [];
-			replaceNodeJsArgs(root, { "--flag": "--replaced" }, edits);
+			const edits = replaceNodeJsArgs(root, { "--flag": "--replaced" });
+
 			assert.strictEqual(edits.length, 1);
 		});
 
@@ -248,10 +252,10 @@ describe("package-json utilities", () => {
 					}
 				}
 			`;
+			const root = parse('json', input);
 
-			const root = parse('json', input) as SgRoot;
-			const edits: Edit[] = [];
-			replaceNodeJsArgs(root, { "script.js": "index.js" }, edits);
+			const edits = replaceNodeJsArgs(root, { "script.js": "index.js" });
+
 			assert.strictEqual(edits.length, 1);
 		});
 
@@ -263,11 +267,9 @@ describe("package-json utilities", () => {
 					}
 				}
 			`;
+			const root = parse('json', input);
 
-			const root = parse('json', input)as SgRoot;
-			const edits: Edit[] = [];
-
-			replaceNodeJsArgs(root, { "--not-present": "--new" }, edits);
+			const edits = replaceNodeJsArgs(root, { "--not-present": "--new" });
 
 			assert.strictEqual(edits.length, 0);
 		});

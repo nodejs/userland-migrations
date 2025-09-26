@@ -65,7 +65,9 @@ export const getNodeJsUsage = (packageJsonRootNode: SgRoot) =>
  * @param argsToValues A record mapping arguments to their replacement values.
  * @param edits An array to collect the edits made.
  */
-export const replaceNodeJsArgs = (packageJsonRootNode: SgRoot, argsToValues: Record<string, string>, edits: Edit[]) => {
+export const replaceNodeJsArgs = (packageJsonRootNode: SgRoot, argsToValues: Record<string, string>) => {
+	const edits: Edit[] = []
+
 	for (const usage of getNodeJsUsage(packageJsonRootNode)) {
 		const text = usage.text();
 		const bashAST = astGrep.parse("bash", text).root();
@@ -88,6 +90,8 @@ export const replaceNodeJsArgs = (packageJsonRootNode: SgRoot, argsToValues: Rec
 			}
 		}
 	}
+
+	return edits
 };
 
 // TODO: add removeNodeJsArgs
@@ -100,8 +104,9 @@ export const replaceNodeJsArgs = (packageJsonRootNode: SgRoot, argsToValues: Rec
 export const removeNodeJsArgs = (
 	packageJsonRootNode: SgRoot,
 	argsToRemove: string[],
-	edits: Edit[]
 ) => {
+	const edits: Edit[] = [];
+
 	for (const usage of getNodeJsUsage(packageJsonRootNode)) {
 		const text = usage.text();
 		const bashAST = astGrep.parse("bash", text).root();
@@ -123,4 +128,6 @@ export const removeNodeJsArgs = (
 			}
 		}
 	}
+
+	return edits;
 };
