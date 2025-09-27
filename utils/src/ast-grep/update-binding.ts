@@ -69,13 +69,24 @@ export function updateBinding(
 ): UpdateBindingReturnType {
 	const nodeKind = node.kind().toString();
 
-	const identifier = node.find({
+	const namespaceImport = node.find({
 		rule: {
 			any: [
 				{
 					kind: 'identifier',
 					inside: {
 						kind: 'variable_declarator',
+						// this `not rule` ensures that expressions like `require("something").NamedImport` are ignored
+						// because we only want the namespace to be returned here
+						not: {
+							has: {
+								field: 'value',
+								kind: 'member_expression',
+							},
+						},
+						inside: {
+							kind: 'lexical_declaration',
+						},
 					},
 				},
 				{
@@ -88,7 +99,11 @@ export function updateBinding(
 		},
 	});
 
-	if (!options?.newBinding && identifier && identifier.text() === binding) {
+	if (
+		!options?.newBinding &&
+		namespaceImport &&
+		namespaceImport.text() === binding
+	) {
 		return {
 			lineToRemove: node.range(),
 		};
@@ -219,6 +234,52 @@ function handleNamedRequireBindings(
 	binding: string,
 	options: UpdateBindingOptions,
 ): UpdateBindingReturnType {
+	const requireWithMemberExpression = node.find({
+		rule: {
+			kind: 'variable_declarator',
+			all: [
+				{
+					has: {
+						field: 'name',
+						kind: 'identifier',
+						pattern: binding,
+					},
+				},
+				{
+					has: {
+						field: 'value',
+						kind: 'member_expression',
+						has: {
+							field: 'property',
+							kind: 'property_identifier',
+						},
+					},
+				},
+			],
+		},
+	});
+
+	if (requireWithMemberExpression) {
+		if (!options?.newBinding) {
+			return {
+				lineToRemove: node.range(),
+			};
+		}
+
+		const reqNode = node.find({
+			rule: {
+				kind: 'call_expression',
+				pattern: 'require($ARGS)',
+			},
+		});
+
+		return {
+			edit: node.replace(
+				`const { ${options.newBinding} } = ${reqNode.text()};`,
+			),
+		};
+	}
+
 	const objectPattern = node.find({
 		rule: {
 			kind: 'object_pattern',
@@ -247,7 +308,7 @@ function handleNamedRequireBindings(
 function updateObjectPattern(
 	previouses: SgNode<Js>[],
 	binding: string,
-	options: UpdateBindingOptions,
+	options?: UpdateBindingOptions,
 ): Edit {
 	let newObjectPattern: string[] = [];
 
@@ -280,7 +341,7 @@ function updateObjectPattern(
 
 	for (const oldBinding of oldBindings) {
 		if (oldBinding.text() === binding) {
-			if (options.newBinding) {
+			if (options?.newBinding) {
 				newObjectPattern.push(options.newBinding);
 			}
 			continue;
