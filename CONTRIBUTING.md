@@ -40,6 +40,8 @@ Each codemod resides in its own directory under `recipes/` and should include:
 **`src/workflow.ts` example:**
 ```ts
 import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
+import type JS from "@codemod.com/jssg-types/langs/javascript";
+
 /**
  * Transform function that converts deprecated api.fn calls
  * to the new api.fn syntax.
@@ -49,12 +51,15 @@ import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
  * 2. api.fn(<args>, { recursive: true })
  * ...
  */
-export default function transform(root: SgRoot): string | null {
+export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
-	let hasChanges = false;
 	const edits: Edit[] = [];
+
 	// do some transformation
-	if (!hasChanges) return null;
+	edits.push(...);
+
+	if (edits.length === 0) return null;
+
 	return rootNode.commitEdits(edits);
 }
 ```
