@@ -53,8 +53,10 @@ Additionally, maintainers have the ability to bypass GitHub branch protection ru
 
 Maintainers are also responsible for creating tags on the repository's `HEAD` branch to trigger the CI pipeline and initiate a release. Tags must adhere to the format `vX.Y.Z@workspace`, where `X.Y.Z` represents the version number and `workspace` specifies the npm workspace (e.g., `v1.2.3@codemod`).
 
-## Team Expulsion
+## Team removal
 
-A team member who violates Node.js's code of conduct, acts against the interests or mandate of the team, or acts in bad faith may be expelled by a vote of the team. Such a vote requires a quorum of ⅔ of active members and passes with a ⅗ super majority. If a vote passes with a simple majority but fails a super majority, the team member will be asked to voluntarily exit. Expulsion votes are confidential and are not conveyed to the expulee (they may be verified in confidence by the TSC).
-Additionally, the [TSC](https://github.com/nodejs/TSC) and the [OpenJS Foundation](https://openjsf.org/) reserve the right to expel team members for any reason, including violations of their respective policies.
-When expulsion proceedings are commenced, team membership is frozen until the vote has settled.
+A team member who violates the Node.js Code of Conduct (CoC) will be reported to the Node.js Moderation Team. The Moderation Team will investigate and take appropriate action. If the Moderation Team removes the individual from the Node.js organization, no further action is required by this team, as the individual will no longer be eligible for membership.
+
+If the Moderation Team does not remove the individual from the organization, this team may decide to take internal action, including expulsion. Such a decision requires a vote of the team, with a quorum of two-thirds of active members and passing with a three-fifths supermajority. If a vote passes with a simple majority but fails to meet the supermajority threshold, the team member will be asked to voluntarily step down. Expulsion votes are confidential and may be verified in confidence by the TSC.
+
+During expulsion proceedings, the team member's participation is frozen until the discussion is getting resolved.
