@@ -1,8 +1,30 @@
-import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
+import { getNodeImportStatements, getNodeImportCalls } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
 import type Js from "@codemod.com/jssg-types/langs/javascript";
+
+ // Bindings we care about and their replacements for truncate ➜ ftruncate
+const checks = [
+	{
+		path: "$.truncate",
+		prop: "truncate",
+		replaceFn: (name: string) => name.replace(/truncate$/, "ftruncate"),
+		isSync: false
+	},
+	{
+		path: "$.truncateSync",
+		prop: "truncateSync",
+		replaceFn: (name: string) => name.replace(/truncateSync$/, "ftruncateSync"),
+		isSync: true
+	},
+	{
+		path: "$.promises.truncate",
+		prop: "truncate",
+		replaceFn: (name: string) => name.replace(/truncate$/, "ftruncate"),
+		isSync: false
+	},
+];
 
 /**
  * Transform function that converts deprecated fs.truncate calls to fs.ftruncate.
@@ -19,28 +41,6 @@ import type Js from "@codemod.com/jssg-types/langs/javascript";
 export default function transform(root: SgRoot<Js>): string | null {
   const rootNode = root.root();
   const edits: Edit[] = [];
-
-  // Bindings we care about and their replacements for truncate -> ftruncate
-  const checks = [
-    {
-			path: "$.truncate",
-			prop: "truncate",
-			replaceFn: (name: string) => name.replace(/truncate$/, "ftruncate"),
-			isSync: false
-		},
-    {
-			path: "$.truncateSync",
-			prop: "truncateSync",
-			replaceFn: (name: string) => name.replace(/truncateSync$/, "ftruncateSync"),
-			isSync: true
-		},
-    {
-			path: "$.promises.truncate",
-			prop: "truncate",
-			replaceFn: (name: string) => name.replace(/truncate$/, "ftruncate"),
-			isSync: false
-		},
-  ];
 
   // Gather fs import/require statements to resolve local binding names
   const stmtNodes = [
@@ -75,6 +75,7 @@ export default function transform(root: SgRoot<Js>): string | null {
       for (const call of calls) {
         const fdMatch = call.getMatch("FD");
         if (!fdMatch) continue;
+
         const fdText = fdMatch.text();
 
         // only transform when first arg is likely a file descriptor
@@ -127,19 +128,11 @@ export default function transform(root: SgRoot<Js>): string | null {
   // trigger a no-op replacement to force a reprint. This normalizes
   // indentation (tabs -> spaces) to match expected fixtures.
   if (!edits.length) {
-    const dynImport = rootNode.find({
-      rule: {
-        any: [
-          { pattern: "await import('node:fs')" },
-          { pattern: 'await import("node:fs")' },
-          { pattern: "import('node:fs')" },
-          { pattern: 'import("node:fs")' },
-        ],
-      },
-    });
-    if (dynImport) {
-      edits.push(dynImport.replace(dynImport.text()));
-    }
+    const dynImportCalls = getNodeImportCalls(root, "fs");
+
+		for (const dynImport of dynImportCalls) {
+			edits.push(dynImport.replace(dynImport.text()));
+		}
   }
 
   if (!edits.length) return null;
@@ -205,7 +198,6 @@ function isLikelyFileDescriptor(param: string, rootNode: SgNode<Js>): boolean {
  * @param rootNode The root node of the AST
  */
 function isInCallbackContext(param: string, rootNode: SgNode<Js>): boolean {
-  // Find all uses of the parameter
   const parameterUsages = rootNode.findAll({
     rule: {
       kind: "identifier",
