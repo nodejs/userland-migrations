@@ -60,6 +60,9 @@ url.format({
 const myUrl = new URL('https://example.com/some/path?page=1&format=json').toString();
 ```
 
+> **Note:** The migration of `url.format` can also be done as `` `${new URL('https://example.com/some/path?page=1&format=json')}` `` which is little bit efficienter.
+> But it's may be less readable for some users.
+
 ## Caveats
 
 The [`url.resolve`](https://nodejs.org/api/url.html#urlresolvefrom-to) method is not directly translatable to the WHATWG URL API. You may need to implement custom logic to handle URL resolution in your application.

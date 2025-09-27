@@ -1,9 +1,10 @@
-import type { SgRoot, SgNode, Edit, Range } from "@codemod.com/jssg-types/main";
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
+import type { SgRoot, Edit, SgNode, Range } from "@codemod.com/jssg-types/main";
+import type JS from "@codemod.com/jssg-types/langs/javascript";
 
-const isBindingUsed = (rootNode: SgNode, name: string): boolean => {
+const isBindingUsed = (rootNode: SgNode<JS>, name: string): boolean => {
         const refs = rootNode.findAll({ rule: { pattern: name } });
         // Heuristic: declaration counts as one; any other usage yields > 1
         return refs.length > 1;
@@ -12,7 +13,7 @@ const isBindingUsed = (rootNode: SgNode, name: string): boolean => {
 /**
  * Clean up unused imports/requires from 'node:url' after transforms using shared utils
  */
-export default function transform(root: SgRoot): string | null {
+export default function transform(root: SgRoot<JS>): string | null {
     const rootNode = root.root();
     const edits: Edit[] = [];
 

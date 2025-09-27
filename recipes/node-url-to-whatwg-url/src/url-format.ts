@@ -1,14 +1,15 @@
-import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
+import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
+import type JS from "@codemod.com/jssg-types/langs/javascript";
 
 type V = { literal: true; text: string } | { literal: false; code: string };
 
 type UrlState = {
 	protocol?: V;
 	auth?: V; // user:pass
-	host?: V; // host:port
+	host?: V; // hostname:port
 	hostname?: V;
 	port?: V;
 	pathname?: V;
@@ -28,6 +29,11 @@ const handledProps: (keyof UrlState)[] = [
 	"hash",
 ];
 
+// Escape sequences for template literals
+const ESCAPE_BACKTICK = /`/g;
+const ESCAPE_BACKSLASH_DOLLAR = /\\\$/g;
+const ESCAPE_DOLLAR_CURLY = /\$\{/g;
+
 const isHandledProp = (key: string): key is (typeof handledProps)[number] => {
 	return handledProps.includes(key as (typeof handledProps)[number]);
 };
@@ -37,17 +43,23 @@ const isHandledProp = (key: string): key is (typeof handledProps)[number] => {
  * @param node The node to extract the literal text from
  * @returns The literal text value, or undefined if not found
  */
-const getLiteralText = (node: SgNode | null | undefined): string | undefined => {
+const getLiteralText = (node: SgNode<JS> | null | undefined): string | undefined => {
 	if (!node) return undefined;
+
 	const kind = node.kind();
 
-	if (kind === "string") {
-		const frag = node.find({ rule: { kind: "string_fragment" } });
-		return frag ? frag.text() : node.text().slice(1, -1);
+	switch (kind) {
+		case "string": {
+			const frag = node.find({ rule: { kind: "string_fragment" } });
+			return frag ? frag.text() : node.text().slice(1, -1);
+		}
+		case "number":
+		case "true":
+		case "false":
+			return node.text();
+		default:
+			return undefined;
 	}
-	if (kind === "number") return node.text();
-	if (kind === "true" || kind === "false") return node.text();
-	return undefined;
 };
 
 /**
@@ -55,11 +67,17 @@ const getLiteralText = (node: SgNode | null | undefined): string | undefined => 
  * @param pair The pair node to extract the value from
  * @returns The value of the pair node, or undefined if not found
  */
-const getValue = (pair: SgNode): V | undefined => {
+const getValue = (pair: SgNode<JS>): V | undefined => {
 	// string/number/bool
 	const litNode = pair.find({
-		rule: { any: [{ kind: "string" }, { kind: "number" }, { kind: "true" }, { kind: "false" }] },
+		rule: { any: [
+          { kind: "string" },
+          { kind: "number" },
+          { kind: "true" },
+          { kind: "false" },
+        ] },
 	});
+
 	const lit = getLiteralText(litNode);
 	if (lit !== undefined) return { literal: true, text: lit };
 
@@ -83,7 +101,7 @@ const getValue = (pair: SgNode): V | undefined => {
  * @param callNode The AST nodes representing the url.format() calls
  * @param edits The edits collector
  */
-function urlFormatToUrlToString(callNode: SgNode[], edits: Edit[]): void {
+function urlFormatToUrlToString(callNode: SgNode<JS>[], edits: Edit[]): void {
 	for (const call of callNode) {
 		const optionsMatch = call.getMatch("OPTIONS");
 		if (!optionsMatch) continue;
@@ -107,6 +125,7 @@ function urlFormatToUrlToString(callNode: SgNode[], edits: Edit[]): void {
 				if (queryObj) {
 					const qpairs = queryObj.findAll({ rule: { kind: "pair" } });
 					const list: Array<[string, string]> = [];
+
 					for (const qp of qpairs) {
 						const qkeyNode = qp.find({ rule: { kind: "property_identifier" } });
 						const qvalLiteral = getLiteralText(
@@ -135,10 +154,8 @@ function urlFormatToUrlToString(callNode: SgNode[], edits: Edit[]): void {
 			if (isHandledProp(key)) {
 				if (key === "protocol" && val.literal) {
 					urlState.protocol = { literal: true, text: val.text.replace(/:$/, "") };
-				} else {
-					if (key !== "queryParams") {
-						urlState[key] = val;
-					}
+				} else if (key !== "queryParams") {
+					urlState[key] = val;
 				}
 			}
 		}
@@ -148,6 +165,7 @@ function urlFormatToUrlToString(callNode: SgNode[], edits: Edit[]): void {
 		for (const sh of shorthands) {
 			const name = sh.text();
 			const v: V = { literal: false, code: name };
+
 			if (isHandledProp(name)) {
 				if (name !== "queryParams") {
 					urlState[name] = v;
@@ -231,12 +249,24 @@ function urlFormatToUrlToString(callNode: SgNode[], edits: Edit[]): void {
 
 		const hasExpr = segs.some((s) => s.type === "expr");
 		let finalExpr: string;
+
 		if (hasExpr) {
-			const esc = (s: string) =>
-				s.replace(/`/g, "\\`").replace(/\\\$/g, "\\\\$").replace(/\$\{/g, "\\${");
-			finalExpr = `\`${segs.map((s) => (s.type === "lit" ? esc(s.text) : `\${${s.code}}`)).join("")}\``;
+			finalExpr = `\`${segs
+				.map((s) => {
+					if (s.type === "lit") {
+						// biome-ignore lint/complexity/noUselessStringRaw: `s.text` may contain backslashes
+						return String.raw`${s.text}`
+							.replace(ESCAPE_BACKTICK, "\\`")
+							.replace(ESCAPE_BACKSLASH_DOLLAR, "\\\\$")
+							.replace(ESCAPE_DOLLAR_CURLY, "\\${");
+					}
+					return `\${${s.code}}`;
+				})
+				.join("")}\``;
 		} else {
-			finalExpr = `'${segs.map((s) => (s.type === "lit" ? s.text : "")).join("")}'`;
+			finalExpr = `'${segs
+				.map((s) => (s.type === "lit" ? s.text : ""))
+				.join("")}'`;
 		}
 
 		// Include semicolon if original statement had one
@@ -258,14 +288,15 @@ function urlFormatToUrlToString(callNode: SgNode[], edits: Edit[]): void {
  * 2. `foo.format(options)` → `new URL().toString()`
  * 3. `foo(options)` → `new URL().toString()`
  */
-export default function transform(root: SgRoot): string | null {
+export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 
 	// Safety: only run on files that import/require node:url
-	const importNodes = getNodeImportStatements(root, "url");
-	const requireNodes = getNodeRequireCalls(root, "url");
-	const requiresImports = [...importNodes, ...requireNodes];
+	const requiresImports = [
+		...getNodeImportStatements(root, "url"),
+		...getNodeRequireCalls(root, "url")
+	];
 
 	if (!requiresImports.length) return null;
 
