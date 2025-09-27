@@ -18,9 +18,6 @@
   },
   "include": ["./"],
   "exclude": [
-    "node_modules",
-    "./node_modules",
-    "tests/expected/**",
-    "tests/input/**"
+    "tests/**"
   ]
 }
