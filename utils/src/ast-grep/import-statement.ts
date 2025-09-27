@@ -161,3 +161,21 @@ export const getNodeImportCalls = (
 
 	return nodes;
 };
+
+/**
+ * Get the default import identifier from an import statement
+ */
+export const getDefaultImportIdentifier = (importNode: SgNode): SgNode | null =>
+	importNode.find({
+		rule: {
+			kind: "identifier",
+			inside: {
+				kind: "import_clause",
+				not: {
+					has: {
+						kind: "named_imports"
+					}
+				}
+			}
+		}
+	});
