@@ -339,15 +339,21 @@ function updateObjectPattern(
 		},
 	});
 
+	let needAddNewBinding = true;
 	for (const oldBinding of oldBindings) {
 		if (oldBinding.text() === binding) {
-			if (options?.newBinding) {
-				newObjectPattern.push(options.newBinding);
-			}
 			continue;
 		}
 
+		if (oldBinding.text() === options?.newBinding) {
+			needAddNewBinding = false;
+		}
+
 		newObjectPattern.push(oldBinding.text());
+	}
+
+	if (options?.newBinding && needAddNewBinding) {
+		newObjectPattern.push(options.newBinding);
 	}
 
 	return parentNode.replace(`{ ${newObjectPattern.join(', ')} }`);

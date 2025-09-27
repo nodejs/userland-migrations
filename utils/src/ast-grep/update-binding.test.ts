@@ -30,7 +30,7 @@ describe('update-binding', () => {
 		assert.strictEqual(change?.lineToRemove, undefined);
 		assert.strictEqual(
 			sourceCode,
-			"const { newTypes, diff } = require('node:util');",
+			"const { diff, newTypes } = require('node:util');",
 		);
 	});
 
@@ -108,7 +108,7 @@ describe('update-binding', () => {
 		assert.strictEqual(change?.lineToRemove, undefined);
 		assert.strictEqual(
 			sourceCode,
-			"import { newTypes, diff } = from 'node:util';",
+			"import { diff, newTypes } = from 'node:util';",
 		);
 	});
 
@@ -521,5 +521,31 @@ describe('update-binding', () => {
 				line: 0,
 			},
 		});
+	});
+
+	it('If named import already exists it just needs to remove the old reference', () => {
+		const code = dedent`
+			const { SlowBuffer, Buffer } = require("buffer");
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root() as SgNode<Js>;
+
+		const requireStatement = node.find({
+			rule: {
+				kind: 'lexical_declaration',
+			},
+		});
+
+		const change = updateBinding(requireStatement!, 'SlowBuffer', {
+			newBinding: 'Buffer',
+		});
+
+		assert.notEqual(change, undefined);
+		assert.strictEqual(change?.lineToRemove, undefined);
+
+		const sourceCode = node.commitEdits([change?.edit!]);
+
+		assert.strictEqual(sourceCode, `const { Buffer } = require("buffer");`);
 	});
 });
