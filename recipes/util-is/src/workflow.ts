@@ -90,6 +90,40 @@ export default function transform(root: SgRoot<JS>): string | null {
     const importOrRequireNodes = [
         ...getNodeImportStatements(root, "util"),
         ...getNodeRequireCalls(root, "util"),
+        // local dynamic import variable declarators: const { ... } = await import('node:util')
+        ...rootNode.findAll({
+            rule: {
+                kind: 'variable_declarator',
+                all: [
+                    { has: { field: 'name', any: [{ kind: 'object_pattern' }, { kind: 'identifier' }] } },
+                    {
+                        has: {
+                            field: 'value',
+                            kind: 'await_expression',
+                            has: {
+                                kind: 'call_expression',
+                                all: [
+                                    { has: { field: 'function', kind: 'import' } },
+                                    {
+                                        has: {
+                                            field: 'arguments',
+                                            kind: 'arguments',
+                                            has: {
+                                                kind: 'string',
+                                                has: {
+                                                    kind: 'string_fragment',
+                                                    regex: '(node:)?util$',
+                                                },
+                                            },
+                                        },
+                                    },
+                                ],
+                            },
+                        },
+                    },
+                ],
+            },
+        }),
     ];
 
     // Detect namespace/default identifiers to check for non-is usages later
@@ -129,6 +163,22 @@ export default function transform(root: SgRoot<JS>): string | null {
         // require namespace: const util = require('node:util')
 		const reqNs = getRequireNamespaceIdentifier(node);
         if (reqNs) namespaceBindings.add(reqNs.text());
+
+        // dynamic import namespace: const util = await import('node:util')
+        if (node.kind() === 'variable_declarator') {
+            const nameField = node.field('name');
+            // If not an identifier (i.e., object pattern), skip adding as namespace
+            const nameIdent = nameField?.kind() === 'identifier'
+                ? nameField
+                : node.find({ rule: { kind: 'identifier', inside: { kind: 'variable_declarator' } } });
+
+            const hasObjectPattern = Boolean(
+                node.find({ rule: { kind: 'object_pattern' } })
+            );
+            if (!hasObjectPattern && nameIdent) {
+                namespaceBindings.add(nameIdent.text());
+            }
+        }
     }
 
     // Mark non-is util usages for any namespace binding discovered
@@ -236,6 +286,79 @@ export default function transform(root: SgRoot<JS>): string | null {
             const hasObject = Boolean(objectPattern);
             if (reqNs && !hasObject) linesToRemove.push(requireNode.range());
         }
+    }
+
+    // Handle dynamic import variable declarators and import().then chains
+    const importCallStatements = rootNode.findAll({
+        rule: {
+            kind: 'variable_declarator',
+            all: [
+                { has: { field: 'name', any: [{ kind: 'object_pattern' }, { kind: 'identifier' }] } },
+                {
+                    has: {
+                        field: 'value',
+                        kind: 'await_expression',
+                        has: {
+                            kind: 'call_expression',
+                            all: [
+                                { has: { field: 'function', kind: 'import' } },
+                                {
+                                    has: {
+                                        field: 'arguments',
+                                        kind: 'arguments',
+                                        has: {
+                                            kind: 'string',
+                                            has: {
+                                                kind: 'string_fragment',
+                                                regex: '(node:)?util$',
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                },
+            ],
+        },
+    });
+    for (const importCall of importCallStatements) {
+        // Clean up destructured bindings like: const { isArray } = await import('node:util')
+        const objectPattern = importCall.find({ rule: { kind: 'object_pattern' } });
+        if (objectPattern) {
+            const shorthand = objectPattern.findAll({
+                rule: { kind: 'shorthand_property_identifier_pattern' }
+            });
+            const pairs = objectPattern.findAll({ rule: { kind: 'pair_pattern' } });
+            const importedNames: string[] = [];
+            for (const s of shorthand) importedNames.push(s.text());
+            for (const p of pairs) {
+                const key = p.find({ rule: { kind: 'property_identifier' } });
+                if (key) importedNames.push(key.text());
+            }
+            if (importedNames.length > 0 && importedNames.every((n) => allIsMethods.includes(n))) {
+                linesToRemove.push(importCall.range());
+                continue;
+            }
+
+            // Otherwise, remove named util.is* bindings; after replacement they are unused
+            for (const method of allIsMethods) {
+                const change = removeBinding(importCall, method);
+                if (change?.edit) edits.push(change.edit);
+                if (change?.lineToRemove) linesToRemove.push(change.lineToRemove);
+            }
+        } else {
+            // Namespace dynamic import: const util = await import('node:util')
+            // If no other util.* methods are used, drop the whole declaration
+            if (nonIsMethodsUsed.size === 0 && importCall.kind() === 'variable_declarator') {
+                const nameField = importCall.field('name');
+                if (nameField?.kind() === 'identifier') {
+                    linesToRemove.push(importCall.range());
+                }
+            }
+        }
+
+        // Note: we do not handle import().then chains here to keep scope minimal without utility updates
     }
 
     let sourceCode = rootNode.commitEdits(edits);
