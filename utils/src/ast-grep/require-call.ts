@@ -89,7 +89,7 @@ export const getNodeRequireCalls = (rootNode: SgRoot<Js>, nodeModuleName: string
 /**
  * Get the identifier from a namespace require (e.g., const util = require('util'))
  */
-export const getRequireNamespaceIdentifier = (requireNode: SgNode): SgNode | null => {
+export const getRequireNamespaceIdentifier = (requireNode: SgNode<Js>): SgNode<Js> | null => {
 	// First check if the name field is an identifier (not an object_pattern)
 	const nameField = requireNode.field('name');
 	if (nameField && nameField.kind() === 'identifier') {

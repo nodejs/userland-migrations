@@ -9,8 +9,8 @@ import {
 import { removeBinding } from "@nodejs/codemod-utils/ast-grep/remove-binding";
 import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
-import type { SgRoot, Edit, Range } from "@codemod.com/jssg-types/main";
-import type { SgNode } from "@ast-grep/napi";
+import type { SgRoot, SgNode, Edit, Range } from "@codemod.com/jssg-types/main";
+import type JS from "@codemod.com/jssg-types/langs/javascript";
 
 // Clean up unused imports using removeBinding
 const allIsMethods = [
@@ -32,7 +32,7 @@ const allIsMethods = [
 ];
 
 // helper to test named import specifiers (kept at module root so it's not re-created per run)
-function hasAnyOtherNamedImports(spec: SgNode): boolean {
+function hasAnyOtherNamedImports(spec: SgNode<JS>): boolean {
     const firstIdent = spec.find({ rule: { kind: 'identifier' } });
     const name = firstIdent?.text();
     return Boolean(name && allIsMethods.includes(name));
@@ -78,7 +78,7 @@ const replacements = new Map<string, (arg: string) => string>([
  * 14. util.isSymbol() → typeof value === 'symbol'
  * 15. util.isUndefined() → typeof value === 'undefined'
  */
-export default function transform(root: SgRoot): string | null {
+export default function transform(root: SgRoot<JS>): string | null {
     const rootNode = root.root();
     const edits: Edit[] = [];
     const linesToRemove: Range[] = [];
@@ -182,7 +182,7 @@ export default function transform(root: SgRoot): string | null {
         // If all named specifiers are util.is* and there is no default or namespace, drop whole line
         if (
             hasNamed && !defaultIdentifier && !hasNamespace &&
-            namedImportSpecifiers.every(spec => hasAnyOtherNamedImports(spec as SgNode))
+            namedImportSpecifiers.every(spec => hasAnyOtherNamedImports(spec))
         ) {
             linesToRemove.push(importNode.range());
             continue;
