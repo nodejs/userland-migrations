@@ -346,4 +346,21 @@ describe("resolve-binding-path", () => {
 
 		assert.strictEqual(bindingPath, "d.e");
 	});
+
+	it("should resolve as undefined when property accesses is different than path to solve", () => {
+		const code = dedent`
+			const c = require('buffer').a.g.c;
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const requireStatement = (rootNode.root() as SgNode<Js>).find({
+			rule: {
+				kind: "variable_declarator",
+			},
+		});
+
+		const bindingPath = resolveBindingPath(requireStatement!, "$.a.b.c.d.e");
+
+		assert.strictEqual(bindingPath, undefined);
+	});
 });
