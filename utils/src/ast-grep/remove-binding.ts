@@ -38,7 +38,8 @@ export function removeBinding(
 	node: SgNode<Js> | SgNode<Js, Kinds<Js>>,
 	binding: string,
 ) {
-	return updateBinding(node, binding, {
-		newBinding: undefined,
+	return updateBinding(node, {
+		old: binding,
+		new: undefined,
 	});
 }

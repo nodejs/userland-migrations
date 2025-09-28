@@ -21,8 +21,9 @@ describe('update-binding', () => {
 			},
 		});
 
-		const change = updateBinding(requireStatement!, 'types', {
-			newBinding: 'newTypes',
+		const change = updateBinding(requireStatement!, {
+			old: 'types',
+			new: 'newTypes',
 		});
 		const sourceCode = node.commitEdits([change?.edit!]);
 
@@ -48,8 +49,9 @@ describe('update-binding', () => {
 			},
 		});
 
-		const change = updateBinding(requireStatement!, 'types', {
-			newBinding: 'newTypes',
+		const change = updateBinding(requireStatement!, {
+			old: 'types',
+			new: 'newTypes',
 		});
 		const sourceCode = node.commitEdits([change?.edit!]);
 
@@ -75,7 +77,9 @@ describe('update-binding', () => {
 			},
 		});
 
-		const change = updateBinding(requireStatement!, 'util');
+		const change = updateBinding(requireStatement!, {
+			old: 'util',
+		});
 
 		assert.notEqual(change, null);
 		assert.strictEqual(change?.edit, undefined);
@@ -99,8 +103,9 @@ describe('update-binding', () => {
 			},
 		});
 
-		const change = updateBinding(requireStatement!, 'types', {
-			newBinding: 'newTypes',
+		const change = updateBinding(requireStatement!, {
+			old: 'types',
+			new: 'newTypes',
 		});
 		const sourceCode = node.commitEdits([change?.edit!]);
 
@@ -126,7 +131,9 @@ describe('update-binding', () => {
 			},
 		});
 
-		const change = updateBinding(requireStatement!, 'types');
+		const change = updateBinding(requireStatement!, {
+			old: 'types',
+		});
 		const sourceCode = node.commitEdits([change?.edit!]);
 
 		assert.notEqual(change, null);
@@ -148,7 +155,9 @@ describe('update-binding', () => {
 			},
 		});
 
-		const change = updateBinding(importStatement!, 'util');
+		const change = updateBinding(importStatement!, {
+			old: 'util',
+		});
 
 		assert.notEqual(change, null);
 		assert.deepEqual(change?.lineToRemove, {
@@ -172,7 +181,9 @@ describe('update-binding', () => {
 			},
 		});
 
-		const change = updateBinding(importStatement!, 'types');
+		const change = updateBinding(importStatement!, {
+			old: 'types',
+		});
 
 		assert.notEqual(change, null);
 		assert.deepEqual(change?.lineToRemove, {
@@ -196,7 +207,9 @@ describe('update-binding', () => {
 			},
 		});
 
-		const change = updateBinding(importStatement!, 'utilTypes');
+		const change = updateBinding(importStatement!, {
+			old: 'utilTypes',
+		});
 
 		assert.notEqual(change, null);
 		assert.deepEqual(change?.lineToRemove, {
@@ -220,8 +233,9 @@ describe('update-binding', () => {
 			},
 		});
 
-		const change = updateBinding(importStatement!, 'utilTypes', {
-			newBinding: 'newTypes',
+		const change = updateBinding(importStatement!, {
+			old: 'utilTypes',
+			new: 'newTypes',
 		});
 		const sourceCode = node.commitEdits([change?.edit!]);
 
@@ -247,7 +261,9 @@ describe('update-binding', () => {
 			},
 		});
 
-		const change = updateBinding(importStatement!, 'utilTypes');
+		const change = updateBinding(importStatement!, {
+			old: 'utilTypes',
+		});
 		const sourceCode = node.commitEdits([change?.edit!]);
 
 		assert.notEqual(change, null);
@@ -269,7 +285,9 @@ describe('update-binding', () => {
 			},
 		});
 
-		const change = updateBinding(requireStatement!, 'util');
+		const change = updateBinding(requireStatement!, {
+			old: 'util',
+		});
 
 		assert.notEqual(change, null);
 		assert.strictEqual(change?.edit, undefined);
@@ -294,7 +312,9 @@ describe('update-binding', () => {
 		});
 
 		// line 12 it was imported as util, and here is passed types to be removed
-		const change = updateBinding(requireStatement!, 'types');
+		const change = updateBinding(requireStatement!, {
+			old: 'types',
+		});
 
 		assert.equal(change, undefined);
 	});
@@ -313,7 +333,9 @@ describe('update-binding', () => {
 			},
 		});
 
-		const change = updateBinding(importStatement!, 'types');
+		const change = updateBinding(importStatement!, {
+			old: 'types',
+		});
 
 		assert.notEqual(change, null);
 		assert.strictEqual(change?.edit, undefined);
@@ -337,8 +359,9 @@ describe('update-binding', () => {
 			},
 		});
 
-		const change = updateBinding(requireStatement!, 'mainModule', {
-			newBinding: 'newMainModule',
+		const change = updateBinding(requireStatement!, {
+			old: 'mainModule',
+			new: 'newMainModule',
 		});
 		const sourceCode = node.commitEdits([change?.edit!]);
 
@@ -361,7 +384,9 @@ describe('update-binding', () => {
 			},
 		});
 
-		const change = updateBinding(importStatement!, 'util');
+		const change = updateBinding(importStatement!, {
+			old: 'util',
+		});
 
 		assert.notEqual(change, null);
 		assert.deepEqual(change?.lineToRemove, {
@@ -385,8 +410,9 @@ describe('update-binding', () => {
 			},
 		});
 
-		const change = updateBinding(importStatement!, 'util', {
-			newBinding: 'newUtil',
+		const change = updateBinding(importStatement!, {
+			old: 'util',
+			new: 'newUtil',
 		});
 		const sourceCode = node.commitEdits([change?.edit!]);
 
@@ -409,8 +435,9 @@ describe('update-binding', () => {
 			},
 		});
 
-		const change = updateBinding(importStatement!, 'none', {
-			newBinding: 'newNone',
+		const change = updateBinding(importStatement!, {
+			old: 'none',
+			new: 'newNone',
 		});
 
 		assert.equal(change, undefined);
@@ -430,7 +457,9 @@ describe('update-binding', () => {
 			},
 		});
 
-		const change = updateBinding(importStatement!, 'utilTypes');
+		const change = updateBinding(importStatement!, {
+			old: 'utilTypes',
+		});
 		const sourceCode = node.commitEdits([change?.edit!]);
 
 		assert.notEqual(change, null);
@@ -452,8 +481,9 @@ describe('update-binding', () => {
 			},
 		});
 
-		const change = updateBinding(importStatement!, 'utilTypes', {
-			newBinding: 'newTypes',
+		const change = updateBinding(importStatement!, {
+			old: 'utilTypes',
+			new: 'newTypes',
 		});
 		const sourceCode = node.commitEdits([change?.edit!]);
 
@@ -479,8 +509,9 @@ describe('update-binding', () => {
 			},
 		});
 
-		const change = updateBinding(requireStatement!, 'SlowBuffer', {
-			newBinding: 'Buffer',
+		const change = updateBinding(requireStatement!, {
+			old: 'SlowBuffer',
+			new: 'Buffer',
 		});
 
 		assert.notEqual(change, undefined);
@@ -505,7 +536,9 @@ describe('update-binding', () => {
 			},
 		});
 
-		const change = updateBinding(requireStatement!, 'SlowBuffer');
+		const change = updateBinding(requireStatement!, {
+			old: 'SlowBuffer',
+		});
 
 		assert.notEqual(change, undefined);
 		assert.strictEqual(change.edit, undefined);
@@ -537,8 +570,9 @@ describe('update-binding', () => {
 			},
 		});
 
-		const change = updateBinding(requireStatement!, 'SlowBuffer', {
-			newBinding: 'Buffer',
+		const change = updateBinding(requireStatement!, {
+			old: 'SlowBuffer',
+			new: 'Buffer',
 		});
 
 		assert.notEqual(change, undefined);
@@ -547,5 +581,34 @@ describe('update-binding', () => {
 		const sourceCode = node.commitEdits([change?.edit!]);
 
 		assert.strictEqual(sourceCode, `const { Buffer } = require("buffer");`);
+	});
+
+	it('When oldBinding is not passed, should create new binding in require', () => {
+		const code = dedent`
+			const { SlowBuffer } = require("buffer");
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root() as SgNode<Js>;
+
+		const requireStatement = node.find({
+			rule: {
+				kind: 'lexical_declaration',
+			},
+		});
+
+		const change = updateBinding(requireStatement!, {
+			new: 'Buffer',
+		});
+
+		assert.notEqual(change, undefined);
+		assert.strictEqual(change?.lineToRemove, undefined);
+
+		const sourceCode = node.commitEdits([change?.edit!]);
+
+		assert.strictEqual(
+			sourceCode,
+			`const { SlowBuffer, Buffer } = require("buffer");`,
+		);
 	});
 });

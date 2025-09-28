@@ -10,7 +10,8 @@ type UpdateBindingReturnType = {
 };
 
 type UpdateBindingOptions = {
-	newBinding: string | undefined;
+	old?: string;
+	new?: string;
 };
 
 /**
@@ -64,7 +65,6 @@ type UpdateBindingOptions = {
  */
 export function updateBinding(
 	node: SgNode<Js> | SgNode<Js, Kinds<Js>>,
-	binding: string,
 	options?: UpdateBindingOptions,
 ): UpdateBindingReturnType {
 	const nodeKind = node.kind().toString();
@@ -100,9 +100,9 @@ export function updateBinding(
 	});
 
 	if (
-		!options?.newBinding &&
+		!options?.new &&
 		namespaceImport &&
-		namespaceImport.text() === binding
+		namespaceImport.text() === options?.old
 	) {
 		return {
 			lineToRemove: node.range(),
@@ -110,17 +110,16 @@ export function updateBinding(
 	}
 
 	if (requireKinds.includes(nodeKind)) {
-		return handleNamedRequireBindings(node, binding, options);
+		return handleNamedRequireBindings(node, options);
 	}
 
 	if (importKinds.includes(nodeKind)) {
-		return handleNamedImportBindings(node, binding, options);
+		return handleNamedImportBindings(node, options);
 	}
 }
 
 function handleNamedImportBindings(
 	node: SgNode<Js>,
-	binding: string,
 	options: UpdateBindingOptions,
 ): UpdateBindingReturnType {
 	const namespaceImport = node.find({
@@ -132,10 +131,10 @@ function handleNamedImportBindings(
 		},
 	});
 
-	if (Boolean(namespaceImport) && namespaceImport.text() === binding) {
-		if (options?.newBinding) {
+	if (Boolean(namespaceImport) && namespaceImport.text() === options.old) {
+		if (options?.new) {
 			return {
-				edit: namespaceImport.replace(options.newBinding),
+				edit: namespaceImport.replace(options.new),
 			};
 		}
 
@@ -159,15 +158,15 @@ function handleNamedImportBindings(
 
 	for (const namedImport of namedImports) {
 		const text = namedImport.text();
-		if (text === binding) {
-			if (!options?.newBinding && namedImports.length === 1) {
+		if (text === options.old) {
+			if (!options?.new && namedImports.length === 1) {
 				return {
 					lineToRemove: node.range(),
 				};
 			}
 
 			return {
-				edit: updateObjectPattern(namedImports, binding, options),
+				edit: updateObjectPattern(namedImports, options.old, options.new),
 			};
 		}
 	}
@@ -182,9 +181,9 @@ function handleNamedImportBindings(
 	});
 
 	for (const renamedImport of renamedImports) {
-		if (renamedImport.text() === binding) {
+		if (renamedImport.text() === options.old) {
 			if (
-				!options?.newBinding &&
+				!options?.new &&
 				renamedImports.length === 1 &&
 				namedImports.length === 0
 			) {
@@ -199,9 +198,9 @@ function handleNamedImportBindings(
 				},
 			});
 
-			if (options?.newBinding) {
+			if (options?.new) {
 				for (const renamedImport of renamedImports) {
-					if (renamedImport.text() === binding) {
+					if (renamedImport.text() === options.old) {
 						const importName = renamedImport.parent().find({
 							rule: {
 								has: {
@@ -211,7 +210,7 @@ function handleNamedImportBindings(
 							},
 						});
 						return {
-							edit: importName.replace(options.newBinding),
+							edit: importName.replace(options.new),
 						};
 					}
 				}
@@ -231,7 +230,6 @@ function handleNamedImportBindings(
 
 function handleNamedRequireBindings(
 	node: SgNode<Js>,
-	binding: string,
 	options: UpdateBindingOptions,
 ): UpdateBindingReturnType {
 	const requireWithMemberExpression = node.find({
@@ -242,7 +240,7 @@ function handleNamedRequireBindings(
 					has: {
 						field: 'name',
 						kind: 'identifier',
-						pattern: binding,
+						pattern: options.old,
 					},
 				},
 				{
@@ -260,7 +258,7 @@ function handleNamedRequireBindings(
 	});
 
 	if (requireWithMemberExpression) {
-		if (!options?.newBinding) {
+		if (!options?.new) {
 			return {
 				lineToRemove: node.range(),
 			};
@@ -274,9 +272,7 @@ function handleNamedRequireBindings(
 		});
 
 		return {
-			edit: node.replace(
-				`const { ${options.newBinding} } = ${reqNode.text()};`,
-			),
+			edit: node.replace(`const { ${options.new} } = ${reqNode.text()};`),
 		};
 	}
 
@@ -294,33 +290,36 @@ function handleNamedRequireBindings(
 		},
 	});
 
-	if (!options?.newBinding && declarations.length === 1) {
+	if (!options?.new && declarations.length === 1) {
 		return {
 			lineToRemove: node.range(),
 		};
 	}
 
 	return {
-		edit: updateObjectPattern(declarations, binding, options),
+		edit: updateObjectPattern(declarations, options.old, options.new),
 	};
 }
 
 function updateObjectPattern(
 	previouses: SgNode<Js>[],
-	binding: string,
-	options?: UpdateBindingOptions,
+	oldBinding?: string,
+	newBinding?: string,
 ): Edit {
 	let newObjectPattern: string[] = [];
 
 	let parentNode;
 	for (const previous of previouses) {
-		if (previous.text() === binding) {
+		if (!oldBinding) {
+			parentNode = previous.parent();
+		}
+		if (previous.text() === oldBinding) {
 			parentNode = previous.parent();
 			break;
 		}
 	}
 
-	const oldBindings = parentNode.findAll({
+	const bindings = parentNode.findAll({
 		rule: {
 			any: [
 				{
@@ -340,20 +339,20 @@ function updateObjectPattern(
 	});
 
 	let needAddNewBinding = true;
-	for (const oldBinding of oldBindings) {
-		if (oldBinding.text() === binding) {
+	for (const binding of bindings) {
+		if (binding.text() === oldBinding) {
 			continue;
 		}
 
-		if (oldBinding.text() === options?.newBinding) {
+		if (binding.text() === newBinding) {
 			needAddNewBinding = false;
 		}
 
-		newObjectPattern.push(oldBinding.text());
+		newObjectPattern.push(binding.text());
 	}
 
-	if (options?.newBinding && needAddNewBinding) {
-		newObjectPattern.push(options.newBinding);
+	if (newBinding && needAddNewBinding) {
+		newObjectPattern.push(newBinding);
 	}
 
 	return parentNode.replace(`{ ${newObjectPattern.join(', ')} }`);
