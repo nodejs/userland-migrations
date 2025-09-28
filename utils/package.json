@@ -16,8 +16,8 @@
   "devDependencies": {
     "@ast-grep/lang-bash": "^0.0.4",
     "@ast-grep/lang-json": "^0.0.4",
-    "@ast-grep/napi": "^0.39.4",
-    "@codemod.com/jssg-types": "^1.0.3",
-    "dedent": "^1.6.0"
+    "@ast-grep/napi": "^0.39.5",
+    "@codemod.com/jssg-types": "^1.0.9",
+    "dedent": "^1.7.0"
   }
 }

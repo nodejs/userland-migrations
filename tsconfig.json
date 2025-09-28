@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "baseUrl": "./",
     "rootDir": "./",
 
     "target": "ESNext",
@@ -44,27 +43,9 @@
     "./utils"
   ],
   "exclude": [
-    "node_modules",
-    "**/build/**",
-    "**/fixtures/**",
-    "**/expected/**",
     "**/tests/**",
-    "**/*.fixture.mjs",
-    "**/*.fixture.mts",
-    "**/*.fixture.js",
-    "**/*.fixture.ts",
-    "**/*.mock.mjs",
-    "**/*.e2e.mjs",
-    "**/*.e2e.mts",
-    "**/*.e2e.js",
-    "**/*.e2e.ts",
-    "**/*.spec.mjs",
-    "**/*.spec.mts",
-    "**/*.spec.js",
-    "**/*.spec.ts",
-    "**/*.test.mjs",
-    "**/*.test.mts",
-    "**/*.test.js",
+    // For correct-ts-specifiers
     "**/*.test.ts",
+    "**/fixtures/**"
   ],
 }
