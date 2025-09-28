@@ -12,7 +12,7 @@ describe("remove-binding", () => {
 			const util = require('node:util');
 		`;
 
-		const rootNode = astGrep.parse<Js>(astGrep.Lang.JavaScript, code);
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
 		const node = rootNode.root() as SgNode<Js>;
 
 		const requireStatement = node.find({
