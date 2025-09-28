@@ -363,7 +363,7 @@ describe("remove-binding", () => {
 		assert.strictEqual(sourceCode, `const { types: { isMap } } = require("util");`);
 	});
 
-	it("should remove only the specific import binding from nested destructuring when multiple bindings exist", () => {
+	it("Should remove the line in member expression scenarios", () => {
 		const code = dedent`
 			const Buffer = require("buffer").Buffer;
 		`;
@@ -377,11 +377,53 @@ describe("remove-binding", () => {
 			},
 		});
 
-		const change = removeBinding(importStatement!, "isNativeError");
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const change = removeBinding(importStatement!, "Buffer");
 
-		assert.notEqual(change, null);
-		assert.strictEqual(change?.lineToRemove, undefined);
-		assert.strictEqual(sourceCode, `const { types: { isMap } } = require("util");`);
+		assert.notEqual(change, undefined);
+		assert.strictEqual(change?.edit, undefined);
+		assert.deepEqual(change?.lineToRemove, {
+			end: {
+				column: 40,
+				index: 40,
+				line: 0,
+			},
+			start: {
+				column: 0,
+				index: 0,
+				line: 0,
+			},
+		});
+	});
+
+	it("Should remove the line when the accessed property is different from the identifier", () => {
+		const code = dedent`
+			const Buffer = require("buffer").SlowBuffer
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root() as SgNode<Js>;
+
+		const importStatement = node.find({
+			rule: {
+				kind: "lexical_declaration",
+			},
+		});
+
+		const change = removeBinding(importStatement!, "Buffer");
+
+		assert.notEqual(change, undefined);
+		assert.strictEqual(change?.edit, undefined);
+		assert.deepEqual(change?.lineToRemove, {
+			end: {
+				column: 43,
+				index: 43,
+				line: 0,
+			},
+			start: {
+				column: 0,
+				index: 0,
+				line: 0,
+			},
+		});
 	});
 });
