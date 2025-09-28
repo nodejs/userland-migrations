@@ -23,9 +23,9 @@ type UpdateBindingOptions = {
  * If the binding is the only one in the statement and no replacement is provided, the entire import line is marked for removal.
  *
  * @param node - The AST node representing the import or require statement
- * @param binding - The name of the binding to update or remove (e.g., "isNativeError")
  * @param options - Optional configuration object
- * @param options.newBinding - The new binding name to replace the old one. If not provided, the binding is removed.
+ * @param options.old - The name of the binding to update or remove (e.g., "isNativeError")
+ * @param options.new - The new binding name to replace the old one. If not provided, the binding is removed.
  * @returns An object containing either an edit operation or a line range to remove, or undefined if no binding found
  *
  * @example
