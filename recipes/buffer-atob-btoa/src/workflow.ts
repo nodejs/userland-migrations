@@ -1,6 +1,7 @@
 import type { Edit, Range, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
+import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
 
 export default function transform(root: SgRoot<Js>): string | null {
@@ -8,8 +9,8 @@ export default function transform(root: SgRoot<Js>): string | null {
   const edits: Edit[] = [];
   const linesToRemove: Range[] = [];
 
-  // @ts-expect-error - ast-grep types are not fully compatible with JSSG types
   const requireStatements = getNodeRequireCalls(root, 'buffer');
+  const importStatements = getNodeImportStatements(root, 'buffer');
   const atobFunctionCalls = rootNode.findAll({
     rule: {
       pattern: 'buffer.atob($ARG)'
@@ -18,6 +19,11 @@ export default function transform(root: SgRoot<Js>): string | null {
 
   // Remove all buffer require statements
   for (const statement of requireStatements) {
+    linesToRemove.push(statement.range());
+  }
+
+  // Remove all buffer import statements
+  for (const statement of importStatements) {
     linesToRemove.push(statement.range());
   }
 
