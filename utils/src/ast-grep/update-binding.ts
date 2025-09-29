@@ -1,8 +1,8 @@
-import type { SgNode, Edit, Range, Kinds } from '@codemod.com/jssg-types/main';
-import type Js from '@codemod.com/jssg-types/langs/javascript';
+import type { SgNode, Edit, Range, Kinds } from "@codemod.com/jssg-types/main";
+import type Js from "@codemod.com/jssg-types/langs/javascript";
 
-const requireKinds = ['lexical_declaration', 'variable_declarator'];
-const importKinds = ['import_statement', 'import_clause'];
+const requireKinds = ["lexical_declaration", "variable_declarator"];
+const importKinds = ["import_statement", "import_clause"];
 
 type UpdateBindingReturnType = {
 	edit?: Edit;
@@ -64,7 +64,7 @@ type UpdateBindingOptions = {
  * ```
  */
 export function updateBinding(
-	node: SgNode<Js> | SgNode<Js, Kinds<Js>>,
+	node: SgNode<Js>,
 	options?: UpdateBindingOptions,
 ): UpdateBindingReturnType {
 	const nodeKind = node.kind().toString();
@@ -73,37 +73,33 @@ export function updateBinding(
 		rule: {
 			any: [
 				{
-					kind: 'identifier',
+					kind: "identifier",
 					inside: {
-						kind: 'variable_declarator',
+						kind: "variable_declarator",
 						// this `not rule` ensures that expressions like `require("something").NamedImport` are ignored
 						// because we only want the namespace to be returned here
 						not: {
 							has: {
-								field: 'value',
-								kind: 'member_expression',
+								field: "value",
+								kind: "member_expression",
 							},
 						},
 						inside: {
-							kind: 'lexical_declaration',
+							kind: "lexical_declaration",
 						},
 					},
 				},
 				{
-					kind: 'identifier',
+					kind: "identifier",
 					inside: {
-						kind: 'import_clause',
+						kind: "import_clause",
 					},
 				},
 			],
 		},
 	});
 
-	if (
-		!options?.new &&
-		namespaceImport &&
-		namespaceImport.text() === options?.old
-	) {
+	if (!options?.new && namespaceImport && namespaceImport.text() === options?.old) {
 		return {
 			lineToRemove: node.range(),
 		};
@@ -124,9 +120,9 @@ function handleNamedImportBindings(
 ): UpdateBindingReturnType {
 	const namespaceImport = node.find({
 		rule: {
-			kind: 'identifier',
+			kind: "identifier",
 			inside: {
-				kind: 'namespace_import',
+				kind: "namespace_import",
 			},
 		},
 	});
@@ -145,12 +141,12 @@ function handleNamedImportBindings(
 
 	const namedImports = node.findAll({
 		rule: {
-			kind: 'import_specifier',
+			kind: "import_specifier",
 			// ignore imports with alias (renamed imports)
 			not: {
 				has: {
-					field: 'alias',
-					kind: 'identifier',
+					field: "alias",
+					kind: "identifier",
 				},
 			},
 		},
@@ -171,22 +167,18 @@ function handleNamedImportBindings(
 		}
 	}
 
-	const renamedImports = node.findAll({
+	const aliasedImports = node.findAll({
 		rule: {
 			has: {
-				field: 'alias',
-				kind: 'identifier',
+				field: "alias",
+				kind: "identifier",
 			},
 		},
 	});
 
-	for (const renamedImport of renamedImports) {
+	for (const renamedImport of aliasedImports) {
 		if (renamedImport.text() === options.old) {
-			if (
-				!options?.new &&
-				renamedImports.length === 1 &&
-				namedImports.length === 0
-			) {
+			if (!options?.new && aliasedImports.length === 1 && namedImports.length === 0) {
 				return {
 					lineToRemove: node.range(),
 				};
@@ -194,18 +186,18 @@ function handleNamedImportBindings(
 
 			const namedImportsNode = node.find({
 				rule: {
-					kind: 'named_imports',
+					kind: "named_imports",
 				},
 			});
 
 			if (options?.new) {
-				for (const renamedImport of renamedImports) {
+				for (const renamedImport of aliasedImports) {
 					if (renamedImport.text() === options.old) {
 						const importName = renamedImport.parent().find({
 							rule: {
 								has: {
-									field: 'name',
-									kind: 'identifier',
+									field: "name",
+									kind: "identifier",
 								},
 							},
 						});
@@ -215,13 +207,13 @@ function handleNamedImportBindings(
 					}
 				}
 			} else {
-				const aliasStatement = renamedImports.map((alias) => alias.parent());
+				const aliasStatement = aliasedImports.map((alias) => alias.parent());
 				const newNamedImports = [...namedImports, ...aliasStatement]
 					.map((d) => d.text())
 					.filter((d) => d !== renamedImport.parent().text());
 
 				return {
-					edit: namedImportsNode.replace(`{ ${newNamedImports.join(', ')} }`),
+					edit: namedImportsNode.replace(`{ ${newNamedImports.join(", ")} }`),
 				};
 			}
 		}
@@ -234,22 +226,22 @@ function handleNamedRequireBindings(
 ): UpdateBindingReturnType {
 	const requireWithMemberExpression = node.find({
 		rule: {
-			kind: 'variable_declarator',
+			kind: "variable_declarator",
 			all: [
 				{
 					has: {
-						field: 'name',
-						kind: 'identifier',
+						field: "name",
+						kind: "identifier",
 						pattern: options.old,
 					},
 				},
 				{
 					has: {
-						field: 'value',
-						kind: 'member_expression',
+						field: "value",
+						kind: "member_expression",
 						has: {
-							field: 'property',
-							kind: 'property_identifier',
+							field: "property",
+							kind: "property_identifier",
 						},
 					},
 				},
@@ -266,8 +258,8 @@ function handleNamedRequireBindings(
 
 		const reqNode = node.find({
 			rule: {
-				kind: 'call_expression',
-				pattern: 'require($ARGS)',
+				kind: "call_expression",
+				pattern: "require($ARGS)",
 			},
 		});
 
@@ -278,7 +270,7 @@ function handleNamedRequireBindings(
 
 	const objectPattern = node.find({
 		rule: {
-			kind: 'object_pattern',
+			kind: "object_pattern",
 		},
 	});
 
@@ -286,7 +278,7 @@ function handleNamedRequireBindings(
 
 	const declarations = node.findAll({
 		rule: {
-			kind: 'shorthand_property_identifier_pattern',
+			kind: "shorthand_property_identifier_pattern",
 		},
 	});
 
@@ -323,14 +315,14 @@ function updateObjectPattern(
 		rule: {
 			any: [
 				{
-					kind: 'shorthand_property_identifier_pattern',
+					kind: "shorthand_property_identifier_pattern",
 				},
 				{
-					kind: 'import_specifier',
+					kind: "import_specifier",
 					not: {
 						has: {
-							field: 'alias',
-							kind: 'identifier',
+							field: "alias",
+							kind: "identifier",
 						},
 					},
 				},
@@ -355,5 +347,5 @@ function updateObjectPattern(
 		newObjectPattern.push(newBinding);
 	}
 
-	return parentNode.replace(`{ ${newObjectPattern.join(', ')} }`);
+	return parentNode.replace(`{ ${newObjectPattern.join(", ")} }`);
 }
