@@ -250,3 +250,5 @@ const { types: t } = require('util'); // → t.isNativeError
 import { types } from 'node:util';    // → types.isNativeError
 const util = require('node:util');    // → util.types.isNativeError
 ```
+
+This unified approach ensures your codemods work correctly regardless of how developers import Node.js modules in their projects.
