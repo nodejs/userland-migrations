@@ -1,57 +1,79 @@
-import type { Edit, Range, SgRoot } from '@codemod.com/jssg-types/main';
+import type { Edit, Kinds, Range, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
+import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
+import { removeBinding } from '@nodejs/codemod-utils/ast-grep/remove-binding';
 
 export default function transform(root: SgRoot<Js>): string | null {
-  const rootNode = root.root()
-  const edits: Edit[] = [];
-  const linesToRemove: Range[] = [];
+	const rootNode = root.root();
+	const bindingStatementFnTuples: [string, SgNode<Js, Kinds<Js>>, (arg: string) => string][] = [];
+	const edits: Edit[] = [];
+	const linesToRemove: Range[] = [];
 
-  const requireStatements = getNodeRequireCalls(root, 'buffer');
-  const importStatements = getNodeImportStatements(root, 'buffer');
-  const atobFunctionCalls = rootNode.findAll({
-    rule: {
-      pattern: 'buffer.atob($ARG)'
-    }
-  });
+	const updates = [
+		{
+			oldBind: "$.atob",
+			replaceFn: (arg: string) => `Buffer.from(${arg}, 'base64').toString('binary')`
+		},
+		{
+			oldBind: "$.btoa",
+			replaceFn: (arg: string) => `Buffer.from(${arg}, 'binary').toString('base64')`
+		}
+	];
 
-  // Remove all buffer require statements
-  for (const statement of requireStatements) {
-    linesToRemove.push(statement.range());
-  }
+	const statements = [...getNodeRequireCalls(root, 'buffer'), ...getNodeImportStatements(root, 'buffer')];
 
-  // Remove all buffer import statements
-  for (const statement of importStatements) {
-    linesToRemove.push(statement.range());
-  }
+	for (const statement of statements) {
+		for (const update of updates) {
+			const binding = resolveBindingPath(statement, update.oldBind);
+			if (binding) bindingStatementFnTuples.push([binding, statement, update.replaceFn]);
+		}
+	}
 
-  // Rewrite atob function calls
-  for (const call of atobFunctionCalls) {
-    const argMatch = call.getMatch("ARG");
-    if (argMatch) {
-      const arg = argMatch.text();
-      const replacement = `Buffer.from(${arg}, 'base64').toString('binary')`;
-      edits.push(call.replace(replacement));
-    }
-  }
+	for (const [binding, statement, fn] of bindingStatementFnTuples) {
 
-  const btoaFunctionCalls = rootNode.findAll({
-    rule: {
-      pattern: 'buffer.btoa($ARG)'
-    }
-  });
+		const result = removeBinding(statement, binding);
 
-  // Rewrite btoa function calls
-  for (const call of btoaFunctionCalls) {
-    const argMatch = call.getMatch("ARG");
-    if (argMatch) {
-      const arg = argMatch.text();
-      const replacement = `Buffer.from(${arg}, 'binary').toString('base64')`;
-      edits.push(call.replace(replacement));
-    }
-  }
+		if (result?.edit) edits.push(result.edit);
+		if (result?.lineToRemove) linesToRemove.push(result.lineToRemove);
 
-  return removeLines(rootNode.commitEdits(edits), linesToRemove);
+		const calls = rootNode.findAll({
+			rule: {
+				pattern: `${binding}($ARG)`
+			}
+		});
+
+		const otherCalls = rootNode.findAll({
+			rule: {
+				all: [
+					{
+						pattern: 'buffer.$FN'
+					},
+					{
+						not: {
+							pattern: '$.btoa($ARG)'
+						}
+					},
+					{
+						not: {
+							pattern: '$.atob($ARG)'
+						}
+					}
+				]
+			}
+		});
+
+		for (const call of calls) {
+			const argMatch = call.getMatch("ARG");
+			if (argMatch) edits.push(call.replace(fn(argMatch.text())));
+		}
+
+		if (calls.length === otherCalls.length) {
+			linesToRemove.push(statement.range());
+		}
+	}
+
+	return removeLines(rootNode.commitEdits(edits), linesToRemove);
 }
