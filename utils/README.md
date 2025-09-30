@@ -72,7 +72,7 @@ import { resolveBindingPath } from '@nodejs/codemod-utils';
 
 #### `removeBinding(node, binding)`
 
-Removes a specific binding from destructured imports/requires, or removes the entire statement if it's the only binding.
+Removes a specific binding from imports/requires, or removes the entire statement if it's the only binding.
 
 ```typescript
 import { removeBinding } from '@nodejs/codemod-utils';
@@ -82,6 +82,26 @@ import { removeBinding } from '@nodejs/codemod-utils';
 
 // Given: const { isNativeError } = require('node:util');
 // removeBinding(node, 'isNativeError') → Returns line range to remove entire statement
+
+// Given: const util = require('node:util');
+// removeBinding(node, 'util') → Returns line range to remove entire statement
+```
+
+#### `updateBinding(node, { old, new })`
+
+Updates a specific binding from imports/requires. It can be used to replace, add, or remove bindings.
+
+```typescript
+import { updateBinding } from '@nodejs/codemod-utils';
+
+// Given: const { isNativeError } = require('node:util');
+// updateBinding(node, {old: 'isNativeError', new: 'types'}) → Edit to: const { types } = require('node:util');
+
+// Given: const { isNativeError } = require('node:util');
+// updateBinding(node, {old: undefined, new: 'types'}) → Edit to: const { isNativeError, types } = require('node:util');
+
+// Given: const { isNativeError, types } = require('node:util');
+// updateBinding(node, {old: isNativeError, new: undefined}) → Works exactly as removeBinding util: const { types } = require('node:util');
 ```
 
 ### Code Manipulation
