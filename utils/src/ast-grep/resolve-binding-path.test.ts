@@ -25,6 +25,23 @@ describe("resolve-binding-path", () => {
 		assert.strictEqual(bindingPath, "util.types.isNativeError");
 	});
 
+	it("should be able to resolve binding path from namespace ESM import", () => {
+		const code = dedent`
+			import foo from "node:foo"
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const importStatement = (rootNode.root() as SgNode<Js>).find({
+			rule: {
+				kind: "import_statement",
+			},
+		});
+
+		const bindingPath = resolveBindingPath(importStatement!, "$.bar");
+
+		assert.strictEqual(bindingPath, "foo.bar");
+	});
+
 	it("should be able to solve binding path when destructuring happen", () => {
 		const code = dedent`
 			const { types } = require('node:util');
