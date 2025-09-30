@@ -68,6 +68,31 @@ function resolveBindingPathRequire(node: SgNode<Js>, path: string) {
 		});
 	}
 
+	const propertyAccesses = activeNode.findAll({
+		rule: {
+			kind: "property_identifier",
+			inside: {
+				kind: "member_expression",
+			},
+		},
+	});
+
+	if (propertyAccesses.length) {
+		const pathArr = path.split(".");
+		let newPath = ["$"];
+		let i = 0;
+
+		for (; i < propertyAccesses.length; i++) {
+			// pathArr[i+1] to skip the first element (which is $) that was used for binding replacement
+			if (propertyAccesses[i]?.text() !== pathArr[i + 1]) {
+				return undefined;
+			}
+		}
+
+		// Get the remaining path that was not used in propertyAccesses
+		path = newPath.concat(pathArr.splice(i + 1)).join(".");
+	}
+
 	activeNode = activeNode.child(0);
 
 	if (activeNode?.kind() === "identifier") {
