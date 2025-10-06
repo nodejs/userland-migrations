@@ -20,11 +20,11 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
 
-	// 1️ Find all zlib imports/requires
-	const nodeRequires = getNodeRequireCalls(root, "node:zlib");
-	const nodeImports = getNodeImportStatements(root, "node:zlib");
-	const importNodes = [...nodeRequires, ...nodeImports];
-	if (!importNodes.length) return null;
+	// 1 Find all static zlib imports/requires
+	const importNodes = [
+		...getNodeRequireCalls(root, "node:zlib"),
+		...getNodeImportStatements(root, "node:zlib")
+	];
 
 	const factoryBindings: string[] = [];
 	const streamVariables: string[] = [];
@@ -40,20 +40,43 @@ export default function transform(root: SgRoot<Js>): string | null {
 		}
 	}
 
-	// 2️ Track variables assigned from factories
-	for (const factory of factoryBindings) {
-		const matches = rootNode.findAll({ rule: { pattern: `const $$$VAR = ${factory}($$$ARGS)` } });
-		for (const match of matches) {
-			const varMatch = match.getMultipleMatches("VAR");
-			if (varMatch.length) {
-				const varName = varMatch[0].text();
-				if (!streamVariables.includes(varName)) streamVariables.push(varName);
+	// 1.b Handle dynamic imports: `await import("node:zlib")`
+	const dynamicImports = rootNode.findAll({ rule: { pattern: "const $$$VAR = await import($$$MODULE)" } });
+	for (const imp of dynamicImports) {
+		const moduleName = imp.getMultipleMatches("MODULE")[0]?.text().replace(/['"]/g, "");
+		if (moduleName === "node:zlib") {
+			const varName = imp.getMultipleMatches("VAR")[0]?.text();
+			if (varName) {
+				for (const factory of ZLIB_FACTORIES) {
+					factoryBindings.push(`${varName}.${factory}`);
+				}
 			}
 		}
 	}
 
+	if (!importNodes.length && dynamicImports.length === 0) return null;
 
-	// 3️ Replace .bytesRead → .bytesWritten for tracked variables
+	// 2 Track variables assigned from factories (const, let, var)
+	for (const factory of factoryBindings) {
+		const patterns = [
+			`const $$$VAR = ${factory}($$$ARGS)`,
+			`let $$$VAR = ${factory}($$$ARGS)`,
+			`var $$$VAR = ${factory}($$$ARGS)`
+		];
+
+		for (const pattern of patterns) {
+			const matches = rootNode.findAll({ rule: { pattern } });
+			for (const match of matches) {
+				const varMatch = match.getMultipleMatches("VAR");
+				if (varMatch.length) {
+					const varName = varMatch[0].text();
+					if (!streamVariables.includes(varName)) streamVariables.push(varName);
+				}
+			}
+		}
+	}
+
+	// 3 Replace .bytesRead → .bytesWritten for tracked variables
 	for (const variable of streamVariables) {
 		const matches = rootNode.findAll({ rule: { pattern: `${variable}.bytesRead` } });
 		for (const match of matches) {
@@ -61,17 +84,12 @@ export default function transform(root: SgRoot<Js>): string | null {
 		}
 	}
 
-	// 4️ Replace .bytesRead → .bytesWritten for function parameters
-	const funcPatterns = [
-		"function $$$NAME($$$PARAMS) { $$$BODY }"
-	];
-
+	// 4 Replace .bytesRead → .bytesWritten for function parameters
+	const funcPatterns = ["function $$$NAME($$$PARAMS) { $$$BODY }"];
 	for (const pattern of funcPatterns) {
 		const funcs = rootNode.findAll({ rule: { pattern } });
-
 		for (const func of funcs) {
 			const params = func.getMultipleMatches("PARAMS");
-
 			for (const param of params) {
 				const paramNames = param
 					.text()
@@ -81,7 +99,6 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 				for (const paramName of paramNames) {
 					const matches = rootNode.findAll({ rule: { pattern: `${paramName}.bytesRead` } });
-
 					for (const match of matches) {
 						edits.push(match.replace(match.text().replace(".bytesRead", ".bytesWritten")));
 					}
@@ -92,5 +109,4 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	if (!edits.length) return null;
 	return removeLines(rootNode.commitEdits(edits), linesToRemove);
-
 }
