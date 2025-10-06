@@ -1,0 +1,24 @@
+schema_version: "1.0"
+name: "@nodejs/zlib-bytesread-to-byteswritten"
+version: 1.0.0
+description: Handle DEP0108 by replacing deprecated `zlib.bytesRead` with `zlib.bytesWritten` in Node.js transform streams
+author: Elie Khoury
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - zlib
+  - bytesRead
+  - bytesWritten
+
+registry:
+  access: public
+  visibility: public
