@@ -29,29 +29,36 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const factoryBindings: string[] = [];
 	const streamVariables: string[] = [];
 
+	// 1.a Handle static imports: `import { createGzip } from "node:zlib"
 	for (const node of importNodes) {
-		const baseBind = resolveBindingPath(node, "$");
-
-		if (baseBind) {
-			for (const factory of ZLIB_FACTORIES) factoryBindings.push(`${baseBind}.${factory}`);
-		}
 		for (const factory of ZLIB_FACTORIES) {
 			const binding = resolveBindingPath(node, `$.${factory}`);
+
 			if (binding && !factoryBindings.includes(binding)) factoryBindings.push(binding);
 		}
 	}
 
-	// 1.b Handle dynamic imports: `await import("node:zlib")`
-	const dynamicImports = rootNode.findAll({ rule: { pattern: "const $$$VAR = await import($$$MODULE)" } });
-	for (const imp of dynamicImports) {
+	// 1.b Handle dynamic imports: `await import("node:zlib")
+	const allDynamicImports: typeof rootNode[] = [];
+
+	const declPatterns = [
+		'const $VAR = await import($MODULE)',
+		'let $VAR = await import($MODULE)',
+		'var $VAR = await import($MODULE)'
+	];
+
+	for (const pattern of declPatterns) {
+		const dynamicImports = rootNode.findAll({ rule: { pattern } });
+		allDynamicImports.push(...dynamicImports);
+	}
+
+	for (const imp of allDynamicImports) {
 		const moduleName = imp.find({
 			rule: {
 				kind: "string_fragment",
 				inside: {
 					kind: "string",
-					inside: {
-						kind: "arguments",
-					}
+					inside: { kind: "arguments" }
 				}
 			}
 		})?.text();
@@ -60,9 +67,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 			const varName = imp.find({
 				rule: {
 					kind: "identifier",
-					inside: {
-						kind: "variable_declarator",
-					}
+					inside: { kind: "variable_declarator" }
 				}
 			})?.text();
 
@@ -75,14 +80,14 @@ export default function transform(root: SgRoot<Js>): string | null {
 	}
 
 	// If any import is found it's mean we can skip transformation on this file
-	if (!importNodes.length && dynamicImports.length === 0) return null;
+	if (!importNodes.length && allDynamicImports.length === 0) return null;
 
 	// 2 Track variables assigned from factories (const, let, var)
-	for (const factory of factoryBindings) {
+	for (const binding of factoryBindings) {
 		const patterns = [
-			`const $$$VAR = ${factory}($$$ARGS)`,
-			`let $$$VAR = ${factory}($$$ARGS)`,
-			`var $$$VAR = ${factory}($$$ARGS)`
+			`const $$$VAR = ${binding}($$$ARGS)`,
+			`let $$$VAR = ${binding}($$$ARGS)`,
+			`var $$$VAR = ${binding}($$$ARGS)`
 		];
 
 		for (const pattern of patterns) {
@@ -108,27 +113,39 @@ export default function transform(root: SgRoot<Js>): string | null {
 		}
 	}
 
-	// 4 Replace .bytesRead → .bytesWritten for function parameters
-	const funcPatterns = ["function $$$NAME($$$PARAMS) { $$$BODY }"];
-	for (const pattern of funcPatterns) {
-		const funcs = rootNode.findAll({ rule: { pattern } });
+	// Step 4: Replace .bytesRead → .bytesWritten for function parameters
+	const funcKinds = ["function_declaration", "function_expression", "arrow_function"] as const;
+
+	// Helper to find all identifier nodes within a given node
+	function findIdentifiers(node: typeof rootNode): string[] {
+		const identifiers: string[] = [];
+		const stack = [node];
+
+		while (stack.length) {
+			const current = stack.pop()!;
+			if (current.kind() === "identifier") {
+				identifiers.push(current.text());
+			}
+			stack.push(...current.children());
+		}
+
+		return identifiers;
+	}
+
+	for (const kind of funcKinds) {
+		const funcs = rootNode.findAll({ rule: { kind } });
 
 		for (const func of funcs) {
-			const params = func.getMultipleMatches("PARAMS");
+			const formalParamsNode = func.children().find(child => child.kind() === "formal_parameters");
+			
+			if (!formalParamsNode) continue;
 
-			for (const param of params) {
-				const paramNames = param
-					.text()
-					.split(",")
-					.map((p) => p.replace(/\/\*.*\*\//, "").trim())
-					.filter(Boolean);
+			const paramNames = findIdentifiers(formalParamsNode);
 
-				for (const paramName of paramNames) {
-					const matches = rootNode.findAll({ rule: { pattern: `${paramName}.bytesRead` } });
-
-					for (const match of matches) {
-						edits.push(match.replace(match.text().replace(".bytesRead", ".bytesWritten")));
-					}
+			for (const paramName of paramNames) {
+				const matches = rootNode.findAll({ rule: { pattern: `${paramName}.bytesRead` } });
+				for (const match of matches) {
+					edits.push(match.replace(match.text().replace(".bytesRead", ".bytesWritten")));
 				}
 			}
 		}
