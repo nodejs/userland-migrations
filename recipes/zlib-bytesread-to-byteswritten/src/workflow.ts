@@ -31,6 +31,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	for (const node of importNodes) {
 		const baseBind = resolveBindingPath(node, "$");
+
 		if (baseBind) {
 			for (const factory of ZLIB_FACTORIES) factoryBindings.push(`${baseBind}.${factory}`);
 		}
