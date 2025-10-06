@@ -96,6 +96,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 		for (const func of funcs) {
 			const params = func.getMultipleMatches("PARAMS");
+
 			for (const param of params) {
 				const paramNames = param
 					.text()
