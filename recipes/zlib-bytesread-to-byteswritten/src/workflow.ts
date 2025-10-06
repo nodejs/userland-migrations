@@ -93,6 +93,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const funcPatterns = ["function $$$NAME($$$PARAMS) { $$$BODY }"];
 	for (const pattern of funcPatterns) {
 		const funcs = rootNode.findAll({ rule: { pattern } });
+
 		for (const func of funcs) {
 			const params = func.getMultipleMatches("PARAMS");
 			for (const param of params) {
