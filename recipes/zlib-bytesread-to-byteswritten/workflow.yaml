@@ -7,7 +7,7 @@ nodes:
     name: Apply AST Transformations
     type: automatic
     steps:
-      - name: Handle DEP0108 by replacing deprecated `zlib.bytesRead` with `zlib.bytesWritten` in Node.js transform streams`
+      - name: Handle DEP0108 by replacing deprecated `zlib.bytesRead` with `zlib.bytesWritten` in Node.js transform streams
         js-ast-grep:
           js_file: src/workflow.ts
           base_path: .
