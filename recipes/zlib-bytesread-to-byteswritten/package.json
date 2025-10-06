@@ -12,7 +12,7 @@
     "directory": "recipes/zlib-bytesread-to-byteswritten",
     "bugs": "https://github.com/nodejs/userland-migrations/issues"
   },
-  "author": "Your Name",
+  "author": "Elie Khoury",
   "license": "MIT",
   "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/zlib-bytesread-to-byteswritten/README.md",
   "devDependencies": {
