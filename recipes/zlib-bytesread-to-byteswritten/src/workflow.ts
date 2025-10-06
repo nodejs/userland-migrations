@@ -54,6 +54,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 		}
 	}
 
+	// If any import is found it's mean we can skip transformation on this file
 	if (!importNodes.length && dynamicImports.length === 0) return null;
 
 	// 2 Track variables assigned from factories (const, let, var)
@@ -66,6 +67,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 		for (const pattern of patterns) {
 			const matches = rootNode.findAll({ rule: { pattern } });
+			
 			for (const match of matches) {
 				const varMatch = match.getMultipleMatches("VAR");
 				if (varMatch.length) {
