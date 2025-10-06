@@ -1,8 +1,8 @@
 # `zlib.bytesRead` → `zlib.bytesWritten` DEP0108
 
-This codemod replace zlib.bytesRead with zlib.bytesWritten for consistent stream property naming. It's useful to migrate code that uses the deprecated property which has been removed.
+This codemod replaces zlib.bytesRead with zlib.bytesWritten for consistent stream property naming. It's useful to migrate code that uses the deprecated property which has been removed.
 
-It replace zlib.bytesRead with zlib.bytesWritten in all zlib transform streams and it handle both CommonJS and ESM imports.
+It replaces zlib.bytesRead with zlib.bytesWritten in all zlib transform streams and it handles both CommonJS and ESM imports.
 
 See [DEP0108](https://nodejs.org/api/deprecations.html#DEP0108).
 
