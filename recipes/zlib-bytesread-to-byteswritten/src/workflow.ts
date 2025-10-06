@@ -44,9 +44,28 @@ export default function transform(root: SgRoot<Js>): string | null {
 	// 1.b Handle dynamic imports: `await import("node:zlib")`
 	const dynamicImports = rootNode.findAll({ rule: { pattern: "const $$$VAR = await import($$$MODULE)" } });
 	for (const imp of dynamicImports) {
-		const moduleName = imp.getMultipleMatches("MODULE")[0]?.text().replace(/['"]/g, "");
+		const moduleName = imp.find({
+			rule: {
+				kind: "string_fragment",
+				inside: {
+					kind: "string",
+					inside: {
+						kind: "arguments",
+					}
+				}
+			}
+		})?.text();
+
 		if (moduleName === "node:zlib") {
-			const varName = imp.getMultipleMatches("VAR")[0]?.text();
+			const varName = imp.find({
+				rule: {
+					kind: "identifier",
+					inside: {
+						kind: "variable_declarator",
+					}
+				}
+			})?.text();
+
 			if (varName) {
 				for (const factory of ZLIB_FACTORIES) {
 					factoryBindings.push(`${varName}.${factory}`);
