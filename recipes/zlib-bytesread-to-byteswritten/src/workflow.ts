@@ -79,6 +79,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	// 3 Replace .bytesRead → .bytesWritten for tracked variables
 	for (const variable of streamVariables) {
 		const matches = rootNode.findAll({ rule: { pattern: `${variable}.bytesRead` } });
+
 		for (const match of matches) {
 			edits.push(match.replace(match.text().replace(".bytesRead", ".bytesWritten")));
 		}
