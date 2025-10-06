@@ -106,6 +106,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 				for (const paramName of paramNames) {
 					const matches = rootNode.findAll({ rule: { pattern: `${paramName}.bytesRead` } });
+
 					for (const match of matches) {
 						edits.push(match.replace(match.text().replace(".bytesRead", ".bytesWritten")));
 					}
