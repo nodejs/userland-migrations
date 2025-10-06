@@ -70,6 +70,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 			
 			for (const match of matches) {
 				const varMatch = match.getMultipleMatches("VAR");
+
 				if (varMatch.length) {
 					const varName = varMatch[0].text();
 					if (!streamVariables.includes(varName)) streamVariables.push(varName);
