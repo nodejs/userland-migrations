@@ -15,6 +15,30 @@ const ZLIB_FACTORIES = [
 	"createUnzip",
 ];
 
+const DECL_PATTERNS = [
+	'const $VAR = await import($MODULE)',
+	'let $VAR = await import($MODULE)',
+	'var $VAR = await import($MODULE)'
+];
+
+const FUNC_KINDS = ["function_declaration", "function_expression", "arrow_function"] as const;
+
+// Helper to find all identifier nodes within a given node
+function findIdentifiers(node: ReturnType<SgRoot<Js>["root"]>): string[] {
+	const identifiers: string[] = [];
+	const stack = [node];
+
+	while (stack.length) {
+		const current = stack.pop()!;
+		if (current.kind() === "identifier") {
+			identifiers.push(current.text());
+		}
+		stack.push(...current.children());
+	}
+
+	return identifiers;
+}
+
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
@@ -41,13 +65,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	// 1.b Handle dynamic imports: `await import("node:zlib")
 	const allDynamicImports: typeof rootNode[] = [];
 
-	const declPatterns = [
-		'const $VAR = await import($MODULE)',
-		'let $VAR = await import($MODULE)',
-		'var $VAR = await import($MODULE)'
-	];
-
-	for (const pattern of declPatterns) {
+	for (const pattern of DECL_PATTERNS) {
 		const dynamicImports = rootNode.findAll({ rule: { pattern } });
 		allDynamicImports.push(...dynamicImports);
 	}
@@ -114,25 +132,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	}
 
 	// Step 4: Replace .bytesRead → .bytesWritten for function parameters
-	const funcKinds = ["function_declaration", "function_expression", "arrow_function"] as const;
-
-	// Helper to find all identifier nodes within a given node
-	function findIdentifiers(node: typeof rootNode): string[] {
-		const identifiers: string[] = [];
-		const stack = [node];
-
-		while (stack.length) {
-			const current = stack.pop()!;
-			if (current.kind() === "identifier") {
-				identifiers.push(current.text());
-			}
-			stack.push(...current.children());
-		}
-
-		return identifiers;
-	}
-
-	for (const kind of funcKinds) {
+	for (const kind of FUNC_KINDS) {
 		const funcs = rootNode.findAll({ rule: { kind } });
 
 		for (const func of funcs) {
