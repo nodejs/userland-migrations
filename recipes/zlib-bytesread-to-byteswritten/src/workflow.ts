@@ -45,7 +45,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
 
-	// 1 Find all static zlib imports/requires
+	// 1 Find all static and dynamic zlib imports/requires
 	const importNodes = [
 		...getNodeRequireCalls(root, 'node:zlib'),
 		...getNodeImportStatements(root, 'node:zlib'),
@@ -55,7 +55,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const factoryBindings = new Set<string>();
 	const streamVariables: string[] = [];
 
-	// 1.a resolven all local binds from "node:zlib"
+	// 1.a Resolve all local bindings from "node:zlib"
 	for (const node of importNodes) {
 		for (const factory of ZLIB_FACTORIES) {
 			const binding = resolveBindingPath(node, `$.${factory}`);
