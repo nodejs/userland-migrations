@@ -50,15 +50,14 @@ export default function transform(root: SgRoot<Js>): string | null {
 		...getNodeImportStatements(root, "node:zlib")
 	];
 
-	const factoryBindings: string[] = [];
+	const factoryBindings = new Set<string>();
 	const streamVariables: string[] = [];
 
 	// 1.a Handle static imports: `import { createGzip } from "node:zlib"
 	for (const node of importNodes) {
 		for (const factory of ZLIB_FACTORIES) {
 			const binding = resolveBindingPath(node, `$.${factory}`);
-
-			if (binding && !factoryBindings.includes(binding)) factoryBindings.push(binding);
+			if (binding) factoryBindings.add(binding);
 		}
 	}
 
@@ -91,7 +90,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 			if (varName) {
 				for (const factory of ZLIB_FACTORIES) {
-					factoryBindings.push(`${varName}.${factory}`);
+					factoryBindings.add(`${varName}.${factory}`);
 				}
 			}
 		}
@@ -110,7 +109,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 		for (const pattern of patterns) {
 			const matches = rootNode.findAll({ rule: { pattern } });
-			
+
 			for (const match of matches) {
 				const varMatch = match.getMultipleMatches("VAR");
 
@@ -137,7 +136,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 		for (const func of funcs) {
 			const formalParamsNode = func.children().find(child => child.kind() === "formal_parameters");
-			
+
 			if (!formalParamsNode) continue;
 
 			const paramNames = findIdentifiers(formalParamsNode);
