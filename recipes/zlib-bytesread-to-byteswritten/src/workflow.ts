@@ -24,22 +24,6 @@ const FUNC_KINDS = [
 	'arrow_function',
 ] as const;
 
-// Helper to find all identifier nodes within a given node
-function findIdentifiers(node: ReturnType<SgRoot<Js>['root']>): string[] {
-	const identifiers: string[] = [];
-	const stack = [node];
-
-	while (stack.length) {
-		const current = stack.pop()!;
-		if (current.kind() === 'identifier') {
-			identifiers.push(current.text());
-		}
-		stack.push(...current.children());
-	}
-
-	return identifiers;
-}
-
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
@@ -107,17 +91,17 @@ export default function transform(root: SgRoot<Js>): string | null {
 		const funcs = rootNode.findAll({ rule: { kind } });
 
 		for (const func of funcs) {
-			const formalParamsNode = func
-				.children()
-				.find((child) => child.kind() === 'formal_parameters');
-
-			if (!formalParamsNode) continue;
-
-			const paramNames = findIdentifiers(formalParamsNode);
+			const paramNames = func
+				.field('parameters')
+				?.findAll({ rule: { kind: 'identifier' } });
 
 			for (const paramName of paramNames) {
-				const matches = rootNode.findAll({
-					rule: { pattern: `${paramName}.bytesRead` },
+				// replace member_expressions that use ${paramName}.bytesRead inside the function context
+				const matches = func.findAll({
+					rule: {
+						kind: 'member_expression',
+						pattern: `${paramName.text()}.bytesRead`,
+					},
 				});
 				for (const match of matches) {
 					edits.push(
