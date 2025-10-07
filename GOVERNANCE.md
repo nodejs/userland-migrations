@@ -13,7 +13,7 @@ Meet the current team members of the Node.js userland migrations:
 
 ## Rights
 
-Any team member or Node.js collaborator can block a pull request or decision. A block can be overturned by a team vote, which requires a quorum of two-thirds of active members and passes with a simple majority (>50%). Pursuant to Node.js policy, the [TSC](https://github.com/nodejs/TSC) may override a team’s vote.
+Any team member or Node.js collaborator can block a pull request or decision. A block can be overturned by a team vote, which requires a quorum of two-thirds of active members and passes with a simple majority (>50%). Votes must be concluded within a maximum of two weeks from the time they are initiated. If a team member does not participate in the vote within this time frame, their vote will be considered abstained. Pursuant to Node.js policy, the [TSC](https://github.com/nodejs/TSC) may override a team’s vote.
 
 ### Active vs inactive membership
 
