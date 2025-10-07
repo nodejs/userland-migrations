@@ -1,0 +1,24 @@
+{
+  "name": "@nodejs/zlib-bytesread-to-byteswritten",
+  "version": "1.0.0",
+  "description": "Replace deprecated `zlib.bytesRead` with `zlib.bytesWritten` in Node.js transform streams",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/zlib-bytesread-to-byteswritten",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "Elie Khoury",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/zlib-bytesread-to-byteswritten/README.md",
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.0.9"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
+  }
+}
