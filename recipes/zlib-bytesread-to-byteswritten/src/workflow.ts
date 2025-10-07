@@ -79,8 +79,8 @@ export default function transform(root: SgRoot<Js>): string | null {
 		}
 	}
 
-	// If any import is found it's mean we can skip transformation on this file
-	if (!importNodes.length && allDynamicImports.length === 0) return null;
+	// If no import is found that means we can skip transformation on this file
+	if (!importNodes.length && !allDynamicImports.length) return null;
 
 	// 2 Track variables assigned from factories (const, let, var)
 	for (const binding of factoryBindings) {
