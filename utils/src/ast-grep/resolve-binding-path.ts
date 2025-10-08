@@ -78,8 +78,8 @@ function resolveBindingPathRequire(node: SgNode<Js>, path: string) {
 	});
 
 	if (propertyAccesses.length) {
-		const pathArr = path.split(".");
-		const newPath = ["$"];
+		const pathArr = path.split('.');
+		const newPath = ['$'];
 		let i = 0;
 
 		for (; i < propertyAccesses.length; i++) {
