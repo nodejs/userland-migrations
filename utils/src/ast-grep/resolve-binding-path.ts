@@ -1,8 +1,8 @@
-import type { SgNode } from "@codemod.com/jssg-types/main";
-import type Js from "@codemod.com/jssg-types/langs/javascript";
+import type { SgNode } from '@codemod.com/jssg-types/main';
+import type Js from '@codemod.com/jssg-types/langs/javascript';
 
-const requireKinds = ["lexical_declaration", "variable_declarator"];
-const importKinds = ["import_statement", "import_clause"];
+const requireKinds = ['lexical_declaration', 'variable_declarator'];
+const importKinds = ['import_statement', 'import_clause'];
 const supportedKinds = [...requireKinds, ...importKinds];
 
 /**
@@ -42,7 +42,7 @@ export function resolveBindingPath(node: SgNode<Js>, path: string) {
 
 	if (!supportedKinds.includes(rootKind.toString())) {
 		throw Error(
-			`Invalid node kind. To resolve binding path, one of these types must be provided: ${supportedKinds.join(", ")}`,
+			`Invalid node kind. To resolve binding path, one of these types must be provided: ${supportedKinds.join(', ')}`,
 		);
 	}
 
@@ -56,33 +56,32 @@ export function resolveBindingPath(node: SgNode<Js>, path: string) {
 }
 
 function resolveBindingPathRequire(node: SgNode<Js>, path: string) {
-	const pathArr = path.split(".");
+	const pathArr = path.split('.');
 	let activeNode = node;
 	const rootKind = node.kind();
 
-	if (rootKind === "lexical_declaration") {
+	if (rootKind === 'lexical_declaration') {
 		activeNode = activeNode.find({
 			rule: {
-				kind: "variable_declarator",
+				kind: 'variable_declarator',
 			},
 		});
 	}
 
 	const propertyAccesses = activeNode.findAll({
 		rule: {
-			kind: "property_identifier",
+			kind: 'property_identifier',
 			inside: {
-				kind: "member_expression",
+				kind: 'member_expression',
 			},
 		},
 	});
 
 	if (propertyAccesses.length) {
-		const pathArr = path.split(".");
-		let newPath = ["$"];
-		let i = 0;
+		const pathArr = path.split('.');
+		const newPath = ['$'];
 
-		for (; i < propertyAccesses.length; i++) {
+		for (let i = 0; i < propertyAccesses.length; i++) {
 			// pathArr[i+1] to skip the first element (which is $) that was used for binding replacement
 			if (propertyAccesses[i]?.text() !== pathArr[i + 1]) {
 				return undefined;
@@ -90,18 +89,18 @@ function resolveBindingPathRequire(node: SgNode<Js>, path: string) {
 		}
 
 		// Get the remaining path that was not used in propertyAccesses
-		path = newPath.concat(pathArr.splice(i + 1)).join(".");
+		path = newPath.concat(pathArr.splice(i + 1)).join('.');
 	}
 
 	activeNode = activeNode.child(0);
 
-	if (activeNode?.kind() === "identifier") {
-		return path.replace("$", activeNode.text());
+	if (activeNode?.kind() === 'identifier') {
+		return path.replace('$', activeNode.text());
 	}
 
 	const namedImports = activeNode.findAll({
 		rule: {
-			kind: "shorthand_property_identifier_pattern",
+			kind: 'shorthand_property_identifier_pattern',
 		},
 	});
 
@@ -112,18 +111,18 @@ function resolveBindingPathRequire(node: SgNode<Js>, path: string) {
 
 	const renamedImports = activeNode.findAll({
 		rule: {
-			kind: "pair_pattern",
+			kind: 'pair_pattern',
 			all: [
 				{
 					has: {
-						field: "key",
-						kind: "property_identifier",
+						field: 'key',
+						kind: 'property_identifier',
 					},
 				},
 				{
 					has: {
-						field: "value",
-						kind: "identifier",
+						field: 'value',
+						kind: 'identifier',
 					},
 				},
 			],
@@ -133,7 +132,7 @@ function resolveBindingPathRequire(node: SgNode<Js>, path: string) {
 	for (const rename of renamedImports) {
 		const oldNameNode = rename.find({
 			rule: {
-				kind: "property_identifier",
+				kind: 'property_identifier',
 			},
 		});
 		const oldName = oldNameNode?.text();
@@ -141,7 +140,7 @@ function resolveBindingPathRequire(node: SgNode<Js>, path: string) {
 		if (oldName && pathArr.includes(oldName)) {
 			const newNameNode = rename.find({
 				rule: {
-					kind: "identifier",
+					kind: 'identifier',
 				},
 			});
 
@@ -152,43 +151,43 @@ function resolveBindingPathRequire(node: SgNode<Js>, path: string) {
 }
 
 function resolveBindingPathImport(node: SgNode<Js>, path: string) {
-	const pathArr = path.split(".");
+	const pathArr = path.split('.');
 	let activeNode = node;
 	const rootKind = node.kind();
 
-	if (rootKind === "import_statement") {
+	if (rootKind === 'import_statement') {
 		activeNode = activeNode.find({
 			rule: {
-				kind: "import_clause",
+				kind: 'import_clause',
 			},
 		});
 	}
 
 	activeNode = activeNode.child(0);
 
-	if (activeNode?.kind() === "identifier") {
-		return path.replace("$", activeNode.text());
+	if (activeNode?.kind() === 'identifier') {
+		return path.replace('$', activeNode.text());
 	}
 
 	const namespaceImport = activeNode.find({
 		rule: {
-			kind: "namespace_import",
+			kind: 'namespace_import',
 		},
 	});
 
 	if (namespaceImport) {
 		const namespaceIdentifier = namespaceImport.find({
 			rule: {
-				kind: "identifier",
+				kind: 'identifier',
 			},
 		});
 
-		return path.replace("$", namespaceIdentifier.text());
+		return path.replace('$', namespaceIdentifier.text());
 	}
 
 	const namedImports = activeNode.findAll({
 		rule: {
-			kind: "import_specifier",
+			kind: 'import_specifier',
 		},
 	});
 
@@ -199,18 +198,18 @@ function resolveBindingPathImport(node: SgNode<Js>, path: string) {
 
 	const renamedImports = activeNode.findAll({
 		rule: {
-			kind: "import_specifier",
+			kind: 'import_specifier',
 			all: [
 				{
 					has: {
-						field: "alias",
-						kind: "identifier",
+						field: 'alias',
+						kind: 'identifier',
 					},
 				},
 				{
 					has: {
-						field: "name",
-						kind: "identifier",
+						field: 'name',
+						kind: 'identifier',
 					},
 				},
 			],
@@ -222,8 +221,8 @@ function resolveBindingPathImport(node: SgNode<Js>, path: string) {
 			const oldNameNode = renamedImport.find({
 				rule: {
 					has: {
-						field: "name",
-						kind: "identifier",
+						field: 'name',
+						kind: 'identifier',
 					},
 				},
 			});
@@ -233,8 +232,8 @@ function resolveBindingPathImport(node: SgNode<Js>, path: string) {
 				const newNameNode = renamedImport.find({
 					rule: {
 						has: {
-							field: "alias",
-							kind: "identifier",
+							field: 'alias',
+							kind: 'identifier',
 						},
 					},
 				});
