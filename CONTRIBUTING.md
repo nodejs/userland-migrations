@@ -4,6 +4,9 @@ Thank you for your interest in contributing to this project! We value contributi
 
 ## Getting Started
 
+> [!CAUTION]
+> **Do NOT force-push to your PR branch** unless absolutely necessary. A force-push breaks the PR review and will cause significant delays to the review process. A clean branch history is not important for merging the PR: this repository uses squash-merge, so each PR is collapsed into a single commit using the PR's title.
+
 ### Prerequisites
 
 Before you begin, ensure you have the current versions of the following installed:
@@ -39,6 +42,9 @@ Each codemod resides in its own directory under `recipes/` and should include:
 
 **`src/workflow.ts` example:**
 ```ts
+import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
+import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
+import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
 import type JS from "@codemod.com/jssg-types/langs/javascript";
 
@@ -55,8 +61,25 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 
-	// do some transformation
-	edits.push(...);
+	const allStatementNodes = [
+		...getNodeImportStatements(root, 'api'),
+		...getNodeRequireCalls(root, 'api')
+		];
+
+	for (const statementNode of allStatementNodes) {
+		const bindingPath = resolveBindingPath(statementNode, 'api.fn');
+		if (!bindingPath) continue;
+		// Find all calls to the resolved bindingPath
+		const callNodes = rootNode.findDescendants((node) => {
+			return node.isCallExpression() &&
+				node.getChild('callee')?.getText() === bindingPath;
+		});
+		for (const callNode of callNodes) {
+			// Perform transformation on callNode
+			// e.g., replace 'api.fn' with 'api.newFn'
+			edits.push(...);
+		}
+	}
 
 	if (edits.length === 0) return null;
 
