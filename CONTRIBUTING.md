@@ -4,6 +4,9 @@ Thank you for your interest in contributing to this project! We value contributi
 
 ## Getting Started
 
+> [!CAUTION]
+> **Do NOT force-push to your PR branch** unless absolutely necessary. A force-push breaks the PR review and will cause significant delays to the review process. A clean branch history is not important for merging the PR: this repository uses squash-merge, so each PR is collapsed into a single commit using the PR's title.
+
 ### Prerequisites
 
 Before you begin, ensure you have the current versions of the following installed:
