@@ -78,10 +78,11 @@ function resolveBindingPathRequire(node: SgNode<Js>, path: string) {
 	});
 
 	if (propertyAccesses.length) {
-		const pathArr = path.split('.');
-		const newPath = ['$'];
+		const pathArr = path.split(".");
+		const newPath = ["$"];
+		let i = 0;
 
-		for (let i = 0; i < propertyAccesses.length; i++) {
+		for (; i < propertyAccesses.length; i++) {
 			// pathArr[i+1] to skip the first element (which is $) that was used for binding replacement
 			if (propertyAccesses[i]?.text() !== pathArr[i + 1]) {
 				return undefined;
