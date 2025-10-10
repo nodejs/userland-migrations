@@ -65,7 +65,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 				if (edit) {
 					edits.push(edit);
 				}
-			} else if (isLiteralOrExpression(argKind)) {
+			} else if (LITERAL_OR_EXPRESSION_KINDS.includes(argKind)) {
 				// Case: fs.existsSync(123) or fs.existsSync({ path: '/file' })
 				// → fs.existsSync(String(123)) or fs.existsSync(String({ path: '/file' }))
 				edits.push(argNode.replace(`String(${argText})`));
@@ -106,7 +106,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 				if (edit) {
 					edits.push(edit);
 				}
-			} else if (isLiteralOrExpression(argKind)) {
+			} else if (LITERAL_OR_EXPRESSION_KINDS.includes(argKind)) {
 				edits.push(argNode.replace(`String(${argText})`));
 			}
 		}
@@ -122,19 +122,23 @@ export default function transform(root: SgRoot<JS>): string | null {
  * or already wrapped in String/Buffer/URL constructor
  */
 function isAlreadyValid(argText: string, argKind: string): boolean {
-	// Check if it's a string literal
+	// Check if it's a string literal (already valid)
 	if (argKind === "string" || argKind === "template_string") {
 		return true;
 	}
 
-	// Check if already wrapped with String(), Buffer.from(), or new URL()
+	// Check if it's a new expression (e.g., new URL(), new Buffer())
+	if (argKind === "new_expression") {
+		return true;
+	}
+
+	// Check if already wrapped with String() or Buffer methods
+	// Using regex for more robust matching that handles whitespace
 	if (
-		argText.startsWith("String(") ||
-		argText.startsWith("Buffer.") ||
-		argText.startsWith("new Buffer(") ||
-		argText.startsWith("new URL(") ||
-		argText.includes("Buffer.isBuffer(") ||
-		argText.includes("instanceof URL")
+		/^\s*String\s*\(/.test(argText) ||
+		/^\s*Buffer\s*\./.test(argText) ||
+		/Buffer\.isBuffer\s*\(/.test(argText) ||
+		/instanceof\s+URL/.test(argText)
 	) {
 		return true;
 	}
@@ -143,21 +147,19 @@ function isAlreadyValid(argText: string, argKind: string): boolean {
 }
 
 /**
- * Check if the argument kind is a literal or expression that should be wrapped
+ * Node kinds that represent literals or expressions that should be wrapped with String()
  */
-function isLiteralOrExpression(argKind: string): boolean {
-	return [
-		"number",
-		"object",
-		"array",
-		"true",
-		"false",
-		"undefined",
-		"binary_expression",
-		"unary_expression",
-		"call_expression",
-	].includes(argKind);
-}
+const LITERAL_OR_EXPRESSION_KINDS = [
+	"number",
+	"object",
+	"array",
+	"true",
+	"false",
+	"undefined",
+	"binary_expression",
+	"unary_expression",
+	"call_expression",
+];
 
 /**
  * Add type check for variable arguments
