@@ -152,21 +152,6 @@ function handleNamedImportBindings(
 		},
 	});
 
-	for (const namedImport of namedImports) {
-		const text = namedImport.text();
-		if (text === options.old) {
-			if (!options?.new && namedImports.length === 1) {
-				return {
-					lineToRemove: node.range(),
-				};
-			}
-
-			return {
-				edit: updateObjectPattern(namedImports, options.old, options.new),
-			};
-		}
-	}
-
 	const aliasedImports = node.findAll({
 		rule: {
 			has: {
@@ -217,6 +202,17 @@ function handleNamedImportBindings(
 				};
 			}
 		}
+	}
+
+	if (namedImports.length !== 0) {
+		if (namedImports.length === 1 && !options?.new) {
+			return {
+				lineToRemove: node.range(),
+			};
+		}
+
+		const edit = updateObjectPattern(namedImports, options.old, options.new)
+		if(edit) return { edit }
 	}
 }
 
@@ -288,9 +284,8 @@ function handleNamedRequireBindings(
 		};
 	}
 
-	return {
-		edit: updateObjectPattern(declarations, options.old, options.new),
-	};
+	const edit = updateObjectPattern(declarations, options.old, options.new)
+	if(edit) return { edit }
 }
 
 function updateObjectPattern(
@@ -310,6 +305,8 @@ function updateObjectPattern(
 			break;
 		}
 	}
+
+	if(!parentNode) return
 
 	const bindings = parentNode.findAll({
 		rule: {
