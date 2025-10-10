@@ -596,4 +596,33 @@ describe("update-binding", () => {
 
 		assert.strictEqual(sourceCode, `const { SlowBuffer, Buffer } = require("buffer");`);
 	});
+
+	it('When oldBinding is not passed, should create new binding in import', () => {
+		const code = dedent`
+			import { SlowBuffer } from 'buffer';
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root() as SgNode<Js>;
+
+		const requireStatement = node.find({
+			rule: {
+				kind: 'import_statement',
+			},
+		});
+
+		const change = updateBinding(requireStatement!, {
+			new: 'Buffer',
+		});
+
+		assert.notEqual(change, undefined);
+		assert.strictEqual(change?.lineToRemove, undefined);
+
+		const sourceCode = node.commitEdits([change?.edit!]);
+
+		assert.strictEqual(
+			sourceCode,
+			`import { SlowBuffer, Buffer } from 'buffer';`,
+		);
+	});
 });
