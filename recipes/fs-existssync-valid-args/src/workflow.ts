@@ -1,7 +1,7 @@
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
-import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
+import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
 import type JS from "@codemod.com/jssg-types/langs/javascript";
 
 /**
@@ -27,9 +27,13 @@ export default function transform(root: SgRoot<JS>): string | null {
 		...getNodeRequireCalls(root, "fs"),
 	];
 
+	// If any import found don't process the file
+	if (!allStatementNodes.length) return null;
+
 	for (const statementNode of allStatementNodes) {
 		// Try to resolve the binding path for fs.existsSync
 		const bindingPath = resolveBindingPath(statementNode, "fs.existsSync");
+
 		if (!bindingPath) continue;
 
 		// Find all calls to fs.existsSync
@@ -72,6 +76,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 	// Also handle destructured import/require: const { existsSync } = require('fs')
 	for (const statementNode of allStatementNodes) {
 		const bindingPath = resolveBindingPath(statementNode, "existsSync");
+
 		if (!bindingPath) continue;
 
 		// Find all calls to existsSync (destructured)
@@ -107,7 +112,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 		}
 	}
 
-	if (edits.length === 0) return null;
+	if (!edits.length) return null;
 
 	return rootNode.commitEdits(edits);
 }
@@ -158,9 +163,10 @@ function isLiteralOrExpression(argKind: string): boolean {
  * Add type check for variable arguments
  * Wraps the fs.existsSync() call with a type check
  */
-function addTypeCheckForVariable(callNode: any, varName: string): Edit | null {
+function addTypeCheckForVariable(callNode: SgNode<JS>, varName: string): Edit | null {
 	// Find the statement containing the call
 	let statementNode = callNode.parent();
+
 	while (statementNode && !isStatement(statementNode.kind())) {
 		statementNode = statementNode.parent();
 	}
@@ -173,6 +179,7 @@ function addTypeCheckForVariable(callNode: any, varName: string): Edit | null {
 	const typeCheck = `if (typeof ${varName} !== 'string' && !Buffer.isBuffer(${varName}) && !(${varName} instanceof URL)) {\n    ${varName} = String(${varName});\n  }\n  `;
 
 	const newStatement = typeCheck + statementText;
+
 	return statementNode.replace(newStatement);
 }
 
