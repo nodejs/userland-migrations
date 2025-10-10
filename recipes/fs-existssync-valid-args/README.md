@@ -4,7 +4,7 @@ This codemod validates and converts invalid argument types to `fs.existsSync()`.
 
 ## Description
 
-Starting with Node.js, passing invalid argument types to `fs.existsSync()` triggers a deprecation warning (DEP0187). The function should only receive `string`, `Buffer`, or `URL` arguments.
+Starting with Node.js, passing invalid argument types to `fs.existsSync()` triggers a deprecation warning ([DEP0187](https://nodejs.org/api/deprecations.html#dep0187-passing-invalid-argument-types-to-fsexistssync)). The function should only receive `string`, `Buffer`, or `URL` arguments as documented in the [Node.js fs.existsSync() documentation](https://nodejs.org/api/fs.html#fsexistssyncpath).
 
 This codemod automatically:
 - Validates that `fs.existsSync()` receives valid argument types
@@ -84,13 +84,4 @@ import { existsSync } from "node:fs";
 
 const exists = existsSync(String({ path: '/some/file' }));
 ```
-
-## References
-
-- [DEP0187: Passing invalid argument types to fs.existsSync](https://nodejs.org/api/deprecations.html#dep0187-passing-invalid-argument-types-to-fsexistssync)
-- [Node.js fs.existsSync() documentation](https://nodejs.org/api/fs.html#fsexistssyncpath)
-
-## Usage
-
-See the main [README](../../README.md) for usage instructions.
 

@@ -12,13 +12,6 @@ targets:
     - javascript
     - typescript
 
-keywords:
-  - transformation
-  - migration
-  - fs
-  - existsSync
-  - DEP0187
-
 registry:
   access: public
   visibility: public
