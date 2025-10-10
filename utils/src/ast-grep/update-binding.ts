@@ -301,9 +301,10 @@ function updateObjectPattern(
 	oldBinding?: string,
 	newBinding?: string,
 ): Edit {
-	let newObjectPattern: string[] = [];
+	const newObjectPattern: string[] = [];
 
-	let parentNode;
+	let parentNode: SgNode<Js, Kinds<Js>>;
+
 	for (const previous of previouses) {
 		if (!oldBinding) {
 			parentNode = previous.parent();
