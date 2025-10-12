@@ -8,7 +8,7 @@ import { removeBinding } from '@nodejs/codemod-utils/ast-grep/remove-binding';
 
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
-	const bindingStatementFnTuples: [string, SgNode<Js, Kinds<Js>>, (arg: string) => string][] = [];
+	const bindingStatementFnTuples: [string, SgNode<Js>, (arg: string) => string][] = [];
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
 
@@ -23,7 +23,10 @@ export default function transform(root: SgRoot<Js>): string | null {
 		}
 	];
 
-	const statements = [...getNodeRequireCalls(root, 'buffer'), ...getNodeImportStatements(root, 'buffer')];
+	const statements = [
+		...getNodeRequireCalls(root, 'buffer'),
+		...getNodeImportStatements(root, 'buffer')
+	];
 
 	for (const statement of statements) {
 		for (const update of updates) {
@@ -38,13 +41,13 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 		if (result?.edit) edits.push(result.edit);
 		if (result?.lineToRemove) linesToRemove.push(result.lineToRemove);
-
+		// Check for calls to the specified binding
 		const calls = rootNode.findAll({
 			rule: {
 				pattern: `${binding}($ARG)`
 			}
 		});
-
+		// Check for any other calls, so as to not remove a statement that is still being used
 		const otherCalls = rootNode.findAll({
 			rule: {
 				all: [
@@ -74,6 +77,8 @@ export default function transform(root: SgRoot<Js>): string | null {
 			linesToRemove.push(statement.range());
 		}
 	}
+
+	if (!edits.length) return null;
 
 	return removeLines(rootNode.commitEdits(edits), linesToRemove);
 }

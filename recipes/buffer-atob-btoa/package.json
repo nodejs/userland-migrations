@@ -17,5 +17,8 @@
   "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/buffer-atob-btoa/README.md",
   "dependencies": {
     "@nodejs/codemod-utils": "*"
+  },
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.0.9"
   }
 }
