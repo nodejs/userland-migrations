@@ -15,6 +15,7 @@ targets:
 keywords:
   - transformation
   - migration
+  - buffers
 
 registry:
   access: public

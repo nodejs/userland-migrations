@@ -36,7 +36,6 @@ export default function transform(root: SgRoot<Js>): string | null {
 	}
 
 	for (const [binding, statement, fn] of bindingStatementFnTuples) {
-
 		const result = removeBinding(statement, binding);
 
 		if (result?.edit) edits.push(result.edit);
