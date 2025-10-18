@@ -135,7 +135,7 @@ export const getNodeImportCalls = (
 		// iterate through all chained methods until reaching the expression_statement
 		// that marks the beginning of the import line
 		while (
-			parentNode !== null &&
+			parentNode &&
 			parentNode.kind() !== 'expression_statement'
 		) {
 			parentNode = parentNode.parent();
