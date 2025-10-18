@@ -60,8 +60,7 @@ url.format({
 const myUrl = new URL('https://example.com/some/path?page=1&format=json').toString();
 ```
 
-> **Note:** The migration of `url.format` can also be done as `` `${new URL('https://example.com/some/path?page=1&format=json')}` `` which is little bit efficienter.
-> But it's may be less readable for some users.
+> **Note:** The migration of `url.format` can also be done as `` `${new URL('https://example.com/some/path?page=1&format=json')}` `` which is little bit more efficient. But it may be less readable for some users.
 
 ## Caveats
 

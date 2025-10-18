@@ -71,11 +71,11 @@ const getValue = (pair: SgNode<JS>): V | undefined => {
 	// string/number/bool
 	const litNode = pair.find({
 		rule: { any: [
-          { kind: "string" },
-          { kind: "number" },
-          { kind: "true" },
-          { kind: "false" },
-        ] },
+		{ kind: "string" },
+		{ kind: "number" },
+		{ kind: "true" },
+		{ kind: "false" },
+		] },
 	});
 
 	const lit = getLiteralText(litNode);
