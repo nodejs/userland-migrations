@@ -1,9 +1,19 @@
 import { EOL } from "node:os";
-import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
+import { getNodeImportCalls, getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
 import type JS from "@codemod.com/jssg-types/langs/javascript";
+
+/**
+ * Regex to match deprecated properties
+ *
+ * _builtinLibs and builtinModules
+ */
+const builtinRegex = /\b(_builtinLibs|builtinModules)\b/g;
+
+// Reusable quoted module specifier for generating new statements
+const newModule = "'node:module'";
 
 /**
  * Transform function that converts deprecated repl.builtinModules and repl._builtinLibs
@@ -22,360 +32,386 @@ import type JS from "@codemod.com/jssg-types/langs/javascript";
  * 8. import { _builtinLibs } from 'node:repl'; → import { builtinModules } from 'node:module';
  */
 export default function transform(root: SgRoot<JS>): string | null {
-    const rootNode = root.root();
-    const edits: Edit[] = [];
-    // Reusable quoted module specifier for generating new statements
-    const newModule = "'node:module'";
+	const rootNode = root.root();
+	const edits: Edit[] = [];
 
-    // Step 1: Handle require statements
-    const replRequireStatements = getNodeRequireCalls(root, "repl");
+	// Step 1: Handle require statements
+	const replRequireStatements = getNodeRequireCalls(root, "repl");
 
-    for (const statement of replRequireStatements) {
-        const objectPattern = statement.find({ rule: { kind: "object_pattern" } });
+	for (const statement of replRequireStatements) {
+		const objectPattern = statement.find({ rule: { kind: "object_pattern" } });
 
-        if (objectPattern) {
-            const originalText = objectPattern.text();
+		if (objectPattern) {
+			const originalText = objectPattern.text();
 
-            if (containsBuiltinProperties(originalText)) {
-                const properties = objectPattern.findAll({
-                    rule: { kind: "shorthand_property_identifier_pattern" }
-                });
-                const pairProperties = objectPattern.findAll({
-                    rule: { kind: "pair_pattern" }
-                });
+			if (containsBuiltinProperties(originalText)) {
+				const properties = objectPattern.findAll({
+					rule: { kind: "shorthand_property_identifier_pattern" }
+				});
+				const pairProperties = objectPattern.findAll({
+					rule: { kind: "pair_pattern" }
+				});
 
 				// Check if only builtin properties are destructured
 				const builtinShorthandCount = properties.filter(p =>
 					containsBuiltinProperties(p.text())
 				).length;
 
-                const builtinPairCount = pairProperties.filter(p =>
-                    containsBuiltinProperties(p.text())
-                ).length;
+				const builtinPairCount = pairProperties.filter(p =>
+					containsBuiltinProperties(p.text())
+				).length;
 
-                const totalBuiltinCount = builtinShorthandCount + builtinPairCount;
-                const totalCount = properties.length + pairProperties.length;
+				const totalBuiltinCount = builtinShorthandCount + builtinPairCount;
+				const totalCount = properties.length + pairProperties.length;
 
-                const isOnlyBuiltin = totalCount > 0 && totalBuiltinCount === totalCount;
+				const isOnlyBuiltin = totalCount > 0 && totalBuiltinCount === totalCount;
 
-                if (isOnlyBuiltin) {
-                    // Replace entire require statement
-                    updateModuleSpecifier(statement, edits);
+				if (isOnlyBuiltin) {
+					handleRequireObjectPatternWithOnlyBuiltin(
+						statement,
+						objectPattern,
+						originalText,
+						rootNode,
+						edits
+					);
+				} else {
+					handleRequireObjectPatternWithMixedBuiltin(
+						statement,
+						properties,
+						pairProperties,
+						originalText,
+						rootNode,
+						edits
+					);
+				}
+			}
+		} else {
+			// Handle namespace require (const repl = require('node:repl'))
+			const variableDeclarator = statement.find({ rule: { kind: "variable_declarator" } });
 
-                    if (originalText.includes("_builtinLibs")) {
-                        const newText = originalText.replace("_builtinLibs", "builtinModules");
-                        edits.push(objectPattern.replace(newText));
-                        replaceStandaloneBuiltinLibsReferences(rootNode, edits);
-                    }
-                } else {
-                    // Split into two statements
-                    const propertiesToKeep: string[] = [];
-                    const builtinAliases: string[] = []; // Change to array to handle multiple aliases
+			if (variableDeclarator) {
+				const builtinModulesPath = resolveBindingPath(variableDeclarator, "$.builtinModules");
+				const builtinLibsPath = resolveBindingPath(variableDeclarator, "$._builtinLibs");
 
-                    for (const prop of properties) {
-                        const propText = prop.text();
-                        if (propText !== "builtinModules" && propText !== "_builtinLibs") {
-                            propertiesToKeep.push(propText);
-                        }
-                    }
+				const usages = rootNode.findAll({
+					rule: {
+						any: [
+							{ pattern: builtinModulesPath },
+							{ pattern: builtinLibsPath }
+						]
+					}
+				});
 
-                    for (const prop of pairProperties) {
-                        const propText = prop.text();
+				if (usages.length > 0) {
+					const identifier = variableDeclarator.find({
+						rule: { kind: "identifier" }
+					});
 
-                        if (containsBuiltinProperties(propText)) {
-                            // Extract alias from pair pattern like "builtinModules: alias" or "_builtinLibs: alias"
-                            const keyNode = prop.find({ rule: { kind: "property_identifier" } });
-                            const valueNode = prop.find({ rule: { kind: "identifier" } });
+					if (identifier) {
+						edits.push(identifier.replace("module"));
+						updateModuleSpecifier(statement, edits);
 
-							if (
-								keyNode &&
-								valueNode &&
-								containsBuiltinProperties(keyNode.text())
-							) {
-								builtinAliases.push(valueNode.text());
-							}
-                        } else {
-                            propertiesToKeep.push(propText);
-                        }
-                    }
+						for (const memberExpr of usages) {
+							edits.push(memberExpr.replace("module.builtinModules"));
+						}
+					}
+				}
+			}
+		}
+	}
 
-                    if (propertiesToKeep.length > 0) {
-                        const variableDeclaration = statement.parent();
-                        const moduleSpecifier = statement.find({ rule: { kind: "string" } });
+	// Step 2: Handle import statements
+	const replImportStatements = getNodeImportStatements(root, "repl");
 
-                        if (variableDeclaration && moduleSpecifier) {
-                            const currentModule = moduleSpecifier.text();
+	for (const statement of replImportStatements) {
+		const namedImports = statement.find({ rule: { kind: "named_imports" } });
 
-                            const reconstructedText = `{ ${propertiesToKeep.join(", ")} }`;
-                            const firstStatement = `const ${reconstructedText} = require(${currentModule});`;
+		if (namedImports) {
+			const originalText = namedImports.text();
 
-                            // Always use builtinModules without alias for the new module import
-                            const secondStatement = `const { builtinModules } = require(${newModule});`;
-                            const replacementText = `${firstStatement}${EOL}${secondStatement}`;
+			if (containsBuiltinProperties(originalText)) {
+				const importSpecifiers = namedImports.findAll({
+					rule: { kind: "import_specifier" }
+				});
 
-                            edits.push(variableDeclaration.replace(replacementText));
+				const isOnlyBuiltin = importSpecifiers.length === 1 &&
+					containsBuiltinProperties(importSpecifiers[0].text());
 
-                            // Replace all alias references to use builtinModules
-                            for (const alias of builtinAliases) {
-                                const aliasReferences = rootNode.findAll({
-                                    rule: { pattern: alias }
-                                });
+				if (isOnlyBuiltin) {
+					// Replace entire import statement
+					updateModuleSpecifier(statement, edits);
 
-                                for (const ref of aliasReferences) {
-                                    const parent = ref.parent();
+					if (originalText.includes("_builtinLibs")) {
+						const newText = originalText.replace("_builtinLibs", "builtinModules");
+						edits.push(namedImports.replace(newText));
+						replaceStandaloneBuiltinLibsReferences(rootNode, edits);
+					}
+				} else {
+					// Split into two statements
+					const newText = originalText
+						.replace(/,?\s*(builtinModules|_builtinLibs)\s*(as\s+\w+)?\s*,?/g, "")
+						.replace(/,\s*$/, "")
+						.replace(/^\s*,/, "");
+					edits.push(namedImports.replace(newText));
 
-                                    if (
-                                        parent &&
-                                        parent.kind() !== "object_pattern" &&
-                                        parent.kind() !== "pair_pattern" &&
-                                        parent.kind() !== "variable_declarator"
-                                    ) {
-                                        edits.push(ref.replace("builtinModules"));
-                                    }
-                                }
-                            }
+					const moduleSpecifier = statement.find({ rule: { kind: "string" } });
 
-                            if (originalText.includes("_builtinLibs")) {
-                                replaceStandaloneBuiltinLibsReferences(rootNode, edits);
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-            // Handle namespace require (const repl = require('node:repl'))
-            const variableDeclarator = statement.find({ rule: { kind: "variable_declarator" } });
+					if (moduleSpecifier) {
+						const aliasMatch = originalText.match(/(builtinModules|_builtinLibs)\s*(as\s+\w+)/);
+						const aliasText = aliasMatch ? ` ${aliasMatch[2]}` : "";
+						const newStatement = `import { builtinModules${aliasText} } from ${newModule};`;
+						const statementEnd = statement.range().end;
 
-            if (variableDeclarator) {
-                const builtinModulesPath = resolveBindingPath(variableDeclarator, "$.builtinModules");
-                const builtinLibsPath = resolveBindingPath(variableDeclarator, "$._builtinLibs");
+						edits.push({
+							startPos: statementEnd.index,
+							endPos: statementEnd.index,
+							insertedText: `${EOL}${newStatement}`
+						});
 
-                const usages = rootNode.findAll({
-                    rule: {
-                        any: [
-                            { pattern: builtinModulesPath },
-                            { pattern: builtinLibsPath }
-                        ]
-                    }
-                });
+						if (originalText.includes("_builtinLibs") && !aliasText) {
+							replaceStandaloneBuiltinLibsReferences(rootNode, edits);
+						}
+					}
+				}
+			}
+		} else {
+			// Handle default/namespace imports
+			const importClause = statement.find({ rule: { kind: "import_clause" } });
+			if (!importClause) continue;
 
-                if (usages.length > 0) {
-                    const identifier = variableDeclarator.find({
-                        rule: { kind: "identifier" }
-                    });
+			// Use resolveBindingPath to determine how builtinModules should be accessed
+			const builtinModulesPath = resolveBindingPath(importClause, "$.builtinModules");
+			const builtinLibsPath = resolveBindingPath(importClause, "$._builtinLibs");
 
-                    if (identifier) {
-                        edits.push(identifier.replace("module"));
-                        updateModuleSpecifier(statement, edits);
+			const expressions = rootNode.findAll({
+				rule: {
+					any: [
+						{ pattern: builtinModulesPath },
+						{ pattern: builtinLibsPath }
+					]
+				}
+			});
 
-                        for (const memberExpr of usages) {
-                            edits.push(memberExpr.replace("module.builtinModules"));
-                        }
-                    }
-                }
-            }
-        }
-    }
+			if (expressions.length > 0) {
+				updateModuleSpecifier(statement, edits);
 
-    // Step 2: Handle import statements
-    const replImportStatements = getNodeImportStatements(root, "repl");
+				// Get the namespace identifier to maintain consistency
+				let importIdentifier = importClause.find({ rule: { kind: "identifier" } });
+				if (!importIdentifier) {
+					const namespaceImport = importClause.find({
+						rule: { kind: "namespace_import" }
+					});
 
-    for (const statement of replImportStatements) {
-        const namedImports = statement.find({ rule: { kind: "named_imports" } });
+					if (namespaceImport) {
+						importIdentifier = namespaceImport.find({ rule: { kind: "identifier" } });
+					}
+				}
 
-        if (namedImports) {
-            const originalText = namedImports.text();
+				const varName = importIdentifier?.text() || "module";
+				for (const memberExpr of expressions) {
+					edits.push(memberExpr.replace(`${varName}.builtinModules`));
+				}
+			}
+		}
+	}
 
-            if (containsBuiltinProperties(originalText)) {
-                const importSpecifiers = namedImports.findAll({
-                    rule: { kind: "import_specifier" }
-                });
+	// Step 3: Handle dynamic imports
+	const dynamicImportDeclarators = getNodeImportCalls(root, "repl");
 
-                const isOnlyBuiltin = importSpecifiers.length === 1 &&
-                    containsBuiltinProperties(importSpecifiers[0].text());
+	for (const variableDeclarator of dynamicImportDeclarators) {
+		// Find the string fragment to replace
+		const stringFragment = variableDeclarator.find({
+			rule: { kind: "string_fragment" }
+		});
 
-                if (isOnlyBuiltin) {
-                    // Replace entire import statement
-                    updateModuleSpecifier(statement, edits);
+		if (stringFragment) edits.push(stringFragment.replace("node:module"));
 
-                    if (originalText.includes("_builtinLibs")) {
-                        const newText = originalText.replace("_builtinLibs", "builtinModules");
-                        edits.push(namedImports.replace(newText));
-                        replaceStandaloneBuiltinLibsReferences(rootNode, edits);
-                    }
-                } else {
-                    // Split into two statements
-                    const newText = originalText
-                        .replace(/,?\s*(builtinModules|_builtinLibs)\s*(as\s+\w+)?\s*,?/g, "")
-                        .replace(/,\s*$/, "")
-                        .replace(/^\s*,/, "");
-                    edits.push(namedImports.replace(newText));
 
-                    const moduleSpecifier = statement.find({ rule: { kind: "string" } });
+		// Handle the variable assignment for dynamic imports
+		const objectPattern = variableDeclarator.find({
+			rule: { kind: "object_pattern" }
+		});
 
-                    if (moduleSpecifier) {
-                        const aliasMatch = originalText.match(/(builtinModules|_builtinLibs)\s*(as\s+\w+)/);
-                        const aliasText = aliasMatch ? ` ${aliasMatch[2]}` : "";
-                        const newStatement = `import { builtinModules${aliasText} } from ${newModule};`;
-                        const statementEnd = statement.range().end;
+		if (objectPattern) {
+			// For cases like: const { builtinModules } = await import('node:repl');
+			const originalText = objectPattern.text();
+			if (containsBuiltinProperties(originalText)) {
+				if (originalText.includes("_builtinLibs")) {
+					const newText = originalText.replace("_builtinLibs", "builtinModules");
+					edits.push(objectPattern.replace(newText));
+					replaceStandaloneBuiltinLibsReferences(rootNode, edits);
+				}
+			}
+		} else {
+			// For cases like: const repl = await import('node:repl');
+			const identifier = variableDeclarator.find({
+				rule: { kind: "identifier" }
+			});
 
-                        edits.push({
-                            startPos: statementEnd.index,
-                            endPos: statementEnd.index,
-                            insertedText: `${EOL}${newStatement}`
-                        });
+			if (identifier) {
+				const builtinModulesPath = resolveBindingPath(variableDeclarator, "$.builtinModules");
+				const builtinLibsPath = resolveBindingPath(variableDeclarator, "$._builtinLibs");
 
-                        if (originalText.includes("_builtinLibs") && !aliasText) {
-                            replaceStandaloneBuiltinLibsReferences(rootNode, edits);
-                        }
-                    }
-                }
-            }
-        } else {
-            // Handle default/namespace imports
-            const importClause = statement.find({ rule: { kind: "import_clause" } });
-            if (!importClause) continue;
+				const usages = rootNode.findAll({
+					rule: {
+						any: [
+							{ pattern: builtinModulesPath },
+							{ pattern: builtinLibsPath }
+						]
+					}
+				});
 
-            // Use resolveBindingPath to determine how builtinModules should be accessed
-            const builtinModulesPath = resolveBindingPath(importClause, "$.builtinModules");
-            const builtinLibsPath = resolveBindingPath(importClause, "$._builtinLibs");
+				if (usages.length > 0) {
+					// Replace variable name from 'repl' to 'module'
+					edits.push(identifier.replace("module"));
 
-            const expressions = rootNode.findAll({
-                rule: {
-                    any: [
-                        { pattern: builtinModulesPath },
-                        { pattern: builtinLibsPath }
-                    ]
-                }
-            });
+					// Replace all usages to use builtinModules
+					for (const usage of usages) {
+						edits.push(usage.replace("module.builtinModules"));
+					}
+				}
+			}
+		}
+	}
 
-            if (expressions.length > 0) {
-                updateModuleSpecifier(statement, edits);
+	if (!edits.length) return null;
 
-                // Get the namespace identifier to maintain consistency
-                let importIdentifier = importClause.find({ rule: { kind: "identifier" } });
-                if (!importIdentifier) {
-                    const namespaceImport = importClause.find({
-                        rule: { kind: "namespace_import" }
-                    });
+	return rootNode.commitEdits(edits);
+};
 
-                    if (namespaceImport) {
-                        importIdentifier = namespaceImport.find({ rule: { kind: "identifier" } });
-                    }
-                }
+/**
+ * Handles the transformation of require statements with object patterns
+ * that only contain built-in libraries.
+ *
+ * @param statement - The original require statement.
+ * @param objectPattern - The object pattern containing the built-in libraries.
+ * @param originalText - The original text of the require statement.
+ * @param rootNode - The root node of the AST.
+ * @param edits - The list of edits to apply.
+ */
+const handleRequireObjectPatternWithOnlyBuiltin = (
+	statement: SgNode<JS>,
+	objectPattern: SgNode<JS>,
+	originalText: string,
+	rootNode: SgNode<JS>,
+	edits: Edit[]
+): void => {
+	// Replace entire require statement
+	updateModuleSpecifier(statement, edits);
 
-                const varName = importIdentifier?.text() || "module";
-                for (const memberExpr of expressions) {
-                    edits.push(memberExpr.replace(`${varName}.builtinModules`));
-                }
-            }
-        }
-    }
+	if (originalText.includes("_builtinLibs")) {
+		if (builtinRegex.test(originalText)) {
+			const replacedText = originalText.replace(builtinRegex, "builtinModules");
+			edits.push(objectPattern.replace(replacedText));
+			replaceStandaloneBuiltinLibsReferences(rootNode, edits);
+		}
 
-    // Step 3: Handle dynamic imports
-    const dynamicImportDeclarators = rootNode.findAll({
-        rule: {
-            kind: "variable_declarator",
-            has: {
-                field: "value",
-                kind: "await_expression",
-                has: {
-                    kind: "call_expression",
-                    all: [
-                        {
-                            has: {
-                                field: "function",
-                                kind: "import"
-                            }
-                        },
-                        {
-                            has: {
-                                field: "arguments",
-                                kind: "arguments",
-                                has: {
-                                    kind: "string",
-                                    has: {
-                                        kind: "string_fragment",
-                                        regex: "(node:)?repl$"
-                                    }
-                                }
-                            }
-                        }
-                    ]
-                }
-            }
-        }
-    });
+		const builtinLibsReplacedText = originalText.replace("_builtinLibs", "builtinModules");
+		edits.push(objectPattern.replace(builtinLibsReplacedText));
+		replaceStandaloneBuiltinLibsReferences(rootNode, edits);
+	}
+};
 
-    for (const variableDeclarator of dynamicImportDeclarators) {
-        // Find the string fragment to replace
-        const stringFragment = variableDeclarator.find({
-            rule: {
-                kind: "string_fragment",
-                regex: "(node:)?repl$"
-            }
-        });
+/**
+ * Handles the transformation of require statements with object patterns
+ * that contain both built-in and user-defined libraries.
+ *
+ * @param statement - The original require statement.
+ * @param properties - The properties of the object pattern.
+ * @param pairProperties - The pair properties of the object pattern.
+ * @param originalText - The original text of the require statement.
+ * @param rootNode - The root node of the AST.
+ * @param edits - The list of edits to apply.
+ */
+const handleRequireObjectPatternWithMixedBuiltin = (
+	statement: SgNode<JS>,
+	properties: SgNode<JS>[],
+	pairProperties: SgNode<JS>[],
+	originalText: string,
+	rootNode: SgNode<JS>,
+	edits: Edit[]
+): void => {
+	// Split into two statements
+	const propertiesToKeep: string[] = [];
+	const builtinAliases: string[] = [];
 
-        if (stringFragment) {
-            edits.push(stringFragment.replace("node:module"));
-        }
+	for (const prop of properties) {
+		const propText = prop.text();
+		if (propText !== "builtinModules" && propText !== "_builtinLibs") {
+			propertiesToKeep.push(propText);
+		}
+	}
 
-        // Handle the variable assignment for dynamic imports
-        const objectPattern = variableDeclarator.find({
-            rule: { kind: "object_pattern" }
-        });
+	for (const prop of pairProperties) {
+		const propText = prop.text();
 
-        if (objectPattern) {
-            // For cases like: const { builtinModules } = await import('node:repl');
-            const originalText = objectPattern.text();
-            if (containsBuiltinProperties(originalText)) {
-                if (originalText.includes("_builtinLibs")) {
-                    const newText = originalText.replace("_builtinLibs", "builtinModules");
-                    edits.push(objectPattern.replace(newText));
-                    replaceStandaloneBuiltinLibsReferences(rootNode, edits);
-                }
-            }
-        } else {
-            // For cases like: const repl = await import('node:repl');
-            const identifier = variableDeclarator.find({
-                rule: { kind: "identifier" }
-            });
+		if (containsBuiltinProperties(propText)) {
+			// Extract alias from pair pattern like "builtinModules: alias" or "_builtinLibs: alias"
+			const keyNode = prop.find({ rule: { kind: "property_identifier" } });
+			const valueNode = prop.find({ rule: { kind: "identifier" } });
 
-            if (identifier) {
-                const builtinModulesPath = resolveBindingPath(variableDeclarator, "$.builtinModules");
-                const builtinLibsPath = resolveBindingPath(variableDeclarator, "$._builtinLibs");
+			if (
+				keyNode &&
+				valueNode &&
+				containsBuiltinProperties(keyNode.text())
+			) {
+				builtinAliases.push(valueNode.text());
+			}
+		} else {
+			propertiesToKeep.push(propText);
+		}
+	}
 
-                const usages = rootNode.findAll({
-                    rule: {
-                        any: [
-                            { pattern: builtinModulesPath },
-                            { pattern: builtinLibsPath }
-                        ]
-                    }
-                });
+	if (propertiesToKeep.length === 0) return;
 
-                if (usages.length > 0) {
-                    // Replace variable name from 'repl' to 'module'
-                    edits.push(identifier.replace("module"));
+	const variableDeclaration = statement.parent();
+	const moduleSpecifier = statement.find({ rule: { kind: "string" } });
 
-                    // Replace all usages to use builtinModules
-                    for (const usage of usages) {
-                        edits.push(usage.replace("module.builtinModules"));
-                    }
-                }
-            }
-        }
-    }
+	if (!variableDeclaration || !moduleSpecifier) return;
 
-    if (!edits.length) return null;
+	const currentModule = moduleSpecifier.text();
+	const reconstructedText = `{ ${propertiesToKeep.join(", ")} }`;
+	const firstStatement = `const ${reconstructedText} = require(${currentModule});`;
+	const secondStatement = `const { builtinModules } = require(${newModule});`;
+	const replacementText = `${firstStatement}${EOL}${secondStatement}`;
 
-    return rootNode.commitEdits(edits);
-}
+	edits.push(variableDeclaration.replace(replacementText));
 
+	// Replace all alias references to use builtinModules
+	for (const alias of builtinAliases) {
+		const aliasReferences = rootNode.findAll({
+			rule: { pattern: alias }
+		});
+
+		for (const ref of aliasReferences) {
+			const parent = ref.parent();
+
+			if (
+				parent &&
+				parent.kind() !== "object_pattern" &&
+				parent.kind() !== "pair_pattern" &&
+				parent.kind() !== "variable_declarator"
+			) {
+				edits.push(ref.replace("builtinModules"));
+			}
+		}
+	}
+
+	if (originalText.includes("_builtinLibs")) {
+		replaceStandaloneBuiltinLibsReferences(rootNode, edits);
+	}
+};
+
+/**
+ * Replace standalone references to _builtinLibs with builtinModules
+ *
+ * @param rootNode - The root node of the AST.
+ * @param edits - The list of edits to apply.
+ */
 const replaceStandaloneBuiltinLibsReferences = (rootNode: SgNode<JS>, edits: Edit[]): void => {
-	const standaloneReferences = rootNode.findAll({
-		rule: { pattern: "_builtinLibs" }
-	});
+		const standaloneReferences = rootNode.findAll({
+			rule: { pattern: "_builtinLibs" }
+		});
 
 	for (const ref of standaloneReferences) {
 		const parent = ref.parent();
@@ -391,14 +427,26 @@ const replaceStandaloneBuiltinLibsReferences = (rootNode: SgNode<JS>, edits: Edi
 	}
 };
 
+/**
+ * Checks if the given text contains references to built-in properties.
+ *
+ * @param text - The text to check.
+ * @returns True if the text contains built-in properties, false otherwise.
+ */
 const containsBuiltinProperties = (text: string): boolean =>
-    text.includes("builtinModules") || text.includes("_builtinLibs");
+	text.includes("builtinModules") || text.includes("_builtinLibs");
 
+/**
+ * Update the module specifier in the given statement to 'node:module'.
+ *
+ * @param statement - The AST node representing the import or require statement.
+ * @param edits - The list of edits to apply.
+ */
 const updateModuleSpecifier = (statement: SgNode<JS>, edits: Edit[]): void => {
-        const moduleSpecifier = statement.find({ rule: { kind: "string_fragment" } });
+	const moduleSpecifier = statement.find({ rule: { kind: "string_fragment" } });
 
-        if (moduleSpecifier) {
-            // Always use 'node:module'
-            edits.push(moduleSpecifier.replace('node:module'));
-        }
-    };
+	if (moduleSpecifier) {
+		// Always use 'node:module'
+		edits.push(moduleSpecifier.replace('node:module'));
+	}
+};
