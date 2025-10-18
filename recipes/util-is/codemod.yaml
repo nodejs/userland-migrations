@@ -1,0 +1,21 @@
+schema_version: "1.0"
+name: "@nodejs/util-is"
+version: 1.0.0
+description: "Replaces deprecated `util.is*()` methods with their modern equivalents."
+author: Augustin Mauroy
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+
+registry:
+  access: public
+  visibility: public
