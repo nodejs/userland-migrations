@@ -4,9 +4,9 @@ import json from "@ast-grep/lang-json";
 import { registerDynamicLanguage } from "@ast-grep/napi";
 
 registerDynamicLanguage({
-	// @ts-ignore - https://github.com/ast-grep/langs/tree/main/packages/json#usage
+	// @ts-expect-error - https://github.com/ast-grep/langs/tree/main/packages/json#usage
 	json,
-	// @ts-ignore - https://github.com/ast-grep/langs/tree/main/packages/bash#usage
+	// @ts-expect-error - https://github.com/ast-grep/langs/tree/main/packages/bash#usage
 	bash
 });
 
