@@ -495,7 +495,7 @@ describe('update-binding', () => {
 		);
 	});
 
-	it('Should update destructured property access from require statement to named import', () => {
+	it('should update destructured property access from require statement to named import', () => {
 		const code = dedent`
 			const Test = require("buffer").SlowBuffer;
 		`;
@@ -522,7 +522,7 @@ describe('update-binding', () => {
 		assert.strictEqual(sourceCode, `const { Buffer } = require("buffer");`);
 	});
 
-	it('Should remove entire require when property access exists require statement', () => {
+	it('should remove entire require when property access exists in require statement', () => {
 		const code = dedent`
 			const SlowBuffer = require("buffer").SlowBuffer;
 		`;
@@ -556,7 +556,7 @@ describe('update-binding', () => {
 		});
 	});
 
-	it('If named import already exists it just needs to remove the old reference', () => {
+	it('should remove only the old reference when the new binding already exists', () => {
 		const code = dedent`
 			const { SlowBuffer, Buffer } = require("buffer");
 		`;
@@ -583,7 +583,7 @@ describe('update-binding', () => {
 		assert.strictEqual(sourceCode, `const { Buffer } = require("buffer");`);
 	});
 
-	it('When oldBinding is not passed, should create new binding in require', () => {
+	it('should create new binding in require when oldBinding is not passed', () => {
 		const code = dedent`
 			const { SlowBuffer } = require("buffer");
 		`;
@@ -612,7 +612,7 @@ describe('update-binding', () => {
 		);
 	});
 
-	it('When oldBinding is not passed, should create new binding in import', () => {
+	it('should create new binding in import when oldBinding is not passed', () => {
 		const code = dedent`
 			import { SlowBuffer } from 'buffer';
 		`;
@@ -641,7 +641,7 @@ describe('update-binding', () => {
 		);
 	});
 
-	it('Should replace one binding with multiple bindings in require statement', () => {
+	it('should replace one binding with multiple bindings in require statement', () => {
 		const code = dedent`
 			const { fips } = require('node:crypto');
 		`;
@@ -671,7 +671,7 @@ describe('update-binding', () => {
 		);
 	});
 
-	it('Should replace one binding with multiple bindings in import statement', () => {
+	it('should replace one binding with multiple bindings in import statement', () => {
 		const code = dedent`
 			import { fips } from 'node:crypto';
 		`;
@@ -701,7 +701,7 @@ describe('update-binding', () => {
 		);
 	});
 
-	it('Should replace one binding with multiple bindings while preserving other imports', () => {
+	it('should replace one binding with multiple bindings while preserving other imports', () => {
 		const code = dedent`
 			const { fips, randomBytes } = require('node:crypto');
 		`;
@@ -731,7 +731,7 @@ describe('update-binding', () => {
 		);
 	});
 
-	it('Should not add duplicate bindings when some already exist', () => {
+	it('should not add duplicate bindings when some already exist', () => {
 		const code = dedent`
 			const { fips, getFips } = require('node:crypto');
 		`;
@@ -761,7 +761,7 @@ describe('update-binding', () => {
 		);
 	});
 
-	it('Should add multiple new bindings when oldBinding is not passed', () => {
+	it('should add multiple new bindings when oldBinding is not passed', () => {
 		const code = dedent`
 			const { randomBytes } = require('node:crypto');
 		`;
@@ -790,7 +790,7 @@ describe('update-binding', () => {
 		);
 	});
 
-	it('Should replace aliased require with multiple non-aliased bindings', () => {
+	it('should replace aliased require with multiple non-aliased bindings', () => {
 		const code = dedent`
 			const { fips: myFips } = require('node:crypto');
 		`;
@@ -820,7 +820,7 @@ describe('update-binding', () => {
 		);
 	});
 
-	it('Should replace aliased import with multiple non-aliased bindings', () => {
+	it('should replace aliased import with multiple non-aliased bindings', () => {
 		const code = dedent`
 			import { fips as myFips } from 'node:crypto';
 		`;
@@ -850,7 +850,7 @@ describe('update-binding', () => {
 		);
 	});
 
-	it('Should replace aliased import with multiple bindings while preserving other imports', () => {
+	it('should replace aliased import with multiple bindings while preserving other imports', () => {
 		const code = dedent`
 			import { fips as myFips, randomBytes } from 'node:crypto';
 		`;
