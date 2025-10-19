@@ -135,7 +135,7 @@ export const getNodeImportCalls = (
 		// iterate through all chained methods until reaching the expression_statement
 		// that marks the beginning of the import line
 		while (
-			parentNode !== null &&
+			parentNode &&
 			parentNode.kind() !== 'expression_statement'
 		) {
 			parentNode = parentNode.parent();
@@ -161,3 +161,21 @@ export const getNodeImportCalls = (
 
 	return nodes;
 };
+
+/**
+ * Get the default import identifier from an import statement
+ */
+export const getDefaultImportIdentifier = (importNode: SgNode<Js>): SgNode<Js> | null =>
+	importNode.find({
+		rule: {
+			kind: "identifier",
+			inside: {
+				kind: "import_clause",
+				not: {
+					has: {
+						kind: "named_imports"
+					}
+				}
+			}
+		}
+	});
