@@ -322,7 +322,7 @@ function handleNamedRequireBindings(
 
 	if (!objectPattern) return;
 
-	const declarations = node.findAll({
+	const allDeclarations = node.findAll({
 		rule: {
 			any: [
 				{ kind: 'shorthand_property_identifier_pattern' },
@@ -331,14 +331,28 @@ function handleNamedRequireBindings(
 		},
 	});
 
-	if (!options?.new && declarations.length === 1) {
+	let effectiveBindingCount = 0;
+	for (const decl of allDeclarations) {
+		if (decl.kind() === 'pair_pattern') {
+			const valueNode = decl
+				.children()
+				.find((child) => child.kind() === 'identifier');
+			if (valueNode) {
+				effectiveBindingCount++;
+			}
+		} else {
+			effectiveBindingCount++;
+		}
+	}
+
+	if (!options?.new && effectiveBindingCount === 1) {
 		return {
 			lineToRemove: node.range(),
 		};
 	}
 
-	const edit = updateObjectPattern(declarations, options.old, options.new);
-	if (edit) return { edit };
+	const result = updateObjectPattern(allDeclarations, options.old, options.new);
+	if (result) return { edit: result };
 }
 
 function updateObjectPattern(
@@ -358,12 +372,9 @@ function updateObjectPattern(
 
 		if (previous.kind() === 'pair_pattern') {
 			const keyNode = previous.find({ rule: { kind: 'property_identifier' } });
-			const valueNode = previous.find({
-				rule: {
-					kind: 'identifier',
-					inside: { kind: 'pair_pattern' },
-				},
-			});
+			const valueNode = previous
+				.children()
+				.find((child) => child.kind() === 'identifier');
 			if (keyNode?.text() === oldBinding || valueNode?.text() === oldBinding) {
 				parentNode = previous.parent();
 				break;
@@ -376,26 +387,14 @@ function updateObjectPattern(
 
 	if (!parentNode) return;
 
-	const bindings = parentNode.findAll({
-		rule: {
-			any: [
-				{
-					kind: 'shorthand_property_identifier_pattern',
-				},
-				{
-					kind: 'import_specifier',
-					not: {
-						has: {
-							field: 'alias',
-							kind: 'identifier',
-						},
-					},
-				},
-				{
-					kind: 'pair_pattern',
-				},
-			],
-		},
+	const bindings = parentNode.children().filter((child) => {
+		const kind = child.kind();
+		return (
+			kind === 'shorthand_property_identifier_pattern' ||
+			kind === 'pair_pattern' ||
+			(kind === 'import_specifier' &&
+				!child.find({ rule: { has: { field: 'alias', kind: 'identifier' } } }))
+		);
 	});
 
 	const newBindings = Array.isArray(newBinding)
@@ -408,12 +407,9 @@ function updateObjectPattern(
 	for (const binding of bindings) {
 		if (binding.kind() === 'pair_pattern') {
 			const keyNode = binding.find({ rule: { kind: 'property_identifier' } });
-			const valueNode = binding.find({
-				rule: {
-					kind: 'identifier',
-					inside: { kind: 'pair_pattern' },
-				},
-			});
+			const valueNode = binding
+				.children()
+				.find((child) => child.kind() === 'identifier');
 			const key = keyNode?.text();
 			const value = valueNode?.text();
 
