@@ -10,12 +10,15 @@ const server2 = repl.REPLServer({
   output: process.stdout
 });
 
-// Example 5: Function parameter usage
+// Example 3: Recoverable class
+const error = repl.Recoverable(new SyntaxError());
+
+// Example 4: Function parameter usage
 function createREPL(options) {
   return repl.REPLServer(options);
 }
 
-// Example 6: Variable assignment with configuration
+// Example 5: Variable assignment with configuration
 const customREPL = repl.REPLServer({
   prompt: "node> ",
   useColors: true,

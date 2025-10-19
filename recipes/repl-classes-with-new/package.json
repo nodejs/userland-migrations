@@ -12,7 +12,7 @@
     "directory": "recipes/repl-classes-with-new",
     "bugs": "https://github.com/nodejs/userland-migrations/issues"
   },
-  "author": "GitHub Copilot",
+  "author": "Augustin Mauroy",
   "license": "MIT",
   "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/repl-classes-with-new/README.md",
   "devDependencies": {

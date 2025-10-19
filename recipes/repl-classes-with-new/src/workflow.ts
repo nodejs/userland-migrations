@@ -1,4 +1,4 @@
-import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import { getNodeImportStatements, getNodeImportCalls } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import type { SgRoot, Edit, SgNode } from '@codemod.com/jssg-types/main';
@@ -9,6 +9,7 @@ import type JS from "@codemod.com/jssg-types/langs/javascript";
  */
 const CLASS_NAMES = [
 	'REPLServer',
+	'Recoverable',
 ];
 
 /**
@@ -16,16 +17,23 @@ const CLASS_NAMES = [
  *
  * Handles:
  * 1. `repl.REPLServer()` → `new repl.REPLServer()`
- * 2. Handles both CommonJS and ESM imports
- * 3. Preserves constructor arguments and assignments
+ * 2. `repl.Recoverable()` → `new repl.Recoverable()`
+ * 3. Handles both CommonJS, ESM imports, and dynamic imports
+ * 4. Preserves constructor arguments and assignments
  */
 export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 
-	const importNodes = getNodeImportStatements(root, 'repl');
-	const requireNodes = getNodeRequireCalls(root, 'repl');
-	const allStatementNodes = [...importNodes, ...requireNodes];
+	const allStatementNodes = [
+		...getNodeImportStatements(root, 'repl'),
+		...getNodeRequireCalls(root, 'repl'),
+		...getNodeImportCalls(root, 'repl'),
+	];
+
+	// if no imports are present it means that we don't need to process the file
+	if (!allStatementNodes.length) return null;
+
 	const classes = new Set<string>(getReplClassBasePaths(allStatementNodes));
 
 	for (const cls of classes) {
@@ -41,7 +49,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 		}
 	}
 
-	if (edits.length === 0) return null;
+	if (!edits.length) return null;
 
 	return rootNode.commitEdits(edits);
 }
