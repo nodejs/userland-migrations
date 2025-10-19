@@ -11,48 +11,55 @@ type UpdateBindingReturnType = {
 
 type UpdateBindingOptions = {
 	old?: string;
-	new?: string;
+	new?: string | string[];
 };
 
 /**
  * Update or remove a specific binding from an import or require statement.
  *
  * Analyzes the provided AST node to find and update a specific binding from destructured imports.
- * If `newBinding` is provided in options, the binding will be replaced with the new name.
+ * If `newBinding` is provided in options, the binding will be replaced with the new name(s).
  * If `newBinding` is not provided, the binding will be removed.
  * If the binding is the only one in the statement and no replacement is provided, the entire import line is marked for removal.
  *
  * @param node - The AST node representing the import or require statement
  * @param options - Optional configuration object
  * @param options.old - The name of the binding to update or remove (e.g., "isNativeError")
- * @param options.new - The new binding name to replace the old one. If not provided, the binding is removed.
+ * @param options.new - The new binding name(s) to replace the old one. Can be a string or an array of strings for many-to-many replacements. If not provided, the binding is removed.
  * @returns An object containing either an edit operation or a line range to remove, or undefined if no binding found
  *
  * @example
  * ```typescript
  * // Given an import: const {types, isNativeError} = require("node:util")
- * // And binding: "isNativeError", options: {newBinding: "isError"}
+ * // And options: {old: "isNativeError", new: "isError"}
  * // Returns: an edit object that transforms to: const {types, isError} = require("node:util")
  * ```
  *
  * @example
  * ```typescript
  * // Given an import: const {types, isNativeError} = require("node:util")
- * // And binding: "isNativeError", options: undefined
+ * // And options: {old: "isNativeError"}
  * // Returns: an edit object that transforms to: const {types} = require("node:util")
  * ```
  *
  * @example
  * ```typescript
+ * // Given an import: const {fips} = require("node:crypto")
+ * // And options: {old: "fips", new: ["getFips", "setFips"]}
+ * // Returns: an edit object that transforms to: const {getFips, setFips} = require("node:crypto")
+ * ```
+ *
+ * @example
+ * ```typescript
  * // Given an import: const {isNativeError} = require("node:util")
- * // And binding: "isNativeError", options: {newBinding: "isError"}
+ * // And options: {old: "isNativeError", new: "isError"}
  * // Returns: an edit object that transforms to: const {isError} = require("node:util")
  * ```
  *
  * @example
  * ```typescript
  * // Given an import: const {isNativeError} = require("node:util")
- * // And binding: "isNativeError", options: undefined
+ * // And options: {old: "isNativeError"}
  * // Returns: {lineToRemove: Range} to remove the entire line
  * ```
  *
@@ -133,8 +140,10 @@ function handleNamedImportBindings(
 
 	if (Boolean(namespaceImport) && namespaceImport.text() === options.old) {
 		if (options?.new) {
+			// Namespace imports can only be replaced with a single binding
+			const newName = Array.isArray(options.new) ? options.new[0] : options.new;
 			return {
-				edit: namespaceImport.replace(options.new),
+				edit: namespaceImport.replace(newName),
 			};
 		}
 
@@ -194,8 +203,12 @@ function handleNamedImportBindings(
 								},
 							},
 						});
+						// Aliased imports can only be replaced with a single binding
+						const newName = Array.isArray(options.new)
+							? options.new[0]
+							: options.new;
 						return {
-							edit: importName.replace(options.new),
+							edit: importName.replace(newName),
 						};
 					}
 				}
@@ -282,7 +295,10 @@ function handleNamedRequireBindings(
 
 	const declarations = node.findAll({
 		rule: {
-			kind: 'shorthand_property_identifier_pattern',
+			any: [
+				{ kind: 'shorthand_property_identifier_pattern' },
+				{ kind: 'pair_pattern' },
+			],
 		},
 	});
 
@@ -299,7 +315,7 @@ function handleNamedRequireBindings(
 function updateObjectPattern(
 	previouses: SgNode<Js>[],
 	oldBinding?: string,
-	newBinding?: string,
+	newBinding?: string | string[],
 ): Edit {
 	const newObjectPattern: string[] = [];
 
@@ -308,8 +324,17 @@ function updateObjectPattern(
 	for (const previous of previouses) {
 		if (!oldBinding) {
 			parentNode = previous.parent();
+			break;
 		}
-		if (previous.text() === oldBinding) {
+
+		// For pair_pattern, check the key instead of the whole text
+		if (previous.kind() === 'pair_pattern') {
+			const keyNode = previous.find({ rule: { kind: 'property_identifier' } });
+			if (keyNode?.text() === oldBinding) {
+				parentNode = previous.parent();
+				break;
+			}
+		} else if (previous.text() === oldBinding) {
 			parentNode = previous.parent();
 			break;
 		}
@@ -332,25 +357,56 @@ function updateObjectPattern(
 						},
 					},
 				},
+				{
+					kind: 'pair_pattern',
+				},
 			],
 		},
 	});
 
-	let needAddNewBinding = true;
+	// Track which new bindings need to be added
+	const newBindings = Array.isArray(newBinding)
+		? newBinding
+		: newBinding
+			? [newBinding]
+			: [];
+	const bindingsToAdd = new Set(newBindings);
+
 	for (const binding of bindings) {
-		if (binding.text() === oldBinding) {
-			continue;
-		}
+		// For pair_pattern (aliased requires like { fips: alias }), check the key
+		if (binding.kind() === 'pair_pattern') {
+			const keyNode = binding.find({ rule: { kind: 'property_identifier' } });
+			const key = keyNode?.text();
 
-		if (binding.text() === newBinding) {
-			needAddNewBinding = false;
-		}
+			if (key === oldBinding) {
+				// Skip this binding as it's being replaced
+				continue;
+			}
 
-		newObjectPattern.push(binding.text());
+			// Check if any of the new bindings already exist as keys
+			if (key && bindingsToAdd.has(key)) {
+				bindingsToAdd.delete(key);
+			}
+
+			newObjectPattern.push(binding.text());
+		} else {
+			// For shorthand patterns and import specifiers
+			if (binding.text() === oldBinding) {
+				continue;
+			}
+
+			// If this binding already exists, don't add it again
+			if (bindingsToAdd.has(binding.text())) {
+				bindingsToAdd.delete(binding.text());
+			}
+
+			newObjectPattern.push(binding.text());
+		}
 	}
 
-	if (newBinding && needAddNewBinding) {
-		newObjectPattern.push(newBinding);
+	// Add any remaining new bindings that weren't already present
+	for (const bindingToAdd of bindingsToAdd) {
+		newObjectPattern.push(bindingToAdd);
 	}
 
 	return parentNode.replace(`{ ${newObjectPattern.join(', ')} }`);

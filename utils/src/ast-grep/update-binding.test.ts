@@ -1,13 +1,13 @@
-import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
-import astGrep from '@ast-grep/napi';
-import dedent from 'dedent';
-import { updateBinding } from './update-binding.ts';
-import type Js from '@codemod.com/jssg-types/langs/javascript';
-import type { SgNode } from '@codemod.com/jssg-types/main';
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import astGrep from "@ast-grep/napi";
+import dedent from "dedent";
+import { updateBinding } from "./update-binding.ts";
+import type Js from "@codemod.com/jssg-types/langs/javascript";
+import type { SgNode } from "@codemod.com/jssg-types/main";
 
-describe('update-binding', () => {
-	it('should update only the specified named import while preserving other named imports', () => {
+describe("update-binding", () => {
+	it("should update only the specified named import while preserving other named imports", () => {
 		const code = dedent`
 			const { types, diff } = require('node:util');
 		`;
@@ -17,25 +17,22 @@ describe('update-binding', () => {
 
 		const requireStatement = node.find({
 			rule: {
-				kind: 'lexical_declaration',
+				kind: "lexical_declaration",
 			},
 		});
 
 		const change = updateBinding(requireStatement!, {
-			old: 'types',
-			new: 'newTypes',
+			old: "types",
+			new: "newTypes",
 		});
 		const sourceCode = node.commitEdits([change?.edit!]);
 
 		assert.notEqual(change, null);
 		assert.strictEqual(change?.lineToRemove, undefined);
-		assert.strictEqual(
-			sourceCode,
-			"const { diff, newTypes } = require('node:util');",
-		);
+		assert.strictEqual(sourceCode, "const { diff, newTypes } = require('node:util');");
 	});
 
-	it('should update the specified named import', () => {
+	it("should update the specified named import", () => {
 		const code = dedent`
 			const { types } = require('node:util');
 		`;
@@ -45,25 +42,22 @@ describe('update-binding', () => {
 
 		const requireStatement = node.find({
 			rule: {
-				kind: 'lexical_declaration',
+				kind: "lexical_declaration",
 			},
 		});
 
 		const change = updateBinding(requireStatement!, {
-			old: 'types',
-			new: 'newTypes',
+			old: "types",
+			new: "newTypes",
 		});
 		const sourceCode = node.commitEdits([change?.edit!]);
 
 		assert.notEqual(change, undefined);
 		assert.strictEqual(change?.lineToRemove, undefined);
-		assert.strictEqual(
-			sourceCode,
-			"const { newTypes } = require('node:util');",
-		);
+		assert.strictEqual(sourceCode, "const { newTypes } = require('node:util');");
 	});
 
-	it('should remove the entire require statement when the only imported binding is removed', () => {
+	it("should remove the entire require statement when the only imported binding is removed", () => {
 		const code = dedent`
 			const util = require('node:util');
 		`;
@@ -73,12 +67,12 @@ describe('update-binding', () => {
 
 		const requireStatement = node.find({
 			rule: {
-				kind: 'lexical_declaration',
+				kind: "lexical_declaration",
 			},
 		});
 
 		const change = updateBinding(requireStatement!, {
-			old: 'util',
+			old: "util",
 		});
 
 		assert.notEqual(change, null);
@@ -89,7 +83,7 @@ describe('update-binding', () => {
 		});
 	});
 
-	it('should update only the specified named import while preserving other named imports', () => {
+	it("should update only the specified named import while preserving other named imports", () => {
 		const code = dedent`
 			import { types, diff } = from 'node:util';
 		`;
@@ -99,25 +93,22 @@ describe('update-binding', () => {
 
 		const requireStatement = node.find({
 			rule: {
-				kind: 'import_statement',
+				kind: "import_statement",
 			},
 		});
 
 		const change = updateBinding(requireStatement!, {
-			old: 'types',
-			new: 'newTypes',
+			old: "types",
+			new: "newTypes",
 		});
 		const sourceCode = node.commitEdits([change?.edit!]);
 
 		assert.notEqual(change, null);
 		assert.strictEqual(change?.lineToRemove, undefined);
-		assert.strictEqual(
-			sourceCode,
-			"import { diff, newTypes } = from 'node:util';",
-		);
+		assert.strictEqual(sourceCode, "import { diff, newTypes } = from 'node:util';");
 	});
 
-	it('should remove the specified named import while preserving other named imports', () => {
+	it("should remove the specified named import while preserving other named imports", () => {
 		const code = dedent`
 			import { types, diff } = from 'node:util';
 		`;
@@ -127,12 +118,12 @@ describe('update-binding', () => {
 
 		const requireStatement = node.find({
 			rule: {
-				kind: 'import_statement',
+				kind: "import_statement",
 			},
 		});
 
 		const change = updateBinding(requireStatement!, {
-			old: 'types',
+			old: "types",
 		});
 		const sourceCode = node.commitEdits([change?.edit!]);
 
@@ -141,7 +132,7 @@ describe('update-binding', () => {
 		assert.strictEqual(sourceCode, "import { diff } = from 'node:util';");
 	});
 
-	it('should remove the entire import statement when the only imported binding is removed', () => {
+	it("should remove the entire import statement when the only imported binding is removed", () => {
 		const code = dedent`
 			import util from 'node:util';
 		`;
@@ -151,12 +142,12 @@ describe('update-binding', () => {
 
 		const importStatement = node.find({
 			rule: {
-				kind: 'import_statement',
+				kind: "import_statement",
 			},
 		});
 
 		const change = updateBinding(importStatement!, {
-			old: 'util',
+			old: "util",
 		});
 
 		assert.notEqual(change, null);
@@ -167,7 +158,7 @@ describe('update-binding', () => {
 		assert.strictEqual(change?.edit, undefined);
 	});
 
-	it('should remove the entire import statement when removing the only named import', () => {
+	it("should remove the entire import statement when removing the only named import", () => {
 		const code = dedent`
 			import { types } from 'node:util';
 		`;
@@ -177,12 +168,12 @@ describe('update-binding', () => {
 
 		const importStatement = node.find({
 			rule: {
-				kind: 'import_statement',
+				kind: "import_statement",
 			},
 		});
 
 		const change = updateBinding(importStatement!, {
-			old: 'types',
+			old: "types",
 		});
 
 		assert.notEqual(change, null);
@@ -193,7 +184,7 @@ describe('update-binding', () => {
 		assert.strictEqual(change?.edit, undefined);
 	});
 
-	it('should remove the entire import line when only one aliased binding is imported and it matches the alias', () => {
+	it("should remove the entire import line when only one aliased binding is imported and it matches the alias", () => {
 		const code = dedent`
 			import { types as utilTypes } from 'node:util';
 		`;
@@ -203,12 +194,12 @@ describe('update-binding', () => {
 
 		const importStatement = node.find({
 			rule: {
-				kind: 'import_statement',
+				kind: "import_statement",
 			},
 		});
 
 		const change = updateBinding(importStatement!, {
-			old: 'utilTypes',
+			old: "utilTypes",
 		});
 
 		assert.notEqual(change, null);
@@ -219,7 +210,7 @@ describe('update-binding', () => {
 		assert.strictEqual(change?.edit, undefined);
 	});
 
-	it('should update the entire import line when only one aliased binding is imported and it matches the alias', () => {
+	it("should update the entire import line when only one aliased binding is imported and it matches the alias", () => {
 		const code = dedent`
 			import { types as utilTypes } from 'node:util';
 		`;
@@ -229,25 +220,22 @@ describe('update-binding', () => {
 
 		const importStatement = node.find({
 			rule: {
-				kind: 'import_statement',
+				kind: "import_statement",
 			},
 		});
 
 		const change = updateBinding(importStatement!, {
-			old: 'utilTypes',
-			new: 'newTypes',
+			old: "utilTypes",
+			new: "newTypes",
 		});
 		const sourceCode = node.commitEdits([change?.edit!]);
 
 		assert.notEqual(change, null);
 		assert.strictEqual(change?.lineToRemove, undefined);
-		assert.strictEqual(
-			sourceCode,
-			"import { newTypes as utilTypes } from 'node:util';",
-		);
+		assert.strictEqual(sourceCode, "import { newTypes as utilTypes } from 'node:util';");
 	});
 
-	it('should remove only the aliased import binding when it matches the provided alias', () => {
+	it("should remove only the aliased import binding when it matches the provided alias", () => {
 		const code = dedent`
 			import { types as utilTypes, diff } from 'node:util';
 		`;
@@ -257,12 +245,12 @@ describe('update-binding', () => {
 
 		const importStatement = node.find({
 			rule: {
-				kind: 'import_statement',
+				kind: "import_statement",
 			},
 		});
 
 		const change = updateBinding(importStatement!, {
-			old: 'utilTypes',
+			old: "utilTypes",
 		});
 		const sourceCode = node.commitEdits([change?.edit!]);
 
@@ -271,7 +259,7 @@ describe('update-binding', () => {
 		assert.strictEqual(sourceCode, "import { diff } from 'node:util';");
 	});
 
-	it('should remove the entire require statement when the only imported binding is removed', () => {
+	it("should remove the entire require statement when the only imported binding is removed", () => {
 		const code = dedent`
 			const util = require('node:util');
 		`;
@@ -281,12 +269,12 @@ describe('update-binding', () => {
 
 		const requireStatement = node.find({
 			rule: {
-				kind: 'lexical_declaration',
+				kind: "lexical_declaration",
 			},
 		});
 
 		const change = updateBinding(requireStatement!, {
-			old: 'util',
+			old: "util",
 		});
 
 		assert.notEqual(change, null);
@@ -297,7 +285,7 @@ describe('update-binding', () => {
 		});
 	});
 
-	it('should return undefined when the binding does not match the imported name', () => {
+	it("should return undefined when the binding does not match the imported name", () => {
 		const code = dedent`
 			const util = require('node:util');
 		`;
@@ -307,19 +295,19 @@ describe('update-binding', () => {
 
 		const requireStatement = node.find({
 			rule: {
-				kind: 'lexical_declaration',
+				kind: "lexical_declaration",
 			},
 		});
 
 		// line 12 it was imported as util, and here is passed types to be removed
 		const change = updateBinding(requireStatement!, {
-			old: 'types',
+			old: "types",
 		});
 
 		assert.equal(change, undefined);
 	});
 
-	it('should remove the entire require statement when removing the only named import', () => {
+	it("should remove the entire require statement when removing the only named import", () => {
 		const code = dedent`
 			const { types } = require('node:util');
 		`;
@@ -329,12 +317,12 @@ describe('update-binding', () => {
 
 		const importStatement = node.find({
 			rule: {
-				kind: 'lexical_declaration',
+				kind: "lexical_declaration",
 			},
 		});
 
 		const change = updateBinding(importStatement!, {
-			old: 'types',
+			old: "types",
 		});
 
 		assert.notEqual(change, null);
@@ -345,7 +333,7 @@ describe('update-binding', () => {
 		});
 	});
 
-	it('should update the destructured variable', () => {
+	it("should update the destructured variable", () => {
 		const code = dedent`
 			const { mainModule } = process;
 		`;
@@ -355,22 +343,22 @@ describe('update-binding', () => {
 
 		const requireStatement = node.find({
 			rule: {
-				kind: 'lexical_declaration',
+				kind: "lexical_declaration",
 			},
 		});
 
 		const change = updateBinding(requireStatement!, {
-			old: 'mainModule',
-			new: 'newMainModule',
+			old: "mainModule",
+			new: "newMainModule",
 		});
 		const sourceCode = node.commitEdits([change?.edit!]);
 
 		assert.notEqual(change, null);
 		assert.strictEqual(change?.lineToRemove, undefined);
-		assert.strictEqual(sourceCode, 'const { newMainModule } = process;');
+		assert.strictEqual(sourceCode, "const { newMainModule } = process;");
 	});
 
-	it('should remove the entire import statement when the only namespace import is removed', () => {
+	it("should remove the entire import statement when the only namespace import is removed", () => {
 		const code = dedent`
 			import * as util from 'node:util';
 		`;
@@ -380,12 +368,12 @@ describe('update-binding', () => {
 
 		const importStatement = node.find({
 			rule: {
-				kind: 'import_statement',
+				kind: "import_statement",
 			},
 		});
 
 		const change = updateBinding(importStatement!, {
-			old: 'util',
+			old: "util",
 		});
 
 		assert.notEqual(change, null);
@@ -396,7 +384,7 @@ describe('update-binding', () => {
 		assert.strictEqual(change?.edit, undefined);
 	});
 
-	it('should update the namespace binding when newBinding is passed', () => {
+	it("should update the namespace binding when newBinding is passed", () => {
 		const code = dedent`
 			import * as util from 'node:util';
 		`;
@@ -406,13 +394,13 @@ describe('update-binding', () => {
 
 		const importStatement = node.find({
 			rule: {
-				kind: 'import_statement',
+				kind: "import_statement",
 			},
 		});
 
 		const change = updateBinding(importStatement!, {
-			old: 'util',
-			new: 'newUtil',
+			old: "util",
+			new: "newUtil",
 		});
 		const sourceCode = node.commitEdits([change?.edit!]);
 
@@ -421,7 +409,7 @@ describe('update-binding', () => {
 		assert.strictEqual(sourceCode, "import * as newUtil from 'node:util';");
 	});
 
-	it('should return undefined when trying to update a binding that does not exist in the import statement', () => {
+	it("should return undefined when trying to update a binding that does not exist in the import statement", () => {
 		const code = dedent`
 			import { types, diff } from 'node:util';
 		`;
@@ -431,19 +419,19 @@ describe('update-binding', () => {
 
 		const importStatement = node.find({
 			rule: {
-				kind: 'import_statement',
+				kind: "import_statement",
 			},
 		});
 
 		const change = updateBinding(importStatement!, {
-			old: 'none',
-			new: 'newNone',
+			old: "none",
+			new: "newNone",
 		});
 
 		assert.equal(change, undefined);
 	});
 
-	it('should remove only the aliased import binding when it matches the provided alias', () => {
+	it("should remove only the aliased import binding when it matches the provided alias", () => {
 		const code = dedent`
 			import { types as utilTypes, diff } from 'node:util';
 		`;
@@ -453,12 +441,12 @@ describe('update-binding', () => {
 
 		const importStatement = node.find({
 			rule: {
-				kind: 'import_statement',
+				kind: "import_statement",
 			},
 		});
 
 		const change = updateBinding(importStatement!, {
-			old: 'utilTypes',
+			old: "utilTypes",
 		});
 		const sourceCode = node.commitEdits([change?.edit!]);
 
@@ -467,7 +455,7 @@ describe('update-binding', () => {
 		assert.strictEqual(sourceCode, "import { diff } from 'node:util';");
 	});
 
-	it('should update only the aliased import binding when it matches the provided alias among multiple aliased imports', () => {
+	it("should update only the aliased import binding when it matches the provided alias among multiple aliased imports", () => {
 		const code = dedent`
 			import { types as utilTypes, diff as utilDiffs } from 'node:util';
 		`;
@@ -477,13 +465,13 @@ describe('update-binding', () => {
 
 		const importStatement = node.find({
 			rule: {
-				kind: 'import_statement',
+				kind: "import_statement",
 			},
 		});
 
 		const change = updateBinding(importStatement!, {
-			old: 'utilTypes',
-			new: 'newTypes',
+			old: "utilTypes",
+			new: "newTypes",
 		});
 		const sourceCode = node.commitEdits([change?.edit!]);
 
@@ -495,7 +483,7 @@ describe('update-binding', () => {
 		);
 	});
 
-	it('Should update destructured property access from require statement to named import', () => {
+	it("Should update destructured property access from require statement to named import", () => {
 		const code = dedent`
 			const Test = require("buffer").SlowBuffer;
 		`;
@@ -505,13 +493,13 @@ describe('update-binding', () => {
 
 		const requireStatement = node.find({
 			rule: {
-				kind: 'lexical_declaration',
+				kind: "lexical_declaration",
 			},
 		});
 
 		const change = updateBinding(requireStatement!, {
-			old: 'Test',
-			new: 'Buffer',
+			old: "Test",
+			new: "Buffer",
 		});
 
 		assert.notEqual(change, undefined);
@@ -522,7 +510,7 @@ describe('update-binding', () => {
 		assert.strictEqual(sourceCode, `const { Buffer } = require("buffer");`);
 	});
 
-	it('Should remove entire require when property access exists require statement', () => {
+	it("Should remove entire require when property access exists require statement", () => {
 		const code = dedent`
 			const SlowBuffer = require("buffer").SlowBuffer;
 		`;
@@ -532,12 +520,12 @@ describe('update-binding', () => {
 
 		const requireStatement = node.find({
 			rule: {
-				kind: 'lexical_declaration',
+				kind: "lexical_declaration",
 			},
 		});
 
 		const change = updateBinding(requireStatement!, {
-			old: 'SlowBuffer',
+			old: "SlowBuffer",
 		});
 
 		assert.notEqual(change, undefined);
@@ -556,7 +544,7 @@ describe('update-binding', () => {
 		});
 	});
 
-	it('If named import already exists it just needs to remove the old reference', () => {
+	it("If named import already exists it just needs to remove the old reference", () => {
 		const code = dedent`
 			const { SlowBuffer, Buffer } = require("buffer");
 		`;
@@ -566,13 +554,13 @@ describe('update-binding', () => {
 
 		const requireStatement = node.find({
 			rule: {
-				kind: 'lexical_declaration',
+				kind: "lexical_declaration",
 			},
 		});
 
 		const change = updateBinding(requireStatement!, {
-			old: 'SlowBuffer',
-			new: 'Buffer',
+			old: "SlowBuffer",
+			new: "Buffer",
 		});
 
 		assert.notEqual(change, undefined);
@@ -583,7 +571,7 @@ describe('update-binding', () => {
 		assert.strictEqual(sourceCode, `const { Buffer } = require("buffer");`);
 	});
 
-	it('When oldBinding is not passed, should create new binding in require', () => {
+	it("When oldBinding is not passed, should create new binding in require", () => {
 		const code = dedent`
 			const { SlowBuffer } = require("buffer");
 		`;
@@ -593,12 +581,12 @@ describe('update-binding', () => {
 
 		const requireStatement = node.find({
 			rule: {
-				kind: 'lexical_declaration',
+				kind: "lexical_declaration",
 			},
 		});
 
 		const change = updateBinding(requireStatement!, {
-			new: 'Buffer',
+			new: "Buffer",
 		});
 
 		assert.notEqual(change, undefined);
@@ -606,13 +594,10 @@ describe('update-binding', () => {
 
 		const sourceCode = node.commitEdits([change?.edit!]);
 
-		assert.strictEqual(
-			sourceCode,
-			`const { SlowBuffer, Buffer } = require("buffer");`,
-		);
+		assert.strictEqual(sourceCode, `const { SlowBuffer, Buffer } = require("buffer");`);
 	});
 
-	it('When oldBinding is not passed, should create new binding in import', () => {
+	it("When oldBinding is not passed, should create new binding in import", () => {
 		const code = dedent`
 			import { SlowBuffer } from 'buffer';
 		`;
@@ -622,12 +607,93 @@ describe('update-binding', () => {
 
 		const requireStatement = node.find({
 			rule: {
-				kind: 'import_statement',
+				kind: "import_statement",
 			},
 		});
 
 		const change = updateBinding(requireStatement!, {
-			new: 'Buffer',
+			new: "Buffer",
+		});
+
+		assert.notEqual(change, undefined);
+		assert.strictEqual(change?.lineToRemove, undefined);
+
+		const sourceCode = node.commitEdits([change?.edit!]);
+
+		assert.strictEqual(sourceCode, `import { SlowBuffer, Buffer } from 'buffer';`);
+	});
+
+	it("Should replace one binding with multiple bindings in require statement", () => {
+		const code = dedent`
+			const { fips } = require('node:crypto');
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root() as SgNode<Js>;
+
+		const requireStatement = node.find({
+			rule: {
+				kind: "lexical_declaration",
+			},
+		});
+
+		const change = updateBinding(requireStatement!, {
+			old: "fips",
+			new: ["getFips", "setFips"],
+		});
+
+		assert.notEqual(change, undefined);
+		assert.strictEqual(change?.lineToRemove, undefined);
+
+		const sourceCode = node.commitEdits([change?.edit!]);
+
+		assert.strictEqual(sourceCode, `const { getFips, setFips } = require('node:crypto');`);
+	});
+
+	it("Should replace one binding with multiple bindings in import statement", () => {
+		const code = dedent`
+			import { fips } from 'node:crypto';
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root() as SgNode<Js>;
+
+		const importStatement = node.find({
+			rule: {
+				kind: "import_statement",
+			},
+		});
+
+		const change = updateBinding(importStatement!, {
+			old: "fips",
+			new: ["getFips", "setFips"],
+		});
+
+		assert.notEqual(change, undefined);
+		assert.strictEqual(change?.lineToRemove, undefined);
+
+		const sourceCode = node.commitEdits([change?.edit!]);
+
+		assert.strictEqual(sourceCode, `import { getFips, setFips } from 'node:crypto';`);
+	});
+
+	it("Should replace one binding with multiple bindings while preserving other imports", () => {
+		const code = dedent`
+			const { fips, randomBytes } = require('node:crypto');
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root() as SgNode<Js>;
+
+		const requireStatement = node.find({
+			rule: {
+				kind: "lexical_declaration",
+			},
+		});
+
+		const change = updateBinding(requireStatement!, {
+			old: "fips",
+			new: ["getFips", "setFips"],
 		});
 
 		assert.notEqual(change, undefined);
@@ -637,7 +703,63 @@ describe('update-binding', () => {
 
 		assert.strictEqual(
 			sourceCode,
-			`import { SlowBuffer, Buffer } from 'buffer';`,
+			`const { randomBytes, getFips, setFips } = require('node:crypto');`,
+		);
+	});
+
+	it("Should not add duplicate bindings when some already exist", () => {
+		const code = dedent`
+			const { fips, getFips } = require('node:crypto');
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root() as SgNode<Js>;
+
+		const requireStatement = node.find({
+			rule: {
+				kind: "lexical_declaration",
+			},
+		});
+
+		const change = updateBinding(requireStatement!, {
+			old: "fips",
+			new: ["getFips", "setFips"],
+		});
+
+		assert.notEqual(change, undefined);
+		assert.strictEqual(change?.lineToRemove, undefined);
+
+		const sourceCode = node.commitEdits([change?.edit!]);
+
+		assert.strictEqual(sourceCode, `const { getFips, setFips } = require('node:crypto');`);
+	});
+
+	it("Should add multiple new bindings when oldBinding is not passed", () => {
+		const code = dedent`
+			const { randomBytes } = require('node:crypto');
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root() as SgNode<Js>;
+
+		const requireStatement = node.find({
+			rule: {
+				kind: "lexical_declaration",
+			},
+		});
+
+		const change = updateBinding(requireStatement!, {
+			new: ["getFips", "setFips"],
+		});
+
+		assert.notEqual(change, undefined);
+		assert.strictEqual(change?.lineToRemove, undefined);
+
+		const sourceCode = node.commitEdits([change?.edit!]);
+
+		assert.strictEqual(
+			sourceCode,
+			`const { randomBytes, getFips, setFips } = require('node:crypto');`,
 		);
 	});
 });
