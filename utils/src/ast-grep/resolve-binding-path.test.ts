@@ -193,7 +193,7 @@ describe("resolve-binding-path", () => {
 		assert.strictEqual(bindingPath, "nativeErrorCheck");
 	});
 
-	it("generateshould handle complex path resolution with longer dotted paths", () => {
+	it("should handle complex path resolution with longer dotted paths", () => {
 		const code = dedent`
 			const util = require('node:util');
 		`;
