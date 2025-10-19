@@ -193,6 +193,39 @@ function handleNamedImportBindings(
 			});
 
 			if (options?.new) {
+				// Handling many-to-many aliased imports
+				if (Array.isArray(options.new)) {
+					const allSpecifiers = [
+						...namedImports,
+						...aliasedImports.map((a) => a.parent()),
+					];
+					const newImports: string[] = [];
+					const newBindingsToAdd = new Set(options.new);
+
+					for (const spec of allSpecifiers) {
+						if (spec.text() === renamedImport.parent().text()) {
+							continue;
+						}
+
+						const specText = spec
+							.find({ rule: { kind: 'identifier' } })
+							?.text();
+						if (specText && newBindingsToAdd.has(specText)) {
+							newBindingsToAdd.delete(specText);
+						}
+
+						newImports.push(spec.text());
+					}
+
+					for (const newBinding of newBindingsToAdd) {
+						newImports.push(newBinding);
+					}
+
+					return {
+						edit: namedImportsNode.replace(`{ ${newImports.join(', ')} }`),
+					};
+				}
+
 				for (const renamedImport of aliasedImports) {
 					if (renamedImport.text() === options.old) {
 						const importName = renamedImport.parent().find({
@@ -203,12 +236,8 @@ function handleNamedImportBindings(
 								},
 							},
 						});
-						// Aliased imports can only be replaced with a single binding
-						const newName = Array.isArray(options.new)
-							? options.new[0]
-							: options.new;
 						return {
-							edit: importName.replace(newName),
+							edit: importName.replace(options.new),
 						};
 					}
 				}
@@ -327,10 +356,15 @@ function updateObjectPattern(
 			break;
 		}
 
-		// For pair_pattern, check the key instead of the whole text
 		if (previous.kind() === 'pair_pattern') {
 			const keyNode = previous.find({ rule: { kind: 'property_identifier' } });
-			if (keyNode?.text() === oldBinding) {
+			const valueNode = previous.find({
+				rule: {
+					kind: 'identifier',
+					inside: { kind: 'pair_pattern' },
+				},
+			});
+			if (keyNode?.text() === oldBinding || valueNode?.text() === oldBinding) {
 				parentNode = previous.parent();
 				break;
 			}
@@ -364,7 +398,6 @@ function updateObjectPattern(
 		},
 	});
 
-	// Track which new bindings need to be added
 	const newBindings = Array.isArray(newBinding)
 		? newBinding
 		: newBinding
@@ -373,29 +406,31 @@ function updateObjectPattern(
 	const bindingsToAdd = new Set(newBindings);
 
 	for (const binding of bindings) {
-		// For pair_pattern (aliased requires like { fips: alias }), check the key
 		if (binding.kind() === 'pair_pattern') {
 			const keyNode = binding.find({ rule: { kind: 'property_identifier' } });
+			const valueNode = binding.find({
+				rule: {
+					kind: 'identifier',
+					inside: { kind: 'pair_pattern' },
+				},
+			});
 			const key = keyNode?.text();
+			const value = valueNode?.text();
 
-			if (key === oldBinding) {
-				// Skip this binding as it's being replaced
+			if (key === oldBinding || value === oldBinding) {
 				continue;
 			}
 
-			// Check if any of the new bindings already exist as keys
 			if (key && bindingsToAdd.has(key)) {
 				bindingsToAdd.delete(key);
 			}
 
 			newObjectPattern.push(binding.text());
 		} else {
-			// For shorthand patterns and import specifiers
 			if (binding.text() === oldBinding) {
 				continue;
 			}
 
-			// If this binding already exists, don't add it again
 			if (bindingsToAdd.has(binding.text())) {
 				bindingsToAdd.delete(binding.text());
 			}
@@ -404,7 +439,6 @@ function updateObjectPattern(
 		}
 	}
 
-	// Add any remaining new bindings that weren't already present
 	for (const bindingToAdd of bindingsToAdd) {
 		newObjectPattern.push(bindingToAdd);
 	}
