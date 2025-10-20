@@ -16,7 +16,7 @@
   "license": "MIT",
   "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/process-main-module/README.md",
   "devDependencies": {
-    "@codemod.com/jssg-types": "^1.0.3"
+    "@codemod.com/jssg-types": "^1.0.9"
   },
   "dependencies": {
     "@nodejs/codemod-utils": "*"

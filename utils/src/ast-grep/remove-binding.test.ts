@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 import astGrep from "@ast-grep/napi";
 import dedent from "dedent";
 import { removeBinding } from "./remove-binding.ts";
+import type Js from "@codemod.com/jssg-types/langs/javascript";
+import type { SgNode } from "@codemod.com/jssg-types/main";
 
 describe("remove-binding", () => {
 	it("should remove the entire require statement when the only imported binding is removed", () => {
@@ -11,7 +13,7 @@ describe("remove-binding", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const node = rootNode.root();
+		const node = rootNode.root() as SgNode<Js>;
 
 		const requireStatement = node.find({
 			rule: {
@@ -35,7 +37,7 @@ describe("remove-binding", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const node = rootNode.root();
+		const node = rootNode.root() as SgNode<Js>;
 
 		const requireStatement = node.find({
 			rule: {
@@ -55,7 +57,7 @@ describe("remove-binding", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const node = rootNode.root();
+		const node = rootNode.root() as SgNode<Js>;
 
 		const importStatement = node.find({
 			rule: {
@@ -79,7 +81,7 @@ describe("remove-binding", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const node = rootNode.root();
+		const node = rootNode.root() as SgNode<Js>;
 
 		const requireStatement = node.find({
 			rule: {
@@ -101,7 +103,7 @@ describe("remove-binding", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const node = rootNode.root();
+		const node = rootNode.root() as SgNode<Js>;
 
 		const requireStatement = node.find({
 			rule: {
@@ -125,7 +127,7 @@ describe("remove-binding", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const node = rootNode.root();
+		const node = rootNode.root() as SgNode<Js>;
 
 		const importStatement = node.find({
 			rule: {
@@ -149,7 +151,7 @@ describe("remove-binding", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const node = rootNode.root();
+		const node = rootNode.root() as SgNode<Js>;
 
 		const importStatement = node.find({
 			rule: {
@@ -169,7 +171,7 @@ describe("remove-binding", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const node = rootNode.root();
+		const node = rootNode.root() as SgNode<Js>;
 
 		const importStatement = node.find({
 			rule: {
@@ -193,7 +195,7 @@ describe("remove-binding", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const node = rootNode.root();
+		const node = rootNode.root() as SgNode<Js>;
 
 		const importStatement = node.find({
 			rule: {
@@ -212,7 +214,7 @@ describe("remove-binding", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const node = rootNode.root();
+		const node = rootNode.root() as SgNode<Js>;
 
 		const importStatement = node.find({
 			rule: {
@@ -236,7 +238,7 @@ describe("remove-binding", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const node = rootNode.root();
+		const node = rootNode.root() as SgNode<Js>;
 
 		const importStatement = node.find({
 			rule: {
@@ -258,7 +260,7 @@ describe("remove-binding", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const node = rootNode.root();
+		const node = rootNode.root() as SgNode<Js>;
 
 		const importStatement = node.find({
 			rule: {
@@ -277,7 +279,7 @@ describe("remove-binding", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const node = rootNode.root();
+		const node = rootNode.root() as SgNode<Js>;
 
 		const importStatement = node.find({
 			rule: {
@@ -301,7 +303,7 @@ describe("remove-binding", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const node = rootNode.root();
+		const node = rootNode.root() as SgNode<Js>;
 
 		const importStatement = node.find({
 			rule: {
@@ -323,7 +325,7 @@ describe("remove-binding", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const node = rootNode.root();
+		const node = rootNode.root() as SgNode<Js>;
 
 		const importStatement = node.find({
 			rule: {
@@ -337,5 +339,91 @@ describe("remove-binding", () => {
 		assert.notEqual(change, null);
 		assert.strictEqual(change?.lineToRemove, undefined);
 		assert.strictEqual(sourceCode, "import { diff as utilDiffs } from 'node:util';");
+	});
+
+	it("should remove only the specific import binding from nested destructuring when multiple bindings exist", () => {
+		const code = dedent`
+			const { types: { isNativeError, isMap } } = require("util");
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root() as SgNode<Js>;
+
+		const importStatement = node.find({
+			rule: {
+				kind: "lexical_declaration",
+			},
+		});
+
+		const change = removeBinding(importStatement!, "isNativeError");
+		const sourceCode = node.commitEdits([change?.edit!]);
+
+		assert.notEqual(change, null);
+		assert.strictEqual(change?.lineToRemove, undefined);
+		assert.strictEqual(sourceCode, `const { types: { isMap } } = require("util");`);
+	});
+
+	it("Should remove the line in member expression scenarios", () => {
+		const code = dedent`
+			const Buffer = require("buffer").Buffer;
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root() as SgNode<Js>;
+
+		const importStatement = node.find({
+			rule: {
+				kind: "lexical_declaration",
+			},
+		});
+
+		const change = removeBinding(importStatement!, "Buffer");
+
+		assert.notEqual(change, undefined);
+		assert.strictEqual(change?.edit, undefined);
+		assert.deepEqual(change?.lineToRemove, {
+			end: {
+				column: 40,
+				index: 40,
+				line: 0,
+			},
+			start: {
+				column: 0,
+				index: 0,
+				line: 0,
+			},
+		});
+	});
+
+	it("Should remove the line when the accessed property is different from the identifier", () => {
+		const code = dedent`
+			const Buffer = require("buffer").SlowBuffer
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root() as SgNode<Js>;
+
+		const importStatement = node.find({
+			rule: {
+				kind: "lexical_declaration",
+			},
+		});
+
+		const change = removeBinding(importStatement!, "Buffer");
+
+		assert.notEqual(change, undefined);
+		assert.strictEqual(change?.edit, undefined);
+		assert.deepEqual(change?.lineToRemove, {
+			end: {
+				column: 43,
+				index: 43,
+				line: 0,
+			},
+			start: {
+				column: 0,
+				index: 0,
+				line: 0,
+			},
+		});
 	});
 });
