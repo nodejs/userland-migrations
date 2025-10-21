@@ -1,12 +1,15 @@
 {
-    "editor.formatOnSave": true,
-    "javascript.updateImportsOnFileMove.enabled": "always",
-    "typescript.updateImportsOnFileMove.enabled": "always",
-    "editor.formatOnPaste": true,
-    "editor.wordWrap": "wordWrapColumn",
-    "editor.wordWrapColumn": 100,
-    "[markdown]": {
-        "editor.wordWrap": "off"
-    },
-    "typescript.experimental.useTsgo": true
+  "chat.mcp.gallery.enabled": true,
+  "chat.mcp.access": "all",
+  "chat.mcp.autostart": "newAndOutdated",
+  "editor.formatOnSave": true,
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "editor.formatOnPaste": true,
+  "editor.wordWrap": "wordWrapColumn",
+  "editor.wordWrapColumn": 100,
+  "[markdown]": {
+    "editor.wordWrap": "off"
+  },
+  "typescript.experimental.useTsgo": true
 }
