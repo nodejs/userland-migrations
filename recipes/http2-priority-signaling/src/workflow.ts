@@ -26,9 +26,10 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const linesToRemove: Range[] = [];
 
 	// Get all http2 imports/requires
-	const http2Imports = getNodeImportStatements(root, "http2");
-	const http2Requires = getNodeRequireCalls(root, "http2");
-	const http2Statements = [...http2Imports, ...http2Requires];
+	const http2Statements = [
+		...getNodeImportStatements(root, "http2"),
+		...getNodeRequireCalls(root, "http2")
+	];
 
 	if (!http2Statements.length) return null;
 
@@ -49,6 +50,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	if (!edits.length && linesToRemove.length === 0) return null;
 
 	const sourceCode = rootNode.commitEdits(edits);
+
 	return removeLines(sourceCode, linesToRemove);
 }
 
