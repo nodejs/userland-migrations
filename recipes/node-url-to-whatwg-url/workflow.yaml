@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/codemod-com/codemod/refs/heads/main/schemas/workflow.json
+
+version: "1"
+
+nodes:
+  - id: apply-transforms
+    name: Apply AST Transformations
+    type: automatic
+    runtime:
+      type: direct
+    steps:
+      - name: Handle DEPDEP0116 via transforming `url.parse` to `new URL()`
+        js-ast-grep:
+          js_file: src/url-parse.ts
+          base_path: .
+          include:
+            - "**/*.cjs"
+            - "**/*.cts"
+            - "**/*.js"
+            - "**/*.jsx"
+            - "**/*.mjs"
+            - "**/*.mts"
+            - "**/*.ts"
+            - "**/*.tsx"
+          exclude:
+            - "**/node_modules/**"
+          language: typescript
+      - name: Handle DEPDEP0116 via transforming `url.format` to `new URL().toString()`
+        js-ast-grep:
+          js_file: src/url-format.ts
+          base_path: .
+          include:
+            - "**/*.cjs"
+            - "**/*.cts"
+            - "**/*.js"
+            - "**/*.jsx"
+            - "**/*.mjs"
+            - "**/*.mts"
+            - "**/*.ts"
+            - "**/*.tsx"
+          exclude:
+            - "**/node_modules/**"
+          language: typescript
+      - name: Clean up import statements + require calls
+        js-ast-grep:
+          js_file: src/import-process.ts
+          base_path: .
+          include:
+            - "**/*.cjs"
+            - "**/*.cts"
+            - "**/*.js"
+            - "**/*.jsx"
+            - "**/*.mjs"
+            - "**/*.mts"
+            - "**/*.ts"
+            - "**/*.tsx"
+          exclude:
+            - "**/node_modules/**"
