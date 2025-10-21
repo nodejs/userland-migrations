@@ -218,13 +218,14 @@ export default function transform(root: SgRoot<Js>): string | null {
 				const parent = match.parent();
 				if (parent.kind() === 'subscript_expression') {
 					switch (parent.parent().kind()) {
-						case 'member_expression':
+						case 'member_expression': {
 							dirValues.push({
 								node: parent as SgNode<Js, 'subscript_expression'>,
 								scope: forScenario,
 							});
 							break;
-						case 'variable_declarator':
+						}
+						case 'variable_declarator': {
 							const dirVar = (
 								parent.parent() as SgNode<Js, 'variable_declarator'>
 							).field('name');
@@ -233,6 +234,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 								scope: forScenario,
 							});
 							break;
+						}
 					}
 				}
 			}
