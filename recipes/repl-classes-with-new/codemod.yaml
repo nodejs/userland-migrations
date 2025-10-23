@@ -2,7 +2,7 @@ schema_version: "1.0"
 name: "@nodejs/repl-classes-with-new"
 version: 1.0.0
 description: "Handle DEP0185: Instantiating node:repl classes without new"
-author: Augustin Mauroy
+author: GitHub Copilot
 license: MIT
 workflow: workflow.yaml
 category: migration
