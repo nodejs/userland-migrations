@@ -11,26 +11,6 @@ type BindingToReplace = {
 	variables: { bind: SgNode<Js>; scope: SgNode<Js> }[];
 };
 
-const handledFn = ['$.readdir', '$.readdirSync', '$.opendir'];
-
-const handledModules = ['fs', 'fs/promises'];
-
-const getScopeNode = (node: SgNode<Js>, customParent?: string) => {
-	let parentNode = node.parent();
-	while (parentNode !== null) {
-		switch (parentNode.kind()) {
-			case 'statement_block':
-			case 'program':
-			case customParent:
-				return parentNode;
-			default:
-				parentNode = parentNode.parent();
-		}
-	}
-
-	return parentNode;
-};
-
 type DirArray = {
 	node: SgNode<Js, 'variable_declarator'> | SgNode<Js, 'identifier'>;
 	scope: SgNode<Js>;
@@ -51,6 +31,27 @@ type DirValue = {
 type DirDestructuredValue = {
 	node: SgNode<Js, 'object_pattern'>;
 	scope: SgNode<Js>;
+};
+
+const handledFn = ['$.readdir', '$.readdirSync', '$.opendir'];
+
+const handledModules = ['fs', 'fs/promises'];
+
+const getScopeNode = (node: SgNode<Js>, customParent?: string) => {
+	let parentNode = node.parent();
+
+	while (parentNode !== null) {
+		switch (parentNode.kind()) {
+			case 'statement_block':
+			case 'program':
+			case customParent:
+				return parentNode;
+			default:
+				parentNode = parentNode.parent();
+		}
+	}
+
+	return parentNode;
 };
 
 /*
@@ -154,6 +155,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 					),
 				);
 
+			//if it had 3 params it means the third will be an callbackFn as fs.readdir, fs.opendir docs
 			if (params.length === 3) {
 				const arrowFn = params[2] as SgNode<Js, 'arrow_function'>;
 				if (arrowFn.kind() === 'arrow_function') {
@@ -179,6 +181,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 						.field('name')
 						.text()
 				: dirArray.node.text();
+
 		const forOfScenarios = dirArray.scope.findAll<'for_in_statement'>({
 			rule: {
 				kind: 'for_in_statement',
@@ -216,25 +219,19 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 			for (const match of matches) {
 				const parent = match.parent();
+
 				if (parent.kind() === 'subscript_expression') {
-					switch (parent.parent().kind()) {
-						case 'member_expression': {
-							dirValues.push({
-								node: parent as SgNode<Js, 'subscript_expression'>,
-								scope: forScenario,
-							});
-							break;
-						}
-						case 'variable_declarator': {
-							const dirVar = (
-								parent.parent() as SgNode<Js, 'variable_declarator'>
-							).field('name');
-							dirValues.push({
-								node: dirVar,
-								scope: forScenario,
-							});
-							break;
-						}
+					if (parent.parent().kind() === 'member_expression') {
+						dirValues.push({
+							node: parent as SgNode<Js, 'subscript_expression'>,
+							scope: forScenario,
+						});
+					}
+					if (parent.parent().kind() === 'variable_declarator') {
+						dirValues.push({
+							node: parent as SgNode<Js, 'subscript_expression'>,
+							scope: forScenario,
+						});
 					}
 				}
 			}
