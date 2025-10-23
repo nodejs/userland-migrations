@@ -1,0 +1,21 @@
+schema_version: "1.0"
+name: "@nodejs/repl-classes-with-new"
+version: 1.0.0
+description: "Handle DEP0185: Instantiating node:repl classes without new"
+author: GitHub Copilot
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+
+registry:
+  access: public
+  visibility: public
