@@ -228,8 +228,12 @@ export default function transform(root: SgRoot<Js>): string | null {
 						});
 					}
 					if (parent.parent().kind() === 'variable_declarator') {
+						const dirVar = (
+							parent.parent() as SgNode<Js, 'variable_declarator'>
+						).field('name');
+
 						dirValues.push({
-							node: parent as SgNode<Js, 'subscript_expression'>,
+							node: dirVar,
 							scope: forScenario,
 						});
 					}
