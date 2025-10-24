@@ -1,13 +1,13 @@
-import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
-import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
-import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
-import { updateBinding } from '@nodejs/codemod-utils/ast-grep/update-binding';
-import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
-import type { SgRoot, SgNode, Edit, Range } from '@codemod.com/jssg-types/main';
-import type Js from '@codemod.com/jssg-types/langs/javascript';
+import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
+import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
+import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
+import { updateBinding } from "@nodejs/codemod-utils/ast-grep/update-binding";
+import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
+import type { SgRoot, SgNode, Edit, Range } from "@codemod.com/jssg-types/main";
+import type Js from "@codemod.com/jssg-types/langs/javascript";
 
 type Binding = {
-	type: 'namespace' | 'destructured';
+	type: "namespace" | "destructured";
 	binding: string;
 	node: SgNode<Js>;
 };
@@ -17,11 +17,11 @@ type Binding = {
  * to the new crypto.getFips() and crypto.setFips() syntax.
  *
  * Handles:
- * 1. crypto.fips -> crypto.getFips()
- * 2. crypto.fips = value -> crypto.setFips(value)
- * 3. const { fips } = require("crypto") -> const { getFips, setFips } = require("crypto")
- * 4. import { fips } from "crypto" -> import { getFips, setFips } from "crypto")
- * 5. Aliased imports: { fips: alias } -> { getFips, setFips }
+ * 1. crypto.fips → crypto.getFips()
+ * 2. crypto.fips = value → crypto.setFips(value)
+ * 3. const { fips } = require("crypto") → const { getFips, setFips } = require("crypto")
+ * 4. import { fips } from "crypto" → import { getFips, setFips } from "crypto")
+ * 5. Aliased imports: { fips: alias } → { getFips, setFips }
  */
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
@@ -33,14 +33,14 @@ export default function transform(root: SgRoot<Js>): string | null {
 	if (bindings.length === 0) return null;
 
 	for (const binding of bindings) {
-		if (binding.type === 'namespace') {
+		if (binding.type === "namespace") {
 			edits.push(...transformNamespaceUsage(rootNode, binding.binding));
 		} else {
 			edits.push(...transformDestructuredUsage(rootNode, binding.binding));
 
 			const result = updateBinding(binding.node, {
 				old: binding.binding,
-				new: ['getFips', 'setFips'],
+				new: ["getFips", "setFips"],
 			});
 			if (result?.edit) {
 				edits.push(result.edit);
@@ -54,9 +54,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	if (edits.length === 0 && linesToRemove.length === 0) return null;
 
 	const sourceCode = rootNode.commitEdits(edits);
-	return linesToRemove.length > 0
-		? removeLines(sourceCode, linesToRemove)
-		: sourceCode;
+	return linesToRemove.length > 0 ? removeLines(sourceCode, linesToRemove) : sourceCode;
 }
 
 /**
@@ -64,24 +62,24 @@ export default function transform(root: SgRoot<Js>): string | null {
  */
 function collectCryptoFipsBindings(root: SgRoot<Js>): Binding[] {
 	const bindings: Binding[] = [];
-	const importNodes = getNodeImportStatements(root, 'crypto');
-	const requireNodes = getNodeRequireCalls(root, 'crypto');
+	const importNodes = getNodeImportStatements(root, "crypto");
+	const requireNodes = getNodeRequireCalls(root, "crypto");
 	const allStatements = [...importNodes, ...requireNodes];
 
 	for (const node of allStatements) {
-		const resolvedPath = resolveBindingPath(node, '$.fips');
+		const resolvedPath = resolveBindingPath(node, "$.fips");
 
 		if (!resolvedPath) continue;
 
-		if (resolvedPath.includes('.')) {
+		if (resolvedPath.includes(".")) {
 			bindings.push({
-				type: 'namespace',
-				binding: resolvedPath.slice(0, resolvedPath.lastIndexOf('.')),
+				type: "namespace",
+				binding: resolvedPath.slice(0, resolvedPath.lastIndexOf(".")),
 				node,
 			});
 		} else {
 			bindings.push({
-				type: 'destructured',
+				type: "destructured",
 				binding: resolvedPath,
 				node,
 			});
@@ -92,7 +90,7 @@ function collectCryptoFipsBindings(root: SgRoot<Js>): Binding[] {
 }
 
 /**
- * Transform namespace usage: crypto.fips -> crypto.getFips(), crypto.fips = val -> crypto.setFips(val)
+ * Transform namespace usage: crypto.fips → crypto.getFips(), crypto.fips = val → crypto.setFips(val)
  */
 function transformNamespaceUsage(rootNode: SgNode<Js>, base: string): Edit[] {
 	const edits: Edit[] = [];
@@ -102,11 +100,11 @@ function transformNamespaceUsage(rootNode: SgNode<Js>, base: string): Edit[] {
 	});
 
 	for (const assignment of assignments) {
-		const valueNode = assignment.getMatch('VALUE');
+		const valueNode = assignment.getMatch("VALUE");
 		if (valueNode) {
 			let value = valueNode.text();
 			value = value.replace(
-				new RegExp(`\\b${escapeRegExp(base)}\\.fips\\b`, 'g'),
+				new RegExp(`\\b${escapeRegExp(base)}\\.fips\\b`, "g"),
 				`${base}.getFips()`,
 			);
 			edits.push(assignment.replace(`${base}.setFips(${value})`));
@@ -118,9 +116,9 @@ function transformNamespaceUsage(rootNode: SgNode<Js>, base: string): Edit[] {
 			pattern: `${base}.fips`,
 			not: {
 				inside: {
-					kind: 'assignment_expression',
+					kind: "assignment_expression",
 					has: {
-						kind: 'member_expression',
+						kind: "member_expression",
 						pattern: `${base}.fips`,
 					},
 				},
@@ -136,12 +134,9 @@ function transformNamespaceUsage(rootNode: SgNode<Js>, base: string): Edit[] {
 }
 
 /**
- * Transform destructured usage: fips -> getFips(), fips = val -> setFips(val)
+ * Transform destructured usage: fips → getFips(), fips = val → setFips(val)
  */
-function transformDestructuredUsage(
-	rootNode: SgNode<Js>,
-	binding: string,
-): Edit[] {
+function transformDestructuredUsage(rootNode: SgNode<Js>, binding: string): Edit[] {
 	const edits: Edit[] = [];
 
 	const assignments = rootNode.findAll({
@@ -151,36 +146,33 @@ function transformDestructuredUsage(
 	});
 
 	for (const assignment of assignments) {
-		const valueNode = assignment.getMatch('VALUE');
+		const valueNode = assignment.getMatch("VALUE");
 		if (valueNode) {
 			let value = valueNode.text();
-			value = value.replace(
-				new RegExp(`\\b${escapeRegExp(binding)}\\b`, 'g'),
-				'getFips()',
-			);
+			value = value.replace(new RegExp(`\\b${escapeRegExp(binding)}\\b`, "g"), "getFips()");
 			edits.push(assignment.replace(`setFips(${value})`));
 		}
 	}
 
 	const reads = rootNode.findAll({
 		rule: {
-			kind: 'identifier',
+			kind: "identifier",
 			pattern: binding,
 			not: {
 				inside: {
 					any: [
 						{
-							kind: 'assignment_expression',
+							kind: "assignment_expression",
 							has: {
-								kind: 'identifier',
+								kind: "identifier",
 								pattern: binding,
 							},
 						},
-						{ kind: 'import_statement' },
-						{ kind: 'import_specifier' },
-						{ kind: 'named_imports' },
-						{ kind: 'object_pattern' },
-						{ kind: 'pair_pattern' },
+						{ kind: "import_statement" },
+						{ kind: "import_specifier" },
+						{ kind: "named_imports" },
+						{ kind: "object_pattern" },
+						{ kind: "pair_pattern" },
 					],
 				},
 			},
@@ -188,7 +180,7 @@ function transformDestructuredUsage(
 	});
 
 	for (const read of reads) {
-		edits.push(read.replace('getFips()'));
+		edits.push(read.replace("getFips()"));
 	}
 
 	return edits;
@@ -198,5 +190,5 @@ function transformDestructuredUsage(
  * Escape regexp special characters
  */
 function escapeRegExp(input: string): string {
-	return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
