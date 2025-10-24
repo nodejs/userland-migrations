@@ -1,4 +1,7 @@
-import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
+import {
+	getNodeImportCalls,
+	getNodeImportStatements,
+} from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 import { updateBinding } from "@nodejs/codemod-utils/ast-grep/update-binding";
@@ -62,9 +65,11 @@ export default function transform(root: SgRoot<Js>): string | null {
  */
 function collectCryptoFipsBindings(root: SgRoot<Js>): Binding[] {
 	const bindings: Binding[] = [];
-	const importNodes = getNodeImportStatements(root, "crypto");
-	const requireNodes = getNodeRequireCalls(root, "crypto");
-	const allStatements = [...importNodes, ...requireNodes];
+	const allStatements = [
+		...getNodeImportStatements(root, "crypto"),
+		...getNodeImportCalls(root, "crypto"),
+		...getNodeRequireCalls(root, "crypto"),
+	];
 
 	for (const node of allStatements) {
 		const resolvedPath = resolveBindingPath(node, "$.fips");
