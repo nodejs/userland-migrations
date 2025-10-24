@@ -24,7 +24,8 @@ type Binding = {
  * 2. crypto.fips = value → crypto.setFips(value)
  * 3. const { fips } = require("crypto") → const { getFips, setFips } = require("crypto")
  * 4. import { fips } from "crypto" → import { getFips, setFips } from "crypto")
- * 5. Aliased imports: { fips: alias } → { getFips, setFips }
+ * 5. const { fips } = await import("crypto") → const { getFips, setFips } = await import("crypto")
+ * 6. Aliased imports: { fips: alias } → { getFips, setFips }
  */
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
