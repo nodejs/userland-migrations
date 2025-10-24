@@ -1,5 +1,5 @@
 schema_version: "1.0"
-name: "@nodejs/crypto-fips"
+name: "@nodejs/crypto-fips-to-getFips"
 version: 1.0.0
 description: Handle DEP0093 via transforming `crypto.fips` to `crypto.getFips()` and `crypto.setFips()`
 author: Usman S.
