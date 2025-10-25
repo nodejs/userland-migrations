@@ -1,5 +1,8 @@
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
-import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import {
+	getNodeImportCalls,
+	getNodeImportStatements,
+} from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
 import { getScope } from '@nodejs/codemod-utils/ast-grep/get-scope';
@@ -55,6 +58,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	for (const mod of handledModules) {
 		importRequireStatement.push(...getNodeRequireCalls(root, mod));
 		importRequireStatement.push(...getNodeImportStatements(root, mod));
+		importRequireStatement.push(...getNodeImportCalls(root, mod));
 	}
 
 	if (!importRequireStatement.length) return null;
