@@ -2,6 +2,7 @@ import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call
 import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
+import { getScope } from '@nodejs/codemod-utils/ast-grep/get-scope';
 import type { Edit, Range, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 
@@ -36,23 +37,6 @@ type DirDestructuredValue = {
 const handledFn = ['$.readdir', '$.readdirSync', '$.opendir'];
 
 const handledModules = ['fs', 'fs/promises'];
-
-const getScopeNode = (node: SgNode<Js>, customParent?: string) => {
-	let parentNode = node.parent();
-
-	while (parentNode !== null) {
-		switch (parentNode.kind()) {
-			case 'statement_block':
-			case 'program':
-			case customParent:
-				return parentNode;
-			default:
-				parentNode = parentNode.parent();
-		}
-	}
-
-	return parentNode;
-};
 
 /*
  * Transforms `dirent.path` usage to `dirent.parentPath`.
@@ -131,7 +115,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 		});
 
 		for (const match of matches) {
-			dirArrays.push({ node: match, scope: getScopeNode(match) });
+			dirArrays.push({ node: match, scope: getScope(match) });
 		}
 
 		const functionCalls = rootNode.findAll<'call_expression'>({
@@ -257,7 +241,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 		});
 
 		for (const arrMethod of arrMethods) {
-			const stmt = getScopeNode(arrMethod, 'expression_statement');
+			const stmt = getScope(arrMethod, 'expression_statement');
 
 			const arrowFns = stmt.findAll({
 				rule: {
