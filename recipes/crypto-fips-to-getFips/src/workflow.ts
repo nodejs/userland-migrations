@@ -109,10 +109,7 @@ function transformNamespaceUsage(rootNode: SgNode<Js>, base: string): Edit[] {
 		const valueNode = assignment.getMatch("VALUE");
 		if (valueNode) {
 			let value = valueNode.text();
-			value = value.replace(
-				new RegExp(`\\b${escapeRegExp(base)}\\.fips\\b`, "g"),
-				`${base}.getFips()`,
-			);
+			value = value.replace(new RegExp(`\\b${base}\\.fips\\b`, "g"), `${base}.getFips()`);
 			edits.push(assignment.replace(`${base}.setFips(${value})`));
 		}
 	}
@@ -155,7 +152,7 @@ function transformDestructuredUsage(rootNode: SgNode<Js>, binding: string): Edit
 		const valueNode = assignment.getMatch("VALUE");
 		if (valueNode) {
 			let value = valueNode.text();
-			value = value.replace(new RegExp(`\\b${escapeRegExp(binding)}\\b`, "g"), "getFips()");
+			value = value.replace(new RegExp(`\\b${binding}\\b`, "g"), "getFips()");
 			edits.push(assignment.replace(`setFips(${value})`));
 		}
 	}
@@ -190,11 +187,4 @@ function transformDestructuredUsage(rootNode: SgNode<Js>, binding: string): Edit
 	}
 
 	return edits;
-}
-
-/**
- * Escape regexp special characters
- */
-function escapeRegExp(input: string): string {
-	return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
