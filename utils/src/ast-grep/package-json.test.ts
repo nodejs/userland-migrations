@@ -1,17 +1,17 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-import dedent from "dedent";
-import { parse } from "@ast-grep/napi";
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import dedent from 'dedent';
+import { parse } from '@ast-grep/napi';
 import {
 	getScriptsNode,
 	getNodeJsUsage,
 	replaceNodeJsArgs,
-	removeNodeJsArgs
-} from "./package-json.ts";
+	removeNodeJsArgs,
+} from './package-json.ts';
 
-describe("package-json utilities", () => {
-	describe("getScriptsNode", () => {
-		it("should get the scripts node", () => {
+describe('package-json utilities', () => {
+	describe('getScriptsNode', () => {
+		it('should get the scripts node', () => {
 			const input = dedent`
 				{
 					"scripts": {
@@ -26,7 +26,7 @@ describe("package-json utilities", () => {
 			assert.strictEqual(result.length, 1); // Number of children in the scripts node
 		});
 
-		it("should return empty array if any scripts is present", () => {
+		it('should return empty array if any scripts is present', () => {
 			const input = dedent`
 				{
 					"name": "example-package",
@@ -40,8 +40,8 @@ describe("package-json utilities", () => {
 		});
 	});
 
-	describe("getNodeJsUsage", () => {
-		it("should get Node.js usage in scripts", () => {
+	describe('getNodeJsUsage', () => {
+		it('should get Node.js usage in scripts', () => {
 			const input = dedent`
 				{
 					"scripts": {
@@ -54,10 +54,10 @@ describe("package-json utilities", () => {
 			const result = getNodeJsUsage(parse('json', input));
 
 			assert.strictEqual(result.length, 1);
-			assert.strictEqual(result[0].text(), "node script.js");
+			assert.strictEqual(result[0].text(), 'node script.js');
 		});
 
-		it("should not catch `node_modules`", () => {
+		it('should not catch `node_modules`', () => {
 			const input = dedent`
 				{
 					"scripts": {
@@ -70,56 +70,57 @@ describe("package-json utilities", () => {
 			const result = getNodeJsUsage(parse('json', input));
 
 			assert.strictEqual(result.length, 1);
-			assert.strictEqual(result[0].text(), "node another-script.js");
+			assert.strictEqual(result[0].text(), 'node another-script.js');
+		});
 
-	describe("removeNodeJsArgs", () => {
-		it("should remove a single Node.js arg in scripts", () => {
-			const input = dedent`
+		describe('removeNodeJsArgs', () => {
+			it('should remove a single Node.js arg in scripts', () => {
+				const input = dedent`
 				{
 					"scripts": {
 						"start": "node --trace-deprecation app.js"
 					}
 				}
 			`;
-			const root = parse('json', input);
+				const root = parse('json', input);
 
-			const edits = removeNodeJsArgs(root, ["--trace-deprecation"]);
+				const edits = removeNodeJsArgs(root, ['--trace-deprecation']);
 
-			assert.strictEqual(edits.length, 1);
-		});
+				assert.strictEqual(edits.length, 1);
+			});
 
-		it("should remove multiple args in one command", () => {
-			const input = dedent`
+			it('should remove multiple args in one command', () => {
+				const input = dedent`
 				{
 					"scripts": {
 						"start": "node --foo --bar app.js"
 					}
 				}
 			`;
-			const root = parse('json', input);
+				const root = parse('json', input);
 
-			const edits = removeNodeJsArgs(root, ["--foo", "--bar"]);
+				const edits = removeNodeJsArgs(root, ['--foo', '--bar']);
 
-			assert.strictEqual(edits.length, 2);
-		});
+				assert.strictEqual(edits.length, 2);
+			});
 
-		it("should handle node.exe commands too", () => {
-			const input = dedent`
+			it('should handle node.exe commands too', () => {
+				const input = dedent`
 				{
 					"scripts": {
 						"start": "node.exe --flag app.js"
 					}
 				}
 			`;
-			const root = parse('json', input);
+				const root = parse('json', input);
 
-			const edits = removeNodeJsArgs(root, ["--flag"]);
+				const edits = removeNodeJsArgs(root, ['--flag']);
 
-			assert.strictEqual(edits.length, 1);
-		});
+				assert.strictEqual(edits.length, 1);
+			});
 
-		it("should ignore scripts that do not use node (e.g., node_modules bins)", () => {
-			const input = dedent`
+			it('should ignore scripts that do not use node (e.g., node_modules bins)', () => {
+				const input = dedent`
 				{
 					"scripts": {
 						"start": "node_modules/.bin/some-tool",
@@ -127,31 +128,30 @@ describe("package-json utilities", () => {
 					}
 				}
 			`;
-			const root = parse('json', input);
+				const root = parse('json', input);
 
-			const edits = removeNodeJsArgs(root, ["script.js"]);
+				const edits = removeNodeJsArgs(root, ['script.js']);
 
-			assert.strictEqual(edits.length, 1);
-		});
+				assert.strictEqual(edits.length, 1);
+			});
 
-		it("should be a no-op when no args match", () => {
-			const input = dedent`
+			it('should be a no-op when no args match', () => {
+				const input = dedent`
 				{
 					"scripts": {
 						"start": "node app.js"
 					}
 				}
 			`;
-			const root = parse('json', input);
+				const root = parse('json', input);
 
-			const edits = removeNodeJsArgs(root, ["--not-present"]);
+				const edits = removeNodeJsArgs(root, ['--not-present']);
 
-			assert.strictEqual(edits.length, 0);
+				assert.strictEqual(edits.length, 0);
+			});
 		});
-	});
-		});
 
-		it("should catch `node.exe`", () => {
+		it('should catch `node.exe`', () => {
 			const input = dedent`
 				{
 					"scripts": {
@@ -164,10 +164,10 @@ describe("package-json utilities", () => {
 			const result = getNodeJsUsage(parse('json', input));
 
 			assert.strictEqual(result.length, 1);
-			assert.strictEqual(result[0].text(), "node.exe script.js");
+			assert.strictEqual(result[0].text(), 'node.exe script.js');
 		});
 
-		it("should return empty array if no Node.js usage is found", () => {
+		it('should return empty array if no Node.js usage is found', () => {
 			const input = dedent`
 				{
 					"scripts": {
@@ -182,7 +182,7 @@ describe("package-json utilities", () => {
 			assert.strictEqual(result.length, 0);
 		});
 
-		it("should not catch node in the key", () => {
+		it('should not catch node in the key', () => {
 			const input = dedent`
 				{
 					"scripts": {
@@ -197,8 +197,8 @@ describe("package-json utilities", () => {
 		});
 	});
 
-	describe("replaceNodeJsArgs", () => {
-		it("should replace a single Node.js arg in scripts", () => {
+	describe('replaceNodeJsArgs', () => {
+		it('should replace a single Node.js arg in scripts', () => {
 			const input = dedent`
 				{
 					"scripts": {
@@ -208,12 +208,14 @@ describe("package-json utilities", () => {
 			`;
 			const root = parse('json', input);
 
-			const edits = replaceNodeJsArgs(root, { "--trace-deprecation": "--trace-warnings" });
+			const edits = replaceNodeJsArgs(root, {
+				'--trace-deprecation': '--trace-warnings',
+			});
 
 			assert.strictEqual(edits.length, 1);
 		});
 
-		it("should replace multiple args in one command", () => {
+		it('should replace multiple args in one command', () => {
 			const input = dedent`
 				{
 					"scripts": {
@@ -223,12 +225,12 @@ describe("package-json utilities", () => {
 			`;
 			const root = parse('json', input);
 
-			const edits = replaceNodeJsArgs(root, { "--foo": "--x", "--bar": "--y" });
+			const edits = replaceNodeJsArgs(root, { '--foo': '--x', '--bar': '--y' });
 
 			assert.strictEqual(edits.length, 2);
 		});
 
-		it("should handle node.exe commands too", () => {
+		it('should handle node.exe commands too', () => {
 			const input = dedent`
 				{
 					"scripts": {
@@ -238,12 +240,12 @@ describe("package-json utilities", () => {
 			`;
 			const root = parse('json', input);
 
-			const edits = replaceNodeJsArgs(root, { "--flag": "--replaced" });
+			const edits = replaceNodeJsArgs(root, { '--flag': '--replaced' });
 
 			assert.strictEqual(edits.length, 1);
 		});
 
-		it("should ignore scripts that do not use node (e.g., node_modules bins)", () => {
+		it('should ignore scripts that do not use node (e.g., node_modules bins)', () => {
 			const input = dedent`
 				{
 					"scripts": {
@@ -254,12 +256,12 @@ describe("package-json utilities", () => {
 			`;
 			const root = parse('json', input);
 
-			const edits = replaceNodeJsArgs(root, { "script.js": "index.js" });
+			const edits = replaceNodeJsArgs(root, { 'script.js': 'index.js' });
 
 			assert.strictEqual(edits.length, 1);
 		});
 
-		it("should be a no-op when no args match", () => {
+		it('should be a no-op when no args match', () => {
 			const input = dedent`
 				{
 					"scripts": {
@@ -269,7 +271,7 @@ describe("package-json utilities", () => {
 			`;
 			const root = parse('json', input);
 
-			const edits = replaceNodeJsArgs(root, { "--not-present": "--new" });
+			const edits = replaceNodeJsArgs(root, { '--not-present': '--new' });
 
 			assert.strictEqual(edits.length, 0);
 		});

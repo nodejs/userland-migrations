@@ -1,0 +1,24 @@
+{
+  "name": "@nodejs/crypto-fips-to-getFips",
+  "version": "1.0.0",
+  "description": "Handle DEP0093 via transforming `crypto.fips` to `crypto.getFips()` and `crypto.setFips()`",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/crypto-fips-to-getFips",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "Usman S.",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/crypto-fips-to-getFips/README.md",
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.0.9"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
+  }
+}

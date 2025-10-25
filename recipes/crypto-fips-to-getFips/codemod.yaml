@@ -1,0 +1,21 @@
+schema_version: "1.0"
+name: "@nodejs/crypto-fips-to-getFips"
+version: 1.0.0
+description: Handle DEP0093 via transforming `crypto.fips` to `crypto.getFips()` and `crypto.setFips()`
+author: Usman S.
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+
+registry:
+  access: public
+  visibility: public

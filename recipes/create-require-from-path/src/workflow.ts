@@ -9,15 +9,15 @@ import type JS from "@codemod.com/jssg-types/langs/javascript";
  *
  * Handles:
  * 1. Updates import/require statements that import `createRequireFromPath`:
- *    - `const { createRequireFromPath } = require('module')` -> `const { createRequire } = require('module')`
- *    - `const { createRequireFromPath } = require('node:module')` -> `const { createRequire } = require('node:module')`
- *    - `import { createRequireFromPath } from 'module'` -> `import { createRequire } from 'module'`
- *    - `import { createRequireFromPath } from 'node:module'` -> `import { createRequire } from 'node:module'`
+ *    - `const { createRequireFromPath } = require('module')` → `const { createRequire } = require('module')`
+ *    - `const { createRequireFromPath } = require('node:module')` → `const { createRequire } = require('node:module')`
+ *    - `import { createRequireFromPath } from 'module'` → `import { createRequire } from 'module'`
+ *    - `import { createRequireFromPath } from 'node:module'` → `import { createRequire } from 'node:module'`
  *
  * 2. Updates variable declarations that use `createRequireFromPath`:
- *    - `const myRequire = createRequireFromPath(arg)` -> `const myRequire = createRequire(arg)`
- *    - `let myRequire = createRequireFromPath(arg)` -> `let myRequire = createRequire(arg)`
- *    - `var myRequire = createRequireFromPath(arg)` -> `var myRequire = createRequire(arg)`
+ *    - `const myRequire = createRequireFromPath(arg)` → `const myRequire = createRequire(arg)`
+ *    - `let myRequire = createRequireFromPath(arg)` → `let myRequire = createRequire(arg)`
+ *    - `var myRequire = createRequireFromPath(arg)` → `var myRequire = createRequire(arg)`
  *
  * 3. Preserves original variable names and declaration types.
  */
