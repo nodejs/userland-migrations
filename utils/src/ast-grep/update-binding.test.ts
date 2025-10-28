@@ -25,7 +25,7 @@ describe('update-binding', () => {
 			old: 'types',
 			new: 'newTypes',
 		});
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.notEqual(change, null);
 		assert.strictEqual(change?.lineToRemove, undefined);
@@ -53,9 +53,11 @@ describe('update-binding', () => {
 			old: 'types',
 			new: 'newTypes',
 		});
-		const sourceCode = node.commitEdits([change?.edit!]);
 
 		assert.notEqual(change, undefined);
+
+		const sourceCode = node.commitEdits([change.edit!]);
+
 		assert.strictEqual(change?.lineToRemove, undefined);
 		assert.strictEqual(
 			sourceCode,
@@ -107,7 +109,7 @@ describe('update-binding', () => {
 			old: 'types',
 			new: 'newTypes',
 		});
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.notEqual(change, null);
 		assert.strictEqual(change?.lineToRemove, undefined);
@@ -134,7 +136,7 @@ describe('update-binding', () => {
 		const change = updateBinding(requireStatement!, {
 			old: 'types',
 		});
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.notEqual(change, null);
 		assert.strictEqual(change?.lineToRemove, undefined);
@@ -237,7 +239,7 @@ describe('update-binding', () => {
 			old: 'utilTypes',
 			new: 'newTypes',
 		});
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.notEqual(change, null);
 		assert.strictEqual(change?.lineToRemove, undefined);
@@ -264,7 +266,7 @@ describe('update-binding', () => {
 		const change = updateBinding(importStatement!, {
 			old: 'utilTypes',
 		});
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.notEqual(change, null);
 		assert.strictEqual(change?.lineToRemove, undefined);
@@ -363,7 +365,7 @@ describe('update-binding', () => {
 			old: 'mainModule',
 			new: 'newMainModule',
 		});
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.notEqual(change, null);
 		assert.strictEqual(change?.lineToRemove, undefined);
@@ -414,7 +416,7 @@ describe('update-binding', () => {
 			old: 'util',
 			new: 'newUtil',
 		});
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.notEqual(change, null);
 		assert.strictEqual(change?.lineToRemove, undefined);
@@ -460,7 +462,7 @@ describe('update-binding', () => {
 		const change = updateBinding(importStatement!, {
 			old: 'utilTypes',
 		});
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.notEqual(change, null);
 		assert.strictEqual(change?.lineToRemove, undefined);
@@ -485,7 +487,7 @@ describe('update-binding', () => {
 			old: 'utilTypes',
 			new: 'newTypes',
 		});
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.notEqual(change, null);
 		assert.strictEqual(change?.lineToRemove, undefined);
@@ -517,7 +519,7 @@ describe('update-binding', () => {
 		assert.notEqual(change, undefined);
 		assert.strictEqual(change?.lineToRemove, undefined);
 
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.strictEqual(sourceCode, `const { Buffer } = require("buffer");`);
 	});
@@ -578,7 +580,7 @@ describe('update-binding', () => {
 		assert.notEqual(change, undefined);
 		assert.strictEqual(change?.lineToRemove, undefined);
 
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.strictEqual(sourceCode, `const { Buffer } = require("buffer");`);
 	});
@@ -604,7 +606,7 @@ describe('update-binding', () => {
 		assert.notEqual(change, undefined);
 		assert.strictEqual(change?.lineToRemove, undefined);
 
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.strictEqual(
 			sourceCode,
@@ -633,7 +635,7 @@ describe('update-binding', () => {
 		assert.notEqual(change, undefined);
 		assert.strictEqual(change?.lineToRemove, undefined);
 
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.strictEqual(
 			sourceCode,
@@ -663,7 +665,7 @@ describe('update-binding', () => {
 		assert.notEqual(change, undefined);
 		assert.strictEqual(change?.lineToRemove, undefined);
 
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.strictEqual(
 			sourceCode,
@@ -693,7 +695,7 @@ describe('update-binding', () => {
 		assert.notEqual(change, undefined);
 		assert.strictEqual(change?.lineToRemove, undefined);
 
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.strictEqual(
 			sourceCode,
@@ -723,7 +725,7 @@ describe('update-binding', () => {
 		assert.notEqual(change, undefined);
 		assert.strictEqual(change?.lineToRemove, undefined);
 
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.strictEqual(
 			sourceCode,
@@ -753,7 +755,7 @@ describe('update-binding', () => {
 		assert.notEqual(change, undefined);
 		assert.strictEqual(change?.lineToRemove, undefined);
 
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.strictEqual(
 			sourceCode,
@@ -782,7 +784,7 @@ describe('update-binding', () => {
 		assert.notEqual(change, undefined);
 		assert.strictEqual(change?.lineToRemove, undefined);
 
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.strictEqual(
 			sourceCode,
@@ -812,7 +814,7 @@ describe('update-binding', () => {
 		assert.notEqual(change, undefined);
 		assert.strictEqual(change?.lineToRemove, undefined);
 
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.strictEqual(
 			sourceCode,
@@ -842,7 +844,7 @@ describe('update-binding', () => {
 		assert.notEqual(change, undefined);
 		assert.strictEqual(change?.lineToRemove, undefined);
 
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.strictEqual(
 			sourceCode,
@@ -872,7 +874,7 @@ describe('update-binding', () => {
 		assert.notEqual(change, undefined);
 		assert.strictEqual(change?.lineToRemove, undefined);
 
-		const sourceCode = node.commitEdits([change?.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.strictEqual(
 			sourceCode,
