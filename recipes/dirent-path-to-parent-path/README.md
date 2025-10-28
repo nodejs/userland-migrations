@@ -39,7 +39,7 @@ for await (const dirent of dir) {
 }
 ```
 
-After:
+**After:**
 
 ```js
 import { opendir } from 'node:fs/promises';
