@@ -1,6 +1,6 @@
-# `util.log` DEP0178
+# `dirent.path` DEP0178
 
-This recipe transforms the usage of `dirent.path` to use `dirent.parentPath`.
+This codemod transforms the usage of `dirent.path` to use `dirent.parentPath`.
 
 See [DEP0178](https://nodejs.org/api/deprecations.html#DEP0178).
 
