@@ -1,7 +1,8 @@
 {
   "chat.mcp.gallery.enabled": true,
   "chat.mcp.access": "all",
-  "chat.mcp.autostart": "newAndOutdated",
+  // we don't want the chat to start automatically
+  "chat.mcp.autostart": "never",
   "editor.formatOnSave": true,
   "javascript.updateImportsOnFileMove.enabled": "always",
   "typescript.updateImportsOnFileMove.enabled": "always",
