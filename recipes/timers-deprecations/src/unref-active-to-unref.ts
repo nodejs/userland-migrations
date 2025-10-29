@@ -1,11 +1,75 @@
-import type { SgRoot } from '@codemod.com/jssg-types/main';
+import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
+import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
+import {
+	detectIndentUnit,
+	findParentStatement,
+	getLineIndent,
+	isSafeResourceTarget,
+} from './shared.ts';
+import type { Edit, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 
-/*
- * todo: Replace `timers._unrefActive()` with an unref'ed `setTimeout()` handle.
- */
-export default function transform(root: SgRoot<Js>): string | null {
-	root.root();
+const TARGET_METHOD = '_unrefActive';
 
-	return null;
+export default function transform(root: SgRoot<Js>): string | null {
+	const rootNode = root.root();
+	const sourceCode = rootNode.text();
+	const indentUnit = detectIndentUnit(sourceCode);
+	const edits: Edit[] = [];
+	const handledStatements = new Set<number>();
+
+	const importNodes = [
+		...getNodeRequireCalls(root, 'timers'),
+		...getNodeImportStatements(root, 'timers'),
+	];
+
+	for (const importNode of importNodes) {
+		const bindingPath = resolveBindingPath(importNode, `$.${TARGET_METHOD}`);
+		if (!bindingPath) continue;
+
+		const matches = rootNode.findAll({
+			rule: {
+				any: [
+					{ pattern: `${bindingPath}($RESOURCE)` },
+					{ pattern: `${bindingPath}($RESOURCE, $$$REST)` },
+				],
+			},
+		});
+
+		for (const match of matches) {
+			const resourceNode = match.getMatch('RESOURCE');
+			if (!resourceNode) continue;
+
+			if (!isSafeResourceTarget(resourceNode)) continue;
+
+			const statement = findParentStatement(match);
+			if (!statement) continue;
+
+			if (handledStatements.has(statement.id())) continue;
+			handledStatements.add(statement.id());
+
+			const indent = getLineIndent(sourceCode, statement.range().start.index);
+			const resourceText = resourceNode.text();
+			const childIndent = indent + indentUnit;
+			const innerIndent = childIndent + indentUnit;
+
+			const replacement =
+				`${indent}if (${resourceText}.timeout != null) {\n` +
+				`${childIndent}clearTimeout(${resourceText}.timeout);\n` +
+				`${indent}}\n\n` +
+				`${indent}${resourceText}.timeout = setTimeout(() => {\n` +
+				`${childIndent}if (typeof ${resourceText}._onTimeout === "function") {\n` +
+				`${innerIndent}${resourceText}._onTimeout();\n` +
+				`${childIndent}}\n` +
+				`${indent}}, ${resourceText}._idleTimeout);\n` +
+				`${indent}${resourceText}.timeout.unref?.();`;
+
+			edits.push(statement.replace(replacement));
+		}
+	}
+
+	if (!edits.length) return null;
+
+	return rootNode.commitEdits(edits);
 }
