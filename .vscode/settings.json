@@ -12,5 +12,8 @@
   "[markdown]": {
     "editor.wordWrap": "off"
   },
+  "[typescript][javascript]": {
+    "editor.defaultFormatter": "biomejs.biome"
+  },
   "typescript.experimental.useTsgo": true
 }
