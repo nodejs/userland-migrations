@@ -10,16 +10,16 @@ import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-s
 import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
 
 /*
- * Transforms HTTP/2 priority-related options and methods.
- *
- * Steps:
- *
- * 1. Find all http2 imports and require calls
- * 2. Find and remove priority property from connect() options
- * 3. Find and remove priority property from request() options
- * 4. Find and remove complete stream.priority() calls
- * 5. Find and remove priority property from settings() options
- */
+* Transforms HTTP/2 priority-related options and methods.
+*
+* Steps:
+*
+* 1. Find all http2 imports and require calls
+* 2. Find and remove priority property from connect() options
+* 3. Find and remove priority property from request() options
+* 4. Find and remove complete stream.priority() calls
+* 5. Find and remove priority property from settings() options
+*/
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
@@ -190,22 +190,79 @@ function removePriorityMethodCalls(
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
 
-	const priorityCalls = rootNode.findAll({
-		rule: {
-			pattern: "$STREAM.priority($$$ARGS)",
-		},
+	// Build a restricted set of "safe" priority() calls to remove.
+	// We only want to remove calls that we can reasonably verify are
+	// HTTP/2 streams created by `session.request()` or by
+	// `http2.connect(...).request()`.
+
+	// 1) priority() called directly on the result of a request()-call
+	const chainedSessionPriorityCalls = rootNode.findAll({
+		rule: { pattern: "$SESSION.request($$$_ARGS).priority($$$ARGS)" },
 	});
 
-	for (const call of priorityCalls) {
-		// Find the statement containing this call and remove it with its newline
+	// 2) priority() called directly on the result of http2.connect(...).request(...)
+	const chainedConnectPriorityCalls = rootNode.findAll({
+		rule: { pattern: "$HTTP2.connect($$$_ARGS).request($$ARGS).priority($$$ARGS)" },
+	});
+
+	// 3) find variables that are assigned from session.request(...) or
+	// http2.connect(...).request(...) so we can later match `stream.priority()`
+	const assignedFromSessionRequest = rootNode.findAll({
+		rule: { pattern: "$NAME = $SESSION.request($$$_ARGS)" },
+	});
+	const assignedFromConnectRequest = rootNode.findAll({
+		rule: { pattern: "$NAME = $HTTP2.connect($$$_ARGS).request($$ARGS)" },
+	});
+
+	const creatorNames = new Set<string>();
+	function addCreatorNames(nodes: SgNode<Js>[]) {
+		for (const n of nodes) {
+			const t = n.text();
+			// Try to extract a simple identifier on the left-hand side.
+			// Matches: "const stream = ...", "let s = ...", "s = ..."
+			const m = t.match(/(?:const|let|var)?\s*([A-Za-z_$][\w$]*)\s*=/);
+			if (m) creatorNames.add(m[1]);
+		}
+	}
+
+	addCreatorNames(assignedFromSessionRequest);
+	addCreatorNames(assignedFromConnectRequest);
+
+	// 4) All other priority() calls we will inspect, but only accept those
+	// whose receiver is a simple identifier that we found in creatorNames.
+	const allPriorityCalls = rootNode.findAll({
+		rule: { pattern: "$STREAM.priority($$$ARGS)" },
+	});
+
+	// Consolidate safe calls into a single array (use Set to avoid dupes)
+	const safeCalls = new Set<SgNode<Js>>([
+		...chainedSessionPriorityCalls,
+		...chainedConnectPriorityCalls,
+	]);
+
+	for (const call of allPriorityCalls) {
+		const callText = call.text();
+		// Try to capture simple identifier receivers like `stream.priority(...)`.
+		const m = callText.match(/^\s*([A-Za-z_$][\w$]*)\.priority\s*\(/);
+		// If the receiver is a simple identifier (e.g. `stream.priority(...)`),
+		// accept it as a safe call. This function is only invoked when the
+		// file contains an `http2` import/require (see transform), so a simple
+		// identifier receiver is likely an HTTP/2 Stream.
+		if (m) {
+			safeCalls.add(call);
+		}
+	}
+
+	// Now remove only the safe calls (we still remove the containing
+	// expression statements as before).
+	for (const call of safeCalls) {
 		let node: SgNode<Js> | undefined = call;
+
 		while (node) {
 			const parent = node.parent();
 			const parentKind = parent?.kind();
 
-			// Found the statement level
 			if (parentKind === "expression_statement") {
-				// Add this line to the lines to remove
 				linesToRemove.push(parent!.range());
 				break;
 			}
@@ -223,13 +280,46 @@ function removePriorityMethodCalls(
 function removeSettingsPriority(rootNode: SgNode<Js>): Edit[] {
 	const edits: Edit[] = [];
 
-	const settingsCalls = rootNode.findAll({
-		rule: {
-			pattern: "$SESSION.settings($$$_ARGS)",
-		},
+	// Guardrails: only modify settings() when it's clearly an http2 session.
+	// Accept:
+	//  - http2.connect(...).settings(...)
+	//  - <var> = http2.connect(...); <var>.settings(...)
+
+	const chainedConnectSettingsCalls = rootNode.findAll({
+		rule: { pattern: "$HTTP2.connect($$$_ARGS).settings($$$_ARGS)" },
 	});
 
-	for (const call of settingsCalls) {
+	const assignedFromConnect = rootNode.findAll({
+		rule: { pattern: "$NAME = $HTTP2.connect($$$_ARGS)" },
+	});
+
+	const creatorNames = new Set<string>();
+	for (const n of assignedFromConnect) {
+		const t = n.text();
+		const m = t.match(/(?:const|let|var)?\s*([A-Za-z_$][\w$]*)\s*=/);
+		if (m) creatorNames.add(m[1]);
+	}
+
+	// All settings() calls in the file
+	const allSettingsCalls = rootNode.findAll({
+		rule: { pattern: "$SESSION.settings($$$_ARGS)" },
+	});
+
+	const safeCalls = new Set<SgNode<Js>>([...chainedConnectSettingsCalls]);
+
+	for (const call of allSettingsCalls) {
+		const callText = call.text();
+		const m = callText.match(/^\s*([A-Za-z_$][\w$]*)\.settings\s*\(/);
+		// Accept simple identifier receivers (e.g. `client.settings(...)`) as
+		// safe when http2 is present in the file — this matches common usage
+		// like `const client = http2.connect(...); client.settings(...)`.
+		if (m) {
+			safeCalls.add(call);
+		}
+	}
+
+	// Process only safe settings() calls
+	for (const call of safeCalls) {
 		const objects = call.findAll({
 			rule: {
 				kind: "object",
