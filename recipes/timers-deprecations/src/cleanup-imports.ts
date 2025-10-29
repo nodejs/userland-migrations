@@ -137,7 +137,9 @@ function shouldRemoveEntireStatement(statement: SgNode<Js>): boolean {
 		})) {
 			propertyNames.add(shorthand.text());
 		}
-		for (const pair of objectPattern.findAll({ rule: { kind: 'pair_pattern' } })) {
+		for (const pair of objectPattern.findAll({
+			rule: { kind: 'pair_pattern' },
+		})) {
 			const property = pair.find({ rule: { kind: 'property_identifier' } });
 			if (!property) return false;
 			propertyNames.add(property.text());
@@ -166,7 +168,9 @@ function shouldRemoveEntireStatement(statement: SgNode<Js>): boolean {
 	if (defaultImport) return false;
 
 	let hasSpecifier = false;
-	for (const specifier of namedImports.findAll({ rule: { kind: 'import_specifier' } })) {
+	for (const specifier of namedImports.findAll({
+		rule: { kind: 'import_specifier' },
+	})) {
 		hasSpecifier = true;
 		const identifiers = specifier.findAll({ rule: { kind: 'identifier' } });
 		if (!identifiers.length) return false;
