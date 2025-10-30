@@ -1,4 +1,7 @@
-import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import {
+	getNodeImportStatements,
+	getNodeImportCalls,
+} from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import {
@@ -22,9 +25,11 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const importNodes = [
 		...getNodeRequireCalls(root, 'timers'),
 		...getNodeImportStatements(root, 'timers'),
+		...getNodeImportCalls(root, 'timers'),
 	];
 
 	for (const importNode of importNodes) {
+		if (importNode.kind() === 'expression_statement') continue;
 		const bindingPath = resolveBindingPath(importNode, `$.${TARGET_METHOD}`);
 		if (!bindingPath) continue;
 
@@ -52,7 +57,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 			const innerIndent = childIndent + indentUnit;
 
 			const replacement =
-				`${indent}${resourceText}._idleTimeout = ${timeoutText};\n` +
+				`${resourceText}._idleTimeout = ${timeoutText};\n` +
 				`${indent}${resourceText}.timeout = setTimeout(() => {\n` +
 				`${childIndent}if (typeof ${resourceText}._onTimeout === "function") {\n` +
 				`${innerIndent}${resourceText}._onTimeout();\n` +

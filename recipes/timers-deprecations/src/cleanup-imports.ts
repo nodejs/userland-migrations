@@ -1,6 +1,7 @@
 import {
 	getNodeImportStatements,
 	getDefaultImportIdentifier,
+	getNodeImportCalls,
 } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import {
 	getNodeRequireCalls,
@@ -28,9 +29,13 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const statements = [
 		...getNodeRequireCalls(root, 'timers'),
 		...getNodeImportStatements(root, 'timers'),
+		...getNodeImportCalls(root, 'timers'),
 	];
 
 	for (const statement of statements) {
+		if (statement.kind() === 'expression_statement') {
+			continue;
+		}
 		if (shouldRemoveEntireStatement(statement)) {
 			linesToRemove.push(statement.range());
 			continue;
@@ -124,6 +129,15 @@ function getNamespaceIdentifier(statement: SgNode<Js>): SgNode<Js> | null {
 		},
 	});
 	if (namespaceImport) return namespaceImport;
+
+	const dynamicImportIdentifier = statement.find({
+		rule: {
+			kind: 'identifier',
+			inside: { kind: 'variable_declarator' },
+			not: { inside: { kind: 'object_pattern' } },
+		},
+	});
+	if (dynamicImportIdentifier) return dynamicImportIdentifier;
 
 	return getDefaultImportIdentifier(statement);
 }
