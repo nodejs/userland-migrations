@@ -83,10 +83,12 @@ export default function transform(root: SgRoot<Js>): string | null {
 		}
 
 		if (edits.length > 0) {
-			// Update the import statement if any calls were transformed
+			// Update the import or require statements if any calls were transformed
 			if (statement.kind() === "import_statement") {
 				// Replace entire import statement
 				edits.push(statement.replace(`import { styleText } from "node:util";`));
+			} else {
+				edits.push(statement.replace(`{ styleText } = require("node:util")`));
 			}
 		}
 	}
