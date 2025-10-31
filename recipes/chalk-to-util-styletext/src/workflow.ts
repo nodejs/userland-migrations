@@ -102,6 +102,10 @@ export default function transform(root: SgRoot<Js>): string | null {
 // Helper function to extract chalk style methods from a member expression
 function extractChalkStyles(node: SgNode<Js>, chalkBinding: string): string[] {
 	const styles: string[] = [];
+	// Handle the difference in any property names between chalk and util.styleText
+	const COMPAT_MAP: Record<string, string> = {
+		overline: "overlined",
+	};
 
 	function traverse(node: SgNode<Js>): boolean {
 		const obj = node.field("object");
@@ -112,14 +116,14 @@ function extractChalkStyles(node: SgNode<Js>, chalkBinding: string): string[] {
 
 			if (obj.kind() === "identifier" && obj.text() === chalkBinding) {
 				// Base case: chalk.method
-				styles.push(propName);
+				styles.push(COMPAT_MAP[propName] || propName);
 
 				return true;
 			}
 
 			if (obj.kind() === "member_expression" && traverse(obj)) {
 				// Recursive case: chain.method
-				styles.push(propName);
+				styles.push(COMPAT_MAP[propName] || propName);
 
 				return true;
 			}
