@@ -1,3 +1,4 @@
+import { EOL } from 'node:os';
 import {
 	getNodeImportStatements,
 	getNodeImportCalls,
@@ -60,13 +61,13 @@ export default function transform(root: SgRoot<Js>): string | null {
 			const innerIndent = childIndent + indentUnit;
 
 			const replacement =
-				`if (${resourceText}.timeout != null) {\n` +
-				`${childIndent}clearTimeout(${resourceText}.timeout);\n` +
-				`${indent}}\n\n` +
-				`${indent}${resourceText}.timeout = setTimeout(() => {\n` +
-				`${childIndent}if (typeof ${resourceText}._onTimeout === "function") {\n` +
-				`${innerIndent}${resourceText}._onTimeout();\n` +
-				`${childIndent}}\n` +
+				`if (${resourceText}.timeout != null) {${EOL}` +
+				`${childIndent}clearTimeout(${resourceText}.timeout);${EOL}` +
+				`${indent}}${EOL}${EOL}` +
+				`${indent}${resourceText}.timeout = setTimeout(() => {${EOL}` +
+				`${childIndent}if (typeof ${resourceText}._onTimeout === "function") {${EOL}` +
+				`${innerIndent}${resourceText}._onTimeout();${EOL}` +
+				`${childIndent}}${EOL}` +
 				`${indent}}, ${resourceText}._idleTimeout);`;
 
 			edits.push(statement.replace(replacement));

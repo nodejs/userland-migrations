@@ -1,3 +1,4 @@
+import { EOL } from 'node:os';
 import {
 	getNodeImportStatements,
 	getNodeImportCalls,
@@ -56,7 +57,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 			const resourceText = resourceNode.text();
 
 			const replacement =
-				`clearTimeout(${resourceText}.timeout);\n` +
+				`clearTimeout(${resourceText}.timeout);${EOL}` +
 				`${indent}delete ${resourceText}.timeout;`;
 
 			edits.push(statement.replace(replacement));
