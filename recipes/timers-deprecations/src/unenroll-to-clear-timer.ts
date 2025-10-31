@@ -7,9 +7,9 @@ import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import {
 	findParentStatement,
-	getLineIndent,
 	isSafeResourceTarget,
-} from './shared.ts';
+} from '@nodejs/codemod-utils/ast-grep/general';
+import { getLineIndent } from '@nodejs/codemod-utils/ast-grep/indent';
 import type { Edit, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 

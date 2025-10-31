@@ -1,5 +1,4 @@
-import type { SgNode } from '@codemod.com/jssg-types/main';
-import type Js from '@codemod.com/jssg-types/langs/javascript';
+import { gcd } from '../math.ts';
 
 export function detectIndentUnit(source: string): string {
 	let tabIndent = '';
@@ -46,28 +45,4 @@ export function getLineIndent(source: string, index: number): string {
 	}
 
 	return indent;
-}
-
-export function findParentStatement(node: SgNode<Js>): SgNode<Js> | null {
-	for (const ancestor of node.ancestors()) {
-		if (ancestor.kind() === 'expression_statement') {
-			return ancestor;
-		}
-	}
-	return null;
-}
-
-export function isSafeResourceTarget(node: SgNode<Js>): boolean {
-	return node.is('identifier') || node.is('member_expression');
-}
-
-function gcd(a: number, b: number): number {
-	let x = Math.abs(a);
-	let y = Math.abs(b);
-	while (y !== 0) {
-		const temp = y;
-		y = x % y;
-		x = temp;
-	}
-	return x;
 }
