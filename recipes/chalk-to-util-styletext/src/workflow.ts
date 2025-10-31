@@ -103,6 +103,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 function extractChalkStyles(node: SgNode<Js>, chalkBinding: string): string[] {
 	const styles: string[] = [];
 	// Handle the difference in any property names between chalk and util.styleText
+	// TODO - how to handle chalk.visible which has no equivalent in util.styleText
 	const COMPAT_MAP: Record<string, string> = {
 		overline: "overlined",
 	};
