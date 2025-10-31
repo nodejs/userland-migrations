@@ -1,5 +1,8 @@
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
+import {
+	getNodeImportCalls,
+	getNodeImportStatements,
+} from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
 import type { Edit, Range, SgNode, SgRoot } from "@codemod.com/jssg-types/main";
@@ -20,6 +23,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const statements = [
 		...getNodeImportStatements(root, chalkBinding),
 		...getNodeRequireCalls(root, chalkBinding),
+		...getNodeImportCalls(root, chalkBinding),
 	];
 
 	if (!statements.length) return null;
@@ -86,8 +90,14 @@ export default function transform(root: SgRoot<Js>): string | null {
 			if (statement.kind() === "import_statement") {
 				// Replace entire import statement
 				edits.push(statement.replace(`import { styleText } from "node:util";`));
-			} else {
-				edits.push(statement.replace(`{ styleText } = require("node:util")`));
+			} else if (statement.kind() === "variable_declarator") {
+				// Handle dynamic ESM import
+				if (statement.field("value")?.kind() === "await_expression") {
+					edits.push(statement.replace(`{ styleText } = await import("node:util")`));
+				} else {
+					// Handle CommonJS require
+					edits.push(statement.replace(`{ styleText } = require("node:util")`));
+				}
 			}
 		}
 	}
