@@ -13,6 +13,7 @@ import type Js from "@codemod.com/jssg-types/langs/javascript";
  *
  * Examples:
  * - chalk.red("text") -> styleText("red", "text")
+ * - chalk.red.bold("text") -> styleText(["red", "bold"], "text")
  */
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
@@ -33,56 +34,69 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 		if (!binding) continue;
 
-		const calls = rootNode.findAll({
+		const chalkCalls = rootNode.findAll({
 			rule: {
-				kind: "call_expression",
-				has: {
-					field: "function",
-					kind: "member_expression",
-				},
+				any: [
+					// Pattern 1: single method calls: chalk.method(text)
+					{ pattern: `${binding}.$METHOD($TEXT)` },
+					// Pattern 2: chained method calls: chalk.method1.method2(text));
+					{
+						kind: "call_expression",
+						has: {
+							field: "function",
+							kind: "member_expression",
+						},
+					},
+				],
 			},
 		});
 
-		const transformedCalls: SgNode<Js>[] = [];
+		for (const call of chalkCalls) {
+			const methodMatch = call.getMatch("METHOD");
+			const textMatch = call.getMatch("TEXT");
 
-		for (const call of calls) {
-			const functionCall = call.field("function");
+			if (methodMatch && textMatch) {
+				// Pattern 1: chalk.method(text) -> styleText("method", text)
+				const method = methodMatch.text();
+				const text = textMatch.text();
+				const styleMethod = COMPAT_MAP[method] || method;
+				const replacement = `styleText("${styleMethod}", ${text})`;
 
-			if (!functionCall) {
-				continue;
-			}
-
-			const styles = extractChalkStyles(functionCall, chalkBinding);
-
-			if (styles.length === 0) continue;
-
-			// Get the first argument (the text passed to style)
-			const args = call.field("arguments");
-
-			if (!args) continue;
-
-			// Find all argument nodes
-			const argsList = args.children().filter((c) => {
-				const excluded = [",", "(", ")"];
-				return !excluded.includes(c.kind());
-			});
-
-			if (argsList.length === 0) continue;
-
-			const textArg = argsList[0].text();
-
-			let replacement: string;
-
-			if (styles.length === 1) {
-				replacement = `styleText("${styles[0]}", ${textArg})`;
+				edits.push(call.replace(replacement));
 			} else {
-				const stylesArray = `[${styles.map((s) => `"${s}"`).join(", ")}]`;
-				replacement = `styleText(${stylesArray}, ${textArg})`;
+				// Pattern 2: chalk.method1.method2(text) -> styleText(["method1", "method2"], text)
+				const functionExpr = call.field("function");
+
+				if (!functionExpr) continue;
+
+				const styles = extractChalkStyles(functionExpr, binding);
+
+				if (styles.length === 0) continue;
+
+				const args = call.field("arguments");
+
+				if (!args) continue;
+
+				const argsList = args.children().filter((c) => {
+					const excluded = [",", "(", ")"];
+					return !excluded.includes(c.kind());
+				});
+
+				if (argsList.length === 0) continue;
+
+				const textArg = argsList[0].text();
+
+				if (styles.length === 1) {
+					const replacement = `styleText("${styles[0]}", ${textArg})`;
+
+					edits.push(call.replace(replacement));
+				} else {
+					const stylesArray = `[${styles.map((s) => `"${s}"`).join(", ")}]`;
+					const replacement = `styleText(${stylesArray}, ${textArg})`;
+
+					edits.push(call.replace(replacement));
+				}
 			}
-
-			edits.push(call.replace(replacement));
-
-			transformedCalls.push(call);
 		}
 
 		if (edits.length > 0) {
@@ -109,14 +123,13 @@ export default function transform(root: SgRoot<Js>): string | null {
 	return removeLines(sourceCode, linesToRemove);
 }
 
-// Helper function to extract chalk style methods from a member expression
+// Compatibility mapping for chalk properties that differ in util.styleText
+const COMPAT_MAP: Record<string, string> = {
+	overline: "overlined",
+};
+
 function extractChalkStyles(node: SgNode<Js>, chalkBinding: string): string[] {
 	const styles: string[] = [];
-	// Handle the difference in any property names between chalk and util.styleText
-	// TODO - how to handle chalk.visible which has no equivalent in util.styleText
-	const COMPAT_MAP: Record<string, string> = {
-		overline: "overlined",
-	};
 
 	function traverse(node: SgNode<Js>): boolean {
 		const obj = node.field("object");
@@ -144,6 +157,5 @@ function extractChalkStyles(node: SgNode<Js>, chalkBinding: string): string[] {
 	}
 
 	traverse(node);
-
 	return styles;
 }
