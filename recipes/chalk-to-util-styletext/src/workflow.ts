@@ -50,12 +50,11 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 			const styles = extractChalkStyles(functionCall, chalkBinding);
 
-			if (styles.length === 0) {
-				continue;
-			}
+			if (styles.length === 0) continue;
 
 			// Get the first argument (the text passed to style)
 			const args = call.field("arguments");
+
 			if (!args) continue;
 
 			// Find all argument nodes
@@ -68,7 +67,6 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 			const textArg = argsList[0].text();
 
-			// Create the styleText replacement
 			let replacement: string;
 
 			if (styles.length === 1) {
@@ -79,6 +77,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 			}
 
 			edits.push(call.replace(replacement));
+
 			transformedCalls.push(call);
 		}
 
@@ -96,6 +95,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	if (!edits.length) return null;
 
 	const sourceCode = rootNode.commitEdits(edits);
+
 	return removeLines(sourceCode, linesToRemove);
 }
 
@@ -103,9 +103,9 @@ export default function transform(root: SgRoot<Js>): string | null {
 function extractChalkStyles(node: SgNode<Js>, chalkBinding: string): string[] {
 	const styles: string[] = [];
 
-	function traverse(n: SgNode<Js>): boolean {
-		const obj = n.field("object");
-		const prop = n.field("property");
+	function traverse(node: SgNode<Js>): boolean {
+		const obj = node.field("object");
+		const prop = node.field("property");
 
 		if (obj && prop && prop.kind() === "property_identifier") {
 			const propName = prop.text();
@@ -113,6 +113,14 @@ function extractChalkStyles(node: SgNode<Js>, chalkBinding: string): string[] {
 			if (obj.kind() === "identifier" && obj.text() === chalkBinding) {
 				// Base case: chalk.method
 				styles.push(propName);
+
+				return true;
+			}
+
+			if (obj.kind() === "member_expression" && traverse(obj)) {
+				// Recursive case: chain.method
+				styles.push(propName);
+
 				return true;
 			}
 		}
@@ -121,5 +129,6 @@ function extractChalkStyles(node: SgNode<Js>, chalkBinding: string): string[] {
 	}
 
 	traverse(node);
+
 	return styles;
 }
