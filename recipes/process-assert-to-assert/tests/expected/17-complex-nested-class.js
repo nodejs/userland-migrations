@@ -1,4 +1,4 @@
-import assert from "node:assert";
+// Unable to determine module type; please add the appropriate import for 'assert'
 class Validator {
   static validate(data) {
     assert(data, "Data is required");

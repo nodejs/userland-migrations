@@ -1,4 +1,4 @@
-import assert from "node:assert";
+// Unable to determine module type; please add the appropriate import for 'assert'
 function testFunction() {
   assert(condition, "Assertion inside function");
 
