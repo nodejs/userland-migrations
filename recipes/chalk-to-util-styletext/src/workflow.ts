@@ -4,7 +4,6 @@ import {
 	getNodeImportStatements,
 } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
-import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
 import type { Edit, Range, SgNode, SgRoot } from "@codemod.com/jssg-types/main";
 import type Js from "@codemod.com/jssg-types/langs/javascript";
 
@@ -12,21 +11,22 @@ import type Js from "@codemod.com/jssg-types/langs/javascript";
  * Transform function that converts chalk method calls to Node.js util.styleText calls.
  *
  * Examples:
- * - chalk.red("text") -> styleText("red", "text")
- * - chalk.red.bold("text") -> styleText(["red", "bold"], "text")
+ * - chalk.red("text") → styleText("red", "text")
+ * - chalk.red.bold("text") → styleText(["red", "bold"], "text")
  */
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
-	const linesToRemove: Range[] = [];
 	const chalkBinding = "chalk";
 
+	// This actually catches `node:chalk` import but we don't care as it shouldn't append
 	const statements = [
 		...getNodeImportStatements(root, chalkBinding),
 		...getNodeRequireCalls(root, chalkBinding),
 		...getNodeImportCalls(root, chalkBinding),
 	];
 
+	// If there aren't any imports then we don't process the file
 	if (!statements.length) return null;
 
 	for (const statement of statements) {
@@ -56,7 +56,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 			const textMatch = call.getMatch("TEXT");
 
 			if (methodMatch && textMatch) {
-				// Pattern 1: chalk.method(text) -> styleText("method", text)
+				// Pattern 1: chalk.method(text) → styleText("method", text)
 				const method = methodMatch.text();
 				const text = textMatch.text();
 				const styleMethod = COMPAT_MAP[method] || method;
@@ -64,7 +64,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 				edits.push(call.replace(replacement));
 			} else {
-				// Pattern 2: chalk.method1.method2(text) -> styleText(["method1", "method2"], text)
+				// Pattern 2: chalk.method1.method2(text) → styleText(["method1", "method2"], text)
 				const functionExpr = call.field("function");
 
 				if (!functionExpr) continue;
@@ -120,7 +120,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	const sourceCode = rootNode.commitEdits(edits);
 
-	return removeLines(sourceCode, linesToRemove);
+	return sourceCode;
 }
 
 // Compatibility mapping for chalk properties that differ in util.styleText
@@ -128,6 +128,10 @@ const COMPAT_MAP: Record<string, string> = {
 	overline: "overlined",
 };
 
+/**
+ * Traverses a member expression node to extract chained chalk styles.
+ * and returns a list of styles in the order they were called.
+ */
 function extractChalkStyles(node: SgNode<Js>, chalkBinding: string): string[] {
 	const styles: string[] = [];
 
@@ -157,5 +161,6 @@ function extractChalkStyles(node: SgNode<Js>, chalkBinding: string): string[] {
 	}
 
 	traverse(node);
+
 	return styles;
 }
