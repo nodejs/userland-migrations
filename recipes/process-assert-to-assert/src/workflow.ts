@@ -143,6 +143,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 				replaceRule.binding
 			) {
 				const objectNode = node.field('object');
+
 				if (objectNode) {
 					edits.push(objectNode.replace('assert'));
 				}
@@ -162,7 +163,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const alreadyRequiringAssert = getNodeRequireCalls(root, 'assert');
 	const alreadyImportingAssert = getNodeImportStatements(root, 'assert');
 
-	if (alreadyRequiringAssert.length && alreadyImportingAssert.length)
+	if (alreadyRequiringAssert.length || alreadyImportingAssert.length)
 		return sourceCode;
 
 	const usingRequire = rootNode.find({
@@ -180,16 +181,20 @@ export default function transform(root: SgRoot<JS>): string | null {
 			kind: 'import_statement',
 		},
 	});
+	const filename = root.filename();
+	const isCjsFile = filename.endsWith('.cjs');
+	const isMjsFile = filename.endsWith('.mjs');
 
-	const isCjsFile = root.filename().endsWith('.cjs');
-	const isMjsFile = root.filename().endsWith('.mjs');
+	// Prefer adding an ES module import when the file already uses ESM syntax
+	// (contains `import` statements) or is an `.mjs` file. This avoids injecting a
+	// CommonJS `require` into an ES module source (even if the file references
+	// `createRequire`).
+	if (usingImport || isMjsFile) {
+		return `import assert from "node:assert";${EOL}${sourceCode}`;
+	}
 
 	if (usingRequire || isCjsFile) {
 		return `const assert = require("node:assert");${EOL}${sourceCode}`;
-	}
-
-	if (usingImport || isMjsFile) {
-		return `import assert from "node:assert";${EOL}${sourceCode}`;
 	}
 
 	// @todo(AugustinMauroy): after codemod response of capabilities on workflow step
