@@ -7,7 +7,7 @@ nodes:
     name: Apply AST Transformations
     type: automatic
     steps:
-      - name: Handle DEP0100 via transforming `process.assert` to `assert`.
+      - name: Handle DEP0100 via transforming `process.assert` to `node:assert`.
         js-ast-grep:
           js_file: src/workflow.ts
           base_path: .

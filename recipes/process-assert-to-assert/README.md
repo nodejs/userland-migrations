@@ -1,8 +1,8 @@
-# `process.assert` DEP0100
+# `process.assert` to `node:assert` DEP0100
 
-This recipe transforms the usage of `process.assert` to use `assert` module.
+This recipe transforms the usage of `process.assert` to use `node:assert` module.
 
-See [DEP0100](https://github.com/nodejs/userland-migrations/issues/197).
+See [DEP0100](https://nodejs.org/api/deprecations.html#DEP0100).
 
 ## Example
 
