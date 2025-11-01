@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import astGrep from "@ast-grep/napi";
 import dedent from "dedent";
+import type Js from "@codemod.com/jssg-types/langs/javascript";
+import type { SgNode } from "@codemod.com/jssg-types/main";
 
 import { resolveBindingPath } from "./resolve-binding-path.ts";
 
@@ -12,7 +14,7 @@ describe("resolve-binding-path", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const importStatement = rootNode.root().find({
+		const importStatement = (rootNode.root() as SgNode<Js>).find({
 			rule: {
 				kind: "lexical_declaration",
 			},
@@ -23,13 +25,30 @@ describe("resolve-binding-path", () => {
 		assert.strictEqual(bindingPath, "util.types.isNativeError");
 	});
 
+	it("should be able to resolve binding path from namespace ESM import", () => {
+		const code = dedent`
+			import foo from "node:foo"
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const importStatement = (rootNode.root() as SgNode<Js>).find({
+			rule: {
+				kind: "import_statement",
+			},
+		});
+
+		const bindingPath = resolveBindingPath(importStatement!, "$.bar");
+
+		assert.strictEqual(bindingPath, "foo.bar");
+	});
+
 	it("should be able to solve binding path when destructuring happen", () => {
 		const code = dedent`
 			const { types } = require('node:util');
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const importStatement = rootNode.root().find({
+		const importStatement = (rootNode.root() as SgNode<Js>).find({
 			rule: {
 				kind: "variable_declarator",
 			},
@@ -46,7 +65,7 @@ describe("resolve-binding-path", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const requireStatement = rootNode.root().find({
+		const requireStatement = (rootNode.root() as SgNode<Js>).find({
 			rule: {
 				kind: "variable_declarator",
 			},
@@ -63,7 +82,7 @@ describe("resolve-binding-path", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const importStatement = rootNode.root().find({
+		const importStatement = (rootNode.root() as SgNode<Js>).find({
 			rule: {
 				kind: "variable_declarator",
 			},
@@ -80,7 +99,7 @@ describe("resolve-binding-path", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const functionDeclaration = rootNode.root().find({
+		const functionDeclaration = (rootNode.root() as SgNode<Js>).find({
 			rule: {
 				kind: "function_declaration",
 			},
@@ -95,7 +114,7 @@ describe("resolve-binding-path", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const importStatement = rootNode.root().find({
+		const importStatement = (rootNode.root() as SgNode<Js>).find({
 			rule: {
 				kind: "import_statement",
 			},
@@ -112,7 +131,7 @@ describe("resolve-binding-path", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const importStatement = rootNode.root().find({
+		const importStatement = (rootNode.root() as SgNode<Js>).find({
 			rule: {
 				kind: "import_statement",
 			},
@@ -129,7 +148,7 @@ describe("resolve-binding-path", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const importStatement = rootNode.root().find({
+		const importStatement = (rootNode.root() as SgNode<Js>).find({
 			rule: {
 				kind: "import_statement",
 			},
@@ -146,7 +165,7 @@ describe("resolve-binding-path", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const importStatement = rootNode.root().find({
+		const importStatement = (rootNode.root() as SgNode<Js>).find({
 			rule: {
 				kind: "import_statement",
 			},
@@ -163,7 +182,7 @@ describe("resolve-binding-path", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const requireStatement = rootNode.root().find({
+		const requireStatement = (rootNode.root() as SgNode<Js>).find({
 			rule: {
 				kind: "variable_declarator",
 			},
@@ -174,13 +193,13 @@ describe("resolve-binding-path", () => {
 		assert.strictEqual(bindingPath, "nativeErrorCheck");
 	});
 
-	it("generateshould handle complex path resolution with longer dotted paths", () => {
+	it("should handle complex path resolution with longer dotted paths", () => {
 		const code = dedent`
 			const util = require('node:util');
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const importStatement = rootNode.root().find({
+		const importStatement = (rootNode.root() as SgNode<Js>).find({
 			rule: {
 				kind: "lexical_declaration",
 			},
@@ -197,7 +216,7 @@ describe("resolve-binding-path", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const importStatement = rootNode.root().find({
+		const importStatement = (rootNode.root() as SgNode<Js>).find({
 			rule: {
 				kind: "import_statement",
 			},
@@ -214,7 +233,7 @@ describe("resolve-binding-path", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const requireStatement = rootNode.root().find({
+		const requireStatement = (rootNode.root() as SgNode<Js>).find({
 			rule: {
 				kind: "variable_declarator",
 			},
@@ -231,7 +250,7 @@ describe("resolve-binding-path", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const requireStatement = rootNode.root().find({
+		const requireStatement = (rootNode.root() as SgNode<Js>).find({
 			rule: {
 				kind: "variable_declarator",
 			},
@@ -248,7 +267,7 @@ describe("resolve-binding-path", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const requireStatement = rootNode.root().find({
+		const requireStatement = (rootNode.root() as SgNode<Js>).find({
 			rule: {
 				kind: "variable_declarator",
 			},
@@ -265,7 +284,8 @@ describe("resolve-binding-path", () => {
 		`;
 
 		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
-		const requireStatement = rootNode.root().find({
+
+		const requireStatement = (rootNode.root() as SgNode<Js>).find({
 			rule: {
 				kind: "variable_declarator",
 			},
@@ -274,5 +294,90 @@ describe("resolve-binding-path", () => {
 		const bindingPath = resolveBindingPath(requireStatement!, "$.types.isNativeError");
 
 		assert.strictEqual(bindingPath, "types.isNativeError");
+	});
+
+	it("should resolve correctly when have member-expression", () => {
+		const code = dedent`
+			const SlowBuffer = require('buffer').SlowBuffer;
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const requireStatement = (rootNode.root() as SgNode<Js>).find({
+			rule: {
+				kind: "variable_declarator",
+			},
+		});
+
+		const bindingPath = resolveBindingPath(requireStatement!, "$.SlowBuffer");
+
+		assert.strictEqual(bindingPath, "SlowBuffer");
+	});
+
+	it("should resolve correctly when there are multiple property accesses", () => {
+		const code = dedent`
+			const variable = require('buffer').a.b;
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const requireStatement = (rootNode.root() as SgNode<Js>).find({
+			rule: {
+				kind: "variable_declarator",
+			},
+		});
+
+		const bindingPath = resolveBindingPath(requireStatement!, "$.a.b");
+
+		assert.strictEqual(bindingPath, "variable");
+	});
+
+	it("should resolve correctly when there are multiple property accesses but not the entire path", () => {
+		const code = dedent`
+			const variable = require('buffer').a.b;
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const requireStatement = (rootNode.root() as SgNode<Js>).find({
+			rule: {
+				kind: "variable_declarator",
+			},
+		});
+
+		const bindingPath = resolveBindingPath(requireStatement!, "$.a.b.c.d.e");
+
+		assert.strictEqual(bindingPath, "variable.c.d.e");
+	});
+
+	it("should resolve correctly when there are multiple property accesses and destructuring", () => {
+		const code = dedent`
+			const { c: { d } } = require('buffer').a.b;
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const requireStatement = (rootNode.root() as SgNode<Js>).find({
+			rule: {
+				kind: "variable_declarator",
+			},
+		});
+
+		const bindingPath = resolveBindingPath(requireStatement!, "$.a.b.c.d.e");
+
+		assert.strictEqual(bindingPath, "d.e");
+	});
+
+	it("should resolve as undefined when property accesses is different than path to solve", () => {
+		const code = dedent`
+			const c = require('buffer').a.g.c;
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const requireStatement = (rootNode.root() as SgNode<Js>).find({
+			rule: {
+				kind: "variable_declarator",
+			},
+		});
+
+		const bindingPath = resolveBindingPath(requireStatement!, "$.a.b.c.d.e");
+
+		assert.strictEqual(bindingPath, undefined);
 	});
 });
