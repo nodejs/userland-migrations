@@ -1,7 +1,8 @@
 import { EOL } from 'node:os';
-import type { SgRoot, Edit, SgNode, Kinds, TypesMap } from "@codemod.com/jssg-types/main";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { getNodeImportCalls, getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
+import type { SgRoot, Edit, SgNode} from "@codemod.com/jssg-types/main";
+import type Js from "@codemod.com/jssg-types/langs/javascript";
 
 const newImportFunction = 'createSecureContext'
 const newImportModule = 'node:tls'
@@ -10,9 +11,9 @@ const oldImportModule = 'node:crypto'
 const newNamespace = 'tls';
 
 function handleNamespaceImport(
-    rootNode: SgRoot,
+    rootNode: SgRoot<Js>,
     localNamespace: string,
-    declaration: SgNode<TypesMap, Kinds<TypesMap>>,
+    declaration: SgNode<Js>,
     importType: 'require' | 'static' | 'dynamic-await'
 ): Edit[] {
     const usages = rootNode.root().findAll({
@@ -33,7 +34,7 @@ function handleNamespaceImport(
 
     const usageEdits = usages
         .map(usage => usage.field('function'))
-        .filter((func): func is SgNode<TypesMap, Kinds<TypesMap>> => Boolean(func))
+        .filter((func): func is SgNode<Js> => Boolean(func))
         .map(func => func.replace(`${newNamespace}.${newImportFunction}`));
 
     switch (importType) {
@@ -47,13 +48,13 @@ function handleNamespaceImport(
 }
 
 function handleDestructuredImport(
-    rootNode: SgRoot,
-    idNode: SgNode<TypesMap, Kinds<TypesMap>>,
-    declaration: SgNode<TypesMap, Kinds<TypesMap>>,
+    rootNode: SgRoot<Js>,
+    idNode: SgNode<Js>,
+    declaration: SgNode<Js>,
     importType: 'require' | 'static' | 'dynamic-await'
 ): Edit[] {
     let localFunctionName: string | null = null;
-    let targetSpecifierNode: SgNode | null = null;
+    let targetSpecifierNode: SgNode<Js> | null = null;
     let isAliased = false;
 
     const relevantSpecifiers = idNode.children().filter(
@@ -63,18 +64,22 @@ function handleDestructuredImport(
     );
 
     for (const spec of relevantSpecifiers) {
-        let keyNode: SgNode<TypesMap, Kinds<TypesMap>> | null = null;
-		let aliasNode: SgNode<TypesMap, Kinds<TypesMap>> | null = null;
+        let keyNode: SgNode<Js> | null = null;
+				let aliasNode: SgNode<Js> | null = null;
 
-        if (spec.kind() === 'import_specifier') {
-            keyNode = spec.field('name');
-            aliasNode = spec.field('alias');
-        } else if (spec.kind() === 'pair_pattern') {
-            keyNode = spec.field('key');
-            aliasNode = spec.field('value');
-        } else {
-            keyNode = spec;
-        }
+				switch (spec.kind()) {
+					case 'import_specifier':
+						keyNode = spec.field('name');
+						aliasNode = spec.field('alias');
+						break;
+					case 'pair_pattern':
+						keyNode = spec.field('key');
+						aliasNode = spec.field('value');
+						break;
+					case 'shorthand_property_identifier_pattern':
+						keyNode = spec;
+						break;
+				}
 
         if (keyNode?.text() === oldFunctionName) {
             targetSpecifierNode = spec;
@@ -135,7 +140,7 @@ function handleDestructuredImport(
     return [];
 }
 function findAndReplaceUsages(
-    rootNode: SgRoot,
+    rootNode: SgRoot<Js>,
     localFunctionName: string,
     newFunctionName: string,
     object: string | null = null
@@ -174,25 +179,28 @@ function findAndReplaceUsages(
 }
 
 function handleRequire(
-  statement: SgNode<TypesMap, Kinds<TypesMap>>,
-  rootNode: SgRoot,
+  statement: SgNode<Js>,
+  rootNode: SgRoot<Js>,
 ): Edit[] {
   const idNode = statement.child(0);
   const declaration = statement.parent();
+
   if (!idNode || !declaration) return [];
 
-  if (idNode.kind() === 'identifier')
+  const kind = idNode.kind();
+
+  if (kind === 'identifier')
     return handleNamespaceImport(rootNode, idNode.text(), declaration, 'require');
 
-  if (idNode.kind() === 'object_pattern')
+  if (kind === 'object_pattern')
     return handleDestructuredImport(rootNode, idNode, declaration, 'require');
 
   return [];
 }
 
 function handleStaticImport(
-  statement: SgNode<TypesMap, Kinds<TypesMap>>,
-  rootNode: SgRoot
+  statement: SgNode<Js>,
+  rootNode: SgRoot<Js>
 ): Edit[] {
   const importClause = statement.child(1);
   if (importClause?.kind() !== 'import_clause') return [];
@@ -256,8 +264,8 @@ function handleStaticImport(
 
 
 function handleDynamicImport(
-  statement: SgNode<TypesMap, Kinds<TypesMap>>,
-  rootNode: SgRoot,
+  statement: SgNode<Js>,
+  rootNode: SgRoot<Js>,
 ): Edit[] {
   const valueNode = statement.field('value');
   const idNode = statement.child(0);
@@ -301,7 +309,7 @@ function handleDynamicImport(
       c => c.kind() === 'pair_pattern' || c.kind() === 'shorthand_property_identifier_pattern'
     );
 
-    let targetSpecifier: SgNode | null = null;
+    let targetSpecifier: SgNode<Js> | null = null;
     let localFunctionName: string | null | undefined = null;
     let isAliased = false;
 
@@ -340,22 +348,20 @@ function handleDynamicImport(
   return [];
 }
 
-export default function transform(root: SgRoot): string | null {
+export default function transform(root: SgRoot<Js>): string | null {
   const rootNode = root.root();
   const allEdits: Edit[] = [];
-  const sources: [SgNode[] | undefined, (n: SgNode, r: SgRoot) => Edit[]][] = [
-    // @ts-ignore
+  const sources: [SgNode<Js>[] | undefined, (n: SgNode<Js>, r: SgRoot<Js>) => Edit[]][] = [
     [getNodeRequireCalls(root, 'crypto'), handleRequire],
-    // @ts-ignore
     [getNodeImportStatements(root, 'crypto'), handleStaticImport],
-    // @ts-ignore
     [getNodeImportCalls(root, 'crypto'), handleDynamicImport],
   ];
 
   for (const [nodes, handler] of sources) {
     for (const node of nodes || []) {
       const edits = handler(node, root);
-      if (edits.length) {
+
+			if (edits.length) {
         allEdits.push(...edits);
       }
     }
