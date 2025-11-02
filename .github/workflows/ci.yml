@@ -2,13 +2,14 @@
 
 # For more information see: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow
 
-name: CI
+name: Quality Assurance
 
 on:
   push:
     branches: ["*"]
     paths:
       - "recipes/**"
+      - "utils/**"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/*.yml"
@@ -16,6 +17,7 @@ on:
     branches: ["*"]
     paths:
       - "recipes/**"
+      - "utils/**"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/*.yml"
@@ -25,15 +27,23 @@ on:
       - reopened
       - synchronize
 
+permissions:
+  contents: read
+
 jobs:
   get-matrix:
-    name: Configure Node LTS environment matrix
+    name: Configure Node environment matrix
     runs-on: ubuntu-latest
 
     outputs:
       latest: ${{ steps.set-matrix.outputs.requireds }}
     steps:
-      - uses: ljharb/actions/node/matrix@main
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a # v2.13.1
+        with:
+          egress-policy: audit
+
+      - uses: ljharb/actions/node/matrix@7f214d8efdbdcefc96ad9689663ef387a195deec # main
         id: set-matrix
         with:
           versionsAsRoot: true
@@ -48,12 +58,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a # v2.13.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
           show-progress: false
-      - name: Set up Node.js LTS
-        uses: actions/setup-node@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           cache: "npm"
           check-latest: true
@@ -62,8 +77,59 @@ jobs:
       - run: node --run lint
       - run: node --run type-check
 
-  tests:
-    name: Unit, e2e, coverage
+  validate-yaml:
+    name: Validate YAML files
+
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a # v2.13.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Validate YAML files
+        run: yamllint -c .yamllint.yaml -f github ./
+
+  test:
+    name: Codemod JSSG tests
+
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+          - windows-latest
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a # v2.13.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+          show-progress: false
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          cache: "npm"
+          check-latest: true
+          node-version-file: ".nvmrc"
+      - run: npm ci
+      - run: node --run test
+
+  legacy-tests:
+    name: Run legacy tests
 
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
 
@@ -80,21 +146,24 @@ jobs:
           - windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a # v2.13.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
           show-progress: false
       - name: Set up Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           cache: "npm"
           check-latest: true
           node-version: ${{ matrix.node-version }}
       - run: npm ci
-      - name: Run recipe tests
-        run: >-
-          node
-          --run test
-          --test-coverage-lines=0.8
-          --test-reporter-destination=./coverage.lcov
-          --test-reporter=lcov
+      # Codemod has changed its paradigm, but there is still a recipe that uses the old one, which is why we run it alongside it.
+      # The old paradigm used node to run codemod, which is why we run it on several versions.
+      # REF: https://codemod.com/blog/new-codemod-cli
+      - name: Run legacy recipe tests
+        run: node --run test-legacy

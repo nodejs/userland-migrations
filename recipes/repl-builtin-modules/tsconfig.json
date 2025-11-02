@@ -3,7 +3,7 @@
     "allowImportingTsExtensions": true,
     "allowJs": true,
     "alwaysStrict": true,
-    "baseUrl": "./",
+    "baseUrl": "",
     "declaration": true,
     "declarationMap": true,
     "emitDeclarationOnly": true,
@@ -16,11 +16,8 @@
     "stripInternal": true,
     "target": "esnext"
   },
-  "include": ["./"],
+  "include": [""],
   "exclude": [
-    "node_modules",
-    "./node_modules",
-    "tests/expected/**",
-    "tests/input/**"
+    "tests/**"
   ]
 }
