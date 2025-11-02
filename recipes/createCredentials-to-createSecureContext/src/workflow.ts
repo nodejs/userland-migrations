@@ -8,6 +8,10 @@ import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-bindi
 import type { SgRoot, Edit, SgNode } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 
+type SourceHandler = (statement: SgNode<Js>, rootNode: SgRoot<Js>) => Edit[];
+
+type SourceTuple = [SgNode<Js>[], SourceHandler];
+
 const newImportFunction = 'createSecureContext';
 const newImportModule = 'node:tls';
 const oldFunctionName = 'createCredentials';
@@ -105,9 +109,8 @@ function handleRequire(statement: SgNode<Js>, rootNode: SgRoot<Js>): Edit[] {
 			return spec.text() !== oldFunctionName;
 		});
 
-		const aliasSeparator = ':'; // require uses object pattern alias
 		const newImportSpecifier = isAliased
-			? `{ ${newImportFunction}${aliasSeparator} ${resolved} }`
+			? `{ ${newImportFunction}: ${resolved} }`
 			: `{ ${newImportFunction} }`;
 		const newImportStatement = `const ${newImportSpecifier} = require('${newImportModule}');`;
 
@@ -161,9 +164,8 @@ function handleStaticImport(
 		);
 
 		const isAliased = resolved !== oldFunctionName;
-		const aliasSeparator = ' as';
 		const newSpec = isAliased
-			? `{ ${newImportFunction}${aliasSeparator} ${resolved} }`
+			? `{ ${newImportFunction} as ${resolved} }`
 			: `{ ${newImportFunction} }`;
 		const newStmt = `import ${newSpec} from '${newImportModule}';`;
 
@@ -246,17 +248,14 @@ function handleDynamicImport(
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const allEdits: Edit[] = [];
-	const sources: [
-		SgNode<Js>[] | undefined,
-		(n: SgNode<Js>, r: SgRoot<Js>) => Edit[],
-	][] = [
+	const sources: SourceTuple[] = [
 		[getNodeRequireCalls(root, 'crypto'), handleRequire],
 		[getNodeImportStatements(root, 'crypto'), handleStaticImport],
 		[getNodeImportCalls(root, 'crypto'), handleDynamicImport],
 	];
 
 	for (const [nodes, handler] of sources) {
-		for (const node of nodes || []) {
+		for (const node of nodes) {
 			const edits = handler(node, root);
 
 			if (edits.length) {
