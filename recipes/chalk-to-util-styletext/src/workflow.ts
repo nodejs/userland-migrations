@@ -118,9 +118,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	if (!edits.length) return null;
 
-	const sourceCode = rootNode.commitEdits(edits);
-
-	return sourceCode;
+	return rootNode.commitEdits(edits);
 }
 
 // Compatibility mapping for chalk properties that differ in util.styleText
