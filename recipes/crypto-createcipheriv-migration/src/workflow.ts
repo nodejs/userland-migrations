@@ -1,11 +1,12 @@
-import type { Edit, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
-import type Js from '@codemod.com/jssg-types/langs/javascript';
+import { EOL } from 'node:os';
 import {
 	getNodeImportCalls,
 	getNodeImportStatements,
 } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
+import type { Edit, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
+import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 type CallKind = 'cipher' | 'decipher';
 
@@ -158,13 +159,13 @@ function buildCipherReplacement(params: {
 
 	const lines = [
 		'(() => {',
-		'\tconst __dep0106Salt = ' + randomBytesCall + '(16);',
+		`\tconst __dep0106Salt = ${randomBytesCall}(16);`,
 		'\tconst __dep0106Key = ' +
 			scryptCall +
 			'(' +
 			password +
 			', __dep0106Salt, 32);',
-		'\tconst __dep0106Iv = ' + randomBytesCall + '(16);',
+		`\tconst __dep0106Iv = ${randomBytesCall}(16);`,
 		'\t// DEP0106: Persist __dep0106Salt and __dep0106Iv with the ciphertext so it can be decrypted later.',
 		'\t// DEP0106: Adjust the derived key length (32 bytes) and IV length to match the chosen algorithm.',
 		'\treturn ' +
@@ -172,12 +173,12 @@ function buildCipherReplacement(params: {
 			'(' +
 			algorithm +
 			', __dep0106Key, __dep0106Iv' +
-			(options ? ', ' + options : '') +
+			(options ? `, ${options}` : '') +
 			');',
 		'})()',
 	];
 
-	return lines.join('\n');
+	return lines.join(EOL);
 }
 
 function buildDecipherReplacement(params: {
@@ -206,12 +207,12 @@ function buildDecipherReplacement(params: {
 			'(' +
 			algorithm +
 			', __dep0106Key, __dep0106Iv' +
-			(options ? ', ' + options : '') +
+			(options ? `, ${options}` : '') +
 			');',
 		'})()',
 	];
 
-	return lines.join('\n');
+	return lines.join(EOL);
 }
 
 function getCallableBinding(binding: string, target: string): string {
@@ -219,7 +220,7 @@ function getCallableBinding(binding: string, target: string): string {
 	if (lastDot === -1) {
 		return binding;
 	}
-	return binding.slice(0, lastDot) + '.' + target;
+	return `${binding.slice(0, lastDot)}.${target}`;
 }
 
 function getMemberAccess(binding: string, member: string): string {
@@ -227,7 +228,7 @@ function getMemberAccess(binding: string, member: string): string {
 	if (lastDot === -1) {
 		return member;
 	}
-	return binding.slice(0, lastDot) + '.' + member;
+	return `${binding.slice(0, lastDot)}.${member}`;
 }
 
 function isDestructuredStatement(statement: SgNode<Js>): boolean {
