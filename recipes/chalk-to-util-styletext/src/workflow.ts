@@ -4,7 +4,7 @@ import {
 	getNodeImportStatements,
 } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
-import type { Edit, Range, SgNode, SgRoot } from "@codemod.com/jssg-types/main";
+import type { Edit, SgNode, SgRoot } from "@codemod.com/jssg-types/main";
 import type Js from "@codemod.com/jssg-types/langs/javascript";
 
 /**
@@ -30,88 +30,31 @@ export default function transform(root: SgRoot<Js>): string | null {
 	if (!statements.length) return null;
 
 	for (const statement of statements) {
-		const binding = resolveBindingPath(statement, "$");
+		const initialEditCount = edits.length;
 
-		if (!binding) continue;
+		// Check if we're dealing with a destructured import/require first
+		const destructuredNames = getDestructuredNames(statement);
 
-		const chalkCalls = rootNode.findAll({
-			rule: {
-				any: [
-					// Pattern 1: single method calls: chalk.method(text)
-					{ pattern: `${binding}.$METHOD($TEXT)` },
-					// Pattern 2: chained method calls: chalk.method1.method2(text));
-					{
-						kind: "call_expression",
-						has: {
-							field: "function",
-							kind: "member_expression",
-						},
-					},
-				],
-			},
-		});
+		if (destructuredNames.length > 0) {
+			// Handle destructured imports
+			// const { red } = require('chalk') or import { red } from 'chalk'
+			processDestructuredImports(rootNode, destructuredNames, edits);
+		} else {
+			// Handle default imports
+			// const chalk = require('chalk') or import chalk from 'chalk'
+			const binding = resolveBindingPath(statement, "$");
 
-		for (const call of chalkCalls) {
-			const methodMatch = call.getMatch("METHOD");
-			const textMatch = call.getMatch("TEXT");
-
-			if (methodMatch && textMatch) {
-				// Pattern 1: chalk.method(text) → styleText("method", text)
-				const method = methodMatch.text();
-				const text = textMatch.text();
-				const styleMethod = COMPAT_MAP[method] || method;
-				const replacement = `styleText("${styleMethod}", ${text})`;
-
-				edits.push(call.replace(replacement));
-			} else {
-				// Pattern 2: chalk.method1.method2(text) → styleText(["method1", "method2"], text)
-				const functionExpr = call.field("function");
-
-				if (!functionExpr) continue;
-
-				const styles = extractChalkStyles(functionExpr, binding);
-
-				if (styles.length === 0) continue;
-
-				const args = call.field("arguments");
-
-				if (!args) continue;
-
-				const argsList = args.children().filter((c) => {
-					const excluded = [",", "(", ")"];
-					return !excluded.includes(c.kind());
-				});
-
-				if (argsList.length === 0) continue;
-
-				const textArg = argsList[0].text();
-
-				if (styles.length === 1) {
-					const replacement = `styleText("${styles[0]}", ${textArg})`;
-
-					edits.push(call.replace(replacement));
-				} else {
-					const stylesArray = `[${styles.map((s) => `"${s}"`).join(", ")}]`;
-					const replacement = `styleText(${stylesArray}, ${textArg})`;
-
-					edits.push(call.replace(replacement));
-				}
+			if (binding) {
+				processDefaultImports(rootNode, binding, edits);
 			}
 		}
 
-		if (edits.length > 0) {
-			// Update the import or require statements if any calls were transformed
-			if (statement.kind() === "import_statement") {
-				// Replace entire import statement
-				edits.push(statement.replace(`import { styleText } from "node:util";`));
-			} else if (statement.kind() === "variable_declarator") {
-				// Handle dynamic ESM import
-				if (statement.field("value")?.kind() === "await_expression") {
-					edits.push(statement.replace(`{ styleText } = await import("node:util")`));
-				} else {
-					// Handle CommonJS require
-					edits.push(statement.replace(`{ styleText } = require("node:util")`));
-				}
+		// Update the import or require statements if any calls were transformed
+		if (edits.length > initialEditCount) {
+			const importReplacement = createImportReplacement(statement);
+
+			if (importReplacement) {
+				edits.push(statement.replace(importReplacement));
 			}
 		}
 	}
@@ -125,6 +68,219 @@ export default function transform(root: SgRoot<Js>): string | null {
 const COMPAT_MAP: Record<string, string> = {
 	overline: "overlined",
 };
+
+/**
+ * Extract destructured import names from a statement
+ * Returns an array of {imported, local} objects for each destructured import
+ */
+function getDestructuredNames(statement: SgNode<Js>): Array<{ imported: string; local: string }> {
+	const names: Array<{ imported: string; local: string }> = [];
+
+	// Handle ESM imports: import { red, blue as foo } from 'chalk'
+	if (statement.kind() === "import_statement") {
+		const namedImports = statement.find({
+			rule: { kind: "named_imports" },
+		});
+
+		if (namedImports) {
+			const importSpecifiers = namedImports.findAll({
+				rule: { kind: "import_specifier" },
+			});
+
+			for (const specifier of importSpecifiers) {
+				const importedName = specifier.field("name");
+				const alias = specifier.field("alias");
+
+				if (importedName) {
+					const imported = importedName.text();
+					const local = alias ? alias.text() : imported;
+
+					names.push({ imported, local });
+				}
+			}
+		}
+	}
+	// Handle CommonJS requires: const { red, blue: foo } = require('chalk')
+	// Handle dynamic imports: const { red, blue: foo } = await import('chalk')
+	else if (statement.kind() === "variable_declarator") {
+		const nameField = statement.field("name");
+
+		if (nameField && nameField.kind() === "object_pattern") {
+			const properties = nameField.findAll({
+				rule: {
+					any: [{ kind: "shorthand_property_identifier_pattern" }, { kind: "pair_pattern" }],
+				},
+			});
+
+			for (const prop of properties) {
+				if (prop.kind() === "shorthand_property_identifier_pattern") {
+					// { red } - shorthand
+					const name = prop.text();
+
+					names.push({ imported: name, local: name });
+				} else if (prop.kind() === "pair_pattern") {
+					// { red: foo } - with alias
+					const key = prop.field("key");
+					const value = prop.field("value");
+
+					if (key && value) {
+						const imported = key.text();
+						const local = value.text();
+
+						names.push({ imported, local });
+					}
+				}
+			}
+		}
+	}
+
+	return names;
+}
+
+/**
+ * Extract the first text argument from a function call
+ */
+function getFirstCallArgument(call: SgNode<Js>): string | null {
+	const args = call.field("arguments");
+
+	if (!args) return null;
+
+	const argsList = args.children().filter((c) => {
+		const excluded = [",", "(", ")"];
+		return !excluded.includes(c.kind());
+	});
+
+	if (argsList.length === 0) return null;
+
+	return argsList[0].text();
+}
+
+/**
+ * Generate a styleText replacement for a single style
+ */
+function createStyleTextReplacement(styleMethod: string, textArg: string): string {
+	return `styleText("${styleMethod}", ${textArg})`;
+}
+
+/**
+ * Generate a styleText replacement for multiple styles
+ */
+function createMultiStyleTextReplacement(styles: string[], textArg: string): string {
+	if (styles.length === 1) {
+		return createStyleTextReplacement(styles[0], textArg);
+	}
+
+	const stylesArray = `[${styles.map((s) => `"${s}"`).join(", ")}]`;
+
+	return `styleText(${stylesArray}, ${textArg})`;
+}
+
+/**
+ * Process destructured imports and transform direct function calls
+ */
+function processDestructuredImports(
+	rootNode: SgNode<Js>,
+	destructuredNames: Array<{ imported: string; local: string }>,
+	edits: Edit[],
+): void {
+	for (const name of destructuredNames) {
+		const directCalls = rootNode.findAll({
+			rule: {
+				kind: "call_expression",
+				has: {
+					field: "function",
+					kind: "identifier",
+					regex: `^${name.local}$`,
+				},
+			},
+		});
+
+		for (const call of directCalls) {
+			const textArg = getFirstCallArgument(call);
+
+			if (!textArg) continue;
+
+			const styleMethod = COMPAT_MAP[name.imported] || name.imported;
+			const replacement = createStyleTextReplacement(styleMethod, textArg);
+
+			edits.push(call.replace(replacement));
+		}
+	}
+}
+
+/**
+ * Process default imports and transform member expression calls
+ */
+function processDefaultImports(rootNode: SgNode<Js>, binding: string, edits: Edit[]): void {
+	const chalkCalls = rootNode.findAll({
+		rule: {
+			any: [
+				// Pattern 1: single method calls: chalk.method(text)
+				{ pattern: `${binding}.$METHOD($TEXT)` },
+				// Pattern 2: chained method calls: chalk.method1.method2(text));
+				{
+					kind: "call_expression",
+					has: {
+						field: "function",
+						kind: "member_expression",
+					},
+				},
+			],
+		},
+	});
+
+	for (const call of chalkCalls) {
+		const methodMatch = call.getMatch("METHOD");
+		const textMatch = call.getMatch("TEXT");
+
+		if (methodMatch && textMatch) {
+			// Pattern 1: chalk.method(text) → styleText("method", text)
+			const method = methodMatch.text();
+			const text = textMatch.text();
+			const styleMethod = COMPAT_MAP[method] || method;
+			const replacement = createStyleTextReplacement(styleMethod, text);
+
+			edits.push(call.replace(replacement));
+		} else {
+			// Pattern 2: chalk.method1.method2(text) → styleText(["method1", "method2"], text)
+			const functionExpr = call.field("function");
+
+			if (!functionExpr) continue;
+
+			const styles = extractChalkStyles(functionExpr, binding);
+
+			if (styles.length === 0) continue;
+
+			const textArg = getFirstCallArgument(call);
+
+			if (!textArg) continue;
+
+			const replacement = createMultiStyleTextReplacement(styles, textArg);
+
+			edits.push(call.replace(replacement));
+		}
+	}
+}
+
+/**
+ * Replace import/require statement with node:util import
+ */
+function createImportReplacement(statement: SgNode<Js>): string {
+	if (statement.kind() === "import_statement") {
+		return `import { styleText } from "node:util";`;
+	}
+
+	if (statement.kind() === "variable_declarator") {
+		// Handle dynamic ESM import
+		if (statement.field("value")?.kind() === "await_expression") {
+			return `{ styleText } = await import("node:util")`;
+		}
+		// Handle CommonJS require
+		return `{ styleText } = require("node:util")`;
+	}
+
+	return "";
+}
 
 /**
  * Traverses a member expression node to extract chained chalk styles.
