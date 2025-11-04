@@ -39,6 +39,8 @@ export default function transform(root: SgRoot<Js>): string | null {
 			// Handle destructured imports
 			// const { red } = require('chalk') or import { red } from 'chalk'
 			processDestructuredImports(rootNode, destructuredNames, edits);
+
+			// TODO - Handle special instances like chalkStderr
 		} else {
 			// Handle default imports
 			// const chalk = require('chalk') or import chalk from 'chalk'
@@ -49,7 +51,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 			}
 		}
 
-		// Update the import or require statements if any calls were transformed
+		// Track if any transformations occurred for this statement
 		if (edits.length > initialEditCount) {
 			const importReplacement = createImportReplacement(statement);
 
@@ -68,6 +70,23 @@ export default function transform(root: SgRoot<Js>): string | null {
 const COMPAT_MAP: Record<string, string> = {
 	overline: "overlined",
 };
+
+// Chalk methods that are not supported by util.styleText
+const UNSUPPORTED_METHODS = new Set(["hex", "rgb", "ansi256", "bgAnsi256", "visible"]);
+
+/**
+ * Check if a method name is supported by util.styleText
+ */
+function isSupportedMethod(method: string): boolean {
+	return !UNSUPPORTED_METHODS.has(method);
+}
+
+/**
+ * Check if a style chain contains any unsupported methods
+ */
+function hasUnsupportedMethods(styles: string[]): boolean {
+	return styles.some((style) => UNSUPPORTED_METHODS.has(style));
+}
 
 /**
  * Extract destructured import names from a statement
@@ -196,6 +215,8 @@ function processDestructuredImports(
 		});
 
 		for (const call of directCalls) {
+			if (!isSupportedMethod(name.imported)) continue;
+
 			const textArg = getFirstCallArgument(call);
 
 			if (!textArg) continue;
@@ -236,6 +257,9 @@ function processDefaultImports(rootNode: SgNode<Js>, binding: string, edits: Edi
 		if (methodMatch && textMatch) {
 			// Pattern 1: chalk.method(text) → styleText("method", text)
 			const method = methodMatch.text();
+
+			if (!isSupportedMethod(method)) continue
+
 			const text = textMatch.text();
 			const styleMethod = COMPAT_MAP[method] || method;
 			const replacement = createStyleTextReplacement(styleMethod, text);
@@ -250,6 +274,8 @@ function processDefaultImports(rootNode: SgNode<Js>, binding: string, edits: Edi
 			const styles = extractChalkStyles(functionExpr, binding);
 
 			if (styles.length === 0) continue;
+
+			if (hasUnsupportedMethods(styles)) continue;
 
 			const textArg = getFirstCallArgument(call);
 
