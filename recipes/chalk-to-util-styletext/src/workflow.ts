@@ -215,7 +215,10 @@ function processDestructuredImports(
 		});
 
 		for (const call of directCalls) {
-			if (!isSupportedMethod(name.imported)) continue;
+			if (!isSupportedMethod(name.imported)) {
+				warnOnUnsupportedMethod(name.imported, rootNode, call);
+				continue;
+			}
 
 			const textArg = getFirstCallArgument(call);
 
@@ -258,7 +261,10 @@ function processDefaultImports(rootNode: SgNode<Js>, binding: string, edits: Edi
 			// Pattern 1: chalk.method(text) → styleText("method", text)
 			const method = methodMatch.text();
 
-			if (!isSupportedMethod(method)) continue
+			if (!isSupportedMethod(method)) {
+				warnOnUnsupportedMethod(method, rootNode, call);
+				continue;
+			}
 
 			const text = textMatch.text();
 			const styleMethod = COMPAT_MAP[method] || method;
@@ -343,4 +349,16 @@ function extractChalkStyles(node: SgNode<Js>, chalkBinding: string): string[] {
 	traverse(node);
 
 	return styles;
+}
+
+/**
+ * Utility to warn the user about unsupported chalk methods.
+ */
+function warnOnUnsupportedMethod(method: string, rootNode: SgNode<Js>, node: SgNode<Js>) {
+	const filename = rootNode.getRoot().filename();
+	const { start } = node.range();
+
+	console.warn(
+		`${filename}:${start.line}:${start.column}: uses chalk method '${method}' that does not have any equivalent in util.styleText please review this line`,
+	);
 }
