@@ -1,5 +1,5 @@
 {
-    "name": "@nodejs/tls-createsecurepair-to-socket",
+    "name": "@nodejs/tls-create-secure-pair-to-tls-socket",
     "version": "1.0.0",
     "description": "Handle DEP0064 replacing `tls.createSecurePair()` with `tls.TLSSocket()`",
     "type": "module",
@@ -9,12 +9,12 @@
     "repository": {
         "type": "git",
         "url": "git+https://github.com/nodejs/userland-migrations.git",
-        "directory": "recipes/tls-createsecurepair-to-socket",
+        "directory": "recipes/tls-create-secure-pair-to-tls-socket",
         "bugs": "https://github.com/nodejs/userland-migrations/issues"
     },
     "author": "Leo Trevizo",
     "license": "MIT",
-    "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/tls-createsecurepair-to-socket/README.md",
+    "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/tls-create-secure-pair-to-tls-socket/README.md",
     "devDependencies": {
         "@codemod.com/jssg-types": "^1.0.9"
     },

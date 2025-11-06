@@ -1,5 +1,5 @@
 schema_version: "1.0"
-name: "@nodejs/tls-createsecurepair-to-socket"
+name: "@nodejs/tls-create-secure-pair-to-tls-socket"
 version: 1.0.0
 description: Handle DEP0064 by transforming `createSecurePair` to `TLSSocket`
 author: Leonardo Trevizo
