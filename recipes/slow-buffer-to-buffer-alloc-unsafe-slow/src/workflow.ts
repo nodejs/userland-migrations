@@ -1,4 +1,5 @@
 import type { Edit, SgRoot, SgNode } from "@codemod.com/jssg-types/main";
+import type JS from "@codemod.com/jssg-types/langs/javascript";
 import {
 	getNodeImportStatements,
 	getNodeImportCalls,
@@ -19,9 +20,9 @@ const nodeGetterMap = {
  * @param root - The AST root node to transform
  * @returns The transformed code as a string, or null if no changes were made
  */
-export default function transform(root: SgRoot): string | null {
+export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
-	const edits: Edit[] = [];
+	const edits: Edit<JS>[] = [];
 
 	// Process transformations in order:
 	// 1. CommonJS require statements
@@ -43,7 +44,7 @@ export default function transform(root: SgRoot): string | null {
  * @param edits - Array to collect edit operations
  * @param type - The type of statement to process
  */
-function processStatements(root: SgRoot, edits: Edit[], type: StatementType): void {
+function processStatements(root: SgRoot<JS>, edits: Edit<JS>[], type: StatementType): void {
 	if (type === "import-static") {
 		processESMImports(root, edits);
 		return;
@@ -66,7 +67,7 @@ function processStatements(root: SgRoot, edits: Edit[], type: StatementType): vo
 /**
  * Handle ESM import statements
  */
-function processESMImports(root: SgRoot, edits: Edit[]): void {
+function processESMImports(root: SgRoot<JS>, edits: Edit<JS>[]): void {
 	const importStatements = getNodeImportStatements(root, "buffer");
 
 	for (const statement of importStatements) {
@@ -97,9 +98,9 @@ function processESMImports(root: SgRoot, edits: Edit[]): void {
  * Handle identifier patterns like: const SlowBuffer = require('buffer')
  */
 function processIdentifierPattern(
-	statement: SgNode,
-	nameField: SgNode,
-	edits: Edit[],
+	statement: SgNode<JS>,
+	nameField: SgNode<JS>,
+	edits: Edit<JS>[],
 	type: StatementType,
 ): void {
 	if (nameField.text() !== "SlowBuffer") return;
@@ -124,7 +125,11 @@ function processIdentifierPattern(
 /**
  * Handle object destructuring patterns
  */
-function processObjectPattern(statement: SgNode, nameField: SgNode, edits: Edit[]): void {
+function processObjectPattern(
+	statement: SgNode<JS>,
+	nameField: SgNode<JS>,
+	edits: Edit<JS>[],
+): void {
 	// Check for aliased patterns: { SlowBuffer: alias }
 	const aliasedPatterns = nameField.findAll({
 		rule: {
@@ -175,8 +180,8 @@ function processObjectPattern(statement: SgNode, nameField: SgNode, edits: Edit[
  * Apply updateBinding result to edits array
  */
 function applyUpdateBinding(
-	node: SgNode,
-	edits: Edit[],
+	node: SgNode<JS>,
+	edits: Edit<JS>[],
 	options: { old?: string; new?: string },
 ): void {
 	const result = updateBinding(node, options);
@@ -190,7 +195,7 @@ function applyUpdateBinding(
 /**
  * Find the parent lexical_declaration node for updateBinding
  */
-function findParentDeclaration(node: SgNode): SgNode | null {
+function findParentDeclaration(node: SgNode<JS>): SgNode<JS> | null {
 	let current = node;
 	while (current) {
 		const kind = current.kind();
@@ -206,7 +211,7 @@ function findParentDeclaration(node: SgNode): SgNode | null {
 /**
  * Extract arguments from a call expression
  */
-function extractArgs(match: SgNode): string {
+function extractArgs(match: SgNode<JS>): string {
 	try {
 		const argsMatches = match.getMultipleMatches("ARGS");
 		if (argsMatches.length > 0) {
@@ -228,7 +233,7 @@ function extractArgs(match: SgNode): string {
 /**
  * Transform SlowBuffer usage to Buffer.allocUnsafeSlow
  */
-function transformSlowBufferCall(match: SgNode, binding: string, edits: Edit[]): void {
+function transformSlowBufferCall(match: SgNode<JS>, binding: string, edits: Edit<JS>[]): void {
 	const args = extractArgs(match);
 	const replacement =
 		binding === "SlowBuffer"
@@ -241,7 +246,7 @@ function transformSlowBufferCall(match: SgNode, binding: string, edits: Edit[]):
 /**
  * Process SlowBuffer constructor and function calls
  */
-function processSlowBufferUsage(rootNode: SgNode, edits: Edit[]): void {
+function processSlowBufferUsage(rootNode: SgNode<JS>, edits: Edit<JS>[]): void {
 	const root = rootNode.getRoot();
 	const allStatements = [
 		...getNodeImportStatements(root, "buffer"),
