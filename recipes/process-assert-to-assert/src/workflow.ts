@@ -63,26 +63,13 @@ export default function transform(root: SgRoot<JS>): string | null {
 			kind: 'member_expression',
 			has: {
 				kind: 'identifier',
-				regex: '^process$',
+				pattern: 'process',
 			},
 		},
 	});
 
 	for (const processImport of allImports) {
 		const binding = resolveBindingPath(processImport, '$.assert');
-
-		replaceRules.push({
-			importNode: processImport,
-			binding,
-			rule: {
-				kind: 'identifier',
-				regex: binding,
-				inside: {
-					kind: 'call_expression',
-				},
-			},
-			replaceWith: 'assert',
-		});
 
 		if (binding) {
 			replaceRules.push({
@@ -91,9 +78,8 @@ export default function transform(root: SgRoot<JS>): string | null {
 				rule: {
 					kind: 'member_expression',
 					has: {
-						kind: 'identifier',
-						regex: `^${binding}$`,
-						field: 'object',
+						kind: binding.includes('.') ? 'member_expression' :  'identifier',
+						pattern: binding,
 					},
 				},
 				replaceWith: 'assert',
