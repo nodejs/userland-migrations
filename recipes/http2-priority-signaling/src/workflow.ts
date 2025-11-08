@@ -7,6 +7,7 @@ import type {
 import type Js from "@codemod.com/jssg-types/langs/javascript";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { getNodeImportStatements, getNodeImportCalls } from "@nodejs/codemod-utils/ast-grep/import-statement";
+import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
 // Lightweight lexical scope resolver (subset of functionality from PR #248 get-scope util)
 // Ascends parents until it finds a block/function/program and returns the innermost block-like
@@ -53,12 +54,35 @@ export default function transform(root: SgRoot<Js>): string | null {
 	];
 	if (!http2Statements.length) return null;
 
-	// Discover session variables created via http2.connect (await or not) by
+	// Debug: Log all http2 statements (disabled in production)
+	// console.log("http2Statements:", http2Statements.map(stmt => stmt.text()));
+
+	// Resolve all local callee names for http2.connect (handles namespace, default, named, alias, require/import)
+	const connectCallees = new Set<string>();
+	for (const stmt of http2Statements) {
+		try {
+			const resolved = resolveBindingPath(stmt, "$.connect");
+			if (resolved) connectCallees.add(resolved);
+		} catch {
+			// ignore unsupported node kinds
+		}
+	}
+
+	// Discover session variables created via http2.connect or destructured connect calls by
 	// locating call expressions and climbing to the variable declarator.
 	const sessionVars: { name: string; decl: SgNode<Js>; scope: SgNode<Js> }[] = [];
-	const connectCalls = [
+	const connectCalls: SgNode<Js>[] = [
 		...rootNode.findAll({ rule: { pattern: "$HTTP2.connect($$$_ARGS)" } }),
+		// Also include direct calls when `connect` is imported as a named binding or alias (e.g., `connect(...)` or `bar(...)`).
+		...Array.from(connectCallees).flatMap((callee) => {
+			// If callee already includes a dot (e.g., http2.connect), the pattern above already matches it.
+			if (callee.includes(".")) return [] as SgNode<Js>[];
+			return rootNode.findAll({ rule: { pattern: `${callee}($$$_ARGS)` } });
+		}),
 	];
+
+	// Debug: Log all connect calls (disabled in production)
+	// console.log("connectCalls:", connectCalls.map(call => call.text()));
 	for (const call of connectCalls) {
 		let n: SgNode<Js> | undefined = call;
 		while (n && n.kind() !== "variable_declarator") {
@@ -88,6 +112,9 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	// Case 2: Remove priority from session.request() options scoped to discovered session vars + chained connect().request.
 	edits.push(...removeRequestPriority(rootNode, sessionVars));
+
+	// Debug: Log session variables (disabled in production)
+	// console.log("sessionVars:", sessionVars.map(sess => ({ name: sess.name, scope: sess.scope.text() })));
 
 	// Determine stream variables created from session.request() or connect().request().
 	const streamVars = collectStreamVars(rootNode, sessionVars);
