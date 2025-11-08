@@ -72,13 +72,29 @@ export default function transform(root: SgRoot<JS>): string | null {
 		const binding = resolveBindingPath(processImport, '$.assert');
 
 		if (binding) {
+			// Handle member expressions like nodeAssert.strictEqual
 			replaceRules.push({
 				importNode: processImport,
 				binding,
 				rule: {
 					kind: 'member_expression',
 					has: {
-						kind: binding.includes('.') ? 'member_expression' :  'identifier',
+						kind: binding.includes('.') ? 'member_expression' : 'identifier',
+						pattern: binding,
+					},
+				},
+				replaceWith: 'assert',
+			});
+
+			// Handle standalone calls like nodeAssert(...)
+			replaceRules.push({
+				importNode: processImport,
+				binding,
+				rule: {
+					kind: 'call_expression',
+					has: {
+						kind: 'identifier',
+						field: 'function',
 						pattern: binding,
 					},
 				},
@@ -101,13 +117,18 @@ export default function transform(root: SgRoot<JS>): string | null {
 		}
 	}
 
+	const processedImports = new Set<SgNode<JS>>();
+
 	for (const replaceRule of replaceRules) {
 		const nodes = rootNode.findAll({
 			rule: replaceRule.rule,
 		});
 
 		for (const node of nodes) {
-			if (replaceRule.importNode) {
+			if (
+				replaceRule.importNode &&
+				!processedImports.has(replaceRule.importNode)
+			) {
 				if (!processImportsToRemove.has(replaceRule.importNode)) {
 					const removeBind = removeBinding(
 						replaceRule.importNode,
@@ -122,16 +143,28 @@ export default function transform(root: SgRoot<JS>): string | null {
 						linesToRemove.push(removeBind.lineToRemove);
 					}
 				}
+				processedImports.add(replaceRule.importNode);
 			}
 
 			if (
 				replaceRule.rule.kind === 'member_expression' &&
 				replaceRule.binding
 			) {
+				// Replace the object part of member expressions (e.g., nodeAssert.strictEqual -> assert.strictEqual)
 				const objectNode = node.field('object');
 
 				if (objectNode) {
 					edits.push(objectNode.replace('assert'));
+				}
+			} else if (
+				replaceRule.rule.kind === 'call_expression' &&
+				replaceRule.binding
+			) {
+				// Replace the function identifier in call expressions (e.g., nodeAssert(...) -> assert(...))
+				const functionNode = node.field('function');
+
+				if (functionNode) {
+					edits.push(functionNode.replace('assert'));
 				}
 			} else {
 				const replaceText = replaceRule.replaceWith || 'assert';
@@ -183,8 +216,6 @@ export default function transform(root: SgRoot<JS>): string | null {
 		return `const assert = require("node:assert");${EOL}${sourceCode}`;
 	}
 
-	// @todo(AugustinMauroy): after codemod response of capabilities on workflow step
-	// enable fs to read package.json to determine module type
 	console.warn(
 		`[process-assert-to-assert] Unable to determine module type for file: ${root.filename()}. No import added.`,
 	);
