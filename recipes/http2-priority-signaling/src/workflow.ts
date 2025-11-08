@@ -1,13 +1,33 @@
 import type {
-	Edit,
-	Range,
-	SgNode,
-	SgRoot,
+    Edit,
+    Range,
+    SgNode,
+    SgRoot,
 } from "@codemod.com/jssg-types/main";
 import type Js from "@codemod.com/jssg-types/langs/javascript";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
+// Lightweight lexical scope resolver (subset of functionality from PR #248 get-scope util)
+// Ascends parents until it finds a block/function/program and returns the innermost block-like
+// container to limit member searches to the variable's lexical region.
+function getLexicalScope(node: SgNode<Js>): SgNode<Js> {
+	let current = node.parent();
+	let candidate: SgNode<Js> | undefined;
+	while (current) {
+		const kind = current.kind();
+		if (kind === "block" || kind === "program") {
+			candidate = current;
+		}
+		if (kind === "program") break;
+		current = current.parent();
+	}
+	if (candidate) return candidate;
+	// Ascend to top-most ancestor (program)
+	let top: SgNode<Js> = node;
+	while (top.parent()) top = top.parent() as SgNode<Js>;
+	return top;
+}
 
 /*
 * Transforms HTTP/2 priority-related options and methods.
@@ -25,32 +45,51 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
 
-	// Get all http2 imports/requires
+	// Gather all http2 import/require statements. If none, abort early.
 	const http2Statements = [
 		...getNodeImportStatements(root, "http2"),
-		...getNodeRequireCalls(root, "http2")
+		...getNodeRequireCalls(root, "http2"),
 	];
-
 	if (!http2Statements.length) return null;
 
-	// Case 1: Remove priority object from http2.connect() options
+	// Discover session variables created via http2.connect (await or not) by
+	// locating call expressions and climbing to the variable declarator.
+	const sessionVars: { name: string; decl: SgNode<Js>; scope: SgNode<Js> }[] = [];
+	const connectCalls = [
+		...rootNode.findAll({ rule: { pattern: "$HTTP2.connect($$$_ARGS)" } }),
+	];
+	for (const call of connectCalls) {
+		let n: SgNode<Js> | undefined = call;
+		while (n && n.kind() !== "variable_declarator") {
+			n = n.parent();
+		}
+		if (!n) continue;
+		const nameNode = (n as SgNode<Js, "variable_declarator">).field("name");
+		if (!nameNode) continue;
+		sessionVars.push({ name: nameNode.text(), decl: n, scope: getLexicalScope(n) });
+	}
+
+	// Case 1: Remove priority object from http2.connect() options (direct call sites)
 	edits.push(...removeConnectPriority(rootNode));
 
-	// Case 2: Remove priority object from session.request() options
-	edits.push(...removeRequestPriority(rootNode));
+	// Case 2: Remove priority from session.request() options scoped to discovered session vars + chained connect().request.
+	edits.push(...removeRequestPriority(rootNode, sessionVars));
 
-	// Case 3: Remove entire stream.priority() method calls
-	const result3 = removePriorityMethodCalls(rootNode);
+	// Determine stream variables created from session.request() or connect().request().
+	const streamVars = collectStreamVars(rootNode, sessionVars);
+
+	// Case 3: Remove entire stream.priority() calls only for:
+	//   - chained request().priority()
+	//   - variables assigned from session.request/connect().request
+	const result3 = removePriorityMethodCalls(rootNode, streamVars);
 	edits.push(...result3.edits);
 	linesToRemove.push(...result3.linesToRemove);
 
-	// Case 4: Remove priority property from client.settings() options
-	edits.push(...removeSettingsPriority(rootNode));
+	// Case 4: Remove priority property from session.settings() options scoped to session vars + chained connect().settings.
+	edits.push(...removeSettingsPriority(rootNode, sessionVars));
 
-	if (!edits.length && linesToRemove.length === 0) return null;
-
+	if (!edits.length && !linesToRemove.length) return null;
 	const sourceCode = rootNode.commitEdits(edits);
-
 	return removeLines(sourceCode, linesToRemove);
 }
 
@@ -121,63 +160,64 @@ function removeConnectPriority(rootNode: SgNode<Js>): Edit[] {
 /**
  * Remove priority property from session.request() call options
  */
-function removeRequestPriority(rootNode: SgNode<Js>): Edit[] {
+function removeRequestPriority(
+	rootNode: SgNode<Js>,
+	sessionVars: { name: string; scope: SgNode<Js> }[],
+): Edit[] {
 	const edits: Edit[] = [];
 
-	// Find all request calls and clean priority from their options
-	const requestCalls = rootNode.findAll({
-		rule: {
-			pattern: "$SESSION.request($$$_ARGS)",
-		},
+	// Chained connect().request(...) still safe regardless of variable binding.
+	const chained = rootNode.findAll({
+		rule: { pattern: "$HTTP2.connect($$$_ARGS).request($$ARGS)" },
 	});
+	const allCalls: SgNode<Js>[] = [...chained];
 
-	for (const call of requestCalls) {
+	// Scoped session.request calls based on discovered session variables.
+	for (const sess of sessionVars) {
+		const calls = sess.scope.findAll({
+			rule: {
+				kind: "call_expression",
+				has: {
+					field: "function",
+					kind: "member_expression",
+					pattern: `${sess.name}.request`,
+				},
+			},
+		});
+		allCalls.push(...calls);
+	}
+
+	for (const call of allCalls) {
 		const objects = call.findAll({
 			rule: {
 				kind: "object",
 			},
 		});
-
 		for (const obj of objects) {
-			// Check if object only contains priority properties
-			// Get immediate children pairs only (not nested)
 			const pairs = obj.children().filter((child) => child.kind() === "pair");
-
 			let hasPriority = false;
 			let allPriority = true;
-
 			for (const pair of pairs) {
 				const keyNode = pair.find({
-					rule: {
-						kind: "property_identifier",
-						regex: "^priority$",
-					},
+					rule: { kind: "property_identifier", regex: "^priority$" },
 				});
-
-				if (keyNode) {
-					hasPriority = true;
-				} else {
-					allPriority = false;
-				}
+				if (keyNode) hasPriority = true; else allPriority = false;
 			}
-
 			if (allPriority && hasPriority) {
-				// Remove the entire object argument from the call
 				const callText = call.text();
 				const objText = obj.text();
-				const cleanedCall = callText.replace(new RegExp(`(,\\s*)?${escapeRegex(objText)}(,\\s*)?`, "s"), "");
-				const finalCall = cleanedCall.replace(/,\s*\)/, ")");
-
-				if (finalCall !== callText) {
-					edits.push(call.replace(finalCall));
-				}
+				// Remove object argument (with potential surrounding commas)
+				let cleanedCall = callText;
+				cleanedCall = cleanedCall.replace(objText, "");
+				cleanedCall = cleanedCall.replace(/,\s*\)/, ")");
+				cleanedCall = cleanedCall.replace(/\(\s*,/, "(");
+				const finalCall = cleanedCall;
+				if (finalCall !== callText) edits.push(call.replace(finalCall));
 			} else if (hasPriority) {
-				// Object has other properties, so just remove priority pair
 				edits.push(...removePriorityPairFromObject(obj));
 			}
 		}
 	}
-
 	return edits;
 }
 
@@ -185,188 +225,160 @@ function removeRequestPriority(rootNode: SgNode<Js>): Edit[] {
  * Remove entire stream.priority() method calls
  */
 function removePriorityMethodCalls(
-	rootNode: SgNode<Js>,
+    rootNode: SgNode<Js>,
+    streamVars: { name: string; scope: SgNode<Js> }[],
 ): { edits: Edit[]; linesToRemove: Range[] } {
-	const edits: Edit[] = [];
-	const linesToRemove: Range[] = [];
+    const edits: Edit[] = [];
+    const linesToRemove: Range[] = [];
 
-	// Build a restricted set of "safe" priority() calls to remove.
-	// We only want to remove calls that we can reasonably verify are
-	// HTTP/2 streams created by `session.request()` or by
-	// `http2.connect(...).request()`.
+    // Chained request(...).priority(...) directly (session or connect chains)
+    const chained = rootNode.findAll({
+        rule: { pattern: "$SESSION.request($$$_ARGS).priority($$$ARGS)" },
+    });
+    const chainedConnect = rootNode.findAll({
+        rule: { pattern: "$HTTP2.connect($$$_ARGS).request($$ARGS).priority($$$ARGS)" },
+    });
 
-	// 1) priority() called directly on the result of a request()-call
-	const chainedSessionPriorityCalls = rootNode.findAll({
-		rule: { pattern: "$SESSION.request($$$_ARGS).priority($$$ARGS)" },
-	});
+    const safeCalls = new Set<SgNode<Js>>([...chained, ...chainedConnect]);
 
-	// 2) priority() called directly on the result of http2.connect(...).request(...)
-	const chainedConnectPriorityCalls = rootNode.findAll({
-		rule: { pattern: "$HTTP2.connect($$$_ARGS).request($$ARGS).priority($$$ARGS)" },
-	});
+    // Priority on identified stream variable names within their scope.
+    for (const stream of streamVars) {
+        const calls = stream.scope.findAll({
+            rule: {
+                kind: "call_expression",
+                has: {
+                    field: "function",
+                    kind: "member_expression",
+                    pattern: `${stream.name}.priority`,
+                },
+            },
+        });
+        for (const c of calls) safeCalls.add(c);
+    }
 
-	// 3) find variables that are assigned from session.request(...) or
-	// http2.connect(...).request(...) so we can later match `stream.priority()`
-	const assignedFromSessionRequest = rootNode.findAll({
-		rule: { pattern: "$NAME = $SESSION.request($$$_ARGS)" },
-	});
-	const assignedFromConnectRequest = rootNode.findAll({
-		rule: { pattern: "$NAME = $HTTP2.connect($$$_ARGS).request($$ARGS)" },
-	});
-
-	const creatorNames = new Set<string>();
-	function addCreatorNames(nodes: SgNode<Js>[]) {
-		for (const n of nodes) {
-			const t = n.text();
-			// Try to extract a simple identifier on the left-hand side.
-			// Matches: "const stream = ...", "let s = ...", "s = ..."
-			const m = t.match(/(?:const|let|var)?\s*([A-Za-z_$][\w$]*)\s*=/);
-			if (m) creatorNames.add(m[1]);
-		}
-	}
-
-	addCreatorNames(assignedFromSessionRequest);
-	addCreatorNames(assignedFromConnectRequest);
-
-	// 4) All other priority() calls we will inspect, but only accept those
-	// whose receiver is a simple identifier that we found in creatorNames.
-	const allPriorityCalls = rootNode.findAll({
-		rule: { pattern: "$STREAM.priority($$$ARGS)" },
-	});
-
-	// Consolidate safe calls into a single array (use Set to avoid dupes)
-	const safeCalls = new Set<SgNode<Js>>([
-		...chainedSessionPriorityCalls,
-		...chainedConnectPriorityCalls,
-	]);
-
-	for (const call of allPriorityCalls) {
-		const callText = call.text();
-		// Try to capture simple identifier receivers like `stream.priority(...)`.
-		const m = callText.match(/^\s*([A-Za-z_$][\w$]*)\.priority\s*\(/);
-		// If the receiver is a simple identifier (e.g. `stream.priority(...)`),
-		// accept it as a safe call. This function is only invoked when the
-		// file contains an `http2` import/require (see transform), so a simple
-		// identifier receiver is likely an HTTP/2 Stream.
-		if (m) {
-			safeCalls.add(call);
-		}
-	}
-
-	// Now remove only the safe calls (we still remove the containing
-	// expression statements as before).
-	for (const call of safeCalls) {
-		let node: SgNode<Js> | undefined = call;
-
-		while (node) {
-			const parent = node.parent();
-			const parentKind = parent?.kind();
-
-			if (parentKind === "expression_statement") {
-				linesToRemove.push(parent!.range());
-				break;
-			}
-
-			node = parent;
-		}
-	}
-
-	return { edits, linesToRemove };
+    // Remove expression statements containing safe priority calls.
+    for (const call of safeCalls) {
+        let node: SgNode<Js> | undefined = call;
+        while (node) {
+            const parent = node.parent();
+            if (parent?.kind() === "expression_statement") {
+                linesToRemove.push(parent.range());
+                break;
+            }
+            node = parent;
+        }
+    }
+    return { edits, linesToRemove };
 }
 
 /**
  * Remove priority from settings() call
  */
-function removeSettingsPriority(rootNode: SgNode<Js>): Edit[] {
+function removeSettingsPriority(
+	rootNode: SgNode<Js>,
+	sessionVars: { name: string; scope: SgNode<Js> }[],
+): Edit[] {
 	const edits: Edit[] = [];
-
-	// Guardrails: only modify settings() when it's clearly an http2 session.
-	// Accept:
-	//  - http2.connect(...).settings(...)
-	//  - <var> = http2.connect(...); <var>.settings(...)
-
-	const chainedConnectSettingsCalls = rootNode.findAll({
+	// Chained connect().settings(...)
+	const chained = rootNode.findAll({
 		rule: { pattern: "$HTTP2.connect($$$_ARGS).settings($$$_ARGS)" },
 	});
 
-	const assignedFromConnect = rootNode.findAll({
-		rule: { pattern: "$NAME = $HTTP2.connect($$$_ARGS)" },
-	});
+	const safeCalls = new Set<SgNode<Js>>([...chained]);
 
-	const creatorNames = new Set<string>();
-	for (const n of assignedFromConnect) {
-		const t = n.text();
-		const m = t.match(/(?:const|let|var)?\s*([A-Za-z_$][\w$]*)\s*=/);
-		if (m) creatorNames.add(m[1]);
-	}
-
-	// All settings() calls in the file
-	const allSettingsCalls = rootNode.findAll({
-		rule: { pattern: "$SESSION.settings($$$_ARGS)" },
-	});
-
-	const safeCalls = new Set<SgNode<Js>>([...chainedConnectSettingsCalls]);
-
-	for (const call of allSettingsCalls) {
-		const callText = call.text();
-		const m = callText.match(/^\s*([A-Za-z_$][\w$]*)\.settings\s*\(/);
-		// Accept simple identifier receivers (e.g. `client.settings(...)`) as
-		// safe when http2 is present in the file — this matches common usage
-		// like `const client = http2.connect(...); client.settings(...)`.
-		if (m) {
-			safeCalls.add(call);
-		}
-	}
-
-	// Process only safe settings() calls
-	for (const call of safeCalls) {
-		const objects = call.findAll({
+	// Scoped session.settings calls for discovered session variables.
+	for (const sess of sessionVars) {
+		const calls = sess.scope.findAll({
 			rule: {
-				kind: "object",
+				kind: "call_expression",
+				has: {
+					field: "function",
+					kind: "member_expression",
+					pattern: `${sess.name}.settings`,
+				},
 			},
 		});
+		for (const c of calls) safeCalls.add(c);
+	}
 
+	for (const call of safeCalls) {
+		const objects = call.findAll({ rule: { kind: "object" } });
 		for (const obj of objects) {
-			// Check if object only contains priority properties
-			// Get immediate children pairs only (not nested)
 			const pairs = obj.children().filter((child) => child.kind() === "pair");
-
 			let hasPriority = false;
 			let allPriority = true;
-
 			for (const pair of pairs) {
-				const keyNode = pair.find({
-					rule: {
-						kind: "property_identifier",
-						regex: "^priority$",
-					},
-				});
-
-				if (keyNode) {
-					hasPriority = true;
-				} else {
-					allPriority = false;
-				}
+				const keyNode = pair.find({ rule: { kind: "property_identifier", regex: "^priority$" } });
+				if (keyNode) hasPriority = true; else allPriority = false;
 			}
-
 			if (allPriority && hasPriority) {
-				// Remove the entire object argument from the call
 				const callText = call.text();
 				const objText = obj.text();
-				const cleanedCall = callText.replace(new RegExp(`(,\\s*)?${escapeRegex(objText)}(,\\s*)?`, "s"), "");
-				const finalCall = cleanedCall.replace(/,\s*\)/, ")");
-
-				if (finalCall !== callText) {
-					edits.push(call.replace(finalCall));
-				}
+				let cleanedCall = callText;
+				cleanedCall = cleanedCall.replace(objText, "");
+				cleanedCall = cleanedCall.replace(/,\s*\)/, ")");
+				cleanedCall = cleanedCall.replace(/\(\s*,/, "(");
+				const finalCall = cleanedCall;
+				if (finalCall !== callText) edits.push(call.replace(finalCall));
 			} else if (hasPriority) {
-				// Object has other properties, so just remove priority pair
 				edits.push(...removePriorityPairFromObject(obj));
 			}
 		}
 	}
-
 	return edits;
+}
+
+// Collect stream variables created from session.request() or connect().request() patterns.
+function collectStreamVars(
+	rootNode: SgNode<Js>,
+	sessionVars: { name: string; scope: SgNode<Js> }[],
+): { name: string; scope: SgNode<Js> }[] {
+	const streamVars: { name: string; scope: SgNode<Js> }[] = [];
+	// From sessionVar.request(...)
+	for (const sess of sessionVars) {
+		const decls = sess.scope.findAll({
+			rule: {
+				kind: "variable_declarator",
+				has: {
+					field: "value",
+					kind: "call_expression",
+					has: {
+						field: "function",
+						kind: "member_expression",
+						pattern: `${sess.name}.request`,
+					},
+				},
+			},
+		});
+		for (const d of decls) {
+			const nameNode = (d as SgNode<Js, "variable_declarator">).field("name");
+			streamVars.push({ name: nameNode.text(), scope: getLexicalScope(d) });
+		}
+	}
+	// From connect().request(...) chained assignments.
+	const chainedDecls = rootNode.findAll({
+		rule: {
+			kind: "variable_declarator",
+			has: {
+				field: "value",
+				kind: "call_expression",
+				has: {
+					field: "function",
+					kind: "member_expression",
+					pattern: "request", // we will validate parent chain text
+				},
+			},
+		},
+	});
+	for (const d of chainedDecls) {
+		const valueText = (d as SgNode<Js, "variable_declarator">).field("value").text();
+		// Quick heuristic: contains ".connect(" before ".request(".
+		if (/connect\s*\([^)]*\).*\.request\s*\(/.test(valueText)) {
+			const nameNode = (d as SgNode<Js, "variable_declarator">).field("name");
+			streamVars.push({ name: nameNode.text(), scope: getLexicalScope(d) });
+		}
+	}
+	return streamVars;
 }
 
 /**
