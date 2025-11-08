@@ -6,7 +6,7 @@ import type {
 } from "@codemod.com/jssg-types/main";
 import type Js from "@codemod.com/jssg-types/langs/javascript";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
+import { getNodeImportStatements, getNodeImportCalls } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
 // Lightweight lexical scope resolver (subset of functionality from PR #248 get-scope util)
 // Ascends parents until it finds a block/function/program and returns the innermost block-like
@@ -45,10 +45,11 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
 
-	// Gather all http2 import/require statements. If none, abort early.
+	// Gather all http2 import/require statements/calls
 	const http2Statements = [
 		...getNodeImportStatements(root, "http2"),
 		...getNodeRequireCalls(root, "http2"),
+		...getNodeImportCalls(root, "http2"),
 	];
 	if (!http2Statements.length) return null;
 
@@ -67,6 +68,19 @@ export default function transform(root: SgRoot<Js>): string | null {
 		const nameNode = (n as SgNode<Js, "variable_declarator">).field("name");
 		if (!nameNode) continue;
 		sessionVars.push({ name: nameNode.text(), decl: n, scope: getLexicalScope(n) });
+	}
+
+	// Handle dynamic imports of http2
+	const dynamicHttp2Imports = getNodeImportCalls(root, "http2");
+	for (const importNode of dynamicHttp2Imports) {
+		const binding = importNode.field("name");
+		if (binding) {
+			sessionVars.push({
+				name: binding.text(),
+				decl: importNode,
+				scope: getLexicalScope(importNode),
+			});
+		}
 	}
 
 	// Case 1: Remove priority object from http2.connect() options (direct call sites)
