@@ -300,37 +300,33 @@ function processDefaultImports(rootNode: SgNode<Js>, binding: string, edits: Edi
 			kind: "variable_declarator",
 			has: {
 				field: "value",
-				kind: "member_expression",
+				any: [{ kind: "member_expression" }, { kind: "ternary_expression" }],
 			},
 		},
 	});
 
 	for (const assignment of methodAssignments) {
 		const valueExpr = assignment.field("value");
-
 		if (!valueExpr) continue;
 
-		// Check if this is a chalk member expression assignment
-		const styles = extractChalkStyles(valueExpr, binding);
-
-		if (styles.length === 0) continue;
-
-		// Skip unsupported methods
-		if (hasUnsupportedMethods(styles)) continue;
-
 		const nameField = assignment.field("name");
-
 		if (!nameField) continue;
 
 		const variableName = nameField.text();
 
-		// Create wrapper function replacement using existing helper
-		const styleTextCall = createMultiStyleTextReplacement(styles, "text");
-		const wrapperFunction = `(text) => ${styleTextCall}`;
-
-		const replacement = `${variableName} = ${wrapperFunction}`;
-
-		edits.push(assignment.replace(replacement));
+		if (valueExpr.kind() === "member_expression") {
+			// Direct assignment: const red = chalk.red;
+			const replacement = createMemberExpressionAssignment(valueExpr, variableName, binding);
+			if (replacement) {
+				edits.push(assignment.replace(replacement));
+			}
+		} else if (valueExpr.kind() === "ternary_expression") {
+			// Conditional assignment: const c = b ? chalk.bold : chalk.underline;
+			const replacement = createTernaryExpressionAssignment(valueExpr, variableName, binding);
+			if (replacement) {
+				edits.push(assignment.replace(replacement));
+			}
+		}
 	}
 }
 
@@ -389,6 +385,60 @@ function extractChalkStyles(node: SgNode<Js>, chalkBinding: string): string[] {
 	traverse(node);
 
 	return styles;
+}
+
+/**
+ * Create a wrapper function for a chalk member expression assignment
+ */
+function createMemberExpressionAssignment(
+	valueExpr: SgNode<Js>,
+	variableName: string,
+	binding: string,
+): string | null {
+	const styles = extractChalkStyles(valueExpr, binding);
+
+	if (styles.length === 0) return null;
+
+	if (hasUnsupportedMethods(styles)) return null;
+
+	const styleTextCall = createMultiStyleTextReplacement(styles, "text");
+	const wrapperFunction = `(text) => ${styleTextCall}`;
+
+	return `${variableName} = ${wrapperFunction}`;
+}
+
+/**
+ * Create wrapper functions for a ternary expression assignment with chalk expressions
+ */
+function createTernaryExpressionAssignment(
+	valueExpr: SgNode<Js>,
+	variableName: string,
+	binding: string,
+): string | null {
+	const condition = valueExpr.field("condition");
+	const consequent = valueExpr.field("consequence");
+	const alternative = valueExpr.field("alternative");
+
+	if (!condition || !consequent || !alternative) return null;
+
+	// Extract styles from both sides if they are member expressions
+	if (consequent.kind() !== "member_expression" && alternative.kind() !== "member_expression") {
+		return null;
+	}
+
+	const consequentStyles = extractChalkStyles(consequent, binding);
+	const alternativeStyles = extractChalkStyles(alternative, binding);
+
+	// Only transform if both sides are chalk expressions
+	if (consequentStyles.length === 0 || alternativeStyles.length === 0) return null;
+
+	if (hasUnsupportedMethods([...consequentStyles, ...alternativeStyles])) return null;
+
+	const consequentCall = createMultiStyleTextReplacement(consequentStyles, "text");
+	const alternativeCall = createMultiStyleTextReplacement(alternativeStyles, "text");
+	const conditionText = condition.text();
+
+	return `${variableName} = ${conditionText} ? (text) => ${consequentCall} : (text) => ${alternativeCall}`;
 }
 
 /**
