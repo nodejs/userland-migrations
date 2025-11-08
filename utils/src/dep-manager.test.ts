@@ -1,9 +1,10 @@
 import { execSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
 import { describe, it, beforeEach, afterEach } from 'node:test';
+import { spawnPromisified } from './spawn-promisified.ts';
 import {
 	detectPackageManager,
 	installDependency,
@@ -42,37 +43,37 @@ const havePnpmOnMachine = (): boolean => {
 describe('dep-manager utilities', () => {
 	let tempDir: string;
 
-	beforeEach(() => {
-		tempDir = mkdtempSync(join(tmpdir(), 'dep-manager-test-'));
+	beforeEach(async () => {
+		tempDir = await mkdtemp(join(tmpdir(), 'dep-manager-test-'));
 		process.chdir(tempDir);
 	});
 
-	afterEach(() => {
-		rmSync(tempDir, { recursive: true, force: true });
+	afterEach(async () => {
+		await rm(tempDir, { recursive: true, force: true });
 	});
 
-	it('should work with npm', { skip: !haveNpmOnMachine() }, () => {
-		execSync('npm init -y', { stdio: 'ignore', cwd: tempDir });
+	it('should work with npm', { skip: !haveNpmOnMachine() }, async () => {
+		await spawnPromisified('npm', ['init', '-y'], { cwd: tempDir });
 
-		installDependency(PACKAGE_NAME);
+		await installDependency(PACKAGE_NAME);
 
 		const detectedManager = detectPackageManager();
 		assert.strictEqual(detectedManager, 'npm');
 
-		installDependency(PACKAGE_NAME, false, 'ignore');
+		await installDependency(PACKAGE_NAME, false, 'ignore');
 
 		const packageJsonPath = join(tempDir, 'package.json');
-		const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+		const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf-8'));
 
 		assert(
 			packageJson.dependencies[PACKAGE_NAME],
 			`${PACKAGE_NAME} should be in dependencies`,
 		);
 
-		removeDependency(PACKAGE_NAME, 'ignore');
+		await removeDependency(PACKAGE_NAME, 'ignore');
 
 		const updatedPackageJson = JSON.parse(
-			readFileSync(packageJsonPath, 'utf-8'),
+			await readFile(packageJsonPath, 'utf-8'),
 		);
 		assert(
 			!updatedPackageJson.dependencies ||
@@ -81,26 +82,26 @@ describe('dep-manager utilities', () => {
 		);
 	});
 
-	it('should work with yarn', { skip: !haveYarnOnMachine() }, () => {
-		execSync('yarn init -y', { stdio: 'ignore', cwd: tempDir });
+	it('should work with yarn', { skip: !haveYarnOnMachine() }, async () => {
+		await spawnPromisified('yarn', ['init', '-y'], { cwd: tempDir });
 
-		installDependency(PACKAGE_NAME, false, 'ignore');
+		await installDependency(PACKAGE_NAME, false, 'ignore');
 
 		const detectedManager = detectPackageManager();
 		assert.strictEqual(detectedManager, 'yarn');
 
 		const packageJsonPath = join(tempDir, 'package.json');
-		const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+		const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf-8'));
 
 		assert(
 			packageJson.dependencies[PACKAGE_NAME],
 			`${PACKAGE_NAME} should be in dependencies`,
 		);
 
-		removeDependency(PACKAGE_NAME, 'ignore');
+		await removeDependency(PACKAGE_NAME, 'ignore');
 
 		const updatedPackageJson = JSON.parse(
-			readFileSync(packageJsonPath, 'utf-8'),
+			await readFile(packageJsonPath, 'utf-8'),
 		);
 		assert(
 			!updatedPackageJson.dependencies ||
@@ -109,29 +110,29 @@ describe('dep-manager utilities', () => {
 		);
 	});
 
-	it('should work with pnpm', { skip: !havePnpmOnMachine() }, () => {
-		execSync('pnpm init', { stdio: 'ignore', cwd: tempDir });
+	it('should work with pnpm', { skip: !havePnpmOnMachine() }, async () => {
+		await spawnPromisified('pnpm', ['init'], { cwd: tempDir });
 
 		// Run pnpm install to generate the pnpm-lock.yaml file
-		execSync('pnpm install', { stdio: 'ignore', cwd: tempDir });
+		await spawnPromisified('pnpm', ['install'], { cwd: tempDir });
 
-		installDependency(PACKAGE_NAME, false, 'ignore');
+		await installDependency(PACKAGE_NAME, false, 'ignore');
 
 		const detectedManager = detectPackageManager();
 		assert.strictEqual(detectedManager, 'pnpm');
 
 		const packageJsonPath = join(tempDir, 'package.json');
-		const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+		const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf-8'));
 
 		assert(
 			packageJson.dependencies[PACKAGE_NAME],
 			`${PACKAGE_NAME} should be in dependencies`,
 		);
 
-		removeDependency(PACKAGE_NAME, 'ignore');
+		await removeDependency(PACKAGE_NAME, 'ignore');
 
 		const updatedPackageJson = JSON.parse(
-			readFileSync(packageJsonPath, 'utf-8'),
+			await readFile(packageJsonPath, 'utf-8'),
 		);
 		assert(
 			!updatedPackageJson.dependencies ||
@@ -140,10 +141,10 @@ describe('dep-manager utilities', () => {
 		);
 	});
 
-	it('should default to npm if no lock file is present', () => {
-		execSync('npm init -y', { stdio: 'ignore', cwd: tempDir });
+	it('should default to npm if no lock file is present', async () => {
+		await spawnPromisified('npm', ['init', '-y'], { cwd: tempDir });
 
-		rmSync(join(tempDir, 'package-lock.json'), { force: true });
+		await rm(join(tempDir, 'package-lock.json'), { force: true });
 
 		const detectedManager = detectPackageManager();
 		assert.strictEqual(detectedManager, 'npm');
