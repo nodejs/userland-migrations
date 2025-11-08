@@ -9,7 +9,7 @@
     "pre-commit": "node --run lint:fix; node --run type-check; node --run test",
     "test": "npm run test --workspaces --if-present",
     "test-legacy": "npm run test-legacy --workspaces --if-present",
-    "type-check": "tsc"
+    "type-check": "tsgo --noEmit"
   },
   "repository": {
     "type": "git",
@@ -27,9 +27,9 @@
   },
   "homepage": "https://nodejs.org/learn/userland-migrations",
   "devDependencies": {
-    "@biomejs/biome": "2.1.4",
-    "@types/node": "^24.2.1",
-    "typescript": "^5.9.2"
+    "@biomejs/biome": "2.3.3",
+    "@types/node": "^24.10.0",
+    "@typescript/native-preview": "^7.0.0-dev.20251104.1"
   },
   "workspaces": [
     "./recipes/*",

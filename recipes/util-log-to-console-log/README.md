@@ -1,6 +1,6 @@
 # `util.log` DEP0059
 
-This recipe transforms the usage of `log.util()` to use `console.log()`.
+This recipe transforms the usage of `util.log()` to use `console.log()`.
 
 See [DEP0059](https://nodejs.org/api/deprecations.html#DEP0059).
 
