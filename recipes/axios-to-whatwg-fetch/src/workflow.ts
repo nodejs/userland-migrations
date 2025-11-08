@@ -27,58 +27,15 @@ type CreateOptionsType = {
 	body?: string;
 };
 
-/**
- * Generates options for the Fetch API based on the provided parameters.
- *
- * @param {Object} param0 - The parameters for creating options.
- * @param {SgNode<Js>} [param0.oldOptions] - The old options node to extract headers from.
- * @param {string} [param0.method] - The HTTP method to use (e.g., 'POST', 'GET').
- * @param {string} [param0.body] - The body content to include in the request.
- * @returns {string} The generated options string for the Fetch API.
- */
-const createOptions = ({ oldOptions, method, body }: CreateOptionsType) => {
-	if (!oldOptions && !method && !body) return '';
-	const headers = oldOptions?.find({
-		rule: {
-			kind: 'object',
-			inside: {
-				kind: 'pair',
-				has: {
-					kind: 'property_identifier',
-					field: 'key',
-					regex: 'headers',
-				},
-			},
-		},
-	});
-
-	const options = [];
-
-	if (method) {
-		options.push(`method: '${method}'`);
-	}
-
-	if (headers) {
-		options.push(`headers: ${headers?.text()}`);
-	}
-
-	if (body) {
-		options.push(`body: JSON.stringify(${body})`);
-	}
-
-	if (options.length === 1) return `{ ${options.toString()} }`;
-
-	return dedent.withOptions({ alignValues: true })`{
-		${options.join(`,${EOL}`)}
-	}`;
-};
+const unsupportedMethods = ['postForm', 'putForm', 'patchForm'];
 
 const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
 	[
-		{
+		/*{
+			It's should be migratable with codemod but not supported for now
 			oldBind: '$.request',
 			replaceFn: (arg) => `console.log(${arg})`,
-		},
+		},*/
 		{
 			oldBind: '$.get',
 			replaceFn: (args) => {
@@ -189,6 +146,52 @@ const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
 	];
 
 /**
+ * Generates options for the Fetch API based on the provided parameters.
+ *
+ * @param {Object} param0 - The parameters for creating options.
+ * @param {SgNode<Js>} [param0.oldOptions] - The old options node to extract headers from.
+ * @param {string} [param0.method] - The HTTP method to use (e.g., 'POST', 'GET').
+ * @param {string} [param0.body] - The body content to include in the request.
+ * @returns {string} The generated options string for the Fetch API.
+ */
+const createOptions = ({ oldOptions, method, body }: CreateOptionsType) => {
+	if (!oldOptions && !method && !body) return '';
+	const headers = oldOptions?.find({
+		rule: {
+			kind: 'object',
+			inside: {
+				kind: 'pair',
+				has: {
+					kind: 'property_identifier',
+					field: 'key',
+					regex: 'headers',
+				},
+			},
+		},
+	});
+
+	const options = [];
+
+	if (method) {
+		options.push(`method: '${method}'`);
+	}
+
+	if (headers) {
+		options.push(`headers: ${headers?.text()}`);
+	}
+
+	if (body) {
+		options.push(`body: JSON.stringify(${body})`);
+	}
+
+	if (options.length === 1) return `{ ${options.toString()} }`;
+
+	return dedent.withOptions({ alignValues: true })`{
+		${options.join(`,${EOL}`)}
+	}`;
+};
+
+/**
  * Transforms the AST root by replacing axios bindings with Fetch API calls.
  *
  * @param {SgRoot<Js>} root - The root of the AST to transform.
@@ -233,12 +236,15 @@ export default function transform(root: SgRoot<Js>): string | null {
 			const argsAndCommaas = match.getMultipleMatches('ARG');
 			const args = argsAndCommaas.filter((arg) => arg.text() !== ',');
 
+			if (unsupportedMethods.includes(bind.binding.split('.').at(-1))) {
+				console.warn(
+					'Un-migratable method has been found. Please revise this part of the code.',
+				);
+				continue;
+			}
+
 			const replace = match.replace(bind.replaceFn(args));
 			edits.push(replace);
-
-			// @brunocroh it's your code idk what should I (@AugustinMauroy) do here
-			// const replace = match.replace(bind.replaceFn(argsStr));
-			// edits.push(replace);
 
 			const result = removeBinding(bind.node, bind.binding.split('.').at(0));
 
