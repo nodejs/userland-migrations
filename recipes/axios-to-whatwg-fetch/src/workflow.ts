@@ -28,9 +28,13 @@ type CreateOptionsType = {
 };
 
 /**
+ * Generates options for the Fetch API based on the provided parameters.
  *
- * @param param0
- * @returns
+ * @param {Object} param0 - The parameters for creating options.
+ * @param {SgNode<Js>} [param0.oldOptions] - The old options node to extract headers from.
+ * @param {string} [param0.method] - The HTTP method to use (e.g., 'POST', 'GET').
+ * @param {string} [param0.body] - The body content to include in the request.
+ * @returns {string} The generated options string for the Fetch API.
  */
 const createOptions = ({ oldOptions, method, body }: CreateOptionsType) => {
 	if (!oldOptions && !method && !body) return '';
@@ -184,7 +188,11 @@ const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
 		},
 	];
 
-/*
+/**
+ * Transforms the AST root by replacing axios bindings with Fetch API calls.
+ *
+ * @param {SgRoot<Js>} root - The root of the AST to transform.
+ * @returns {string | null} The transformed source code or null if no changes were made.
  */
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
