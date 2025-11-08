@@ -5,11 +5,7 @@ import { join } from 'node:path';
 import assert from 'node:assert/strict';
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { spawnPromisified } from './spawn-promisified.ts';
-import {
-	detectPackageManager,
-	installDependency,
-	removeDependency,
-} from './dep-manager.ts';
+import { detectPackageManager, removeDependency } from './dep-manager.ts';
 
 const PACKAGE_NAME = '@augustinmauroy/vec3';
 
@@ -55,12 +51,10 @@ describe('dep-manager utilities', () => {
 	it('should work with npm', { skip: !haveNpmOnMachine() }, async () => {
 		await spawnPromisified('npm', ['init', '-y'], { cwd: tempDir });
 
-		await installDependency(PACKAGE_NAME);
+		await spawnPromisified('npm', ['install', PACKAGE_NAME], { cwd: tempDir });
 
 		const detectedManager = detectPackageManager();
 		assert.strictEqual(detectedManager, 'npm');
-
-		await installDependency(PACKAGE_NAME, false, 'ignore');
 
 		const packageJsonPath = join(tempDir, 'package.json');
 		const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf-8'));
@@ -85,7 +79,13 @@ describe('dep-manager utilities', () => {
 	it('should work with yarn', { skip: !haveYarnOnMachine() }, async () => {
 		await spawnPromisified('yarn', ['init', '-y'], { cwd: tempDir });
 
-		await installDependency(PACKAGE_NAME, false, 'ignore');
+		await spawnPromisified('yarn', ['add', PACKAGE_NAME], { cwd: tempDir });
+
+		// list all file in the tempDir for debugging
+		const files = await import('node:fs').then((fs) =>
+			fs.promises.readdir(tempDir),
+		);
+		console.log('Files in tempDir:', files);
 
 		const detectedManager = detectPackageManager();
 		assert.strictEqual(detectedManager, 'yarn');
@@ -116,7 +116,7 @@ describe('dep-manager utilities', () => {
 		// Run pnpm install to generate the pnpm-lock.yaml file
 		await spawnPromisified('pnpm', ['install'], { cwd: tempDir });
 
-		await installDependency(PACKAGE_NAME, false, 'ignore');
+		await spawnPromisified('pnpm', ['add', PACKAGE_NAME], { cwd: tempDir });
 
 		const detectedManager = detectPackageManager();
 		assert.strictEqual(detectedManager, 'pnpm');

@@ -7,7 +7,9 @@ import type { StdioOptions } from 'node:child_process';
 
 export const detectPackageManager = (): 'npm' | 'yarn' | 'pnpm' => {
 	try {
+		console.log('Checking for yarn.lock file');
 		accessSync('yarn.lock');
+		console.log('Detected yarn.lock file');
 		return 'yarn';
 	} catch {}
 
@@ -17,29 +19,6 @@ export const detectPackageManager = (): 'npm' | 'yarn' | 'pnpm' => {
 	} catch {}
 
 	return 'npm';
-};
-
-export const installDependency = (
-	dependency: string,
-	isDevDependency = false,
-	stdio: StdioOptions = 'inherit',
-): void => {
-	const packageManager = detectPackageManager();
-	let command = '';
-
-	switch (packageManager) {
-		case 'npm':
-			command = `npm install ${isDevDependency ? '--save-dev' : '--save'} ${dependency}`;
-			break;
-		case 'yarn':
-			command = `yarn add ${isDevDependency ? '--dev' : ''} ${dependency}`;
-			break;
-		case 'pnpm':
-			command = `pnpm add ${isDevDependency ? '--save-dev' : '--save'} ${dependency}`;
-			break;
-	}
-
-	execSync(command, { stdio });
 };
 
 export const removeDependency = (
