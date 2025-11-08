@@ -292,6 +292,46 @@ function processDefaultImports(rootNode: SgNode<Js>, binding: string, edits: Edi
 			edits.push(call.replace(replacement));
 		}
 	}
+
+	// Handle method assignments
+	// const red = chalk.red; → const red = (text) => styleText("red", text);
+	const methodAssignments = rootNode.findAll({
+		rule: {
+			kind: "variable_declarator",
+			has: {
+				field: "value",
+				kind: "member_expression",
+			},
+		},
+	});
+
+	for (const assignment of methodAssignments) {
+		const valueExpr = assignment.field("value");
+
+		if (!valueExpr) continue;
+
+		// Check if this is a chalk member expression assignment
+		const styles = extractChalkStyles(valueExpr, binding);
+
+		if (styles.length === 0) continue;
+
+		// Skip unsupported methods
+		if (hasUnsupportedMethods(styles)) continue;
+
+		const nameField = assignment.field("name");
+
+		if (!nameField) continue;
+
+		const variableName = nameField.text();
+
+		// Create wrapper function replacement using existing helper
+		const styleTextCall = createMultiStyleTextReplacement(styles, "text");
+		const wrapperFunction = `(text) => ${styleTextCall}`;
+
+		const replacement = `${variableName} = ${wrapperFunction}`;
+
+		edits.push(assignment.replace(replacement));
+	}
 }
 
 /**
