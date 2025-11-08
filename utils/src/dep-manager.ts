@@ -3,6 +3,7 @@
  */
 import { accessSync } from 'node:fs';
 import { execSync } from 'node:child_process';
+import type { StdioOptions } from 'node:child_process';
 
 export const detectPackageManager = (): 'npm' | 'yarn' | 'pnpm' => {
 	try {
@@ -21,6 +22,7 @@ export const detectPackageManager = (): 'npm' | 'yarn' | 'pnpm' => {
 export const installDependency = (
 	dependency: string,
 	isDevDependency = false,
+	stdio: StdioOptions = 'inherit',
 ): void => {
 	const packageManager = detectPackageManager();
 	let command = '';
@@ -37,5 +39,27 @@ export const installDependency = (
 			break;
 	}
 
-	execSync(command, { stdio: 'inherit' });
+	execSync(command, { stdio });
+};
+
+export const removeDependency = (
+	dependency: string,
+	stdio: StdioOptions = 'inherit',
+): void => {
+	const packageManager = detectPackageManager();
+	let command = '';
+
+	switch (packageManager) {
+		case 'npm':
+			command = `npm uninstall ${dependency}`;
+			break;
+		case 'yarn':
+			command = `yarn remove ${dependency}`;
+			break;
+		case 'pnpm':
+			command = `pnpm remove ${dependency}`;
+			break;
+	}
+
+	execSync(command, { stdio });
 };
