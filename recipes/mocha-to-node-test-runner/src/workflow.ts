@@ -9,8 +9,6 @@ import type JS from "@codemod.com/jssg-types/langs/javascript";
  * 2. Converting done callbacks to (t, done) signature
  * 3. Converting this.skip() to t.skip()
  * 4. Converting this.timeout() to { timeout: N } options
- * 5. Preserving function styles (not converting function() to arrow functions)
- * 6. Supporting both CJS and ESM
  */
 export default function transform(root: SgRoot<JS>): string | null {
   const rootNode = root.root();
