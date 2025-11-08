@@ -1,4 +1,4 @@
-// Unable to determine module type; please add the appropriate import for 'assert'
+import assert from "node:assert";
 assert(condition);
 assert.ok(value);
 assert.strictEqual(a, b);

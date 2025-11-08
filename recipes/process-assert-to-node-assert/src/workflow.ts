@@ -1,4 +1,6 @@
 import { EOL } from 'node:os';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
@@ -216,9 +218,13 @@ export default function transform(root: SgRoot<JS>): string | null {
 		return `const assert = require("node:assert");${EOL}${sourceCode}`;
 	}
 
-	console.warn(
-		`[process-assert-to-node-assert] Unable to determine module type for file: ${root.filename()}. No import added.`,
-	);
+	const packageJsonPath = join(process.cwd(), 'package.json');
+	const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+	const isEsm = packageJson.type === 'module';
 
-	return `// Unable to determine module type; please add the appropriate import for 'assert'${EOL}${sourceCode}`;
+	if (isEsm) {
+		return `import assert from "node:assert";${EOL}${sourceCode}`;
+	}
+
+	return `const assert = require("node:assert");${EOL}${sourceCode}`;
 }
