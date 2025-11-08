@@ -6,7 +6,7 @@ const {
 } = require("node:test");
 
 describe("Async Test", function () {
-  it("should complete after a delay", async function() {
+  it("should complete after a delay", async function () {
     const result = await new Promise((resolve) =>
       setTimeout(() => resolve(42), 100),
     );
