@@ -217,7 +217,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 	}
 
 	console.warn(
-		`[process-assert-to-assert] Unable to determine module type for file: ${root.filename()}. No import added.`,
+		`[process-assert-to-node-assert] Unable to determine module type for file: ${root.filename()}. No import added.`,
 	);
 
 	return `// Unable to determine module type; please add the appropriate import for 'assert'${EOL}${sourceCode}`;
