@@ -8,7 +8,6 @@ const createdTodo = await fetch(base, {
 			completed: false,
 			userId: 5,
 		})
-
 })
 	.then(async (res) => Object.assign(res, { data: await res.json() }))
 	.catch(() => null);
