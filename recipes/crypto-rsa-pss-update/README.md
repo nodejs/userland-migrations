@@ -50,7 +50,7 @@ crypto.generateKeyPairSync("rsa-pss", {
 **After**
 
 ```js
-const crypto = require("crypto");
+const crypto = require("node:crypto");
 
 crypto.generateKeyPair(
 	"rsa-pss",
