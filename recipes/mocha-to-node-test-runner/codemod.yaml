@@ -1,0 +1,23 @@
+schema_version: "1.0"
+name: "@nodejs/mocha-to-node-test-runner"
+version: 1.0.0
+description: "Converts Mocha v8 tests to Node.js test runner (v22, v24)"
+author: "Elio Capella <me@eliocapella.com>"
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - mocha
+  - testing
+
+registry:
+  access: public
+  visibility: public
