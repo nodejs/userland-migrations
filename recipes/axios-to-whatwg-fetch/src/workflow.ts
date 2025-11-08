@@ -1,32 +1,37 @@
-import type {
-	Edit,
-	Kinds,
-	Range,
-	Rule,
-	SgNode,
-	SgRoot,
-	TypesMap,
-} from '@codemod.com/jssg-types/main';
+import dedent from 'dedent';
+import { EOL } from 'node:os';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { removeBinding } from '@nodejs/codemod-utils/ast-grep/remove-binding';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
-import dedent from 'dedent';
-import os from 'node:os';
+import type {
+	Edit,
+	Range,
+	Rule,
+	SgNode,
+	SgRoot,
+} from '@codemod.com/jssg-types/main';
+import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 type BindingToReplace = {
-	rule: Rule<TypesMap>;
-	node: SgNode<TypesMap, Kinds<TypesMap>>;
+	rule: Rule<Js>;
+	node: SgNode<Js>;
 	binding: string;
-	replaceFn: (arg: SgNode[]) => string;
+	replaceFn: (arg: SgNode<Js>[]) => string;
 };
 
 type CreateOptionsType = {
-	oldOptions?: SgNode;
+	oldOptions?: SgNode<Js>;
 	method?: string;
 	body?: string;
 };
+
+/**
+ *
+ * @param param0
+ * @returns
+ */
 const createOptions = ({ oldOptions, method, body }: CreateOptionsType) => {
 	if (!oldOptions && !method && !body) return '';
 	const headers = oldOptions?.find({
@@ -60,7 +65,7 @@ const createOptions = ({ oldOptions, method, body }: CreateOptionsType) => {
 	if (options.length === 1) return `{ ${options.toString()} }`;
 
 	return dedent.withOptions({ alignValues: true })`{
-		${options.join(`,${os.EOL}`)}
+		${options.join(`,${EOL}`)}
 	}`;
 };
 
@@ -180,29 +185,17 @@ const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
 	];
 
 /*
- * Transforms `util.requestj($$$ARG)` usage to `console.log($$$ARG)`.
- * Transforms `util.get($$$ARG)` usage to `console.log($$$ARG)`.
- * Transforms `util.post($$$ARG)` usage to `console.error($$$ARG)`.
- * Transforms `util.put($$$ARG)` usage to `console.error($$$ARG)`.
- *
- * Steps:
- *
- * Locate all `util.print|puts|debug|error` import imports, noting the replacement rule, import node, and binding name.
- *
- * For each binding, replace calls to util.print|puts|debug|error($$$ARG) with the new console.log|error format,
- * and determine if the import line should be updated or removed.
- *
- * Apply all changes, removing or updating the import line as needed.
  */
-export default function transform(root: SgRoot): string | null {
+export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
 	const bindsToReplace: BindingToReplace[] = [];
 
-	const nodeRequires = getNodeRequireCalls(root, 'axios');
-	const nodeImports = getNodeImportStatements(root, 'axios');
-	const importRequireStatement = [...nodeRequires, ...nodeImports];
+	const importRequireStatement = [
+		...getNodeRequireCalls(root, 'axios'),
+		...getNodeImportStatements(root, 'axios'),
+	];
 
 	if (!importRequireStatement.length) return null;
 
@@ -235,9 +228,10 @@ export default function transform(root: SgRoot): string | null {
 			const replace = match.replace(bind.replaceFn(args));
 			edits.push(replace);
 
+			// @brunocroh it's your code idk what should I (@AugustinMauroy) do here
 			// const replace = match.replace(bind.replaceFn(argsStr));
 			// edits.push(replace);
-			//
+
 			const result = removeBinding(bind.node, bind.binding.split('.').at(0));
 
 			if (result?.lineToRemove) {
@@ -250,7 +244,7 @@ export default function transform(root: SgRoot): string | null {
 		}
 	}
 
-	if (!edits.length) return;
+	if (!edits.length) return null;
 
 	const sourceCode = rootNode.commitEdits(edits);
 
