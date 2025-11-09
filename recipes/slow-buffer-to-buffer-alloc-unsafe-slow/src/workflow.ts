@@ -22,7 +22,7 @@ const nodeGetterMap = {
  */
 export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
-	const edits: Edit<JS>[] = [];
+	const edits: Edit[] = [];
 
 	// Process transformations in order:
 	// 1. CommonJS require statements
@@ -44,7 +44,7 @@ export default function transform(root: SgRoot<JS>): string | null {
  * @param edits - Array to collect edit operations
  * @param type - The type of statement to process
  */
-function processStatements(root: SgRoot<JS>, edits: Edit<JS>[], type: StatementType): void {
+function processStatements(root: SgRoot<JS>, edits: Edit[], type: StatementType): void {
 	if (type === "import-static") {
 		processESMImports(root, edits);
 		return;
@@ -67,7 +67,7 @@ function processStatements(root: SgRoot<JS>, edits: Edit<JS>[], type: StatementT
 /**
  * Handle ESM import statements
  */
-function processESMImports(root: SgRoot<JS>, edits: Edit<JS>[]): void {
+function processESMImports(root: SgRoot<JS>, edits: Edit[]): void {
 	const importStatements = getNodeImportStatements(root, "buffer");
 
 	for (const statement of importStatements) {
@@ -100,7 +100,7 @@ function processESMImports(root: SgRoot<JS>, edits: Edit<JS>[]): void {
 function processIdentifierPattern(
 	statement: SgNode<JS>,
 	nameField: SgNode<JS>,
-	edits: Edit<JS>[],
+	edits: Edit[],
 	type: StatementType,
 ): void {
 	if (nameField.text() !== "SlowBuffer") return;
@@ -125,11 +125,7 @@ function processIdentifierPattern(
 /**
  * Handle object destructuring patterns
  */
-function processObjectPattern(
-	statement: SgNode<JS>,
-	nameField: SgNode<JS>,
-	edits: Edit<JS>[],
-): void {
+function processObjectPattern(statement: SgNode<JS>, nameField: SgNode<JS>, edits: Edit[]): void {
 	// Check for aliased patterns: { SlowBuffer: alias }
 	const aliasedPatterns = nameField.findAll({
 		rule: {
@@ -181,7 +177,7 @@ function processObjectPattern(
  */
 function applyUpdateBinding(
 	node: SgNode<JS>,
-	edits: Edit<JS>[],
+	edits: Edit[],
 	options: { old?: string; new?: string },
 ): void {
 	const result = updateBinding(node, options);
@@ -233,7 +229,7 @@ function extractArgs(match: SgNode<JS>): string {
 /**
  * Transform SlowBuffer usage to Buffer.allocUnsafeSlow
  */
-function transformSlowBufferCall(match: SgNode<JS>, binding: string, edits: Edit<JS>[]): void {
+function transformSlowBufferCall(match: SgNode<JS>, binding: string, edits: Edit[]): void {
 	const args = extractArgs(match);
 	const replacement =
 		binding === "SlowBuffer"
@@ -246,7 +242,7 @@ function transformSlowBufferCall(match: SgNode<JS>, binding: string, edits: Edit
 /**
  * Process SlowBuffer constructor and function calls
  */
-function processSlowBufferUsage(rootNode: SgNode<JS>, edits: Edit<JS>[]): void {
+function processSlowBufferUsage(rootNode: SgNode<JS>, edits: Edit[]): void {
 	const root = rootNode.getRoot();
 	const allStatements = [
 		...getNodeImportStatements(root, "buffer"),
