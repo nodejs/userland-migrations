@@ -1,7 +1,8 @@
-import type { Edit, SgRoot, Range } from "@codemod.com/jssg-types/main";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
 import { removeBinding } from "@nodejs/codemod-utils/ast-grep/remove-binding";
+import type { Edit, SgRoot, Range } from "@codemod.com/jssg-types/main";
+import type Js from "@codemod.com/jssg-types/langs/javascript";
 
 /**
  * Transforms `process.mainModule` usage to `require.main`. Handles direct global access
@@ -19,7 +20,7 @@ import { removeBinding } from "@nodejs/codemod-utils/ast-grep/remove-binding";
  *    - Change 'mainModule' → 'require.main'
  *    - Change 'process.mainModule' → 'require.main'
  */
-export default function transform(root: SgRoot): string | null {
+export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
@@ -29,7 +30,6 @@ export default function transform(root: SgRoot): string | null {
 		},
 	];
 
-	// @ts-ignore - ast-grep types are not fully compatible with JSSG types
 	const requireDeclarations = getNodeRequireCalls(root, "process");
 
 	const destructureDeclarations = rootNode.findAll({
@@ -48,7 +48,6 @@ export default function transform(root: SgRoot): string | null {
 	for (const declarationNode of [...requireDeclarations, ...destructureDeclarations]) {
 		// Step 1: Get all requires from module nodule:process that is destructuring mainModule:
 		if (declarationNode.text().includes("mainModule")) {
-			// @ts-ignore - ast-grep types are not fully compatible with JSSG types
 			const result = removeBinding(declarationNode, "mainModule");
 
 			if (result) {

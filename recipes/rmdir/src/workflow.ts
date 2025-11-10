@@ -1,18 +1,20 @@
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
+import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
+import type Js from "@codemod.com/jssg-types/langs/javascript";
 
 /**
  * Transform function that converts deprecated fs.rmdir calls
  * with recursive: true option to the new fs.rm API.
  *
  * Handles:
- * 1. fs.rmdir(path, { recursive: true }, callback) -> fs.rm(path, { recursive: true, force: true }, callback)
- * 2. fs.rmdir(path, { recursive: true }) -> fs.rm(path, { recursive: true, force: true })
- * 3. fs.rmdirSync(path, { recursive: true }) -> fs.rmSync(path, { recursive: true, force: true })
- * 4. fs.promises.rmdir(path, { recursive: true }) -> fs.promises.rm(path, { recursive: true, force: true })
+ * 1. fs.rmdir(path, { recursive: true }, callback) → fs.rm(path, { recursive: true, force: true }, callback)
+ * 2. fs.rmdir(path, { recursive: true }) → fs.rm(path, { recursive: true, force: true })
+ * 3. fs.rmdirSync(path, { recursive: true }) → fs.rmSync(path, { recursive: true, force: true })
+ * 4. fs.promises.rmdir(path, { recursive: true }) → fs.promises.rm(path, { recursive: true, force: true })
  */
-export default function transform(root: SgRoot): string | null {
+export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	let hasChanges = false;
 	const edits: Edit[] = [];
@@ -22,9 +24,9 @@ export default function transform(root: SgRoot): string | null {
 		rule: {
 			any: [
 				{ pattern: "fs.rmdirSync($PATH, $OPTIONS)" },
-				{ pattern: "rmdirSync($PATH, $OPTIONS)" }
-			]
-		}
+				{ pattern: "rmdirSync($PATH, $OPTIONS)" },
+			],
+		},
 	});
 
 	const rmdirCalls = rootNode.findAll({
@@ -33,18 +35,18 @@ export default function transform(root: SgRoot): string | null {
 				{ pattern: "fs.rmdir($PATH, $OPTIONS, $CALLBACK)" },
 				{ pattern: "fs.rmdir($PATH, $OPTIONS)" },
 				{ pattern: "rmdir($PATH, $OPTIONS, $CALLBACK)" },
-				{ pattern: "rmdir($PATH, $OPTIONS)" }
-			]
-		}
+				{ pattern: "rmdir($PATH, $OPTIONS)" },
+			],
+		},
 	});
 
 	const promisesRmdirCalls = rootNode.findAll({
 		rule: {
 			any: [
 				{ pattern: "fs.promises.rmdir($PATH, $OPTIONS)" },
-				{ pattern: "promises.rmdir($PATH, $OPTIONS)" }
-			]
-		}
+				{ pattern: "promises.rmdir($PATH, $OPTIONS)" },
+			],
+		},
 	});
 
 	let needsRmImport = false;
@@ -139,26 +141,94 @@ export default function transform(root: SgRoot): string | null {
 		hasChanges = true;
 	}
 
+	// Transform named alias import when recursive set to true
+	const importStatements = getNodeImportStatements(root, "fs");
+
+	for (const eachNode of importStatements) {
+		// Get in file reference alias name (import {rmdir as foo} from "node:fs" → foo)
+		const referenceNameInFile = resolveBindingPath(eachNode, "$.rmdir");
+		if (!referenceNameInFile) continue;
+		// Get in file reference node
+		const referenceFunctionNode = rootNode.find({
+			rule: {
+				any: [
+					{
+						pattern: `${referenceNameInFile}($PATH, $OPTIONS, $CALLBACK)`,
+					},
+					{
+						pattern: `${referenceNameInFile}($PATH, $OPTIONS)`,
+					},
+				],
+			},
+		});
+		if (!referenceFunctionNode) continue;
+		const optionsMatch = referenceFunctionNode.getMatch("OPTIONS");
+		if (!optionsMatch) continue;
+		const optionsText = optionsMatch.text();
+		if (!optionsText.includes("recursive") || !optionsText.includes("true")) {
+			continue;
+		}
+		// Proceed with the change since { recursive: true }
+		const aliasNodes = eachNode.findAll({
+			rule: {
+				any: [
+					{
+						kind: "import_specifier",
+						all: [
+							{
+								has: {
+									field: "alias",
+									pattern: "$ALIAS",
+								},
+							},
+							{
+								has: {
+									field: "name",
+									pattern: "$ORIGINAL",
+								},
+							},
+						],
+					},
+				],
+			},
+		});
+
+		for (const eachAliasNode of aliasNodes) {
+			// Narrow down to rmdir alias
+			if (eachAliasNode.text().includes("rmdir")) {
+				const rmdirNode = eachAliasNode.find({
+					rule: {
+						pattern: "rmdir",
+						kind: "identifier",
+					},
+				});
+				// Change rmdir to rm
+				edits.push(rmdirNode!.replace("rm"));
+				hasChanges = true;
+			}
+		}
+	}
+
 	// Update imports/requires only if we have destructured calls that need new imports
 	if (needsRmImport || needsRmSyncImport) {
-		// @ts-ignore - ast-grep types are not fully compatible with JSSG types
-		const importStatements = getNodeImportStatements(root, 'fs');
+		const importStatements = getNodeImportStatements(root, "fs");
 
 		// Update import statements
 		for (const importNode of importStatements) {
 			// Check if it's a named import (destructured)
-			const namedImports = importNode.find({ rule: { kind: 'named_imports' } });
+			const namedImports = importNode.find({ rule: { kind: "named_imports" } });
 			if (!namedImports) continue;
 
 			let importText = importNode.text();
 			let updated = false;
 
-			if (needsRmImport
-				&& importText.includes("rmdir")
-				&& !importText.includes(" rm,")
-				&& !importText.includes(" rm ")
-				&& !importText.includes("{rm,")
-				&& !importText.includes("{rm }")
+			if (
+				needsRmImport &&
+				importText.includes("rmdir") &&
+				!importText.includes(" rm,") &&
+				!importText.includes(" rm ") &&
+				!importText.includes("{rm,") &&
+				!importText.includes("{rm }")
 			) {
 				// Add rm to imports
 				importText = importText.replace(/{\s*/, "{ rm, ");
@@ -177,20 +247,20 @@ export default function transform(root: SgRoot): string | null {
 			}
 		}
 
-		// @ts-ignore - ast-grep types are not fully compatible with JSSG types
-		const requireStatements = getNodeRequireCalls(root, 'fs');
+		const requireStatements = getNodeRequireCalls(root, "fs");
 
 		// Update require statements
 		for (const requireNode of requireStatements) {
 			let requireText = requireNode.text();
 			let updated = false;
 
-			if (needsRmImport
-				&& requireText.includes("rmdir")
-				&& !requireText.includes(" rm,")
-				&& !requireText.includes(" rm ")
-				&& !requireText.includes("{rm,")
-				&& !requireText.includes("{rm }")
+			if (
+				needsRmImport &&
+				requireText.includes("rmdir") &&
+				!requireText.includes(" rm,") &&
+				!requireText.includes(" rm ") &&
+				!requireText.includes("{rm,") &&
+				!requireText.includes("{rm }")
 			) {
 				// Add rm to requires
 				requireText = requireText.replace(/{\s*/, "{ rm, ");

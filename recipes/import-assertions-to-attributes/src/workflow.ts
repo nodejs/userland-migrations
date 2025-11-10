@@ -1,4 +1,5 @@
-import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
+import type { SgRoot, Edit } from '@codemod.com/jssg-types/main';
+import type JS from "@codemod.com/jssg-types/langs/javascript";
 
 /**
  * Transform function that converts import assertions to import attributes
@@ -11,7 +12,7 @@ import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
  * 1. import { something } from './module.json' with { type: 'json' };
  * 2. import('./module.json', { with: { type: 'json' } })
  */
-export default async function transform(root: SgRoot): Promise<string> {
+export default async function transform(root: SgRoot<JS>): Promise<string> {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 
@@ -19,17 +20,17 @@ export default async function transform(root: SgRoot): Promise<string> {
 		rule: {
 			kind: 'import_attribute',
 			regex: '^assert\\s*\\{',
-		}
+		},
 	});
 
 	for (const importNode of importStatements) {
 		// Replace 'assert' with 'with' in the import statement
-		importNode.children().map(child => {
+		importNode.children().forEach((child) => {
 			if (child.kind() === 'assert' && child.text() === 'assert') {
 				//return child.replace('with');
 				edits.push(child.replace('with'));
 			}
-		})
+		});
 	}
 
 	// Handle dynamic import call expressions with assert attributes
@@ -46,12 +47,12 @@ export default async function transform(root: SgRoot): Promise<string> {
 						kind: 'arguments',
 						inside: {
 							kind: 'call_expression',
-							pattern: "import($_SPECIFIER, $_ARGS)"
-						}
-					}
-				}
-			}
-		}
+							pattern: 'import($_SPECIFIER, $_ARGS)',
+						},
+					},
+				},
+			},
+		},
 	});
 
 	for (const assertNode of assertIdentifiers) {
@@ -60,4 +61,3 @@ export default async function transform(root: SgRoot): Promise<string> {
 
 	return rootNode.commitEdits(edits);
 }
-
