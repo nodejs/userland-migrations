@@ -1,6 +1,6 @@
-import { red, yellow } from 'chalk';
+import { red, yellow as y } from "chalk";
 
 const error = red("Error");
-const warning = yellow("Warning message");
+const warning = y("Warning message");
 
 console.log(error, warning);
