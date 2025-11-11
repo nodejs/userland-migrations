@@ -23,3 +23,20 @@ nodes:
           exclude:
             - "**/node_modules/**"
           language: typescript
+
+  - id: remove-dependencies
+    name: Remove chalk dependency
+    type: automatic
+    steps:
+      - name: Detect package manager and remove chalk dependency
+        js-ast-grep:
+          js_file: src/remove-dependencies.ts
+          base_path: .
+          include:
+            - "**/package.json"
+          exclude:
+            - "**/node_modules/**"
+          language: typescript
+          capabilities:
+            - child_process
+            - fs
