@@ -97,8 +97,12 @@ export default function transform(root: SgRoot<JS>): string | null {
 		...getNodeImportCalls(root, 'util'),
 	];
 
+	// If no import is found that means we can skip transformation on this file
+	if (!importOrRequireNodes.length) return null;
+
 	// Detect namespace/default identifiers to check for non-is usages later
 	const namespaceBindings = new Set<string>();
+
 	for (const node of importOrRequireNodes) {
 		// namespace import: import * as ns from 'node:util'
 		const nsImport = node.find({
