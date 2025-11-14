@@ -36,6 +36,9 @@ export default function transform(root: SgRoot<Js>): string | null {
 		...getNodeImportCalls(root, 'node:zlib'),
 	];
 
+	// If no import is found that means we can skip transformation on this file
+	if (!importNodes.length) return null;
+
 	const factoryBindings = new Set<string>();
 	const streamVariables: string[] = [];
 

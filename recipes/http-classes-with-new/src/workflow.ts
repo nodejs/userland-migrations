@@ -2,7 +2,7 @@ import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-s
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import type { SgRoot, Edit, SgNode } from '@codemod.com/jssg-types/main';
-import type JS from "@codemod.com/jssg-types/langs/javascript";
+import type JS from '@codemod.com/jssg-types/langs/javascript';
 
 /**
  * Classes of the http module
@@ -31,9 +31,14 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 
-	const importNodes = getNodeImportStatements(root, 'http');
-	const requireNodes = getNodeRequireCalls(root, 'http');
-	const allStatementNodes = [...importNodes, ...requireNodes];
+	const allStatementNodes = [
+		...getNodeImportStatements(root, 'http'),
+		...getNodeRequireCalls(root, 'http'),
+	];
+
+	// if no imports are present it means that we don't need to process the file
+	if (!allStatementNodes.length) return null;
+
 	const classes = new Set<string>(getHttpClassBasePaths(allStatementNodes));
 
 	for (const cls of classes) {

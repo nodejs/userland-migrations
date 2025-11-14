@@ -255,6 +255,9 @@ export default function transform(root: SgRoot<Js>): string | null {
 	];
 
 	for (const [nodes, handler] of sources) {
+		// if no nodes found, skip to next source type
+		if (!nodes.length) continue;
+
 		for (const node of nodes) {
 			const edits = handler(node, root);
 

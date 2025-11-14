@@ -1,12 +1,13 @@
-import type { Edit, SgRoot } from '@codemod.com/jssg-types/main';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
-import type Js from '@codemod.com/jssg-types/langs/javascript';
 import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import type { Edit, SgRoot } from '@codemod.com/jssg-types/main';
+import type Js from '@codemod.com/jssg-types/langs/javascript';
+
+const patterns = ['F_OK', 'R_OK', 'W_OK', 'X_OK'];
 
 export default function tranform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
-	const patterns = ['F_OK', 'R_OK', 'W_OK', 'X_OK'];
 
 	const requireStatements = getNodeRequireCalls(root, 'fs');
 
@@ -21,9 +22,7 @@ export default function tranform(root: SgRoot<Js>): string | null {
 					rule: { kind: 'shorthand_property_identifier_pattern' },
 				})
 				.map((v) => v.text());
-			objPatArr = objPatArr.filter(
-				(v) => !patterns.includes(v),
-			);
+			objPatArr = objPatArr.filter((v) => !patterns.includes(v));
 			objPatArr.push('constants');
 			edits.push(objectPattern.replace(`{ ${objPatArr.join(', ')} }`));
 		}
@@ -43,9 +42,7 @@ export default function tranform(root: SgRoot<Js>): string | null {
 					rule: { kind: 'import_specifier' },
 				})
 				.map((v) => v.text());
-			objPatArr = objPatArr.filter(
-				(v) => !patterns.includes(v),
-			);
+			objPatArr = objPatArr.filter((v) => !patterns.includes(v));
 			const promisesImport = objPatArr.find((v) => v.startsWith('promises'));
 			if (promisesImport) {
 				if (promisesImport.includes('as')) {

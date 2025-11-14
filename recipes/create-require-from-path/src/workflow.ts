@@ -1,7 +1,7 @@
-import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
-import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
-import type JS from "@codemod.com/jssg-types/langs/javascript";
+import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
+import type { SgRoot, Edit } from '@codemod.com/jssg-types/main';
+import type JS from '@codemod.com/jssg-types/langs/javascript';
 
 /**
  * Transform function that updates code to replace deprecated `createRequireFromPath` usage
@@ -24,47 +24,50 @@ import type JS from "@codemod.com/jssg-types/langs/javascript";
 export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
-	let hasChanges = false;
 
 	// Step 1: Find and update destructuring assignments from require('module') or require('node:module')
-	const requireStatements = getNodeRequireCalls(root, "module");
+	const requireStatements = getNodeRequireCalls(root, 'module');
 
 	for (const statement of requireStatements) {
 		// Find the object pattern (destructuring)
 		const objectPattern = statement.find({
 			rule: {
-				kind: "object_pattern",
+				kind: 'object_pattern',
 			},
 		});
 
 		if (objectPattern) {
 			const originalText = objectPattern.text();
 
-			if (originalText.includes("createRequireFromPath")) {
-				const newText = originalText.replace(/\bcreateRequireFromPath\b/g, "createRequire");
+			if (originalText.includes('createRequireFromPath')) {
+				const newText = originalText.replace(
+					/\bcreateRequireFromPath\b/g,
+					'createRequire',
+				);
 				edits.push(objectPattern.replace(newText));
-				hasChanges = true;
 			}
 		}
 	}
 
-	const importStatements = getNodeImportStatements(root, "module");
+	const importStatements = getNodeImportStatements(root, 'module');
 
 	for (const statement of importStatements) {
 		// Find the named imports
 		const namedImports = statement.find({
 			rule: {
-				kind: "named_imports",
+				kind: 'named_imports',
 			},
 		});
 
 		if (namedImports) {
 			const originalText = namedImports.text();
 
-			if (originalText.includes("createRequireFromPath")) {
-				const newText = originalText.replace(/\bcreateRequireFromPath\b/g, "createRequire");
+			if (originalText.includes('createRequireFromPath')) {
+				const newText = originalText.replace(
+					/\bcreateRequireFromPath\b/g,
+					'createRequire',
+				);
 				edits.push(namedImports.replace(newText));
-				hasChanges = true;
 			}
 		}
 	}
@@ -73,35 +76,35 @@ export default function transform(root: SgRoot<JS>): string | null {
 		rule: {
 			any: [
 				{
-					kind: "pair_pattern",
+					kind: 'pair_pattern',
 					all: [
 						{
 							has: {
-								field: "key",
-								kind: "property_identifier",
+								field: 'key',
+								kind: 'property_identifier',
 							},
 						},
 						{
 							has: {
-								field: "value",
-								kind: "identifier",
+								field: 'value',
+								kind: 'identifier',
 							},
 						},
 					],
 				},
 				{
-					kind: "import_specifier",
+					kind: 'import_specifier',
 					all: [
 						{
 							has: {
-								field: "alias",
-								kind: "identifier",
+								field: 'alias',
+								kind: 'identifier',
 							},
 						},
 						{
 							has: {
-								field: "name",
-								kind: "identifier",
+								field: 'name',
+								kind: 'identifier',
 							},
 						},
 					],
@@ -111,45 +114,43 @@ export default function transform(root: SgRoot<JS>): string | null {
 	});
 
 	for (const rename of renamedImports) {
-		if (rename?.text().includes("createRequireFromPath")) {
+		if (rename?.text().includes('createRequireFromPath')) {
 			const key = rename.find({
 				rule: {
 					has:
-						rename.kind() === "import_specifier"
+						rename.kind() === 'import_specifier'
 							? {
-									field: "name",
-									kind: "identifier",
+									field: 'name',
+									kind: 'identifier',
 								}
 							: {
-									field: "key",
-									kind: "property_identifier",
+									field: 'key',
+									kind: 'property_identifier',
 								},
 				},
 			});
 
-			edits.push(key.replace("createRequire"));
-			hasChanges = true;
+			edits.push(key.replace('createRequire'));
 		}
 	}
 
 	// Step 2: Find and replace createRequireFromPath function calls
 	const functionCalls = rootNode.findAll({
 		rule: {
-			pattern: "createRequireFromPath($ARG)",
+			pattern: 'createRequireFromPath($ARG)',
 		},
 	});
 
 	for (const call of functionCalls) {
-		const argMatch = call.getMatch("ARG");
+		const argMatch = call.getMatch('ARG');
 		if (argMatch) {
 			const arg = argMatch.text();
 			const replacement = `createRequire(${arg})`;
 			edits.push(call.replace(replacement));
-			hasChanges = true;
 		}
 	}
 
-	if (!hasChanges) return null;
+	if (!edits.length) return null;
 
 	return rootNode.commitEdits(edits);
 }

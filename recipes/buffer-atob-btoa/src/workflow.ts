@@ -34,6 +34,9 @@ export default function transform(root: SgRoot<Js>): string | null {
 		...getNodeImportStatements(root, 'buffer'),
 	];
 
+	// If no statements found, skip transformation
+	if (!statements.length) return null;
+
 	for (const statement of statements) {
 		for (const update of updates) {
 			const binding = resolveBindingPath(statement, update.oldBind);
