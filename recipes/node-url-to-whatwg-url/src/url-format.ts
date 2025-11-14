@@ -146,8 +146,9 @@ function urlFormatToUrlToString(callNode: SgNode<JS>[], edits: Edit[]): void {
 								},
 							}),
 						);
-						if (qkeyNode && qvalLiteral !== undefined)
+						if (qkeyNode && qvalLiteral !== undefined) {
 							list.push([qkeyNode.text(), qvalLiteral]);
+						}
 					}
 					urlState.queryParams = list;
 				}

@@ -4,8 +4,10 @@ import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-bindi
 import type { SgRoot, Edit } from '@codemod.com/jssg-types/main';
 import type JS from '@codemod.com/jssg-types/langs/javascript';
 
-const validVariableNameRegex = /^[$A-Z_a-z][$\w]*$/;
-const destructuringAssignmentRegex = /^[^{]+{\s*[^}]+\s*}\s*=\s*/;
+const VALID_VARIABLE_NAME_REGEX = /^[$A-Z_a-z][$\w]*$/;
+const DESTRUCTURING_ASSIGNMENT_REGEX = /^[^{]+{\s*[^}]+\s*}\s*=\s*/;
+const HOSTNAME_BRACKETS_REGEX = /^\[|\]$/;
+
 const fieldsToReplace = [
 	{
 		key: 'auth',
@@ -40,7 +42,7 @@ const fieldsToReplace = [
 		) => {
 			const kind = declKind === 'var' ? 'let' : declKind;
 
-			return `${kind} hostname = ${base}.hostname.replace(/^\\[|\\]$/, '')${hadSemi ? ';' : ''}`;
+			return `${kind} hostname = ${base}.hostname.replace(${HOSTNAME_BRACKETS_REGEX}, '')${hadSemi ? ';' : ''}`;
 		},
 	},
 ];
@@ -95,7 +97,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 			const obj = m.getMatch('OBJ');
 			if (!obj) continue;
 			const name = obj.text();
-			if (validVariableNameRegex.test(name)) parseResultVars.add(name);
+			if (VALID_VARIABLE_NAME_REGEX.test(name)) parseResultVars.add(name);
 		}
 	}
 
@@ -195,7 +197,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 			for (const node of directDestructures) {
 				const text = node.text();
 				const hadSemi = /;\s*$/.test(text);
-				const rhsText = text.replace(destructuringAssignmentRegex, '');
+				const rhsText = text.replace(DESTRUCTURING_ASSIGNMENT_REGEX, '');
 				const declKind: 'const' | 'let' | 'var' = text
 					.trimStart()
 					.startsWith('var ')
@@ -242,7 +244,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 		for (const node of newURLDestructures) {
 			const text = node.text();
 			const hadSemi = /;\s*$/.test(text);
-			const rhsText = text.replace(destructuringAssignmentRegex, '');
+			const rhsText = text.replace(DESTRUCTURING_ASSIGNMENT_REGEX, '');
 			const declKind = text.trimStart().startsWith('var ')
 				? 'var'
 				: text.trimStart().startsWith('const ')
