@@ -1,4 +1,4 @@
-import removeDependencies from "@nodejs/codemod-utils/remove-dependencies";
+import removeDependencies from '@nodejs/codemod-utils/remove-dependencies';
 
 /**
  * Remove chalk and @types/chalk dependencies from package.json

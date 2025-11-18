@@ -1,5 +1,5 @@
-import { execSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { execSync } from 'node:child_process';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 /**
  * Remove specified dependencies from package.json and run appropriate package manager install
@@ -7,15 +7,15 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 export default function removeDependencies(
 	dependenciesToRemove?: string | string[],
 ): string | null {
-	const packageJsonPath = "package.json";
+	const packageJsonPath = 'package.json';
 
 	if (!dependenciesToRemove) {
-		console.log("No dependencies specified for removal");
+		console.log('No dependencies specified for removal');
 		return null;
 	}
 
 	if (!existsSync(packageJsonPath)) {
-		console.log("No package.json found, skipping dependency removal");
+		console.log('No package.json found, skipping dependency removal');
 		return null;
 	}
 
@@ -24,7 +24,7 @@ export default function removeDependencies(
 			? dependenciesToRemove
 			: [dependenciesToRemove];
 
-		const packageJsonContent = readFileSync(packageJsonPath, "utf-8");
+		const packageJsonContent = readFileSync(packageJsonPath, 'utf-8');
 		const packageJson = JSON.parse(packageJsonContent);
 
 		let modified = false;
@@ -50,20 +50,22 @@ export default function removeDependencies(
 		}
 
 		if (!modified) {
-			console.log(`No specified dependencies (${depsToRemove.join(", ")}) found in package.json`);
+			console.log(
+				`No specified dependencies (${depsToRemove.join(', ')}) found in package.json`,
+			);
 			return null;
 		}
 
 		const updatedContent = JSON.stringify(packageJson, null, 2);
-		writeFileSync(packageJsonPath, updatedContent, "utf-8");
-		console.log("Updated package.json");
+		writeFileSync(packageJsonPath, updatedContent, 'utf-8');
+		console.log('Updated package.json');
 
 		const packageManager = detectPackageManager();
 		runPackageManagerInstall(packageManager);
 
 		return updatedContent;
 	} catch (error) {
-		console.error("Error removing dependencies:", error);
+		console.error('Error removing dependencies:', error);
 		return null;
 	}
 }
@@ -71,34 +73,36 @@ export default function removeDependencies(
 /**
  * Detect which package manager is being used based on lock files. Defaults to npm.
  */
-function detectPackageManager(): "npm" | "yarn" | "pnpm" {
-	if (existsSync("pnpm-lock.yaml")) {
-		return "pnpm";
+function detectPackageManager(): 'npm' | 'yarn' | 'pnpm' {
+	if (existsSync('pnpm-lock.yaml')) {
+		return 'pnpm';
 	}
 
-	if (existsSync("yarn.lock")) {
-		return "yarn";
+	if (existsSync('yarn.lock')) {
+		return 'yarn';
 	}
 
-	return "npm";
+	return 'npm';
 }
 
 /**
  * Run the appropriate package manager install command
  */
-function runPackageManagerInstall(packageManager: "npm" | "yarn" | "pnpm"): void {
+function runPackageManagerInstall(
+	packageManager: 'npm' | 'yarn' | 'pnpm',
+): void {
 	try {
 		console.log(`Running ${packageManager} install to update dependencies...`);
 
 		switch (packageManager) {
-			case "npm":
-				execSync("npm install", { stdio: "inherit" });
+			case 'npm':
+				execSync('npm install', { stdio: 'inherit' });
 				break;
-			case "yarn":
-				execSync("yarn install", { stdio: "inherit" });
+			case 'yarn':
+				execSync('yarn install', { stdio: 'inherit' });
 				break;
-			case "pnpm":
-				execSync("pnpm install", { stdio: "inherit" });
+			case 'pnpm':
+				execSync('pnpm install', { stdio: 'inherit' });
 				break;
 		}
 
