@@ -209,7 +209,7 @@ function processDestructuredImports(
 				has: {
 					field: "function",
 					kind: "identifier",
-					regex: `^${name.local}$`,
+					pattern: name.local,
 				},
 			},
 		});
@@ -238,59 +238,73 @@ function processDestructuredImports(
 function processDefaultImports(rootNode: SgNode<Js>, binding: string, edits: Edit[]): void {
 	const chalkCalls = rootNode.findAll({
 		rule: {
-			any: [
-				// Pattern 1: single method calls: chalk.method(text)
-				{ pattern: `${binding}.$METHOD($TEXT)` },
-				// Pattern 2: chained method calls: chalk.method1.method2(text));
-				{
-					kind: "call_expression",
-					has: {
-						field: "function",
-						kind: "member_expression",
-					},
+			kind: "call_expression",
+			has: {
+				field: "function",
+				kind: "member_expression",
+				has: {
+					field: "object",
+					any: [
+						// Direct chalk calls
+						{
+							kind: "identifier",
+							pattern: binding,
+						},
+						// Chained chalk calls
+						{
+							kind: "member_expression",
+							any: [
+								{
+									has: {
+										field: "object",
+										kind: "identifier",
+										pattern: binding, // chalk.method1.method2
+									},
+								},
+								{
+									has: {
+										field: "object",
+										kind: "member_expression",
+										has: {
+											field: "object",
+											kind: "identifier",
+											pattern: binding, // chalk.method1.method2.method3
+										},
+									},
+								},
+							],
+						},
+					],
 				},
-			],
+			},
 		},
 	});
 
 	for (const call of chalkCalls) {
-		const methodMatch = call.getMatch("METHOD");
-		const textMatch = call.getMatch("TEXT");
+		const functionExpr = call.field("function");
 
-		if (methodMatch && textMatch) {
-			// Pattern 1: chalk.method(text) → styleText("method", text)
-			const method = methodMatch.text();
+		if (!functionExpr) continue;
 
-			if (!isSupportedMethod(method)) {
-				warnOnUnsupportedMethod(method, rootNode, call);
-				continue;
+		const styles = extractChalkStyles(functionExpr, binding);
+
+		if (styles.length === 0) continue;
+
+		if (hasUnsupportedMethods(styles)) {
+			for (const style of styles) {
+				if (UNSUPPORTED_METHODS.has(style)) {
+					warnOnUnsupportedMethod(style, rootNode, call);
+				}
 			}
-
-			const text = textMatch.text();
-			const styleMethod = COMPAT_MAP[method] || method;
-			const replacement = createStyleTextReplacement(styleMethod, text);
-
-			edits.push(call.replace(replacement));
-		} else {
-			// Pattern 2: chalk.method1.method2(text) → styleText(["method1", "method2"], text)
-			const functionExpr = call.field("function");
-
-			if (!functionExpr) continue;
-
-			const styles = extractChalkStyles(functionExpr, binding);
-
-			if (styles.length === 0) continue;
-
-			if (hasUnsupportedMethods(styles)) continue;
-
-			const textArg = getFirstCallArgument(call);
-
-			if (!textArg) continue;
-
-			const replacement = createMultiStyleTextReplacement(styles, textArg);
-
-			edits.push(call.replace(replacement));
+			continue;
 		}
+
+		const textArg = getFirstCallArgument(call);
+
+		if (!textArg) continue;
+
+		const replacement = createMultiStyleTextReplacement(styles, textArg);
+
+		edits.push(call.replace(replacement));
 	}
 
 	// Handle method assignments

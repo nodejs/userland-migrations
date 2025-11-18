@@ -54,7 +54,7 @@ export default function removeDependencies(
 			return null;
 		}
 
-		const updatedContent = JSON.stringify(packageJson, null, 2) + "\n";
+		const updatedContent = JSON.stringify(packageJson, null, 2);
 		writeFileSync(packageJsonPath, updatedContent, "utf-8");
 		console.log("Updated package.json");
 
