@@ -12,7 +12,42 @@ type UpdateBindingReturnType = {
 type UpdateBindingOptions = {
 	old?: string;
 	new?: string | string[];
+	usageCheck?: {
+		ignoredRanges?: Range[];
+	};
+	root?: SgNode<Js>;
 };
+
+function isRangeWithin(inner: Range, outer: Range): boolean {
+	return (
+		inner.start.index >= outer.start.index && inner.end.index <= outer.end.index
+	);
+}
+
+function isBindingUsed(
+	node: SgNode<Js>,
+	bindingName: string,
+	ignoredRanges: Range[] = [],
+	rootNode?: SgNode<Js>,
+): boolean {
+	const root = rootNode || node.getRoot().root();
+	const references = root.findAll({
+		rule: {
+			kind: 'identifier',
+			pattern: bindingName,
+		},
+	});
+
+	return references.some((ref: SgNode<Js>) => {
+		// Ignore references inside the definition node itself
+		if (isRangeWithin(ref.range(), node.range())) return false;
+
+		// Ignore references within ignored ranges
+		if (ignoredRanges.some((r) => isRangeWithin(ref.range(), r))) return false;
+
+		return true;
+	});
+}
 
 /**
  * Update or remove a specific binding from an import or require statement.
@@ -111,6 +146,17 @@ export function updateBinding(
 		namespaceImport &&
 		namespaceImport.text() === options?.old
 	) {
+		if (
+			options?.usageCheck &&
+			isBindingUsed(
+				node,
+				options.old,
+				options.usageCheck.ignoredRanges,
+				options.root,
+			)
+		) {
+			return;
+		}
 		return {
 			lineToRemove: node.range(),
 		};
@@ -145,6 +191,18 @@ function handleNamedImportBindings(
 			return {
 				edit: namespaceImport.replace(newName),
 			};
+		}
+
+		if (
+			options?.usageCheck &&
+			isBindingUsed(
+				node,
+				options.old,
+				options.usageCheck.ignoredRanges,
+				options.root,
+			)
+		) {
+			return;
 		}
 
 		return {
@@ -276,6 +334,20 @@ function handleNamedImportBindings(
 			});
 
 			if (!defaultImport) {
+				return {
+					lineToRemove: node.range(),
+				};
+			}
+
+			if (
+				options?.usageCheck &&
+				!isBindingUsed(
+					node,
+					defaultImport.text(),
+					options.usageCheck.ignoredRanges,
+					options.root,
+				)
+			) {
 				return {
 					lineToRemove: node.range(),
 				};

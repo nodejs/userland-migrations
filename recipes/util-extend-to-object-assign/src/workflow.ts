@@ -93,7 +93,6 @@ export default function transform(root: SgRoot<JS>): string | null {
 	// 2. Cleanup imports
 	for (const node of importOrRequireNodes) {
 		let nsBinding = '';
-		let nsBindingNode = null;
 
 		const reqNs = getRequireNamespaceIdentifier(node);
 		const defaultImport = getDefaultImportIdentifier(node);
@@ -108,37 +107,19 @@ export default function transform(root: SgRoot<JS>): string | null {
 
 		if (reqNs) {
 			nsBinding = reqNs.text();
-			nsBindingNode = reqNs;
 		} else if (defaultImport) {
 			nsBinding = defaultImport.text();
-			nsBindingNode = defaultImport;
 		} else if (namespaceImport) {
 			nsBinding = namespaceImport.text();
-			nsBindingNode = namespaceImport;
 		}
 
 		// Check if namespace binding is still used
-		if (nsBinding && nsBindingNode) {
-			const references = rootNode.findAll({
-				rule: {
-					kind: 'identifier',
-					pattern: nsBinding,
-				},
+		if (nsBinding) {
+			const change = removeBinding(node, nsBinding, {
+				usageCheck: { ignoredRanges: editRanges },
+				root: rootNode,
 			});
-
-			const isUsed = references.some((ref) => {
-				const refRange = ref.range();
-				const defRange = nsBindingNode.range();
-				const isDefinition =
-					refRange.start.index === defRange.start.index &&
-					refRange.end.index === defRange.end.index;
-				const isReplaced = editRanges.some((range) =>
-					isRangeWithin(refRange, range),
-				);
-				return !isDefinition && !isReplaced;
-			});
-
-			if (!isUsed) linesToRemove.push(node.range());
+			if (change?.lineToRemove) linesToRemove.push(change.lineToRemove);
 		}
 
 		const change = removeBinding(node, method);
@@ -149,10 +130,4 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const sourceCode = rootNode.commitEdits(edits);
 
 	return removeLines(sourceCode, linesToRemove);
-}
-
-function isRangeWithin(inner: Range, outer: Range): boolean {
-	return (
-		inner.start.index >= outer.start.index && inner.end.index <= outer.end.index
-	);
 }
