@@ -134,10 +134,7 @@ export const getNodeImportCalls = (
 		let parentNode = node.parent();
 		// iterate through all chained methods until reaching the expression_statement
 		// that marks the beginning of the import line
-		while (
-			parentNode &&
-			parentNode.kind() !== 'expression_statement'
-		) {
+		while (parentNode && parentNode.kind() !== 'expression_statement') {
 			parentNode = parentNode.parent();
 		}
 
@@ -165,17 +162,32 @@ export const getNodeImportCalls = (
 /**
  * Get the default import identifier from an import statement
  */
-export const getDefaultImportIdentifier = (importNode: SgNode<Js>): SgNode<Js> | null =>
+export const getDefaultImportIdentifier = (
+	importNode: SgNode<Js>,
+): SgNode<Js> | null =>
 	importNode.find({
 		rule: {
-			kind: "identifier",
+			kind: 'identifier',
 			inside: {
-				kind: "import_clause",
+				kind: 'import_clause',
 				not: {
 					has: {
-						kind: "named_imports"
-					}
-				}
-			}
-		}
+						kind: 'named_imports',
+					},
+				},
+			},
+		},
 	});
+
+/**
+ * Get the namespace import identifier from an import statement
+ */
+export const getNamespaceImportIdentifier = (
+	importNode: SgNode<Js>,
+): SgNode<Js> | null => {
+	const nsImport = importNode.find({ rule: { kind: 'namespace_import' } });
+	if (nsImport) {
+		return nsImport.find({ rule: { kind: 'identifier' } });
+	}
+	return null;
+};
