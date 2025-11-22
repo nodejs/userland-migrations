@@ -178,16 +178,3 @@ export const getDefaultImportIdentifier = (
 			},
 		},
 	});
-
-/**
- * Get the namespace import identifier from an import statement
- */
-export const getNamespaceImportIdentifier = (
-	importNode: SgNode<Js>,
-): SgNode<Js> | null => {
-	const nsImport = importNode.find({ rule: { kind: 'namespace_import' } });
-	if (nsImport) {
-		return nsImport.find({ rule: { kind: 'identifier' } });
-	}
-	return null;
-};

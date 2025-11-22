@@ -167,6 +167,7 @@ function handleNamedImportBindings(
 
 	const aliasedImports = node.findAll({
 		rule: {
+			kind: 'import_specifier',
 			has: {
 				field: 'alias',
 				kind: 'identifier',
@@ -175,7 +176,13 @@ function handleNamedImportBindings(
 	});
 
 	for (const renamedImport of aliasedImports) {
-		if (renamedImport.text() === options.old) {
+		const nameNode = renamedImport.field('name');
+		const aliasNode = renamedImport.field('alias');
+
+		const matchesName = nameNode && nameNode.text() === options.old;
+		const matchesAlias = aliasNode && aliasNode.text() === options.old;
+
+		if (matchesName || matchesAlias) {
 			if (
 				!options?.new &&
 				aliasedImports.length === 1 &&
@@ -226,26 +233,23 @@ function handleNamedImportBindings(
 					};
 				}
 
-				for (const renamedImport of aliasedImports) {
-					if (renamedImport.text() === options.old) {
-						const importName = renamedImport.parent().find({
-							rule: {
-								has: {
-									field: 'name',
-									kind: 'identifier',
-								},
-							},
-						});
-						return {
-							edit: importName.replace(options.new),
-						};
-					}
+				if ((matchesName || matchesAlias) && nameNode) {
+					return {
+						edit: nameNode.replace(options.new),
+					};
 				}
 			} else {
-				const aliasStatement = aliasedImports.map((alias) => alias.parent());
+				const aliasStatement = aliasedImports;
 				const newNamedImports = [...namedImports, ...aliasStatement]
-					.map((d) => d.text())
-					.filter((d) => d !== renamedImport.parent().text());
+					.filter((d) => {
+						const n = d.field('name');
+						const a = d.field('alias');
+						return (
+							(n ? n.text() : '') !== options.old &&
+							(a ? a.text() : '') !== options.old
+						);
+					})
+					.map((d) => d.text());
 
 				return {
 					edit: namedImportsNode.replace(`{ ${newNamedImports.join(', ')} }`),
@@ -256,9 +260,35 @@ function handleNamedImportBindings(
 
 	if (namedImports.length !== 0) {
 		if (namedImports.length === 1 && !options?.new) {
-			return {
-				lineToRemove: node.range(),
-			};
+			const defaultImport = node.find({
+				rule: {
+					kind: 'identifier',
+					inside: {
+						kind: 'import_clause',
+					},
+					not: {
+						any: [
+							{ inside: { kind: 'named_imports' } },
+							{ inside: { kind: 'namespace_import' } },
+						],
+					},
+				},
+			});
+
+			if (!defaultImport) {
+				return {
+					lineToRemove: node.range(),
+				};
+			}
+
+			const source = node.find({ rule: { kind: 'string' } });
+			if (source) {
+				return {
+					edit: node.replace(
+						`import ${defaultImport.text()} from ${source.text()};`,
+					),
+				};
+			}
 		}
 
 		const edit = updateObjectPattern(namedImports, options.old, options.new);

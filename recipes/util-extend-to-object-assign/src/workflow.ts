@@ -2,7 +2,6 @@ import {
 	getNodeImportStatements,
 	getNodeImportCalls,
 	getDefaultImportIdentifier,
-	getNamespaceImportIdentifier,
 } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import {
 	getNodeRequireCalls,
@@ -11,7 +10,6 @@ import {
 import { removeBinding } from '@nodejs/codemod-utils/ast-grep/remove-binding';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
-import { isBindingUsed } from '@nodejs/codemod-utils/ast-grep/is-binding-used';
 import type { SgRoot, Edit, Range } from '@codemod.com/jssg-types/main';
 import type JS from '@codemod.com/jssg-types/langs/javascript';
 
@@ -33,6 +31,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
+	const editRanges: Range[] = [];
 
 	const importOrRequireNodes = [
 		...getNodeRequireCalls(root, 'util'),
@@ -49,6 +48,25 @@ export default function transform(root: SgRoot<JS>): string | null {
 	for (const node of importOrRequireNodes) {
 		const resolved = resolveBindingPath(node, `$.${method}`);
 		if (resolved) localRefs.add(resolved);
+
+		// Workaround for mixed imports (e.g. import util, { _extend } from 'util')
+		if (node.kind() === 'import_statement') {
+			const namedSpecifiers = node.findAll({
+				rule: {
+					kind: 'import_specifier',
+				},
+			});
+
+			for (const specifier of namedSpecifiers) {
+				const nameNode = specifier.field('name');
+				const aliasNode = specifier.field('alias');
+
+				if (nameNode && nameNode.text() === method) {
+					const localName = aliasNode ? aliasNode.text() : nameNode.text();
+					localRefs.add(localName);
+				}
+			}
+		}
 	}
 
 	for (const ref of localRefs) {
@@ -64,8 +82,8 @@ export default function transform(root: SgRoot<JS>): string | null {
 				rule: { kind: 'arguments' },
 			});
 
-			// Replace with Object.assign
 			edits.push(call.replace(`Object.assign${args.text()}`));
+			editRanges.push(call.range());
 		}
 	}
 
@@ -75,23 +93,54 @@ export default function transform(root: SgRoot<JS>): string | null {
 	// 2. Cleanup imports
 	for (const node of importOrRequireNodes) {
 		let nsBinding = '';
+		let nsBindingNode = null;
 
 		const reqNs = getRequireNamespaceIdentifier(node);
 		const defaultImport = getDefaultImportIdentifier(node);
-		const namespaceImport = getNamespaceImportIdentifier(node);
+		const namespaceImport = node.find({
+			rule: {
+				kind: 'identifier',
+				inside: {
+					kind: 'namespace_import',
+				},
+			},
+		});
 
-		if (reqNs) nsBinding = reqNs.text();
-		else if (defaultImport) nsBinding = defaultImport.text();
-		else if (namespaceImport) nsBinding = namespaceImport.text();
-
-		if (nsBinding && !isBindingUsed(root, nsBinding, node, [method])) {
-			// If no other usages, we can remove the import line
-			linesToRemove.push(node.range());
-			continue; // Skip removeBinding for this node as we removed the whole line
+		if (reqNs) {
+			nsBinding = reqNs.text();
+			nsBindingNode = reqNs;
+		} else if (defaultImport) {
+			nsBinding = defaultImport.text();
+			nsBindingNode = defaultImport;
+		} else if (namespaceImport) {
+			nsBinding = namespaceImport.text();
+			nsBindingNode = namespaceImport;
 		}
 
-		// If we didn't remove the whole line, try to remove the specific binding `_extend`
-		// This works for destructuring: `const { _extend } = require('util')`
+		// Check if namespace binding is still used
+		if (nsBinding && nsBindingNode) {
+			const references = rootNode.findAll({
+				rule: {
+					kind: 'identifier',
+					pattern: nsBinding,
+				},
+			});
+
+			const isUsed = references.some((ref) => {
+				const refRange = ref.range();
+				const defRange = nsBindingNode.range();
+				const isDefinition =
+					refRange.start.index === defRange.start.index &&
+					refRange.end.index === defRange.end.index;
+				const isReplaced = editRanges.some((range) =>
+					isRangeWithin(refRange, range),
+				);
+				return !isDefinition && !isReplaced;
+			});
+
+			if (!isUsed) linesToRemove.push(node.range());
+		}
+
 		const change = removeBinding(node, method);
 		if (change?.edit) edits.push(change.edit);
 		if (change?.lineToRemove) linesToRemove.push(change.lineToRemove);
@@ -100,4 +149,10 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const sourceCode = rootNode.commitEdits(edits);
 
 	return removeLines(sourceCode, linesToRemove);
+}
+
+function isRangeWithin(inner: Range, outer: Range): boolean {
+	return (
+		inner.start.index >= outer.start.index && inner.end.index <= outer.end.index
+	);
 }

@@ -104,20 +104,6 @@ import { updateBinding } from '@nodejs/codemod-utils';
 // updateBinding(node, {old: isNativeError, new: undefined}) → Works exactly as removeBinding util: const { types } = require('node:util');
 ```
 
-#### `isBindingUsed(root, binding, declarationNode, ignoredProperties)`
-
-Checks if a binding is used in the code, excluding usages within its declaration and usages of specific properties.
-
-```typescript
-import { isBindingUsed } from '@nodejs/codemod-utils';
-
-// Given: import * as util from 'node:util'; util._extend({}, {});
-// isBindingUsed(root, 'util', importNode, ['_extend']) → false
-
-// Given: import * as util from 'node:util'; util.format('foo');
-// isBindingUsed(root, 'util', importNode, ['_extend']) → true
-```
-
 ### Code Manipulation
 
 #### `removeLines(sourceCode, ranges)`
