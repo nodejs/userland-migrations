@@ -1,0 +1,22 @@
+schema_version: "1.0"
+name: "@nodejs/buffer-atob-btoa"
+version: "1.0.0"
+description: Migrates usage of the legacy APIs `buffer.atob()` and `buffer.btoa()` to the current recommended approaches
+author: nekojanai (Jana)
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - buffers
+
+registry:
+  access: public
+  visibility: public

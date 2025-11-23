@@ -12,18 +12,30 @@ This repository contains codemods (automated migrations) for "userland" code. Th
 
 To run the transform scripts use [`codemod`](https://go.codemod.com/github) command below:
 
-```console
-$ npx codemod <transform> --target <path> [...options]
+### From registry
+
+With the codemod CLI you can run a workflow from the [Codemod Registry](https://codemod.link/nodejs-official). Replace `<recipe>` with the name of the recipe you want to run:
+
+```bash
+npx codemod @nodejs/<recipe>
 ```
 
-* `transform` - name of transform. see available transforms below.
-* `path` - directory to transform. defaults to the current directory.
+### From source
+
+With the codemod CLI you can run a workflow from a local file. First, clone this repository, then run the command below from your project directory:
+
+```bash
+git clone https://github.com/nodejs/userland-migrations.git
+cd /path/to/your-project
+npx codemod workflow run -w /path/to/folder/userland-migrations/recipes/<recipe>/workflow.yaml
+
+```
 
 See the [codemod CLI doc](https://go.codemod.com/cli-docs) for a full list of available commands.
 
 ## Available codemods
 
-You can find official Node.js codemods in the [Codemod Registry](https://codemod.com/registry?author=nodejs). Additionally, community-contributed Node.js codemods are available in the [Codemod Registry](https://codemod.link/nodejs-official).
+You can find official Node.js codemods in the [Codemod Registry](https://codemod.link/nodejs-official).
 
 ## Acknowledgments
 

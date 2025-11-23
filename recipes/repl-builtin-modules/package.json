@@ -1,0 +1,25 @@
+{
+  "name": "@nodejs/repl-builtin-modules",
+  "version": "1.0.0",
+  "description": "Handle DEP0191 via transforming `repl.builtinModules` usage to `module.builtinModules`.",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./",
+    "test:update-snapshots": "npx codemod jssg test --update-snapshots -l typescript ./src/workflow.ts ./ "
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/repl-builtin-modules",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "Augustin Mauroy",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/repl-builtin-modules/README.md",
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.0.3"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
+  }
+}

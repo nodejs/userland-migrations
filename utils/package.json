@@ -8,13 +8,16 @@
     ]
   },
   "scripts": {
-    "test": "node --no-warnings --experimental-test-snapshots --experimental-strip-types --import='./src/snapshots.ts' --test --experimental-test-coverage --test-coverage-include='src/**/*' --test-coverage-exclude='**/*.test.ts' './**/*.test.ts'"
+    "test": "node --no-warnings --import=./src/codemod-jssg-context.ts --experimental-test-snapshots --experimental-strip-types --import='./src/snapshots.ts' --test --experimental-test-coverage --test-coverage-include='src/**/*' --test-coverage-exclude='**/*.test.ts' './**/*.test.ts'"
   },
   "author": "Augustin Maurouy",
   "license": "MIT",
   "type": "module",
   "devDependencies": {
-    "@ast-grep/napi": "^0.39.3",
-    "dedent": "^1.6.0"
+    "@ast-grep/lang-bash": "^0.0.4",
+    "@ast-grep/lang-json": "^0.0.4",
+    "@ast-grep/napi": "^0.40.0",
+    "@codemod.com/jssg-types": "^1.0.9",
+    "dedent": "^1.7.0"
   }
 }

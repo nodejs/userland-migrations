@@ -1,4 +1,5 @@
 import module from 'node:module';
+import type { RegisterHooksOptions } from 'node:module';
 
 import { type Api, api } from '@codemod.com/workflow';
 import type { Helpers } from '@codemod.com/workflow/dist/jsFam.d.ts';
@@ -6,12 +7,11 @@ import { setCodemodName } from '@nodejs/codemod-utils/logger';
 
 import { mapImports } from './map-imports.ts';
 import type { FSAbsolutePath } from './index.d.ts';
-
 import * as aliasLoader from '@nodejs-loaders/alias/alias.loader.mjs';
 
 setCodemodName('correct-ts-specifiers');
 
-module.registerHooks(aliasLoader);
+module.registerHooks(aliasLoader as RegisterHooksOptions);
 
 export async function workflow({ contexts, files }: Api) {
 	await files(globPattern).jsFam(processModule);
@@ -39,13 +39,19 @@ export async function workflow({ contexts, files }: Api) {
 
 			if (!importSpecifier) return;
 
-			const { isType, replacement } = await mapImports(filepath, importSpecifier.text());
+			const { isType, replacement } = await mapImports(
+				filepath,
+				importSpecifier.text(),
+			);
 
 			if (!replacement) return;
 
 			const edits = [importSpecifier.replace(replacement)];
 
-			if (isType && !statement.children().some((node) => node.kind() === 'type')) {
+			if (
+				isType &&
+				!statement.children().some((node) => node.kind() === 'type')
+			) {
 				const clause = statement.find({
 					rule: {
 						any: [{ kind: 'import_clause' }, { kind: 'export_clause' }],

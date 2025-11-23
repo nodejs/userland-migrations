@@ -4,7 +4,7 @@
   "description": "Replace `assert` import attribute to the `with` ECMAScript import attribute.",
   "type": "module",
   "scripts": {
-    "test": "npx codemod@next jssg test -l typescript ./src/workflow.ts ./"
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
   },
   "repository": {
     "type": "git",
@@ -16,7 +16,6 @@
   "license": "MIT",
   "homepage": "https://github.com/nodejs/userland-migrations/tree/main/import-assertions-to-attributes#readme",
   "devDependencies": {
-    "@types/node": "^24.2.1",
-    "@codemod.com/jssg-types": "^1.0.3"
+    "@codemod.com/jssg-types": "^1.0.9"
   }
 }

@@ -1,13 +1,6 @@
-import type { Kinds, TypesMap } from "@ast-grep/napi/types/staticTypes.js";
-import type { SgNode, Edit, Range } from "@ast-grep/napi";
-
-const requireKinds = ["lexical_declaration", "variable_declarator"];
-const importKinds = ["import_statement", "import_clause"];
-
-type RemoveBindingReturnType = {
-	edit?: Edit;
-	lineToRemove?: Range;
-};
+import { updateBinding } from './update-binding.ts';
+import type { SgNode, Kinds } from '@codemod.com/jssg-types/main';
+import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 /**
  * Removes a specific binding from an import or require statement.
@@ -42,164 +35,11 @@ type RemoveBindingReturnType = {
  * ```
  */
 export function removeBinding(
-	node: SgNode<TypesMap, Kinds<TypesMap>>,
+	node: SgNode<Js> | SgNode<Js, Kinds<Js>>,
 	binding: string,
-): RemoveBindingReturnType {
-	const nodeKind = node.kind().toString();
-
-	const identifier = node.find({
-		rule: {
-			any: [
-				{
-					kind: "identifier",
-					inside: {
-						kind: "variable_declarator",
-					},
-				},
-				{
-					kind: "identifier",
-					inside: {
-						kind: "import_clause",
-					},
-				},
-			],
-		},
+) {
+	return updateBinding(node, {
+		old: binding,
+		new: undefined,
 	});
-
-	if (identifier && identifier.text() === binding) {
-		return {
-			lineToRemove: node.range(),
-		};
-	}
-
-	if (requireKinds.includes(nodeKind)) {
-		return handleNamedRequireBindings(node, binding);
-	}
-
-	if (importKinds.includes(nodeKind)) {
-		return handleNamedImportBindings(node, binding);
-	}
-}
-
-function handleNamedImportBindings(
-	node: SgNode<TypesMap, Kinds<TypesMap>>,
-	binding: string,
-): RemoveBindingReturnType {
-	const namespaceImport = node.find({
-		rule: {
-			kind: "identifier",
-			inside: {
-				kind: "namespace_import",
-			},
-		},
-	});
-
-	if (Boolean(namespaceImport) && namespaceImport.text() === binding) {
-		return {
-			lineToRemove: node.range(),
-		};
-	}
-
-	const namedImports = node.findAll({
-		rule: {
-			kind: "import_specifier",
-			// ignore imports with alias (renamed imports)
-			not: {
-				has: {
-					field: "alias",
-					kind: "identifier",
-				},
-			},
-		},
-	});
-
-	for (const namedImport of namedImports) {
-		const text = namedImport.text();
-		if (text === binding) {
-			if (namedImports.length === 1) {
-				return {
-					lineToRemove: node.range(),
-				};
-			}
-
-			const namedImportsNode = node.find({
-				rule: {
-					kind: "named_imports",
-				},
-			});
-			const restNamedImports = namedImports.map((d) => d.text()).filter((d) => d !== binding);
-
-			return {
-				edit: namedImportsNode.replace(`{ ${restNamedImports.join(", ")} }`),
-			};
-		}
-	}
-
-	const renamedImports = node.findAll({
-		rule: {
-			has: {
-				field: "alias",
-				kind: "identifier",
-			},
-		},
-	});
-
-	for (const renamedImport of renamedImports) {
-		if (renamedImport.text() === binding) {
-			if (renamedImports.length === 1 && namedImports.length === 0) {
-				return {
-					lineToRemove: node.range(),
-				};
-			}
-
-			const namedImportsNode = node.find({
-				rule: {
-					kind: "named_imports",
-				},
-			});
-
-			const aliasStatement = renamedImports.map((alias) => alias.parent());
-
-			const restNamedImports = [...namedImports, ...aliasStatement]
-				.map((d) => d.text())
-				.filter((d) => d !== renamedImport.parent().text());
-
-			return {
-				edit: namedImportsNode.replace(`{ ${restNamedImports.join(", ")} }`),
-			};
-		}
-	}
-}
-
-function handleNamedRequireBindings(
-	node: SgNode<TypesMap, Kinds<TypesMap>>,
-	binding: string,
-): RemoveBindingReturnType {
-	const objectPattern = node.find({
-		rule: {
-			kind: "object_pattern",
-		},
-	});
-
-	if (!objectPattern) return;
-
-	const declarations = node.findAll({
-		rule: {
-			kind: "shorthand_property_identifier_pattern",
-		},
-	});
-
-	if (declarations.length === 1) {
-		return {
-			lineToRemove: node.range(),
-		};
-	}
-
-	if (declarations.length > 1) {
-		const restDeclarations = declarations.map((d) => d.text()).filter((d) => d !== binding);
-
-		return {
-			edit: objectPattern.replace(`{ ${restDeclarations.join(", ")} }`),
-		};
-	}
 }
