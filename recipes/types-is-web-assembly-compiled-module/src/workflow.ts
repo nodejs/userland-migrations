@@ -110,17 +110,27 @@ export default function transform(root: SgRoot<JS>): string | null {
 		// Find all function calls to isWebAssemblyCompiledModule
 		const nodesToEdit = rootNode.findAll({
 			rule: {
-				pattern: `${binding.path}($$$ARG)`,
+				pattern: `${binding.path}($ARG)`,
 			},
 		});
 
 		for (const node of nodesToEdit) {
-			// Extract the argument from the function call
-			const argNode = node.find({ rule: { pattern: '$ARG' } });
+			// Extract the argument from the function call using getMatch
+			const argNode = node.getMatch('ARG');
 			if (argNode) {
 				const argText = argNode.text();
+				
+				// Check if this call is inside a unary ! expression
+				const parent = node.parent();
+				const isNegated = parent?.kind() === 'unary_expression';
+				
 				// Replace the entire call expression with instanceof check
-				edits.push(node.replace(`${argText} instanceof WebAssembly.Module`));
+				// Wrap in parentheses if negated to preserve operator precedence
+				const replacement = isNegated 
+					? `(${argText} instanceof WebAssembly.Module)`
+					: `${argText} instanceof WebAssembly.Module`;
+				
+				edits.push(node.replace(replacement));
 			}
 		}
 
