@@ -16,6 +16,9 @@ The codemod supports the following Axios methods and converts them to their Fetc
 - `axios.post(url[, data[, config]])`
 - `axios.put(url[, data[, config]])`
 - `axios.patch(url[, data[, config]])`
+- `axios.postForm(url[, data[, config]])`
+- `axios.putForm(url[, data[, config]])`
+- `axios.patchForm(url[, data[, config]])`
 - `axios.request(config)`
 
 ### Examples
@@ -57,6 +60,25 @@ The codemod supports the following Axios methods and converts them to their Fetc
 	console.log('\nPOST /todos/add ->', created.status);
 	console.log('Preview:', created.data?.id ? `created id ${created.data.id}` : JSON.stringify(created.data).slice(0,200));
 ```
+
+	#### POST Form Request
+
+	```diff
+	 const formEndpoint = '/submit';
+
+	- const created = await axios.postForm(formEndpoint, {
+	-     title: 'Form Demo',
+	-     completed: false,
+	- });
+	+ const created = await fetch(formEndpoint, {
+	+     method: 'POST',
+	+     body: new URLSearchParams({
+	+         title: 'Form Demo',
+	+         completed: false,
+	+     }),
+	+ }).then(async (res) => Object.assign(res, { data: await res.json() }));
+	 console.log('Preview:', created.data);
+	```
 
 #### PUT Request
 
@@ -111,11 +133,7 @@ The codemod supports the following Axios methods and converts them to their Fetc
 
 ## Unsupported APIs
 
-The following Axios methods are not supported by this codemod and will generate warnings:
-
-- `axios.postForm(url[, data[, config]])`
-- `axios.putForm(url[, data[, config]])`
-- `axios.patchForm(url[, data[, config]])`
+The codemod does not yet cover Axios features outside of direct request helpers, such as interceptors, cancel tokens, or instance configuration from `axios.create()`.
 
 ## References
 

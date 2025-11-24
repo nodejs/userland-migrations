@@ -24,10 +24,11 @@ type BindingToReplace = {
 type CreateOptionsType = {
 	oldOptions?: SgNode<Js>;
 	method?: string;
-	body?: string;
+	bodyNode?: SgNode<Js> | null;
+	payloadKind?: 'json' | 'form';
 };
 
-const unsupportedMethods = ['postForm', 'putForm', 'patchForm'];
+const unsupportedMethods: string[] = [];
 
 const getObjectPropertyValue = (
 	objectNode: SgNode<Js>,
@@ -59,6 +60,51 @@ const stripWrappingQuotes = (value: string) => {
 	return trimmed;
 };
 
+const getBodyExpression = (
+	bodyNode: SgNode<Js>,
+	payloadKind: NonNullable<CreateOptionsType['payloadKind']>,
+) => {
+	const source = bodyNode.text();
+	const trimmed = source.trim();
+	if (!trimmed || trimmed === 'undefined' || trimmed === 'null') return null;
+
+	if (payloadKind === 'form') {
+		return getFormBodyExpression(bodyNode, source, trimmed);
+	}
+
+	return `JSON.stringify(${source})`;
+};
+
+const getFormBodyExpression = (
+	bodyNode: SgNode<Js>,
+	source: string,
+	trimmed: string,
+) => {
+	if (bodyNode.kind() === 'object') {
+		return `new URLSearchParams(${source})`;
+	}
+
+	if (
+		trimmed.startsWith('new URLSearchParams') ||
+		trimmed.startsWith('URLSearchParams(') ||
+		trimmed.startsWith('await new URLSearchParams')
+	) {
+		return source;
+	}
+
+	if (/FormData/.test(trimmed)) {
+		return source;
+	}
+
+	return dedent`
+	(() => {
+		const value = ${source};
+		if (value instanceof FormData || value instanceof URLSearchParams) return value;
+		return new URLSearchParams(value);
+	})()
+	`;
+};
+
 const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
 	[
 		/*{
@@ -87,7 +133,8 @@ const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
 				const options = createOptions({
 					oldOptions: args[2],
 					method: 'POST',
-					body: args[1]?.text(),
+					bodyNode: args[1] ?? null,
+					payloadKind: 'json',
 				});
 				return dedent.withOptions({ alignValues: true })`
 			fetch(${url.text()}${options ? `, ${options}` : ''})
@@ -103,7 +150,8 @@ const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
 				const options = createOptions({
 					oldOptions: args[2],
 					method: 'PUT',
-					body: args[1]?.text(),
+					bodyNode: args[1] ?? null,
+					payloadKind: 'json',
 				});
 				return dedent.withOptions({ alignValues: true })`
 			fetch(${url.text()}${options ? `, ${options}` : ''})
@@ -119,7 +167,59 @@ const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
 				const options = createOptions({
 					oldOptions: args[2],
 					method: 'PATCH',
-					body: args[1]?.text(),
+					bodyNode: args[1] ?? null,
+					payloadKind: 'json',
+				});
+				return dedent.withOptions({ alignValues: true })`
+			fetch(${url.text()}${options ? `, ${options}` : ''})
+				.then(async (res) => Object.assign(res, { data: await res.json() }))
+				.catch(() => null)
+			`;
+			},
+		},
+		{
+			oldBind: '$.postForm',
+			replaceFn: (args) => {
+				const url = args.length > 0 && args[0];
+				const options = createOptions({
+					oldOptions: args[2],
+					method: 'POST',
+					bodyNode: args[1] ?? null,
+					payloadKind: 'form',
+				});
+				return dedent.withOptions({ alignValues: true })`
+			fetch(${url.text()}${options ? `, ${options}` : ''})
+				.then(async (res) => Object.assign(res, { data: await res.json() }))
+				.catch(() => null)
+			`;
+			},
+		},
+		{
+			oldBind: '$.putForm',
+			replaceFn: (args) => {
+				const url = args.length > 0 && args[0];
+				const options = createOptions({
+					oldOptions: args[2],
+					method: 'PUT',
+					bodyNode: args[1] ?? null,
+					payloadKind: 'form',
+				});
+				return dedent.withOptions({ alignValues: true })`
+			fetch(${url.text()}${options ? `, ${options}` : ''})
+				.then(async (res) => Object.assign(res, { data: await res.json() }))
+				.catch(() => null)
+			`;
+			},
+		},
+		{
+			oldBind: '$.patchForm',
+			replaceFn: (args) => {
+				const url = args.length > 0 && args[0];
+				const options = createOptions({
+					oldOptions: args[2],
+					method: 'PATCH',
+					bodyNode: args[1] ?? null,
+					payloadKind: 'form',
 				});
 				return dedent.withOptions({ alignValues: true })`
 			fetch(${url.text()}${options ? `, ${options}` : ''})
@@ -174,7 +274,7 @@ const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
 			},
 		},
 		{
-			oldBind: 'axios.request',
+			oldBind: '$.request',
 			replaceFn: (args) => {
 				const config = args[0];
 				if (!config) {
@@ -212,13 +312,11 @@ const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
 					method = 'GET';
 				}
 
-				const dataNode = getObjectPropertyValue(config, 'data');
-				const data = dataNode?.text() || null;
-
 				const options = createOptions({
 					oldOptions: config,
 					method,
-					body: data,
+					bodyNode: getObjectPropertyValue(config, 'data') ?? null,
+					payloadKind: 'json',
 				});
 
 				return dedent.withOptions({ alignValues: true })`
@@ -239,8 +337,16 @@ const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
  * @param {string} [param0.body] - The body content to include in the request.
  * @returns {string} The generated options string for the Fetch API.
  */
-const createOptions = ({ oldOptions, method, body }: CreateOptionsType) => {
-	if (!oldOptions && !method && !body) return '';
+const createOptions = ({
+	oldOptions,
+	method,
+	bodyNode,
+	payloadKind = 'json',
+}: CreateOptionsType) => {
+	const bodySource = bodyNode?.text();
+	const hasBody = Boolean(bodySource?.trim());
+	if (!oldOptions && !method && !hasBody) return '';
+
 	const headers = oldOptions?.find({
 		rule: {
 			kind: 'object',
@@ -265,8 +371,11 @@ const createOptions = ({ oldOptions, method, body }: CreateOptionsType) => {
 		options.push(`headers: ${headers?.text()}`);
 	}
 
-	if (body) {
-		options.push(`body: JSON.stringify(${body})`);
+	if (bodyNode) {
+		const bodyExpression = getBodyExpression(bodyNode, payloadKind);
+		if (bodyExpression) {
+			options.push(`body: ${bodyExpression}`);
+		}
 	}
 
 	if (options.length === 1) return `{ ${options.toString()} }`;
