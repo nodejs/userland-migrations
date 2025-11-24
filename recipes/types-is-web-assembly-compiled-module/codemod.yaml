@@ -1,0 +1,21 @@
+schema_version: "1.0"
+name: "@nodejs/types-is-web-assembly-compiled-module"
+version: 1.0.0
+description: Handle DEP0177 via transforming `types.isWebAssemblyCompiledModule` to `instanceof WebAssembly.Module`
+author: Node.js Contributors
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+
+registry:
+  access: public
+  visibility: public
