@@ -38,13 +38,6 @@ function createPropBinding(
 ): Pick<Binding, 'path' | 'lastPropertyAccess' | 'propertyAccess' | 'depth'> {
 	const pathArr = path.split('.');
 
-	if (!pathArr) {
-		return {
-			path,
-			depth: 1,
-		};
-	}
-
 	const lastPropertyAccess = pathArr.at(-1);
 	const propertyAccess = pathArr.slice(0, -1).join('.');
 
@@ -120,9 +113,9 @@ export default function transform(root: SgRoot<JS>): string | null {
 			if (argNode) {
 				const argText = argNode.text();
 				
-				// Check if this call is inside a unary ! expression
+				// Check if this call is inside a unary ! (NOT) expression
 				const parent = node.parent();
-				const isNegated = parent?.kind() === 'unary_expression';
+				const isNegated = parent?.kind() === 'unary_expression' && parent.text().startsWith('!');
 				
 				// Replace the entire call expression with instanceof check
 				// Wrap in parentheses if negated to preserve operator precedence
