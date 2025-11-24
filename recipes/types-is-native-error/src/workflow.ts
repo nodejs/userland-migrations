@@ -1,10 +1,10 @@
-import type { Edit, Range, SgNode, SgRoot } from "@codemod.com/jssg-types/main";
-import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
-import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
-import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
-import { removeBinding } from "@nodejs/codemod-utils/ast-grep/remove-binding";
-import type JS from "@codemod.com/jssg-types/langs/javascript";
+import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
+import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
+import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
+import { removeBinding } from '@nodejs/codemod-utils/ast-grep/remove-binding';
+import type { Edit, Range, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
+import type JS from '@codemod.com/jssg-types/langs/javascript';
 
 type Binding = {
 	path: string;
@@ -35,8 +35,8 @@ type Binding = {
  */
 function createPropBinding(
 	path: string,
-): Pick<Binding, "path" | "lastPropertyAccess" | "propertyAccess" | "depth"> {
-	const pathArr = path.split(".");
+): Pick<Binding, 'path' | 'lastPropertyAccess' | 'propertyAccess' | 'depth'> {
+	const pathArr = path.split('.');
 
 	if (!pathArr) {
 		return {
@@ -46,7 +46,7 @@ function createPropBinding(
 	}
 
 	const lastPropertyAccess = pathArr.at(-1);
-	const propertyAccess = pathArr.slice(0, -1).join(".");
+	const propertyAccess = pathArr.slice(0, -1).join('.');
 
 	return {
 		path,
@@ -79,12 +79,16 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
 
-	const nodeRequires = getNodeRequireCalls(root, "util");
-	const nodeImports = getNodeImportStatements(root, "util");
-	const path = "$.types.isNativeError";
+	const statements = [
+		...getNodeRequireCalls(root, 'util'),
+		...getNodeImportStatements(root, 'util'),
+	];
 
-	for (const stmt of [...nodeRequires, ...nodeImports]) {
-		const bindToReplace = resolveBindingPath(stmt, path);
+	// if no imports are present it means that we don't need to process the file
+	if (!statements.length) return null;
+
+	for (const stmt of statements) {
+		const bindToReplace = resolveBindingPath(stmt, '$.types.isNativeError');
 
 		if (!bindToReplace) {
 			continue;
@@ -99,7 +103,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 	for (const binding of bindings) {
 		const nodes = rootNode.findAll({
 			rule: {
-				pattern: `${binding.propertyAccess || binding.path}${binding.depth > 1 ? ".$$$FN" : ""}`,
+				pattern: `${binding.propertyAccess || binding.path}${binding.depth > 1 ? '.$$$FN' : ''}`,
 			},
 		});
 
@@ -110,12 +114,12 @@ export default function transform(root: SgRoot<JS>): string | null {
 		});
 
 		for (const node of nodesToEdit) {
-			edits.push(node.replace("Error.isError"));
+			edits.push(node.replace('Error.isError'));
 		}
 
 		if (nodes.length === nodesToEdit.length) {
-			const bindToRemove = binding.path.includes(".")
-				? binding.path.split(".").at(0)!
+			const bindToRemove = binding.path.includes('.')
+				? binding.path.split('.').at(0)!
 				: binding.path;
 
 			const result = removeBinding(binding.node, bindToRemove);
@@ -130,6 +134,9 @@ export default function transform(root: SgRoot<JS>): string | null {
 		}
 	}
 
+	if (!edits.length) return null;
+
 	const sourceCode = rootNode.commitEdits(edits);
+
 	return removeLines(sourceCode, linesToRemove);
 }
