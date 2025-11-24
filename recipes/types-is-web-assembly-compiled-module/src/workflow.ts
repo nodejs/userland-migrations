@@ -114,8 +114,10 @@ export default function transform(root: SgRoot<JS>): string | null {
 				const argText = argNode.text();
 				
 				// Check if this call is inside a unary ! (NOT) expression
+				// We check if parent is a unary_expression and has '!' operator
 				const parent = node.parent();
-				const isNegated = parent?.kind() === 'unary_expression' && parent.text().startsWith('!');
+				const isNegated = parent?.kind() === 'unary_expression' && 
+					parent.find({ rule: { pattern: '!' } }) !== undefined;
 				
 				// Replace the entire call expression with instanceof check
 				// Wrap in parentheses if negated to preserve operator precedence
@@ -129,7 +131,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 
 		if (nodes.length === nodesToEdit.length) {
 			const bindToRemove = binding.path.includes('.')
-				? binding.path.split('.').at(0)!
+				? binding.path.split('.')[0]
 				: binding.path;
 
 			const result = removeBinding(binding.node, bindToRemove);
