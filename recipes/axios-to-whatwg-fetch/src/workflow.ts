@@ -1,7 +1,10 @@
 import dedent from 'dedent';
 import { EOL } from 'node:os';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
-import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import {
+	getNodeImportCalls,
+	getNodeImportStatements,
+} from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { removeBinding } from '@nodejs/codemod-utils/ast-grep/remove-binding';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
@@ -105,228 +108,242 @@ const getFormBodyExpression = (
 	`;
 };
 
-const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
-	[
-		/*{
-			It's should be migratable with codemod but not supported for now
-			oldBind: '$.request',
-			replaceFn: (arg) => `console.log(${arg})`,
-		},*/
-		{
-			oldBind: '$.get',
-			replaceFn: (args) => {
-				const url = args.length > 0 && args[0];
-				const options = createOptions({
-					oldOptions: args[1],
-				});
-				return dedent.withOptions({ alignValues: true })`
-			fetch(${url.text()}${options ? `, ${options}` : ''})
-				.then(async (res) => Object.assign(res, { data: await res.json() }))
-				.catch(() => null)
-			`;
-			},
-		},
-		{
-			oldBind: '$.post',
-			replaceFn: (args) => {
-				const url = args.length > 0 && args[0];
-				const options = createOptions({
-					oldOptions: args[2],
-					method: 'POST',
-					bodyNode: args[1] ?? null,
-					payloadKind: 'json',
-				});
-				return dedent.withOptions({ alignValues: true })`
-			fetch(${url.text()}${options ? `, ${options}` : ''})
-				.then(async (res) => Object.assign(res, { data: await res.json() }))
-				.catch(() => null)
-			`;
-			},
-		},
-		{
-			oldBind: '$.put',
-			replaceFn: (args) => {
-				const url = args.length > 0 && args[0];
-				const options = createOptions({
-					oldOptions: args[2],
-					method: 'PUT',
-					bodyNode: args[1] ?? null,
-					payloadKind: 'json',
-				});
-				return dedent.withOptions({ alignValues: true })`
-			fetch(${url.text()}${options ? `, ${options}` : ''})
-				.then(async (res) => Object.assign(res, { data: await res.json() }))
-				.catch(() => null)
-			`;
-			},
-		},
-		{
-			oldBind: '$.patch',
-			replaceFn: (args) => {
-				const url = args.length > 0 && args[0];
-				const options = createOptions({
-					oldOptions: args[2],
-					method: 'PATCH',
-					bodyNode: args[1] ?? null,
-					payloadKind: 'json',
-				});
-				return dedent.withOptions({ alignValues: true })`
-			fetch(${url.text()}${options ? `, ${options}` : ''})
-				.then(async (res) => Object.assign(res, { data: await res.json() }))
-				.catch(() => null)
-			`;
-			},
-		},
-		{
-			oldBind: '$.postForm',
-			replaceFn: (args) => {
-				const url = args.length > 0 && args[0];
-				const options = createOptions({
-					oldOptions: args[2],
-					method: 'POST',
-					bodyNode: args[1] ?? null,
-					payloadKind: 'form',
-				});
-				return dedent.withOptions({ alignValues: true })`
-			fetch(${url.text()}${options ? `, ${options}` : ''})
-				.then(async (res) => Object.assign(res, { data: await res.json() }))
-				.catch(() => null)
-			`;
-			},
-		},
-		{
-			oldBind: '$.putForm',
-			replaceFn: (args) => {
-				const url = args.length > 0 && args[0];
-				const options = createOptions({
-					oldOptions: args[2],
-					method: 'PUT',
-					bodyNode: args[1] ?? null,
-					payloadKind: 'form',
-				});
-				return dedent.withOptions({ alignValues: true })`
-			fetch(${url.text()}${options ? `, ${options}` : ''})
-				.then(async (res) => Object.assign(res, { data: await res.json() }))
-				.catch(() => null)
-			`;
-			},
-		},
-		{
-			oldBind: '$.patchForm',
-			replaceFn: (args) => {
-				const url = args.length > 0 && args[0];
-				const options = createOptions({
-					oldOptions: args[2],
-					method: 'PATCH',
-					bodyNode: args[1] ?? null,
-					payloadKind: 'form',
-				});
-				return dedent.withOptions({ alignValues: true })`
-			fetch(${url.text()}${options ? `, ${options}` : ''})
-				.then(async (res) => Object.assign(res, { data: await res.json() }))
-				.catch(() => null)
-			`;
-			},
-		},
-		{
-			oldBind: '$.delete',
-			replaceFn: (args) => {
-				const url = args.length > 0 && args[0];
-				const options = createOptions({
-					oldOptions: args[1],
-					method: 'DELETE',
-				});
-				return dedent.withOptions({ alignValues: true })`
-			fetch(${url.text()}, ${options})
-				.then(async (res) => Object.assign(res, { data: await res.json() }))
-				.catch(() => null)
-			`;
-			},
-		},
-		{
-			oldBind: '$.head',
-			replaceFn: (args) => {
-				const url = args.length > 0 && args[0];
-				const options = createOptions({
-					oldOptions: args[1],
-					method: 'HEAD',
-				});
-				return dedent.withOptions({ alignValues: true })`
-			fetch(${url.text()}, ${options})
-				.then(async (res) => Object.assign(res, { data: await res.json() }))
-				.catch(() => null)
-			`;
-			},
-		},
-		{
-			oldBind: '$.options',
-			replaceFn: (args) => {
-				const url = args.length > 0 && args[0];
-				const options = createOptions({
-					oldOptions: args[1],
-					method: 'OPTIONS',
-				});
-				return dedent.withOptions({ alignValues: true })`
-			fetch(${url.text()}, ${options})
-				.then(async (res) => Object.assign(res, { data: await res.json() }))
-				.catch(() => null)
-			`;
-			},
-		},
-		{
-			oldBind: '$.request',
-			replaceFn: (args) => {
-				const config = args[0];
-				if (!config) {
-					console.warn(
-						'[Codemod] Missing config object in axios.request. Skipping migration.',
-					);
-					return '';
-				}
-
-				if (config.kind() !== 'object') {
-					console.warn(
-						'[Codemod] Unsupported axios.request configuration shape. Skipping migration.',
-					);
-					return '';
-				}
-
-				const urlNode = getObjectPropertyValue(config, 'url');
-				if (!urlNode) {
-					console.warn(
-						'[Codemod] Missing URL in axios.request config. Skipping migration.',
-					);
-					return '';
-				}
-				const url = urlNode.text();
-
-				const methodNode = getObjectPropertyValue(config, 'method');
-				let method = methodNode?.text();
-				if (method) {
-					method = stripWrappingQuotes(method);
-					if (methodNode.kind() === 'string') {
-						method = method.toUpperCase();
-					}
-				}
-				if (!method) {
-					method = 'GET';
-				}
-
-				const options = createOptions({
-					oldOptions: config,
-					method,
-					bodyNode: getObjectPropertyValue(config, 'data') ?? null,
-					payloadKind: 'json',
-				});
-
-				return dedent.withOptions({ alignValues: true })`
-		fetch(${url}${options ? `, ${options}` : ''})
+const baseUpdates: {
+	oldBind: string;
+	replaceFn: BindingToReplace['replaceFn'];
+	supportDefaultAccess?: boolean;
+}[] = [
+	{
+		oldBind: '$.get',
+		replaceFn: (args) => {
+			const url = args.length > 0 && args[0];
+			const options = createOptions({
+				oldOptions: args[1],
+			});
+			return dedent.withOptions({ alignValues: true })`
+		fetch(${url.text()}${options ? `, ${options}` : ''})
 			.then(async (res) => Object.assign(res, { data: await res.json() }))
 			.catch(() => null)
-	`;
-			},
+		`;
 		},
-	];
+	},
+	{
+		oldBind: '$.post',
+		replaceFn: (args) => {
+			const url = args.length > 0 && args[0];
+			const options = createOptions({
+				oldOptions: args[2],
+				method: 'POST',
+				bodyNode: args[1] ?? null,
+				payloadKind: 'json',
+			});
+			return dedent.withOptions({ alignValues: true })`
+		fetch(${url.text()}${options ? `, ${options}` : ''})
+			.then(async (res) => Object.assign(res, { data: await res.json() }))
+			.catch(() => null)
+		`;
+		},
+	},
+	{
+		oldBind: '$.put',
+		replaceFn: (args) => {
+			const url = args.length > 0 && args[0];
+			const options = createOptions({
+				oldOptions: args[2],
+				method: 'PUT',
+				bodyNode: args[1] ?? null,
+				payloadKind: 'json',
+			});
+			return dedent.withOptions({ alignValues: true })`
+		fetch(${url.text()}${options ? `, ${options}` : ''})
+			.then(async (res) => Object.assign(res, { data: await res.json() }))
+			.catch(() => null)
+		`;
+		},
+	},
+	{
+		oldBind: '$.patch',
+		replaceFn: (args) => {
+			const url = args.length > 0 && args[0];
+			const options = createOptions({
+				oldOptions: args[2],
+				method: 'PATCH',
+				bodyNode: args[1] ?? null,
+				payloadKind: 'json',
+			});
+			return dedent.withOptions({ alignValues: true })`
+		fetch(${url.text()}${options ? `, ${options}` : ''})
+			.then(async (res) => Object.assign(res, { data: await res.json() }))
+			.catch(() => null)
+		`;
+		},
+	},
+	{
+		oldBind: '$.postForm',
+		replaceFn: (args) => {
+			const url = args.length > 0 && args[0];
+			const options = createOptions({
+				oldOptions: args[2],
+				method: 'POST',
+				bodyNode: args[1] ?? null,
+				payloadKind: 'form',
+			});
+			return dedent.withOptions({ alignValues: true })`
+		fetch(${url.text()}${options ? `, ${options}` : ''})
+			.then(async (res) => Object.assign(res, { data: await res.json() }))
+			.catch(() => null)
+		`;
+		},
+	},
+	{
+		oldBind: '$.putForm',
+		replaceFn: (args) => {
+			const url = args.length > 0 && args[0];
+			const options = createOptions({
+				oldOptions: args[2],
+				method: 'PUT',
+				bodyNode: args[1] ?? null,
+				payloadKind: 'form',
+			});
+			return dedent.withOptions({ alignValues: true })`
+		fetch(${url.text()}${options ? `, ${options}` : ''})
+			.then(async (res) => Object.assign(res, { data: await res.json() }))
+			.catch(() => null)
+		`;
+		},
+	},
+	{
+		oldBind: '$.patchForm',
+		replaceFn: (args) => {
+			const url = args.length > 0 && args[0];
+			const options = createOptions({
+				oldOptions: args[2],
+				method: 'PATCH',
+				bodyNode: args[1] ?? null,
+				payloadKind: 'form',
+			});
+			return dedent.withOptions({ alignValues: true })`
+		fetch(${url.text()}${options ? `, ${options}` : ''})
+			.then(async (res) => Object.assign(res, { data: await res.json() }))
+			.catch(() => null)
+		`;
+		},
+	},
+	{
+		oldBind: '$.delete',
+		replaceFn: (args) => {
+			const url = args.length > 0 && args[0];
+			const options = createOptions({
+				oldOptions: args[1],
+				method: 'DELETE',
+			});
+			return dedent.withOptions({ alignValues: true })`
+		fetch(${url.text()}, ${options})
+			.then(async (res) => Object.assign(res, { data: await res.json() }))
+			.catch(() => null)
+		`;
+		},
+	},
+	{
+		oldBind: '$.head',
+		replaceFn: (args) => {
+			const url = args.length > 0 && args[0];
+			const options = createOptions({
+				oldOptions: args[1],
+				method: 'HEAD',
+			});
+			return dedent.withOptions({ alignValues: true })`
+		fetch(${url.text()}, ${options})
+			.then(async (res) => Object.assign(res, { data: await res.json() }))
+			.catch(() => null)
+		`;
+		},
+	},
+	{
+		oldBind: '$.options',
+		replaceFn: (args) => {
+			const url = args.length > 0 && args[0];
+			const options = createOptions({
+				oldOptions: args[1],
+				method: 'OPTIONS',
+			});
+			return dedent.withOptions({ alignValues: true })`
+		fetch(${url.text()}, ${options})
+			.then(async (res) => Object.assign(res, { data: await res.json() }))
+			.catch(() => null)
+		`;
+		},
+	},
+	{
+		oldBind: '$.request',
+		replaceFn: (args) => {
+			const config = args[0];
+			if (!config) {
+				console.warn(
+					'[Codemod] Missing config object in axios.request. Skipping migration.',
+				);
+				return '';
+			}
+
+			if (config.kind() !== 'object') {
+				console.warn(
+					'[Codemod] Unsupported axios.request configuration shape. Skipping migration.',
+				);
+				return '';
+			}
+
+			const urlNode = getObjectPropertyValue(config, 'url');
+			if (!urlNode) {
+				console.warn(
+					'[Codemod] Missing URL in axios.request config. Skipping migration.',
+				);
+				return '';
+			}
+			const url = urlNode.text();
+
+			const methodNode = getObjectPropertyValue(config, 'method');
+			let method = methodNode?.text();
+			if (method) {
+				method = stripWrappingQuotes(method);
+				if (methodNode.kind() === 'string') {
+					method = method.toUpperCase();
+				}
+			}
+			if (!method) {
+				method = 'GET';
+			}
+
+			const options = createOptions({
+				oldOptions: config,
+				method,
+				bodyNode: getObjectPropertyValue(config, 'data') ?? null,
+				payloadKind: 'json',
+			});
+
+			return dedent.withOptions({ alignValues: true })`
+	fetch(${url}${options ? `, ${options}` : ''})
+		.then(async (res) => Object.assign(res, { data: await res.json() }))
+		.catch(() => null)
+	`;
+		},
+	},
+];
+
+const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
+	baseUpdates.flatMap((update) => {
+		const bindings = [update.oldBind];
+		if (
+			update.supportDefaultAccess !== false &&
+			!update.oldBind.includes('.default.')
+		) {
+			bindings.push(update.oldBind.replace('$.', '$.default.'));
+		}
+
+		return bindings.map((binding) => ({
+			oldBind: binding,
+			replaceFn: update.replaceFn,
+		}));
+	});
 
 /**
  * Generates options for the Fetch API based on the provided parameters.
@@ -400,6 +417,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const importRequireStatement = [
 		...getNodeRequireCalls(root, 'axios'),
 		...getNodeImportStatements(root, 'axios'),
+		...getNodeImportCalls(root, 'axios'),
 	];
 
 	if (!importRequireStatement.length) return null;
