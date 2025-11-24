@@ -29,6 +29,36 @@ type CreateOptionsType = {
 
 const unsupportedMethods = ['postForm', 'putForm', 'patchForm'];
 
+const getObjectPropertyValue = (
+	objectNode: SgNode<Js>,
+	propertyName: string,
+) => {
+	if (objectNode.kind() !== 'object') return undefined;
+	const pair = objectNode.find({
+		rule: {
+			kind: 'pair',
+			has: {
+				kind: 'property_identifier',
+				field: 'key',
+				regex: `^${propertyName}$`,
+			},
+		},
+	});
+
+	return pair?.field('value');
+};
+
+const stripWrappingQuotes = (value: string) => {
+	const trimmed = value.trim();
+	if (
+		(trimmed.startsWith("'") && trimmed.endsWith("'")) ||
+		(trimmed.startsWith('"') && trimmed.endsWith('"'))
+	) {
+		return trimmed.slice(1, -1);
+	}
+	return trimmed;
+};
+
 const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
 	[
 		/*{
@@ -141,6 +171,61 @@ const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
 				.then(async (res) => Object.assign(res, { data: await res.json() }))
 				.catch(() => null)
 			`;
+			},
+		},
+		{
+			oldBind: 'axios.request',
+			replaceFn: (args) => {
+				const config = args[0];
+				if (!config) {
+					console.warn(
+						'[Codemod] Missing config object in axios.request. Skipping migration.',
+					);
+					return '';
+				}
+
+				if (config.kind() !== 'object') {
+					console.warn(
+						'[Codemod] Unsupported axios.request configuration shape. Skipping migration.',
+					);
+					return '';
+				}
+
+				const urlNode = getObjectPropertyValue(config, 'url');
+				if (!urlNode) {
+					console.warn(
+						'[Codemod] Missing URL in axios.request config. Skipping migration.',
+					);
+					return '';
+				}
+				const url = urlNode.text();
+
+				const methodNode = getObjectPropertyValue(config, 'method');
+				let method = methodNode?.text();
+				if (method) {
+					method = stripWrappingQuotes(method);
+					if (methodNode.kind() === 'string') {
+						method = method.toUpperCase();
+					}
+				}
+				if (!method) {
+					method = 'GET';
+				}
+
+				const dataNode = getObjectPropertyValue(config, 'data');
+				const data = dataNode?.text() || null;
+
+				const options = createOptions({
+					oldOptions: config,
+					method,
+					body: data,
+				});
+
+				return dedent.withOptions({ alignValues: true })`
+		fetch(${url}${options ? `, ${options}` : ''})
+			.then(async (res) => Object.assign(res, { data: await res.json() }))
+			.catch(() => null)
+	`;
 			},
 		},
 	];

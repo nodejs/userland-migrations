@@ -16,6 +16,7 @@ The codemod supports the following Axios methods and converts them to their Fetc
 - `axios.post(url[, data[, config]])`
 - `axios.put(url[, data[, config]])`
 - `axios.patch(url[, data[, config]])`
+- `axios.request(config)`
 
 ### Examples
 
@@ -88,6 +89,26 @@ The codemod supports the following Axios methods and converts them to their Fetc
 	console.log('Preview:', deleted.data ? JSON.stringify(deleted.data).slice(0,200) : typeof deleted.data);
 ```
 
+#### `request` axios Method
+
+```diff
+ const base = 'https://dummyjson.com/todos';
+
+- const customRequest = await axios.request({
+-     url: `${base}/1`,
+-     method: 'PATCH',
+-     headers: { 'Content-Type': 'application/json' },
+-     data: { completed: true },
+- });
++ const customRequest = await fetch(`${base}/1`, {
++     method: 'PATCH',
++     headers: { 'Content-Type': 'application/json' },
++     body: JSON.stringify({ completed: true }),
++ }).then(async (res) => Object.assign(res, { data: await res.json() }));
+ console.log('\nPATCH /todos/1 ->', customRequest.status);
+ console.log('Preview:', customRequest.data?.completed !== undefined ? `completed=${customRequest.data.completed}` : JSON.stringify(customRequest.data).slice(0,200));
+```
+
 ## Unsupported APIs
 
 The following Axios methods are not supported by this codemod and will generate warnings:
@@ -101,4 +122,3 @@ The following Axios methods are not supported by this codemod and will generate 
 - [Fetch Spec](https://fetch.spec.whatwg.org)
 - [Axios Documentation](https://axios-http.com)
 - [Node.js Documentation](https://nodejs.org/docs/latest/api/globals.html#fetch)
-

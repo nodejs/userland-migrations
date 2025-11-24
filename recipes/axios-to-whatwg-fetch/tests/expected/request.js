@@ -1,14 +1,13 @@
-import axios from 'axios';
 
-// Unsupported method: axios.request
 const base = 'https://dummyjson.com/todos/1';
 
-const customRequest = await axios.request({
-	url: base,
+const customRequest = await fetch(base, {
 	method: 'PATCH',
-	data: {
-		todo: 'Updated todo',
-		completed: true,
-	},
-});
+	body: JSON.stringify({
+			todo: 'Updated todo',
+			completed: true,
+		})
+})
+	.then(async (res) => Object.assign(res, { data: await res.json() }))
+	.catch(() => null);
 console.log('\nREQUEST /todos/1 ->', customRequest);
