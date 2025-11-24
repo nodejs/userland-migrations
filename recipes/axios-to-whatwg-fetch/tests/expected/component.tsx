@@ -9,8 +9,8 @@ export function TodoList() {
 		let active = true;
 
 		fetch('/api/todos')
-			.then(async (res) => Object.assign(res, { data: await res.json() }))
-			.catch(() => null)
+	.then(async (res) => Object.assign(res, { data: await res.json() }))
+	.catch(() => null)
 			.then((response) => {
 				if (active) {
 					setTodos(response.data.todos);
