@@ -1,10 +1,10 @@
 {
   "name": "@nodejs/util-is",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Replaces deprecated `util.is*()` methods with their modern equivalents.",
   "type": "module",
   "scripts": {
-    "test": "npx codemod@next jssg test -l typescript ./src/workflow.ts ./"
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
   },
   "repository": {
     "type": "git",

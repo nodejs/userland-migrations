@@ -4,7 +4,7 @@
   "description": "Handle DEP0081 via transforming `truncate` to `ftruncateSync` when using a file descriptor.",
   "type": "module",
   "scripts": {
-    "test": "npx codemod@next jssg test -l typescript ./src/workflow.ts ./"
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
   },
   "repository": {
     "type": "git",
