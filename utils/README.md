@@ -1,6 +1,6 @@
 # `@nodejs/codemod-utils`
 
-This is a local package, it's mean it's not published to npm registry it's only used in the monorepo.
+This is a local package, which means it isn’t published to the npm registry and is only used within the monorepo.
 
 ## Why Use These Utilities?
 
