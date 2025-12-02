@@ -8,51 +8,30 @@ See the upstream notices: [DEP0095](https://nodejs.org/api/deprecations.html#DEP
 
 ### Replace `timers.enroll()`
 
-**Before:**
-
-```js
-const timers = require('node:timers');
-const resource = { _idleTimeout: 1500 };
-timers.enroll(resource, 1500);
-```
-
-**After:**
-
-```js
-const resource = { timeout: setTimeout(() => {
-  // timeout handler
-}, 1500) };
+```diff
+- const timers = require('node:timers');
+- const resource = { _idleTimeout: 1500 };
+- timers.enroll(resource, 1500);
++ const resource = { timeout: setTimeout(() => {
++   // timeout handler
++ }, 1500) };
 ```
 
 ### Replace `timers.unenroll()`
 
-**Before:**
-
-```js
-timers.unenroll(resource);
-```
-
-**After:**
-
-```js
-clearTimeout(resource.timeout);
+```diff
+- timers.unenroll(resource);
++ clearTimeout(resource.timeout);
 ```
 
 ### Replace `timers.active()` and `timers._unrefActive()`
 
-**Before:**
-
-```js
-const timers = require('node:timers');
-timers.active(resource);
-timers._unrefActive(resource);
-```
-
-**After:**
-
-```js
-const handle = setTimeout(onTimeout, delay);
-handle.unref();
+```diff
+- const timers = require('node:timers');
+- timers.active(resource);
+- timers._unrefActive(resource);
++ const handle = setTimeout(onTimeout, delay);
++ handle.unref();
 ```
 
 ## Caveats
