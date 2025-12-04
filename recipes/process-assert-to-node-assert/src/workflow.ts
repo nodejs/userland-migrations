@@ -175,10 +175,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 		}
 	}
 
-	const sourceCode = removeLines(
-	  rootNode.commitEdits(edits),
-	  linesToRemove,
-	);
+	const sourceCode = removeLines(rootNode.commitEdits(edits), linesToRemove);
 
 	if (edits.length === 0 && linesToRemove) return sourceCode;
 
@@ -187,6 +184,15 @@ export default function transform(root: SgRoot<JS>): string | null {
 
 	if (alreadyRequiringAssert.length || alreadyImportingAssert.length)
 		return sourceCode;
+
+	/**
+	 * Re add the appropriate import or require statement for `node:assert`
+	 *
+	 * 1. pre-existing import statement(s)
+	 * 2. pre-existing require() calls
+	 * 3. authoritative file extension
+	 * 4. pjson.type
+	 */
 
 	const usingRequire = rootNode.find({
 		rule: {
@@ -204,11 +210,10 @@ export default function transform(root: SgRoot<JS>): string | null {
 		},
 	});
 	const filename = root.filename();
-	const isCjsFile = filename.endsWith('.cjs');
-	const isMjsFile = filename.endsWith('.mjs');
 
-	// Prefer adding an ES module import when the file already uses ESM syntax
-	// (contains `import` statements) or is an `.mjs` file. This avoids injecting a
+	const isCjsFile = filename.endsWith('.cjs') || filename.endsWith('.cts');
+	const isMjsFile = filename.endsWith('.mjs') || filename.endsWith('.mts');
+
 	// CommonJS `require` into an ES module source (even if the file references
 	// `createRequire`).
 	if (usingImport || isMjsFile) {
