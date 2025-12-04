@@ -881,4 +881,170 @@ describe('update-binding', () => {
 			`import { randomBytes, getFips, setFips } from 'node:crypto';`,
 		);
 	});
+
+	it('should keep namespace import when usageCheck detects remaining references', () => {
+		const code = dedent`
+			import util from 'node:util';
+			console.log(util.format('%s', 'hi'));
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root() as SgNode<Js>;
+
+		const importStatement = node.find({
+			rule: {
+				kind: 'import_statement',
+			},
+		});
+
+		const change = updateBinding(importStatement!, {
+			old: 'util',
+			usageCheck: { ignoredRanges: [] },
+			root: node,
+		});
+
+		assert.equal(change, undefined);
+	});
+
+	it('should remove namespace import when all usages are ignored', () => {
+		const code = dedent`
+			import util from 'node:util';
+			console.log(util.format('%s', 'hi'));
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root() as SgNode<Js>;
+
+		const importStatement = node.find({
+			rule: {
+				kind: 'import_statement',
+			},
+		});
+
+		const utilUsage = node.find({
+			rule: {
+				kind: 'identifier',
+				pattern: 'util',
+				inside: {
+					kind: 'member_expression',
+				},
+			},
+		});
+
+		const change = updateBinding(importStatement!, {
+			old: 'util',
+			usageCheck: { ignoredRanges: [utilUsage!.range()] },
+			root: node,
+		});
+
+		assert.deepEqual(change?.lineToRemove, importStatement?.range());
+	});
+
+	it('should remove mixed import entirely when default binding is unused with usageCheck', () => {
+		const code = dedent`
+			import util, { format } from 'node:util';
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root() as SgNode<Js>;
+
+		const importStatement = node.find({
+			rule: {
+				kind: 'import_statement',
+			},
+		});
+
+		const change = updateBinding(importStatement!, {
+			old: 'format',
+			usageCheck: { ignoredRanges: [] },
+			root: node,
+		});
+
+		assert.deepEqual(change?.lineToRemove, importStatement?.range());
+	});
+
+	it('should rewrite mixed import to default import when namespace is still used', () => {
+		const code = dedent`
+			import util, { format } from 'node:util';
+			console.log(util.inspect());
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root() as SgNode<Js>;
+
+		const importStatement = node.find({
+			rule: {
+				kind: 'import_statement',
+			},
+		});
+
+		const change = updateBinding(importStatement!, {
+			old: 'format',
+		});
+
+		assert.notEqual(change, undefined);
+		assert.strictEqual(change?.lineToRemove, undefined);
+
+		const sourceCode = node.commitEdits([change!.edit!]);
+
+		assert.strictEqual(
+			sourceCode,
+			dedent`
+				import util from 'node:util';
+				console.log(util.inspect());
+			`,
+		);
+	});
+
+	it('should keep namespace import when usageCheck detects remaining references', () => {
+		const code = dedent`
+			import * as util from 'node:util';
+			console.log(util.inspect());
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root() as SgNode<Js>;
+
+		const importStatement = node.find({
+			rule: { kind: 'import_statement' },
+		});
+
+		const change = updateBinding(importStatement!, {
+			old: 'util',
+			usageCheck: { ignoredRanges: [] },
+			root: node,
+		});
+
+		assert.equal(change, undefined);
+	});
+
+	it('should remove namespace import when usageCheck ignores all remaining references', () => {
+		const code = dedent`
+			import * as util from 'node:util';
+			console.log(util.inspect());
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root() as SgNode<Js>;
+
+		const importStatement = node.find({
+			rule: { kind: 'import_statement' },
+		});
+
+		const utilUsage = node.find({
+			rule: {
+				kind: 'identifier',
+				pattern: 'util',
+				inside: { kind: 'member_expression' },
+			},
+		});
+
+		const change = updateBinding(importStatement!, {
+			old: 'util',
+			usageCheck: { ignoredRanges: [utilUsage!.range()] },
+			root: node,
+		});
+
+		assert.deepEqual(change?.lineToRemove, importStatement?.range());
+	});
 });
