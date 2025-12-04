@@ -175,9 +175,10 @@ export default function transform(root: SgRoot<JS>): string | null {
 		}
 	}
 
-	let sourceCode = rootNode.commitEdits(edits);
-
-	sourceCode = removeLines(sourceCode, linesToRemove);
+	const sourceCode = removeLines(
+	  rootNode.commitEdits(edits),
+	  linesToRemove,
+	);
 
 	if (edits.length === 0 && linesToRemove) return sourceCode;
 
