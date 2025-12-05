@@ -2,7 +2,10 @@ import { EOL } from 'node:os';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
-import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import {
+	getNodeImportCalls,
+	getNodeImportStatements,
+} from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { removeBinding } from '@nodejs/codemod-utils/ast-grep/remove-binding';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
@@ -59,7 +62,8 @@ export default function transform(root: SgRoot<JS>): string | null {
 
 	const requireCalls = getNodeRequireCalls(root, 'process');
 	const importStatements = getNodeImportStatements(root, 'process');
-	const allImports = [...requireCalls, ...importStatements];
+	const importCalls = getNodeImportCalls(root, 'process');
+	const allImports = [...requireCalls, ...importStatements, ...importCalls];
 	const processUsages = rootNode.findAll({
 		rule: {
 			kind: 'member_expression',
