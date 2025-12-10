@@ -10,10 +10,12 @@ import type Js from "@codemod.com/jssg-types/langs/javascript";
 // Utility: get closest ancestor of a node of a given kind
 function getClosest(node: SgNode<Js>, kinds: string[]): SgNode<Js> | null {
   let current = node.parent();
+ 
   while (current) {
     if (kinds.includes(current.kind())) return current;
     current = current.parent();
   }
+ 
   return null;
 }
 
@@ -22,7 +24,6 @@ export default function transform(root: SgRoot<Js>): string | null {
   const edits: Edit[] = [];
   const linesToRemove: Range[] = [];
 
-  // Replace SecurePair in imports/requires using codemod-utils
   const importNodes = [
     ...getNodeImportStatements(root, "tls"),
     ...getNodeRequireCalls(root, "tls")
@@ -108,8 +109,14 @@ export default function transform(root: SgRoot<Js>): string | null {
     }
   }
 
+<<<<<<< HEAD
   let sourceCode = rootNode.commitEdits(edits);
   // Remove lines, including comments/blank lines above
   sourceCode = removeLines(sourceCode, linesToRemove);
   return sourceCode;
+=======
+  const sourceCode = rootNode.commitEdits(edits);
+
+  return removeLines(sourceCode, linesToRemove);
+>>>>>>> fe681b96d778d3dbc4f26207e68a48828e718b55
 }

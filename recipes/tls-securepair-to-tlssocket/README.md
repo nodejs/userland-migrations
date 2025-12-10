@@ -87,18 +87,9 @@ const mySocket = new TLSSocket(socket);
 The tls.TLSSocket constructor requires an existing socket instance (net.Socket) as an argument. This codemod automatically inserts socket as the argument:
 JavaScript
 
+```js
 ```
 new TLSSocket(socket)
 ```
 
 You must ensure that a variable named socket exists in the scope or rename it to match your existing socket variable (e.g., clientSocket, stream, etc.).
-
-## Test
-
-To run the tests, use the codemod test command:
-
-```
-npx codemod jssg test -l typescript ./src/workflow.ts ./
-```
-
-All input files in `tests/input` are compared against their expected results in `tests/expected`. Feel free to add new tests if necessary.
