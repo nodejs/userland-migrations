@@ -128,7 +128,7 @@ export default function transform(root: SgRoot<Js>): string | null {
     }
   }
 
-  let sourceCode = rootNode.commitEdits(edits);
-  sourceCode = removeLines(sourceCode, linesToRemove);
-  return sourceCode;
+  const sourceCode = rootNode.commitEdits(edits);
+
+  return removeLines(sourceCode, linesToRemove);
 }
