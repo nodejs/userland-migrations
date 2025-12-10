@@ -12,8 +12,68 @@ This codemod migrates tests written using `tape` to the native Node.js test runn
 - Handles `t.test` subtests (adds `await`).
 - Converts `t.teardown` to `t.after`.
 
-## Usage
+## Example
 
-```bash
-npx codemod @nodejs/tape-to-node-test
+### Basic Equality
+
+```diff
+- import test from "tape";
++ import { test } from 'node:test';
++ import assert from 'node:assert/strict';
+
+- test("basic equality", (t) => {
++ test("basic equality", async (t) => {
+-   t.plan(4);
++   // t.plan(4);
+-   t.equal(1, 1, "equal numbers");
++   assert.strictEqual(1, 1, "equal numbers");
+-   t.notEqual(1, 2, "not equal numbers");
++   assert.notStrictEqual(1, 2, "not equal numbers");
+-   t.strictEqual(true, true, "strict equality");
++   assert.strictEqual(true, true, "strict equality");
+-   t.notStrictEqual("1", 1, "not strict equality");
++   assert.notStrictEqual("1", 1, "not strict equality");
+-   t.end();
++   // t.end();
+  });
 ```
+
+### Async Tests
+
+```diff
+- import test from "tape";
++ import { test } from 'node:test';
++ import assert from 'node:assert/strict';
+
+  function someAsyncThing() {
+    return new Promise((resolve) => setTimeout(() => resolve(true), 50));
+  }
+
+- test("async test with promises", async (t) => {
++ test("async test with promises", async (t) => {
+-   t.plan(1);
++   // t.plan(1);
+    const result = await someAsyncThing();
+-   t.ok(result, "async result is truthy");
++   assert.ok(result, "async result is truthy");
+  });
+```
+
+### Callback Style
+
+```diff
+- import test from "tape";
++ import { test } from 'node:test';
++ import assert from 'node:assert/strict';
+
+- test("callback style", (t) => {
++ test("callback style", (t, done) => {
+    setTimeout(() => {
+-     t.ok(true);
++     assert.ok(true);
+-     t.end();
++     done();
+    }, 100);
+  });
+```
+
