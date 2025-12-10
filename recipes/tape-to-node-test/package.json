@@ -4,7 +4,7 @@
   "description": "Migrates Tape tests to Node.js native test runner",
   "type": "module",
   "scripts": {
-    "test": "npx codemod jssg test -l typescript ./src/index.ts ./"
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts"
   },
   "repository": {
     "type": "git",
