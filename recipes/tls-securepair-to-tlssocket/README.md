@@ -93,7 +93,3 @@ new TLSSocket(socket)
 ```
 
 You must ensure that a variable named socket exists in the scope or rename it to match your existing socket variable (e.g., clientSocket, stream, etc.).
-
-## Test
-
-The test.sh script runs all the tests located in the tests folder. All input files are temporarily copied to a new folder and compared against their expected results found in the expected folder. This helps identify which tests failed and why. Feel free to add new tests if necessary.
