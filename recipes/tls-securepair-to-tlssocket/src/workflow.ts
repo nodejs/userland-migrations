@@ -1,13 +1,11 @@
 
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 import { updateBinding } from "@nodejs/codemod-utils/ast-grep/update-binding";
 import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
 import type { Edit, SgRoot, Range, SgNode } from "@codemod.com/jssg-types/main";
 import type Js from "@codemod.com/jssg-types/langs/javascript";
 
-// Utility: get closest ancestor of a node of a given kind
 function getClosest(node: SgNode<Js>, kinds: string[]): SgNode<Js> | null {
   let current = node.parent();
  
@@ -29,7 +27,6 @@ export default function transform(root: SgRoot<Js>): string | null {
     ...getNodeRequireCalls(root, "tls")
   ];
   for (const node of importNodes) {
-    // Replace destructured { SecurePair } with { TLSSocket }
     const change = updateBinding(node, { old: "SecurePair", new: "TLSSocket" });
     if (change?.edit) edits.push(change.edit);
     if (change?.lineToRemove) linesToRemove.push(change.lineToRemove);
@@ -60,8 +57,6 @@ export default function transform(root: SgRoot<Js>): string | null {
     }
 
     edits.push(node.replace(`new ${newConstructorName}(socket)`));
-
-    // Find the variable declarator for the new SecurePair
     const declarator = getClosest(node, ["variable_declarator"]);
     if (declarator) {
       const idNode = declarator.field("name");
@@ -73,7 +68,6 @@ export default function transform(root: SgRoot<Js>): string | null {
           else if (oldName.includes("pair")) newName = oldName.replace("pair", "socket");
         }
 
-        // Remove usages like pair.cleartext or pair.encrypted
         const obsoleteUsages = rootNode.findAll({
           rule: {
             kind: "member_expression",
@@ -84,14 +78,11 @@ export default function transform(root: SgRoot<Js>): string | null {
           }
         });
         for (const usage of obsoleteUsages) {
-          // Remove the whole statement, and also comments/blank lines above
           let statement = getClosest(usage, ["lexical_declaration", "expression_statement"]);
           if (statement) linesToRemove.push(statement.range());
         }
 
         edits.push(idNode.replace(newName));
-
-        // Replace all other references to the old variable name
         const references = rootNode.findAll({
           rule: { kind: "identifier", regex: `^${oldName}$` }
         });
@@ -109,14 +100,7 @@ export default function transform(root: SgRoot<Js>): string | null {
     }
   }
 
-<<<<<<< HEAD
-  let sourceCode = rootNode.commitEdits(edits);
-  // Remove lines, including comments/blank lines above
-  sourceCode = removeLines(sourceCode, linesToRemove);
-  return sourceCode;
-=======
   const sourceCode = rootNode.commitEdits(edits);
 
   return removeLines(sourceCode, linesToRemove);
->>>>>>> fe681b96d778d3dbc4f26207e68a48828e718b55
 }
