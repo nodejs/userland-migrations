@@ -1,13 +1,17 @@
+
+import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
+import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
+import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
+import { updateBinding } from "@nodejs/codemod-utils/ast-grep/update-binding";
 import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
-import type { Edit, SgRoot, Range } from "@codemod.com/jssg-types/main";
+import type { Edit, SgRoot, Range, SgNode } from "@codemod.com/jssg-types/main";
 import type Js from "@codemod.com/jssg-types/langs/javascript";
 
-function getClosest(node: any, kinds: string[]): any | null {
+// Utility: get closest ancestor of a node of a given kind
+function getClosest(node: SgNode<Js>, kinds: string[]): SgNode<Js> | null {
   let current = node.parent();
   while (current) {
-    if (kinds.includes(current.kind())) {
-      return current;
-    }
+    if (kinds.includes(current.kind())) return current;
     current = current.parent();
   }
   return null;
@@ -18,20 +22,16 @@ export default function transform(root: SgRoot<Js>): string | null {
   const edits: Edit[] = [];
   const linesToRemove: Range[] = [];
 
-  const importNodes = rootNode.findAll({
-    rule: {
-      any: [
-        { kind: "import_specifier", has: { kind: "identifier", regex: "^SecurePair$" } },
-        { kind: "shorthand_property_identifier_pattern", regex: "^SecurePair$" },
-        { kind: "property_identifier", regex: "^SecurePair$" }
-      ]
-    }
-  });
-
+  // Replace SecurePair in imports/requires using codemod-utils
+  const importNodes = [
+    ...getNodeImportStatements(root, "tls"),
+    ...getNodeRequireCalls(root, "tls")
+  ];
   for (const node of importNodes) {
-      if (node.text() === "SecurePair") {
-         edits.push(node.replace("TLSSocket"));
-      }
+    // Replace destructured { SecurePair } with { TLSSocket }
+    const change = updateBinding(node, { old: "SecurePair", new: "TLSSocket" });
+    if (change?.edit) edits.push(change.edit);
+    if (change?.lineToRemove) linesToRemove.push(change.lineToRemove);
   }
 
   const newExpressions = rootNode.findAll({
@@ -39,8 +39,8 @@ export default function transform(root: SgRoot<Js>): string | null {
       kind: "new_expression",
       has: {
         any: [
-            { kind: "member_expression", has: { field: "property", regex: "^SecurePair$" } }, 
-            { kind: "identifier", regex: "^SecurePair$" } 
+          { kind: "member_expression", has: { field: "property", regex: "^SecurePair$" } },
+          { kind: "identifier", regex: "^SecurePair$" }
         ]
       }
     }
@@ -57,76 +57,59 @@ export default function transform(root: SgRoot<Js>): string | null {
             newConstructorName = `${object.text()}.TLSSocket`;
         }
     }
-    
+
     edits.push(node.replace(`new ${newConstructorName}(socket)`));
 
+    // Find the variable declarator for the new SecurePair
     const declarator = getClosest(node, ["variable_declarator"]);
     if (declarator) {
       const idNode = declarator.field("name");
       if (idNode) {
         const oldName = idNode.text();
-        
         let newName = "socket";
         if (oldName !== "pair" && oldName !== "SecurePair") {
-            if (oldName.includes("Pair")) {
-                newName = oldName.replace("Pair", "Socket");
-            } 
-            else if (oldName.includes("pair")) {
-                newName = oldName.replace("pair", "socket");
-            } 
-            else {
-                newName = "socket"; 
-            }
+          if (oldName.includes("Pair")) newName = oldName.replace("Pair", "Socket");
+          else if (oldName.includes("pair")) newName = oldName.replace("pair", "socket");
         }
 
+        // Remove usages like pair.cleartext or pair.encrypted
         const obsoleteUsages = rootNode.findAll({
-            rule: {
-                kind: "member_expression",
-                all: [
-                    { has: { field: "object", regex: `^${oldName}$` } },
-                    { has: { field: "property", regex: "^(cleartext|encrypted)$" } }
-                ]
-            }
+          rule: {
+            kind: "member_expression",
+            all: [
+              { has: { field: "object", regex: `^${oldName}$` } },
+              { has: { field: "property", regex: "^(cleartext|encrypted)$" } }
+            ]
+          }
         });
-
         for (const usage of obsoleteUsages) {
-            const statement = getClosest(usage, ["lexical_declaration", "expression_statement"]);
-            if (statement) {
-                linesToRemove.push(statement.range());
-            }
+          // Remove the whole statement, and also comments/blank lines above
+          let statement = getClosest(usage, ["lexical_declaration", "expression_statement"]);
+          if (statement) linesToRemove.push(statement.range());
         }
 
         edits.push(idNode.replace(newName));
 
+        // Replace all other references to the old variable name
         const references = rootNode.findAll({
-            rule: {
-                kind: "identifier",
-                regex: `^${oldName}$`
-            }
+          rule: { kind: "identifier", regex: `^${oldName}$` }
         });
-
         for (const ref of references) {
-            const parent = ref.parent();
-            if (parent && parent.kind() === 'member_expression') {
-                const property = parent.field('property');
-                if (property && property.id() === ref.id()) {
-                    continue;
-                }
-            }
-            
-            if (parent && (parent.kind() === 'import_specifier' || parent.kind() === 'shorthand_property_identifier_pattern')) {
-                 continue;
-            }
-
-            if (ref.id() === idNode.id()) continue;
-
-            edits.push(ref.replace(newName));
+          const parent = ref.parent();
+          if (parent && parent.kind() === "member_expression") {
+            const property = parent.field("property");
+            if (property && property.id() === ref.id()) continue;
+          }
+          if (parent && (parent.kind() === "import_specifier" || parent.kind() === "shorthand_property_identifier_pattern")) continue;
+          if (ref.id() === idNode.id()) continue;
+          edits.push(ref.replace(newName));
         }
       }
     }
   }
 
   let sourceCode = rootNode.commitEdits(edits);
+  // Remove lines, including comments/blank lines above
   sourceCode = removeLines(sourceCode, linesToRemove);
   return sourceCode;
 }

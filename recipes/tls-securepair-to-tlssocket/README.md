@@ -95,4 +95,10 @@ You must ensure that a variable named socket exists in the scope or rename it to
 
 ## Test
 
-The test.sh script runs all the tests located in the tests folder. All input files are temporarily copied to a new folder and compared against their expected results found in the expected folder. This helps identify which tests failed and why. Feel free to add new tests if necessary.
+To run the tests, use the codemod test command:
+
+```
+npx codemod jssg test -l typescript ./src/workflow.ts ./
+```
+
+All input files in `tests/input` are compared against their expected results in `tests/expected`. Feel free to add new tests if necessary.
