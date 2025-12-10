@@ -1,7 +1,8 @@
-import type { SgRoot, SgNode, Edit } from '@codemod.com/jssg-types/main';
+import { EOL } from 'node:os';
 import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
+import type { SgRoot, SgNode, Edit } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 const ASSERTION_MAPPING: Record<string, string> = {
@@ -48,7 +49,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 			if (id) testVarName = id.text();
 			edits.push(
 				imp.replace(
-					`import { test } from 'node:test';\nimport assert from 'node:assert/strict';`,
+					`import { test } from 'node:test';${EOL}import assert from 'node:assert/strict';`,
 				),
 			);
 		}
@@ -69,7 +70,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 		if (declaration) {
 			edits.push(
 				declaration.replace(
-					`const { test } = require('node:test');\nconst assert = require('node:assert/strict');`,
+					`const { test } = require('node:test');${EOL}const assert = require('node:assert/strict');`,
 				),
 			);
 		}
