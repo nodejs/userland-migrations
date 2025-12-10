@@ -4,12 +4,14 @@ import type Js from "@codemod.com/jssg-types/langs/javascript";
 
 function getClosest(node: any, kinds: string[]): any | null {
   let current = node.parent();
+ 
   while (current) {
     if (kinds.includes(current.kind())) {
       return current;
     }
     current = current.parent();
   }
+ 
   return null;
 }
 
