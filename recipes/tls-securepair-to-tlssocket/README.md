@@ -87,6 +87,7 @@ const mySocket = new TLSSocket(socket);
 The tls.TLSSocket constructor requires an existing socket instance (net.Socket) as an argument. This codemod automatically inserts socket as the argument:
 JavaScript
 
+```js
 ```
 new TLSSocket(socket)
 ```
