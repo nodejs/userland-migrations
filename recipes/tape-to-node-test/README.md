@@ -1,6 +1,6 @@
 # Tape to Node.js Test Runner Codemod
 
-This codemod migrates tests written using `tape` to the native Node.js test runner (`node:test`).
+This codemod migrates tests written using [`tape`](https://github.com/tape-testing/tape) v5 to the native Node.js test runner ([`node:test`](https://nodejs.org/api/test.html)).
 
 ## Features
 
@@ -11,6 +11,8 @@ This codemod migrates tests written using `tape` to the native Node.js test runn
 - Handles `t.end` (removes it for async tests, converts to `done` callback for callback-style tests).
 - Handles `t.test` subtests (adds `await`).
 - Converts `t.teardown` to `t.after`.
+- Migrates `t.timeoutAfter(ms)` to `{ timeout: ms }` test option.
+- Supports `test.skip` and `test.only`.
 
 ## Example
 
@@ -77,6 +79,23 @@ This codemod migrates tests written using `tape` to the native Node.js test runn
   });
 ```
 
+### Timeout Handling
+
+```diff
+- import test from "tape";
++ import { test } from 'node:test';
++ import assert from 'node:assert/strict';
+
+- test("timeout test", (t) => {
++ test("timeout test", { timeout: 100 }, async (t) => {
+-   t.timeoutAfter(100);
+-   t.ok(true);
++   assert.ok(true);
+-   t.end();
++   // t.end();
+  });
+```
+
 ### Dynamic Import
 
 ```diff
@@ -84,7 +103,7 @@ This codemod migrates tests written using `tape` to the native Node.js test runn
 -   const test = await import("tape");
 +   const { test } = await import('node:test');
 +   const { default: assert } = await import('node:assert/strict');
-  
+
 -   test("dynamic import", (t) => {
 +   test("dynamic import", async (t) => {
 -     t.ok(true);
@@ -94,4 +113,3 @@ This codemod migrates tests written using `tape` to the native Node.js test runn
     });
   }
 ```
-

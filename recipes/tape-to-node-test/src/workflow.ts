@@ -203,20 +203,20 @@ export default function transform(root: SgRoot<Js>): string | null {
 						edits.push(params.replace(`(${text}, done)`));
 					}
 				}
-			} else {
-				if (!isAsync) {
-					if (params) {
-						edits.push({
-							startPos: callback.range().start.index,
-							endPos: params.range().start.index,
-							insertedText: 'async ',
-						});
-					}
-				}
 			}
 
 			if (body) {
-				transformAssertions(body, tName, edits, useDone);
+				transformAssertions(body, tName, edits, call, useDone);
+			}
+
+			if (!usesEndInCallback && !isAsync) {
+				if (params) {
+					edits.push({
+						startPos: callback.range().start.index,
+						endPos: params.range().start.index,
+						insertedText: 'async ',
+					});
+				}
 			}
 		}
 	}
@@ -230,12 +230,14 @@ export default function transform(root: SgRoot<Js>): string | null {
  * @param node the AST node to transform
  * @param tName the name of the test object (usually 't')
  * @param edits the list of edits to apply
+ * @param testCall the AST node of the test function call
  * @param useDone whether to use the done callback for ending tests
  */
 function transformAssertions(
 	node: SgNode<Js>,
 	tName: string,
 	edits: Edit[],
+	testCall: SgNode<Js>,
 	useDone = false,
 ) {
 	const calls = node.findAll({
@@ -336,8 +338,15 @@ function transformAssertions(
 						c.kind() === 'arrow_function' || c.kind() === 'function_expression',
 				);
 			if (cb) {
+				const p = cb.field('parameters');
+				let stName = 't';
+				const paramId = p?.find({ rule: { kind: 'identifier' } });
+				if (paramId) stName = paramId.text();
+
+				const b = cb.field('body');
+				if (b) transformAssertions(b, stName, edits, call);
+
 				if (!cb.text().startsWith('async')) {
-					const p = cb.field('parameters');
 					if (p) {
 						edits.push({
 							startPos: cb.range().start.index,
@@ -346,13 +355,6 @@ function transformAssertions(
 						});
 					}
 				}
-				const p = cb.field('parameters');
-				let stName = 't';
-				const paramId = p?.find({ rule: { kind: 'identifier' } });
-				if (paramId) stName = paramId.text();
-
-				const b = cb.field('body');
-				if (b) transformAssertions(b, stName, edits);
 			}
 		} else if (method === 'teardown') {
 			const func = call.field('function');
@@ -360,12 +362,89 @@ function transformAssertions(
 				edits.push(func.replace(`${tName}.after`));
 			}
 		} else if (method === 'timeoutAfter') {
-			// t.timeoutAfter(200) -> remove and add to test options?
-			// This is hard because we need to modify the parent test call arguments.
-			// For now, let's just comment it out and add a TODO.
-			edits.push(
-				call.replace(`// TODO: Move timeout to test options: ${call.text()}`),
-			);
+			const args = call.field('arguments');
+			const timeoutArg = args?.child(1); // child(0) is '('
+			if (timeoutArg) {
+				const timeoutVal = timeoutArg.text();
+				// Remove the call
+				const parent = call.parent();
+				if (parent && parent.kind() === 'expression_statement') {
+					edits.push(parent.replace(''));
+				} else {
+					edits.push(call.replace(''));
+				}
+
+				// Add to test options
+				const testArgs = testCall.field('arguments');
+				if (testArgs) {
+					const children = testArgs.children();
+					// children[0] is '(', children[last] is ')'
+					// args are in between.
+					// We expect:
+					// 1. test('name', cb) -> insert options
+					// 2. test('name', opts, cb) -> update options
+
+					// Filter out punctuation to get actual args
+					const actualArgs = children.filter(
+						(c) =>
+							c.kind() !== '(' &&
+							c.kind() !== ')' &&
+							c.kind() !== ',' &&
+							c.kind() !== 'comment',
+					);
+
+					if (actualArgs.length === 2) {
+						// test('name', cb)
+						// Insert options as 2nd arg
+						const cbArg = actualArgs[1];
+						edits.push({
+							startPos: cbArg.range().start.index,
+							endPos: cbArg.range().start.index,
+							insertedText: `{ timeout: ${timeoutVal} }, `,
+						});
+					} else if (actualArgs.length === 3) {
+						// test('name', opts, cb)
+						const optsArg = actualArgs[1];
+						if (optsArg.kind() === 'object') {
+							// Add property to object
+							const props = optsArg
+								.children()
+								.filter((c) => c.kind() === 'pair');
+							if (props.length > 0) {
+								const lastProp = props[props.length - 1];
+								edits.push({
+									startPos: lastProp.range().end.index,
+									endPos: lastProp.range().end.index,
+									insertedText: `, timeout: ${timeoutVal}`,
+								});
+							} else {
+								// Empty object {}
+								// We need to find where to insert.
+								// It's safer to replace the whole object if it's empty, or find the closing brace.
+								const closingBrace = optsArg
+									.children()
+									.find((c) => c.text() === '}');
+								if (closingBrace) {
+									edits.push({
+										startPos: closingBrace.range().start.index,
+										endPos: closingBrace.range().start.index,
+										insertedText: ` timeout: ${timeoutVal} `,
+									});
+								}
+							}
+						} else {
+							// Options is a variable or expression
+							// TODO: Handle this case?
+							// For now, maybe just log a comment
+							edits.push(
+								call.replace(
+									`// TODO: Add timeout: ${timeoutVal} to test options manually`,
+								),
+							);
+						}
+					}
+				}
+			}
 		}
 	}
 }
