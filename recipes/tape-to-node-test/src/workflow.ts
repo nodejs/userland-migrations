@@ -4,10 +4,11 @@ import {
 	getNodeImportCalls,
 } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
-import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import type { SgRoot, SgNode, Edit } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
-
+/**
+ * Mapping of Tape assertions to Node.js assert module methods
+ */
 const ASSERTION_MAPPING: Record<string, string> = {
 	equal: 'strictEqual',
 	notEqual: 'notStrictEqual',
@@ -47,7 +48,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	let testVarName = 'test';
 
-	// Replace imports
+	// 1. Replace imports
 	for (const imp of tapeImports) {
 		const defaultImport = imp.find({
 			rule: { kind: 'import_clause', has: { kind: 'identifier' } },
@@ -110,12 +111,25 @@ export default function transform(root: SgRoot<Js>): string | null {
 			kind: 'call_expression',
 			has: {
 				field: 'function',
-				regex: `^${testVarName}$`,
+				regex: `^${testVarName}(\\.(skip|only))?$`,
 			},
 		},
 	});
 
+	// 2. Transform test calls and assertions
 	for (const call of testCalls) {
+		const func = call.field('function');
+		if (func && testVarName !== 'test') {
+			if (func.kind() === 'identifier' && func.text() === testVarName) {
+				edits.push(func.replace('test'));
+			} else if (func.kind() === 'member_expression') {
+				const obj = func.field('object');
+				if (obj && obj.text() === testVarName) {
+					edits.push(obj.replace('test'));
+				}
+			}
+		}
+
 		const args = call.field('arguments');
 		if (!args) continue;
 
@@ -209,6 +223,14 @@ export default function transform(root: SgRoot<Js>): string | null {
 	return rootNode.commitEdits(edits);
 }
 
+/**
+ * Transform Tape assertions to Node.js assert module assertions
+ *
+ * @param node the AST node to transform
+ * @param tName the name of the test object (usually 't')
+ * @param edits the list of edits to apply
+ * @param useDone whether to use the done callback for ending tests
+ */
 function transformAssertions(
 	node: SgNode<Js>,
 	tName: string,
