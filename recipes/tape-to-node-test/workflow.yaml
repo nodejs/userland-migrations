@@ -11,7 +11,7 @@ nodes:
     steps:
       - name: Migrates Tape tests to Node.js native test runner
         js-ast-grep:
-          js_file: src/index.ts
+          js_file: src/workflow.ts
           base_path: .
           include:
             - "**/*.cjs"

@@ -1,5 +1,8 @@
 import { EOL } from 'node:os';
-import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import {
+	getNodeImportStatements,
+	getNodeImportCalls,
+} from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import type { SgRoot, SgNode, Edit } from '@codemod.com/jssg-types/main';
@@ -32,8 +35,13 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	const tapeImports = getNodeImportStatements(root, 'tape');
 	const tapeRequires = getNodeRequireCalls(root, 'tape');
+	const tapeImportCalls = getNodeImportCalls(root, 'tape');
 
-	if (tapeImports.length === 0 && tapeRequires.length === 0) {
+	if (
+		tapeImports.length === 0 &&
+		tapeRequires.length === 0 &&
+		tapeImportCalls.length === 0
+	) {
 		return null;
 	}
 
@@ -71,6 +79,27 @@ export default function transform(root: SgRoot<Js>): string | null {
 			edits.push(
 				declaration.replace(
 					`const { test } = require('node:test');${EOL}const assert = require('node:assert/strict');`,
+				),
+			);
+		}
+	}
+
+	for (const call of tapeImportCalls) {
+		const id = call.find({
+			rule: { kind: 'identifier', inside: { kind: 'variable_declarator' } },
+		});
+		if (id) testVarName = id.text();
+		const declaration = call
+			.ancestors()
+			.find(
+				(a) =>
+					a.kind() === 'variable_declaration' ||
+					a.kind() === 'lexical_declaration',
+			);
+		if (declaration) {
+			edits.push(
+				declaration.replace(
+					`const { test } = await import('node:test');${EOL}const { default: assert } = await import('node:assert/strict');`,
 				),
 			);
 		}

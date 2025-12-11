@@ -77,3 +77,21 @@ This codemod migrates tests written using `tape` to the native Node.js test runn
   });
 ```
 
+### Dynamic Import
+
+```diff
+  async function run() {
+-   const test = await import("tape");
++   const { test } = await import('node:test');
++   const { default: assert } = await import('node:assert/strict');
+  
+-   test("dynamic import", (t) => {
++   test("dynamic import", async (t) => {
+-     t.ok(true);
++     assert.ok(true);
+-     t.end();
++     // t.end();
+    });
+  }
+```
+
