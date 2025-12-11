@@ -29,6 +29,34 @@ const ASSERTION_MAPPING: Record<string, string> = {
 	fail: 'fail',
 	same: 'deepStrictEqual',
 	notSame: 'notDeepStrictEqual',
+	// Aliases
+	assert: 'ok',
+	ifErr: 'ifError',
+	iferror: 'ifError',
+	equals: 'strictEqual',
+	isEqual: 'strictEqual',
+	strictEquals: 'strictEqual',
+	is: 'strictEqual',
+	notEquals: 'notStrictEqual',
+	isNotEqual: 'notStrictEqual',
+	doesNotEqual: 'notStrictEqual',
+	isInequal: 'notStrictEqual',
+	notStrictEquals: 'notStrictEqual',
+	isNot: 'notStrictEqual',
+	not: 'notStrictEqual',
+	looseEquals: 'equal',
+	notLooseEquals: 'notEqual',
+	deepEquals: 'deepStrictEqual',
+	isEquivalent: 'deepStrictEqual',
+	notDeepEquals: 'notDeepStrictEqual',
+	notEquivalent: 'notDeepStrictEqual',
+	notDeeply: 'notDeepStrictEqual',
+	isNotDeepEqual: 'notDeepStrictEqual',
+	isNotDeeply: 'notDeepStrictEqual',
+	isNotEquivalent: 'notDeepStrictEqual',
+	isInequivalent: 'notDeepStrictEqual',
+	deepLooseEqual: 'deepEqual',
+	notDeepLooseEqual: 'notDeepEqual',
 };
 
 export default function transform(root: SgRoot<Js>): string | null {
@@ -59,7 +87,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 			if (id) testVarName = id.text();
 			edits.push(
 				imp.replace(
-					`import { test } from 'node:test';${EOL}import assert from 'node:assert/strict';`,
+					`import { test } from 'node:test';${EOL}import assert from 'node:assert';`,
 				),
 			);
 		}
@@ -80,7 +108,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 		if (declaration) {
 			edits.push(
 				declaration.replace(
-					`const { test } = require('node:test');${EOL}const assert = require('node:assert/strict');`,
+					`const { test } = require('node:test');${EOL}const assert = require('node:assert');`,
 				),
 			);
 		}
@@ -101,7 +129,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 		if (declaration) {
 			edits.push(
 				declaration.replace(
-					`const { test } = await import('node:test');${EOL}const { default: assert } = await import('node:assert/strict');`,
+					`const { test } = await import('node:test');${EOL}const { default: assert } = await import('node:assert');`,
 				),
 			);
 		}
@@ -221,6 +249,33 @@ export default function transform(root: SgRoot<Js>): string | null {
 		}
 	}
 
+	// 3. Handle test.onFinish and test.onFailure
+	const lifecycleCalls = rootNode.findAll({
+		rule: {
+			kind: 'call_expression',
+			has: {
+				field: 'function',
+				kind: 'member_expression',
+				has: {
+					field: 'object',
+					regex: `^${testVarName}$`,
+				},
+				has: {
+					field: 'property',
+					regex: '^(onFinish|onFailure)$',
+				},
+			},
+		},
+	});
+
+	for (const call of lifecycleCalls) {
+		const lines = call.text().split(/\r?\n/);
+		const newText = lines
+			.map((line, i) => (i === 0 ? `// TODO: ${line}` : `// ${line}`))
+			.join(EOL);
+		edits.push(call.replace(newText));
+	}
+
 	return rootNode.commitEdits(edits);
 }
 
@@ -264,7 +319,7 @@ function transformAssertions(
 			if (func) {
 				edits.push(func.replace(`assert.${newMethod}`));
 			}
-		} else if (method === 'notOk') {
+		} else if (method === 'notOk' || method === 'notok') {
 			// t.notOk(val, msg) -> assert.ok(!val, msg)
 			const args = call.field('arguments');
 			if (args) {
@@ -279,6 +334,10 @@ function transformAssertions(
 					if (func) edits.push(func.replace('assert.ok'));
 				}
 			}
+		} else if (method === 'comment') {
+			// t.comment(msg) -> t.diagnostic(msg)
+			const func = call.field('function');
+			if (func) edits.push(func.replace(`${tName}.diagnostic`));
 		} else if (method === 'true') {
 			// t.true(val, msg) -> assert.ok(val, msg)
 			const func = call.field('function');

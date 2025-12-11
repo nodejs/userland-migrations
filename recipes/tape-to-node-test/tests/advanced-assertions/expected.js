@@ -1,5 +1,5 @@
 import { test } from 'node:test';
-import assert from 'node:assert/strict';
+import assert from 'node:assert';
 
 test('advanced assertions', async (t) => {
     assert.throws(() => { throw new Error('fail'); }, /fail/);

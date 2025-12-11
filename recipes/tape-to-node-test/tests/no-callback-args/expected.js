@@ -1,5 +1,5 @@
 import { test } from 'node:test';
-import assert from 'node:assert/strict';
+import assert from 'node:assert';
 
 test('sync test with no args', async () => {
     const a = 1;

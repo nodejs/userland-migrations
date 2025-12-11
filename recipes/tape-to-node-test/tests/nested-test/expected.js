@@ -1,5 +1,5 @@
 import { test } from 'node:test';
-import assert from 'node:assert/strict';
+import assert from 'node:assert';
 
 test("nested tests", async (t) => {
     // t.plan(1);

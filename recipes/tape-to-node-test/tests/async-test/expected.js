@@ -1,5 +1,5 @@
 import { test } from 'node:test';
-import assert from 'node:assert/strict';
+import assert from 'node:assert';
 
 function someAsyncThing() {
     return new Promise((resolve) => setTimeout(() => resolve(true), 50));

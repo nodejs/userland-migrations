@@ -1,5 +1,5 @@
 const { test } = require('node:test');
-const assert = require('node:assert/strict');
+const assert = require('node:assert');
 
 test('cjs destructuring', async (t) => {
     assert.ok(true);

@@ -4,15 +4,18 @@ This codemod migrates tests written using [`tape`](https://github.com/tape-testi
 
 ## Features
 
-- Replaces `tape` imports with `node:test` and `node:assert/strict`.
+- Replaces `tape` imports with `node:test` and `node:assert`.
 - Converts `test(name, (t) => ...)` to `test(name, async (t) => ...)`.
-- Maps `tape` assertions to `node:assert` equivalents.
+- Maps `tape` assertions to `node:assert` equivalents, including many aliases (e.g., `t.is`, `t.equals`, `t.deepEquals`).
 - Handles `t.plan` (by commenting it out).
 - Handles `t.end` (removes it for async tests, converts to `done` callback for callback-style tests).
 - Handles `t.test` subtests (adds `await`).
 - Converts `t.teardown` to `t.after`.
+- Converts `t.comment` to `t.diagnostic`.
 - Migrates `t.timeoutAfter(ms)` to `{ timeout: ms }` test option.
 - Supports `test.skip` and `test.only`.
+- Handles `test.onFinish` and `test.onFailure` (by commenting them out with a TODO).
+- Supports loose equality assertions (e.g., `t.looseEqual` -> `assert.equal`).
 
 ## Example
 
@@ -21,7 +24,7 @@ This codemod migrates tests written using [`tape`](https://github.com/tape-testi
 ```diff
 - import test from "tape";
 + import { test } from 'node:test';
-+ import assert from 'node:assert/strict';
++ import assert from 'node:assert';
 
 - test("basic equality", (t) => {
 + test("basic equality", async (t) => {
@@ -45,7 +48,7 @@ This codemod migrates tests written using [`tape`](https://github.com/tape-testi
 ```diff
 - import test from "tape";
 + import { test } from 'node:test';
-+ import assert from 'node:assert/strict';
++ import assert from 'node:assert';
 
   function someAsyncThing() {
     return new Promise((resolve) => setTimeout(() => resolve(true), 50));
