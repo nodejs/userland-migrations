@@ -85,13 +85,17 @@ export default function transform(root: SgRoot<Js>): string | null {
         const references = rootNode.findAll({
           rule: { kind: "identifier", regex: `^${oldName}$` }
         });
+        
         for (const ref of references) {
           const parent = ref.parent();
-          if (parent && parent.kind() === "member_expression") {
+          if (!parent) continue;
+
+          const parentKind = parent.kind();
+          if (parentKind === "member_expression") {
             const property = parent.field("property");
             if (property && property.id() === ref.id()) continue;
           }
-          if (parent && (parent.kind() === "import_specifier" || parent.kind() === "shorthand_property_identifier_pattern")) continue;
+          if (parentKind === "import_specifier" || parentKind === "shorthand_property_identifier_pattern") continue;
           if (ref.id() === idNode.id()) continue;
 
           edits.push(ref.replace(newName));

@@ -1,6 +1,6 @@
 const { SecurePair } = require('node:tls');
 
-// Nom de variable totalement arbitraire
+// Completely arbitrary variable name
 const item = new SecurePair();
 
 // Usage

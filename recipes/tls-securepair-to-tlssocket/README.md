@@ -29,57 +29,51 @@ Key transformations:
 
 ## Examples
 
-### Case 1: CommonJS & Variable Renaming
+### Case 1: CommonJS with namespace access
 
-**Before**
-
-```js
-const tls = require('node:tls');
-
-// Using tls.SecurePair constructor
-const pair = new tls.SecurePair();
-const cleartext = pair.cleartext;
-const encrypted = pair.encrypted;
-
-pair.on('error', (err) => {
-  console.error(err);
-});
+```diff
+  const tls = require('node:tls');
+  
+- const pair = new tls.SecurePair();
+- const encrypted = pair.encrypted;
++ const socket = new tls.TLSSocket(socket);
 ```
 
-**After**
+### Case 2: ESM with destructuring
 
-```
-const tls = require('node:tls');
-
-// Using tls.TLSSocket instead
-const socket = new tls.TLSSocket(socket);
-// Note: Direct migration may require additional context-specific changes
-// as SecurePair and TLSSocket have different APIs
-
-socket.on('error', (err) => {
-  console.error(err);
-});
+```diff
+- import { SecurePair } from 'node:tls';
++ import { TLSSocket } from 'node:tls';
+  
+- const myPair = new SecurePair();
+- myPair.cleartext.write('hello');
++ const mySocket = new TLSSocket(socket);
++ mySocket.write('hello');
 ```
 
-### Case 2: ESM & Destructuring
+### Case 3: Variable renaming across scope
 
-**Before**
-
+```diff
+  const tls = require('node:tls');
+  
+- const securePair = new tls.SecurePair();
++ const secureSocket = new tls.TLSSocket(socket);
+  
+- securePair.on('error', (err) => {
++ secureSocket.on('error', (err) => {
+    console.error(err);
+  });
 ```
-import { SecurePair } from 'node:tls';
 
-const myPair = new SecurePair();
-myPair.cleartext.write('hello');
-```
+### Case 4: Multiple variables with cleanup
 
-**After**
-
-```
-import { TLSSocket } from 'node:tls';
-
-const mySocket = new TLSSocket(socket);
-// Note: Direct migration may require additional context-specific changes
-// as SecurePair and TLSSocket have different APIs
+```diff
+- const { SecurePair } = require('node:tls');
++ const { TLSSocket } = require('node:tls');
+  
+- const pair = new SecurePair();
+- const cleartext = pair.cleartext;
++ const socket = new TLSSocket(socket);
 ```
 
 ## Warning

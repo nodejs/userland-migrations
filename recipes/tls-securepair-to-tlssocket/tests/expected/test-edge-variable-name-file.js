@@ -1,6 +1,6 @@
 const { TLSSocket } = require('node:tls');
 
-// Nom de variable totalement arbitraire
+// Completely arbitrary variable name
 const socket = new TLSSocket(socket);
 
 // Usage

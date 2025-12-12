@@ -7,6 +7,6 @@ pair.on('error', (err) => {
   console.error(err);
 });
 
-// Propriétés obsolètes
+// Obsolete properties
 console.log(pair.cleartext);
 console.log(pair.encrypted);

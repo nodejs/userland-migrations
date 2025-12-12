@@ -7,4 +7,4 @@ socket.on('error', (err) => {
   console.error(err);
 });
 
-// Propriétés obsolètes
+// Obsolete properties
