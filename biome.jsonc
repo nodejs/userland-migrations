@@ -5,8 +5,7 @@
       "**",
       "!**/*.snap.cjs",
       "!**/fixtures",
-      "!**/expected",
-      "!**/input"
+      "!**/tests"
     ]
   },
   "assist": { "actions": { "source": { "organizeImports": "off" } } },

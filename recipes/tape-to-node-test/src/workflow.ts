@@ -255,15 +255,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 			kind: 'call_expression',
 			has: {
 				field: 'function',
-				kind: 'member_expression',
-				has: {
-					field: 'object',
-					regex: `^${testVarName}$`,
-				},
-				has: {
-					field: 'property',
-					regex: '^(onFinish|onFailure)$',
-				},
+				regex: `^${testVarName}\\.(onFinish|onFailure)$`,
 			},
 		},
 	});
