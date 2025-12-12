@@ -303,8 +303,8 @@ function handleNamedImportBindings(
 						const n = d.field('name');
 						const a = d.field('alias');
 						return (
-							(n ? n.text() : '') !== options.old &&
-							(a ? a.text() : '') !== options.old
+							(n?.text() ?? '') !== options.old &&
+							(a?.text() ?? '') !== options.old
 						);
 					})
 					.map((d) => d.text());
