@@ -417,13 +417,6 @@ function transformAssertions(
 			const timeoutArg = args?.child(1); // child(0) is '('
 			if (timeoutArg) {
 				const timeoutVal = timeoutArg.text();
-				// Remove the call
-				const parent = call.parent();
-				if (parent && parent.kind() === 'expression_statement') {
-					edits.push(parent.replace(''));
-				} else {
-					edits.push(call.replace(''));
-				}
 
 				// Add to test options
 				const testArgs = testCall.field('arguments');
@@ -453,6 +446,13 @@ function transformAssertions(
 							endPos: cbArg.range().start.index,
 							insertedText: `{ timeout: ${timeoutVal} }, `,
 						});
+						// remove the original timeout call
+						const parent = call.parent();
+						if (parent && parent.kind() === 'expression_statement') {
+							edits.push(parent.replace(''));
+						} else {
+							edits.push(call.replace(''));
+						}
 					} else if (actualArgs.length === 3) {
 						// test('name', opts, cb)
 						const optsArg = actualArgs[1];
@@ -468,6 +468,13 @@ function transformAssertions(
 									endPos: lastProp.range().end.index,
 									insertedText: `, timeout: ${timeoutVal}`,
 								});
+								// remove the original timeout call
+								const parent = call.parent();
+								if (parent && parent.kind() === 'expression_statement') {
+									edits.push(parent.replace(''));
+								} else {
+									edits.push(call.replace(''));
+								}
 							} else {
 								// Empty object {}
 								// We need to find where to insert.
@@ -481,18 +488,31 @@ function transformAssertions(
 										endPos: closingBrace.range().start.index,
 										insertedText: ` timeout: ${timeoutVal} `,
 									});
+									// remove the original timeout call
+									const parent = call.parent();
+									if (parent && parent.kind() === 'expression_statement') {
+										edits.push(parent.replace(''));
+									} else {
+										edits.push(call.replace(''));
+									}
 								}
 							}
 						} else {
-							// Options is a variable or expression
-							// TODO: Handle this case?
-							// For now, maybe just log a comment
+							// Options is a variable or expression — replace the timeout call with a TODO comment
 							edits.push(
 								call.replace(
 									`// TODO: Add timeout: ${timeoutVal} to test options manually`,
 								),
 							);
 						}
+					}
+				} else {
+					// If we couldn't find the test call args, remove the timeout call
+					const parent = call.parent();
+					if (parent && parent.kind() === 'expression_statement') {
+						edits.push(parent.replace(''));
+					} else {
+						edits.push(call.replace(''));
 					}
 				}
 			}
