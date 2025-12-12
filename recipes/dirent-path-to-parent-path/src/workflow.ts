@@ -81,8 +81,8 @@ export default function transform(root: SgRoot<Js>): string | null {
 		const matches = rootNode.findAll<'variable_declarator'>({
 			rule: {
 				any: [
-					// created variables without await
 					{
+						// created variables without await
 						kind: 'variable_declarator',
 						has: {
 							field: 'value',
@@ -138,33 +138,35 @@ export default function transform(root: SgRoot<Js>): string | null {
 				.field('arguments')
 				.children()
 				.filter((arg) =>
-					['string', 'object', 'arrow_function', 'identifier'].includes(
-						arg.kind(),
-					),
+					[
+						'string',
+						'object',
+						'arrow_function',
+						'function_expression',
+						'identifier',
+					].includes(arg.kind()),
 				);
 
 			//if it had 3 params it means the third will be an callbackFn as fs.readdir, fs.opendir docs
 			if (params.length === 3) {
-				const arrowFn = params[2] as SgNode<Js, 'arrow_function'>;
-				if (arrowFn.kind() === 'arrow_function') {
-					const args = arrowFn.field('parameters');
-					const params = args.findAll<'identifier'>({
-						rule: {
-							kind: 'identifier',
-						},
-					});
+				const arrowFn = params[2];
+				const args = arrowFn.field('parameters');
 
-					if (params.length === 2) {
-						dirArrays.push({ node: params[1], scope: arrowFn.field('body') });
-					}
+				const fnParams = args.findAll<'identifier'>({
+					rule: {
+						kind: 'identifier',
+					},
+				});
+
+				if (fnParams.length === 2) {
+					dirArrays.push({ node: fnParams[1], scope: arrowFn.field('body') });
 				}
 			}
 		}
 	}
 
 	for (const dirArray of dirArrays) {
-		const pattern =
-			dirArray.node.kind() === 'variable_declarator'
+		const pattern = dirArray.node.kind() === 'variable_declarator'
 				? (dirArray.node as SgNode<Js, 'variable_declarator'>)
 						.field('name')
 						.text()
@@ -254,8 +256,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 			});
 
 			for (const arrowFn of arrowFns) {
-				const parameters =
-					arrowFn.field('parameters') || arrowFn.field('parameter');
+				const parameters = arrowFn.field('parameters') || arrowFn.field('parameter');
 				const fnBody = arrowFn.field('body');
 
 				const param = parameters?.find<'identifier'>({
