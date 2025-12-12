@@ -93,6 +93,7 @@ export default function transform(root: SgRoot<Js>): string | null {
           }
           if (parent && (parent.kind() === "import_specifier" || parent.kind() === "shorthand_property_identifier_pattern")) continue;
           if (ref.id() === idNode.id()) continue;
+
           edits.push(ref.replace(newName));
         }
       }
