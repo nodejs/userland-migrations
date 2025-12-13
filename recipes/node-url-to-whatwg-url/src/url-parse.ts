@@ -1,37 +1,51 @@
-import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
-import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
-import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
-import type JS from "@codemod.com/jssg-types/langs/javascript";
+import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
+import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
+import type { SgRoot, Edit } from '@codemod.com/jssg-types/main';
+import type JS from '@codemod.com/jssg-types/langs/javascript';
 
-const validVariableNameRegex = /^[$A-Z_a-z][$\w]*$/;
-const destructuringAssignmentRegex = /^[^{]+{\s*[^}]+\s*}\s*=\s*/;
+const VALID_VARIABLE_NAME_REGEX = /^[$A-Z_a-z][$\w]*$/;
+const DESTRUCTURING_ASSIGNMENT_REGEX = /^[^{]+{\s*[^}]+\s*}\s*=\s*/;
+const HOSTNAME_BRACKETS_REGEX = /^\[|\]$/;
+
 const fieldsToReplace = [
-		{
-			key: "auth",
-			replaceFn: (base: string, hadSemi: boolean, declKind: "const" | "let" | "var") => {
-				const kind = declKind === "var" ? "let" : declKind;
+	{
+		key: 'auth',
+		replaceFn: (
+			base: string,
+			hadSemi: boolean,
+			declKind: 'const' | 'let' | 'var',
+		) => {
+			const kind = declKind === 'var' ? 'let' : declKind;
 
-				return `${kind} auth = \`\${${base}.username}:\${${base}.password}\`${hadSemi ? ";" : ""}`;
-			},
+			return `${kind} auth = \`\${${base}.username}:\${${base}.password}\`${hadSemi ? ';' : ''}`;
 		},
-		{
-			key: "path",
-			replaceFn: (base: string, hadSemi: boolean, declKind: "const" | "let" | "var") => {
-				const kind = declKind === "var" ? "let" : declKind;
+	},
+	{
+		key: 'path',
+		replaceFn: (
+			base: string,
+			hadSemi: boolean,
+			declKind: 'const' | 'let' | 'var',
+		) => {
+			const kind = declKind === 'var' ? 'let' : declKind;
 
-				return `${kind} path = \`\${${base}.pathname}\${${base}.search}\`${hadSemi ? ";" : ""}`;
-			},
+			return `${kind} path = \`\${${base}.pathname}\${${base}.search}\`${hadSemi ? ';' : ''}`;
 		},
-		{
-			key: "hostname",
-			replaceFn: (base: string, hadSemi: boolean, declKind: "const" | "let" | "var") => {
-				const kind = declKind === "var" ? "let" : declKind;
+	},
+	{
+		key: 'hostname',
+		replaceFn: (
+			base: string,
+			hadSemi: boolean,
+			declKind: 'const' | 'let' | 'var',
+		) => {
+			const kind = declKind === 'var' ? 'let' : declKind;
 
-				return `${kind} hostname = ${base}.hostname.replace(/^\\[|\\]$/, '')${hadSemi ? ";" : ""}`;
-			},
+			return `${kind} hostname = ${base}.hostname.replace(${HOSTNAME_BRACKETS_REGEX}, '')${hadSemi ? ';' : ''}`;
 		},
-	];
+	},
+];
 /**
  * Transforms `url.parse` usage to `new URL()`.
  *
@@ -48,21 +62,18 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 
-	// Safety: only run on files that import/require node:url
-	const hasNodeUrlImport = (
-		getNodeImportStatements(root, "url").length > 0
-		|| getNodeRequireCalls(root, "url").length > 0
-	);
+	const importsAndRequires = [
+		...getNodeImportStatements(root, 'url'),
+		...getNodeRequireCalls(root, 'url'),
+	];
 
-	if (!hasNodeUrlImport) return null;
+	if (!importsAndRequires.length) return null;
 
 	// 1) Replace parse calls with new URL() using binding-aware patterns
-	const importNodes = getNodeImportStatements(root, "url");
-	const requireNodes = getNodeRequireCalls(root, "url");
 	const parseCallPatterns = new Set<string>();
 
-	for (const node of [...importNodes, ...requireNodes]) {
-		const binding = resolveBindingPath(node, "$.parse");
+	for (const node of importsAndRequires) {
+		const binding = resolveBindingPath(node, '$.parse');
 
 		if (binding) parseCallPatterns.add(`${binding}($ARG)`);
 	}
@@ -77,16 +88,16 @@ export default function transform(root: SgRoot<JS>): string | null {
 					{ pattern: `const $OBJ = ${pattern}` },
 					{ pattern: `let $OBJ = ${pattern}` },
 					{ pattern: `var $OBJ = ${pattern}` },
-					{ pattern: `$OBJ = ${pattern}` }
-				]
-			}
+					{ pattern: `$OBJ = ${pattern}` },
+				],
+			},
 		});
 
 		for (const m of matches) {
-			const obj = m.getMatch("OBJ");
+			const obj = m.getMatch('OBJ');
 			if (!obj) continue;
 			const name = obj.text();
-			if (validVariableNameRegex.test(name)) parseResultVars.add(name);
+			if (VALID_VARIABLE_NAME_REGEX.test(name)) parseResultVars.add(name);
 		}
 	}
 
@@ -96,7 +107,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 		const calls = rootNode.findAll({ rule: { pattern } });
 
 		for (const call of calls) {
-			const arg = call.getMatch("ARG");
+			const arg = call.getMatch('ARG');
 			if (!arg) continue;
 
 			edits.push(call.replace(`new URL(${arg.text()})`));
@@ -111,15 +122,17 @@ export default function transform(root: SgRoot<JS>): string | null {
 	for (const { key, replaceFn } of fieldsToReplace) {
 		// 2.a) Handle property access for identifiers that originate from parse(...)
 		for (const varName of parseResultVars) {
-			const propertyAccesses = rootNode.findAll({ rule: { pattern: `${varName}.${key}` } });
+			const propertyAccesses = rootNode.findAll({
+				rule: { pattern: `${varName}.${key}` },
+			});
 			for (const node of propertyAccesses) {
-				let replacement = "";
+				let replacement = '';
 
-				if (key === "auth") {
+				if (key === 'auth') {
 					replacement = `\`\${${varName}.username}:\${${varName}.password}\``;
-				} else if (key === "path") {
+				} else if (key === 'path') {
 					replacement = `\`\${${varName}.pathname}\${${varName}.search}\``;
-				} else if (key === "hostname") {
+				} else if (key === 'hostname') {
 					replacement = `${varName}.hostname.replace(/^\\[|\\]$/, '')`;
 				}
 				edits.push(node.replace(replacement));
@@ -131,14 +144,18 @@ export default function transform(root: SgRoot<JS>): string | null {
 					any: [
 						{ pattern: `const { ${key} } = ${varName}` },
 						{ pattern: `let { ${key} } = ${varName}` },
-						{ pattern: `var { ${key} } = ${varName}` }
-					]
-				}
+						{ pattern: `var { ${key} } = ${varName}` },
+					],
+				},
 			});
 			for (const node of destructures) {
 				const text = node.text();
 				const hadSemi = /;\s*$/.test(text);
-				const declKind = text.trimStart().startsWith("var ") ? "var" : (text.trimStart().startsWith("const ") ? "const" : "let");
+				const declKind = text.trimStart().startsWith('var ')
+					? 'var'
+					: text.trimStart().startsWith('const ')
+						? 'const'
+						: 'let';
 				const replacement = replaceFn(varName, hadSemi, declKind);
 				edits.push(node.replace(replacement));
 			}
@@ -147,24 +164,24 @@ export default function transform(root: SgRoot<JS>): string | null {
 		// 2.b) Handle direct call expressions like parse(...).auth and
 		// destructuring from parse(...)
 		for (const pattern of parseCallPatterns) {
-			const directAccesses = rootNode.findAll({ rule: { pattern: `${pattern}.${key}` } });
+			const directAccesses = rootNode.findAll({
+				rule: { pattern: `${pattern}.${key}` },
+			});
 			for (const node of directAccesses) {
 				// Reconstruct base as the matched expression before .key
-				const baseExpr = node.text().replace(new RegExp(`\\.${key}$`), "");
-				let replacement = "";
+				const baseExpr = node.text().replace(new RegExp(`\\.${key}$`), '');
+				let replacement = '';
 
-				if (key === "auth") {
+				if (key === 'auth') {
 					replacement = `\`\${${baseExpr}.username}:\${${baseExpr}.password}\``;
-				} else if (key === "path") {
+				} else if (key === 'path') {
 					replacement = `\`\${${baseExpr}.pathname}\${${baseExpr}.search}\``;
-				} else if (key === "hostname") {
+				} else if (key === 'hostname') {
 					replacement = `${baseExpr}.hostname.replace(/^\\[|\\]$/, '')`;
 				}
 
 				edits.push(node.replace(replacement));
 			}
-
-
 
 			// direct destructuring from parse(...), cover all kinds in a single query
 			const directDestructures = rootNode.findAll({
@@ -172,16 +189,22 @@ export default function transform(root: SgRoot<JS>): string | null {
 					any: [
 						{ pattern: `const { ${key} } = ${pattern}` },
 						{ pattern: `let { ${key} } = ${pattern}` },
-						{ pattern: `var { ${key} } = ${pattern}` }
-					]
-				}
+						{ pattern: `var { ${key} } = ${pattern}` },
+					],
+				},
 			});
 
 			for (const node of directDestructures) {
 				const text = node.text();
 				const hadSemi = /;\s*$/.test(text);
-				const rhsText = text.replace(destructuringAssignmentRegex, "");
-				const declKind: "const" | "let" | "var" = text.trimStart().startsWith("var ") ? "var" : (text.trimStart().startsWith("const ") ? "const" : "let");
+				const rhsText = text.replace(DESTRUCTURING_ASSIGNMENT_REGEX, '');
+				const declKind: 'const' | 'let' | 'var' = text
+					.trimStart()
+					.startsWith('var ')
+					? 'var'
+					: text.trimStart().startsWith('const ')
+						? 'const'
+						: 'let';
 				const replacement = replaceFn(rhsText, hadSemi, declKind);
 				edits.push(node.replace(replacement));
 			}
@@ -189,17 +212,19 @@ export default function transform(root: SgRoot<JS>): string | null {
 
 		// 2.c) Handle property access and destructuring after parse calls were
 		// replaced with new URL($ARG)
-		const newURLAccesses = rootNode.findAll({ rule: { pattern: `new URL($ARG).${key}` } });
+		const newURLAccesses = rootNode.findAll({
+			rule: { pattern: `new URL($ARG).${key}` },
+		});
 
 		for (const node of newURLAccesses) {
-			const baseExpr = node.text().replace(new RegExp(`\\.${key}$`), "");
-			let replacement = "";
+			const baseExpr = node.text().replace(new RegExp(`\\.${key}$`), '');
+			let replacement = '';
 
-			if (key === "auth") {
+			if (key === 'auth') {
 				replacement = `\`\${${baseExpr}.username}:\${${baseExpr}.password}\``;
-			} else if (key === "path") {
+			} else if (key === 'path') {
 				replacement = `\`\${${baseExpr}.pathname}\${${baseExpr}.search}\``;
-			} else if (key === "hostname") {
+			} else if (key === 'hostname') {
 				replacement = `${baseExpr}.hostname.replace(/^\\[|\\]$/, '')`;
 			}
 			edits.push(node.replace(replacement));
@@ -211,16 +236,20 @@ export default function transform(root: SgRoot<JS>): string | null {
 				any: [
 					{ pattern: `const { ${key} } = new URL($ARG)` },
 					{ pattern: `let { ${key} } = new URL($ARG)` },
-					{ pattern: `var { ${key} } = new URL($ARG)` }
-				]
-			}
+					{ pattern: `var { ${key} } = new URL($ARG)` },
+				],
+			},
 		});
 
 		for (const node of newURLDestructures) {
 			const text = node.text();
 			const hadSemi = /;\s*$/.test(text);
-			const rhsText = text.replace(destructuringAssignmentRegex, "");
-			const declKind = text.trimStart().startsWith("var ") ? "var" : (text.trimStart().startsWith("const ") ? "const" : "let");
+			const rhsText = text.replace(DESTRUCTURING_ASSIGNMENT_REGEX, '');
+			const declKind = text.trimStart().startsWith('var ')
+				? 'var'
+				: text.trimStart().startsWith('const ')
+					? 'const'
+					: 'let';
 			const replacement = replaceFn(rhsText, hadSemi, declKind);
 			edits.push(node.replace(replacement));
 		}
@@ -229,4 +258,4 @@ export default function transform(root: SgRoot<JS>): string | null {
 	if (!edits.length) return null;
 
 	return rootNode.commitEdits(edits);
-};
+}
