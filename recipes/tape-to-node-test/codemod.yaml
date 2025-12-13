@@ -1,0 +1,19 @@
+schema_version: "1.0"
+name: "@nodejs/tape-to-node-test"
+version: "1.0.0"
+description: Migrates Tape tests to Node.js native test runner
+author: Node.js
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - tape
+  - node:test
