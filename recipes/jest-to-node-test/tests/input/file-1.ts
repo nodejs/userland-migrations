@@ -6,13 +6,13 @@ describe("test", () => {
 			const actual = jest.requireActual("../fixtures.ts");
 			return {
 				...actual,
-				foo: () => 'mocked bar',
+				foo: () => "mocked bar",
 			};
 		});
 		const mocked = await import("../fixtures.ts");
-		
-		expect(mocked.foo()).toBe('mocked bar');
-		expect(mocked.bar()).toBe('baz');
+
+		expect(mocked.foo()).toBe("mocked bar");
+		expect(mocked.bar()).toBe("baz");
 
 		const a = jest.fn((i: number, j: number) => i + j);
 		const b = jest.fn(async (i: number, j: number) => i - j);

@@ -8,6 +8,15 @@ function getIndent(node: SgNode, rootNode: SgNode): string {
 	return lineText.match(/^(\s*)/)?.[1] || "";
 }
 
+const addSpaceAfterComma = (node: SgNode) =>
+	node
+		.getMultipleMatches("ARGS")
+		.map((n) => {
+			const text = n.text();
+			return text === "," ? ", " : text;
+		})
+		.join("");
+
 export default async function transform(root: SgRoot) {
 	const rootNode = root.root();
 	const imports = [
@@ -51,11 +60,8 @@ export default async function transform(root: SgRoot) {
 		addImportsEdit.insertedText += 'import { expect } from "expect";\n';
 	}
 
-	const requireActualEdits = rootNode.findAll("jest.requireActual($$$ARGS)").map((node) => {
-		const args = node
-			.getMultipleMatches("ARGS")
-			.map((n) => n.text())
-			.join("");
+	const requireActualEdits = rootNode.findAll("jest.requireActual($ARGS)").map((node) => {
+		const args = node.getMatch("ARGS")?.text();
 		return node.replace(`await import(${args})`);
 	});
 
@@ -69,6 +75,9 @@ export default async function transform(root: SgRoot) {
 		}
 
 		let factoryText = factory.text();
+
+		// Transform jest.requireActual inside the factory
+		factoryText = factoryText.replace(/jest\.requireActual\(/g, "await import(");
 
 		return node.replace(
 			`const mockFactory = async ${factoryText};\n\n${indent}mock.module(${path}, {\n${indent}\tnamedExports: await mockFactory(),\n${indent}})`,
@@ -84,14 +93,9 @@ export default async function transform(root: SgRoot) {
 		),
 	);
 
-	const jestSpyOnEdits = rootNode.findAll("jest.spyOn($$$ARGS)").map((node) =>
-		node.replace(
-			`mock.method(${node
-				.getMultipleMatches("ARGS")
-				.map((node) => node.text())
-				.join("")})`,
-		),
-	);
+	const jestSpyOnEdits = rootNode
+		.findAll("jest.spyOn($$$ARGS)")
+		.map((node) => node.replace(`mock.method(${addSpaceAfterComma(node)})`));
 
 	const toHaveBeenCalledEdits = rootNode
 		.findAll("expect($ACTUAL).toHaveBeenCalled()")
@@ -125,10 +129,7 @@ export default async function transform(root: SgRoot) {
 		.findAll("expect($ACTUAL).toHaveBeenCalledWith($$$ARGS)")
 		.map((node) =>
 			node.replace(
-				`expect(${node.getMatch("ACTUAL")?.text()}.mock.calls.map(call => call.arguments)).toContainEqual([${node
-					.getMultipleMatches("ARGS")
-					.map((n) => n.text())
-					.join("")}])`,
+				`expect(${node.getMatch("ACTUAL")?.text()}.mock.calls.map(call => call.arguments)).toContainEqual([${addSpaceAfterComma(node)}])`,
 			),
 		);
 
@@ -136,10 +137,7 @@ export default async function transform(root: SgRoot) {
 		.findAll("expect($ACTUAL).toBeCalledWith($$$ARGS)")
 		.map((node) =>
 			node.replace(
-				`expect(${node.getMatch("ACTUAL")?.text()}.mock.calls.map(call => call.arguments)).toContainEqual([${node
-					.getMultipleMatches("ARGS")
-					.map((n) => n.text())
-					.join("")}])`,
+				`expect(${node.getMatch("ACTUAL")?.text()}.mock.calls.map(call => call.arguments)).toContainEqual([${addSpaceAfterComma(node)}])`,
 			),
 		);
 
@@ -147,10 +145,7 @@ export default async function transform(root: SgRoot) {
 		.findAll("expect($ACTUAL).toHaveBeenLastCalledWith($$$ARGS)")
 		.map((node) =>
 			node.replace(
-				`expect(${node.getMatch("ACTUAL")?.text()}.mock.calls.at(-1)?.arguments).toStrictEqual([${node
-					.getMultipleMatches("ARGS")
-					.map((n) => n.text())
-					.join("")}])`,
+				`expect(${node.getMatch("ACTUAL")?.text()}.mock.calls.at(-1)?.arguments).toStrictEqual([${addSpaceAfterComma(node)}])`,
 			),
 		);
 
@@ -158,10 +153,7 @@ export default async function transform(root: SgRoot) {
 		.findAll("expect($ACTUAL).lastCalledWith($$$ARGS)")
 		.map((node) =>
 			node.replace(
-				`expect(${node.getMatch("ACTUAL")?.text()}.mock.calls.at(-1)?.arguments).toStrictEqual([${node
-					.getMultipleMatches("ARGS")
-					.map((n) => n.text())
-					.join("")}])`,
+				`expect(${node.getMatch("ACTUAL")?.text()}.mock.calls.at(-1)?.arguments).toStrictEqual([${addSpaceAfterComma(node)}])`,
 			),
 		);
 
@@ -169,10 +161,7 @@ export default async function transform(root: SgRoot) {
 		.findAll("expect($ACTUAL).toHaveBeenNthCalledWith($INDEX, $$$ARGS)")
 		.map((node) =>
 			node.replace(
-				`expect(${node.getMatch("ACTUAL")?.text()}.mock.calls[${parseInt(node.getMatch("INDEX")?.text() || "0") - 1}].arguments).toStrictEqual([${node
-					.getMultipleMatches("ARGS")
-					.map((n) => n.text())
-					.join("")}])`,
+				`expect(${node.getMatch("ACTUAL")?.text()}.mock.calls[${parseInt(node.getMatch("INDEX")?.text() || "0") - 1}].arguments).toStrictEqual([${addSpaceAfterComma(node)}])`,
 			),
 		);
 
@@ -180,10 +169,7 @@ export default async function transform(root: SgRoot) {
 		.findAll("expect($ACTUAL).nthCalledWith($INDEX, $$$ARGS)")
 		.map((node) =>
 			node.replace(
-				`expect(${node.getMatch("ACTUAL")?.text()}.mock.calls[${parseInt(node.getMatch("INDEX")?.text() || "0") - 1}].arguments).toStrictEqual([${node
-					.getMultipleMatches("ARGS")
-					.map((n) => n.text())
-					.join("")}])`,
+				`expect(${node.getMatch("ACTUAL")?.text()}.mock.calls[${parseInt(node.getMatch("INDEX")?.text() || "0") - 1}].arguments).toStrictEqual([${addSpaceAfterComma(node)}])`,
 			),
 		);
 
@@ -270,7 +256,7 @@ export default async function transform(root: SgRoot) {
 	const mockCallsEdits = rootNode
 		.findAll("$MOCK.mock.calls")
 		.map((node) =>
-			node.replace(`${node.getMatch("MOCK")?.text()}.mock.calls.map((call) => call.arguments)`),
+			node.replace(`${node.getMatch("MOCK")?.text()}.mock.calls.map(call => call.arguments)`),
 		);
 
 	// TODO: Consider other possible translations
@@ -278,7 +264,7 @@ export default async function transform(root: SgRoot) {
 		const mock = node.getMatch("MOCK")?.text();
 		const indent = getIndent(node, rootNode);
 
-		return node.replace(`${mock}.mock.calls.map((call) => ({
+		return node.replace(`${mock}.mock.calls.map(call => ({
 ${indent}\ttype: call.error ? "throw" : "return",
 ${indent}\tvalue: call.error ? call.error : call.result,
 ${indent}}))`);

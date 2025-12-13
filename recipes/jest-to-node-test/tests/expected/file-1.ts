@@ -6,26 +6,26 @@ describe("test", () => {
 		const mockFactory = async () => {
 			const actual = await import("../fixtures.ts");
 			return {
-			...actual,
-			foo: () => 'mocked bar',
-			}
+				...actual,
+				foo: () => "mocked bar",
+			};
 		};
 
 		mock.module("../fixtures.ts", {
 			namedExports: await mockFactory(),
 		});
 		const mocked = await import("../fixtures.ts");
-		
-		expect(mocked.foo()).toBe('mocked bar');
-		expect(mocked.bar()).toBe('baz');
+
+		expect(mocked.foo()).toBe("mocked bar");
+		expect(mocked.bar()).toBe("baz");
 
 		const a = mock.fn((i: number, j: number) => i + j);
 		const b = mock.fn(async (i: number, j: number) => i - j);
 
-		const logSpy = mock.method(console,"log");
+		const logSpy = mock.method(console, "log");
 		console.log("Hello, world!");
 
-		expect(logSpy.mock.calls.map((call) => call.arguments)[0][0]).toBe("Hello, world!");
+		expect(logSpy.mock.calls.map(call => call.arguments)[0][0]).toBe("Hello, world!");
 
 		a(1, 1);
 		a(2, 2);
@@ -36,14 +36,14 @@ describe("test", () => {
 		expect(a.mock.callCount()).toBe(2);
 		expect(a.mock.callCount()).toBe(2);
 
-		expect(a.mock.calls.map(call => call.arguments)).toContainEqual([1,1]);
-		expect(a.mock.calls.map(call => call.arguments)).toContainEqual([1,1]);
+		expect(a.mock.calls.map(call => call.arguments)).toContainEqual([1, 1]);
+		expect(a.mock.calls.map(call => call.arguments)).toContainEqual([1, 1]);
 
-		expect(a.mock.calls.at(-1)?.arguments).toStrictEqual([2,2]);
-		expect(a.mock.calls.at(-1)?.arguments).toStrictEqual([2,2]);
+		expect(a.mock.calls.at(-1)?.arguments).toStrictEqual([2, 2]);
+		expect(a.mock.calls.at(-1)?.arguments).toStrictEqual([2, 2]);
 
-		expect(a.mock.calls[0].arguments).toStrictEqual([1,1]);
-		expect(a.mock.calls[1].arguments).toStrictEqual([2,2]);
+		expect(a.mock.calls[0].arguments).toStrictEqual([1, 1]);
+		expect(a.mock.calls[1].arguments).toStrictEqual([2, 2]);
 
 		expect(a.mock.calls.some(call => call.error === undefined)).toBeTruthy();
 		expect(a.mock.calls.some(call => call.error === undefined)).toBeTruthy();
@@ -60,9 +60,9 @@ describe("test", () => {
 		expect(a.mock.calls[0].result).toBe(2);
 		expect(a.mock.calls[1].result).toBe(4);
 
-		a.mock.calls.map((call) => call.arguments);
+		a.mock.calls.map(call => call.arguments);
 
-		a.mock.calls.map((call) => ({
+		a.mock.calls.map(call => ({
 			type: call.error ? "throw" : "return",
 			value: call.error ? call.error : call.result,
 		}));
