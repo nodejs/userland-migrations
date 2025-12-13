@@ -1,0 +1,11 @@
+exports[`test > should be a test 1`] = `
+{
+  "a": 1
+}
+`;
+
+exports[`test > should be a test 2`] = `
+{
+  "b": 2
+}
+`;

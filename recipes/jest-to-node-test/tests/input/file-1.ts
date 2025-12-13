@@ -1,10 +1,21 @@
 import { describe, it, expect, jest } from "@jest/globals";
 
 describe("test", () => {
-	it("should be a test", () => {
+	it("should be a test", async () => {
+		jest.mock("../fixtures.ts", () => {
+			const actual = jest.requireActual("../fixtures.ts");
+			return {
+				...actual,
+				foo: () => 'mocked bar',
+			};
+		});
+		const mocked = await import("../fixtures.ts");
+		
+		expect(mocked.foo()).toBe('mocked bar');
+		expect(mocked.bar()).toBe('baz');
+
 		const a = jest.fn((i: number, j: number) => i + j);
 		const b = jest.fn(async (i: number, j: number) => i - j);
-		jest.mock("./workflow.ts");
 
 		const logSpy = jest.spyOn(console, "log");
 		console.log("Hello, world!");
@@ -84,13 +95,11 @@ describe("test", () => {
 
 		expect({ b: 2 }).toMatchInlineSnapshot(`
 {
-  "b": 2,
+	"b": 2,
 }
 `);
 
 		jest.useFakeTimers();
-
-		jest.useRealTimers();
 
 		jest.runAllTicks();
 
@@ -112,13 +121,17 @@ describe("test", () => {
 
 		// jest.advanceTimersToNextTimerAsync(5);
 
-		jest.clearAllTimers();
-
 		// jest.getTimerCount();
 
 		jest.now();
 
 		jest.setSystemTime(1000);
+
+		jest.useRealTimers();
+
+		jest.useFakeTimers();
+
+		jest.clearAllTimers();
 
 		// jest.getRealSystemTime();
 	});

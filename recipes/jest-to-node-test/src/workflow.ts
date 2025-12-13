@@ -1,9 +1,15 @@
-import { parse, Lang, type Edit, SgNode } from "@ast-grep/napi";
+import type { SgRoot, SgNode, Edit } from "@codemod.com/jssg-types/main";
 
-export async function workflow(source: string) {
-	const ast = parse(Lang.TypeScript, source);
-	const root = ast.root();
+function getIndent(node: SgNode, rootNode: SgNode): string {
+	const range = node.range();
+	const sourceCode = rootNode.text();
+	const lines = sourceCode.split("\n");
+	const lineText = lines[range.start.line];
+	return lineText.match(/^(\s*)/)?.[1] || "";
+}
 
+export default async function transform(root: SgRoot) {
+	const rootNode = root.root();
 	const imports = [
 		"describe",
 		"it",
@@ -12,11 +18,11 @@ export async function workflow(source: string) {
 		"afterEach",
 		"beforeAll",
 		"afterAll",
-	].filter((name) => root.has(`${name}($$$_ARGS)`));
+	].filter((name) => rootNode.has(`${name}($$$_ARGS)`));
 	const hasMocks =
-		root.has("jest.mock($$$_ARGS)") ||
-		root.has("jest.spyOn($$$_ARGS)") ||
-		root.has("jest.fn($$$_ARGS)");
+		rootNode.has("jest.mock($$$_ARGS)") ||
+		rootNode.has("jest.spyOn($$$_ARGS)") ||
+		rootNode.has("jest.fn($$$_ARGS)");
 	if (hasMocks) {
 		imports.push("mock");
 	}
@@ -24,10 +30,14 @@ export async function workflow(source: string) {
 	let importStatement = `import { ${imports.join(", ").replaceAll("All", "")} } from "node:test";\n`;
 
 	const edits: Edit[] = [];
-	const addImportsEdit: Edit = { startPos: 0, endPos: 0, insertedText: importStatement };
+	const addImportsEdit: Edit = {
+		startPos: 0,
+		endPos: 0,
+		insertedText: importStatement,
+	};
 	edits.push(addImportsEdit);
 
-	const deleteJestImportEdits = root
+	const deleteJestImportEdits = rootNode
 		.findAll('import { $$$_NAME } from "@jest/globals"\n')
 		.map((node) => {
 			const edit = node.replace("");
@@ -36,21 +46,36 @@ export async function workflow(source: string) {
 			return edit;
 		});
 
-	const expectPresent = root.has("expect($$$_ARGS)");
+	const expectPresent = rootNode.has("expect($$$_ARGS)");
 	if (expectPresent) {
 		addImportsEdit.insertedText += 'import { expect } from "expect";\n';
 	}
 
-	const moduleMockEdits = root.findAll("jest.mock($$$ARGS)").map((node) =>
-		node.replace(
-			`mock.module(${node
-				.getMultipleMatches("ARGS")
-				.map((n) => n.text())
-				.join("")})`,
-		),
-	);
+	const requireActualEdits = rootNode.findAll("jest.requireActual($$$ARGS)").map((node) => {
+		const args = node
+			.getMultipleMatches("ARGS")
+			.map((n) => n.text())
+			.join("");
+		return node.replace(`await import(${args})`);
+	});
 
-	const fnMockEdits = root.findAll("jest.fn($$$ARGS)").map((node) =>
+	const moduleMockWithFactoryEdits = rootNode.findAll("jest.mock($PATH, $FACTORY)").map((node) => {
+		const path = node.getMatch("PATH")?.text();
+		const factory = node.getMatch("FACTORY");
+		const indent = getIndent(node, rootNode);
+
+		if (!factory) {
+			return node.replace(`mock.module(${path})`);
+		}
+
+		let factoryText = factory.text();
+
+		return node.replace(
+			`const mockFactory = async ${factoryText};\n\n${indent}mock.module(${path}, {\n${indent}\tnamedExports: await mockFactory(),\n${indent}})`,
+		);
+	});
+
+	const fnMockEdits = rootNode.findAll("jest.fn($$$ARGS)").map((node) =>
 		node.replace(
 			`mock.fn(${node
 				.getMultipleMatches("ARGS")
@@ -59,7 +84,7 @@ export async function workflow(source: string) {
 		),
 	);
 
-	const jestSpyOnEdits = root.findAll("jest.spyOn($$$ARGS)").map((node) =>
+	const jestSpyOnEdits = rootNode.findAll("jest.spyOn($$$ARGS)").map((node) =>
 		node.replace(
 			`mock.method(${node
 				.getMultipleMatches("ARGS")
@@ -68,19 +93,19 @@ export async function workflow(source: string) {
 		),
 	);
 
-	const toHaveBeenCalledEdits = root
+	const toHaveBeenCalledEdits = rootNode
 		.findAll("expect($ACTUAL).toHaveBeenCalled()")
 		.map((node) =>
 			node.replace(`expect(${node.getMatch("ACTUAL")?.text()}.mock.callCount()).toBeTruthy()`),
 		);
 
-	const toBeCalledEdits = root
+	const toBeCalledEdits = rootNode
 		.findAll("expect($ACTUAL).toBeCalled()")
 		.map((node) =>
 			node.replace(`expect(${node.getMatch("ACTUAL")?.text()}.mock.callCount()).toBeTruthy()`),
 		);
 
-	const toHaveBeenCalledTimesEdits = root
+	const toHaveBeenCalledTimesEdits = rootNode
 		.findAll("expect($ACTUAL).toHaveBeenCalledTimes($TIMES)")
 		.map((node) =>
 			node.replace(
@@ -88,7 +113,7 @@ export async function workflow(source: string) {
 			),
 		);
 
-	const toBeCalledTimesEdits = root
+	const toBeCalledTimesEdits = rootNode
 		.findAll("expect($ACTUAL).toBeCalledTimes($TIMES)")
 		.map((node) =>
 			node.replace(
@@ -96,7 +121,7 @@ export async function workflow(source: string) {
 			),
 		);
 
-	const toHaveBeenCalledWithEdits = root
+	const toHaveBeenCalledWithEdits = rootNode
 		.findAll("expect($ACTUAL).toHaveBeenCalledWith($$$ARGS)")
 		.map((node) =>
 			node.replace(
@@ -107,16 +132,18 @@ export async function workflow(source: string) {
 			),
 		);
 
-	const toBeCalledWithEdits = root.findAll("expect($ACTUAL).toBeCalledWith($$$ARGS)").map((node) =>
-		node.replace(
-			`expect(${node.getMatch("ACTUAL")?.text()}.mock.calls.map(call => call.arguments)).toContainEqual([${node
-				.getMultipleMatches("ARGS")
-				.map((n) => n.text())
-				.join("")}])`,
-		),
-	);
+	const toBeCalledWithEdits = rootNode
+		.findAll("expect($ACTUAL).toBeCalledWith($$$ARGS)")
+		.map((node) =>
+			node.replace(
+				`expect(${node.getMatch("ACTUAL")?.text()}.mock.calls.map(call => call.arguments)).toContainEqual([${node
+					.getMultipleMatches("ARGS")
+					.map((n) => n.text())
+					.join("")}])`,
+			),
+		);
 
-	const toHaveBeenLastCalledWithEdits = root
+	const toHaveBeenLastCalledWithEdits = rootNode
 		.findAll("expect($ACTUAL).toHaveBeenLastCalledWith($$$ARGS)")
 		.map((node) =>
 			node.replace(
@@ -127,16 +154,18 @@ export async function workflow(source: string) {
 			),
 		);
 
-	const lastCalledWithEdits = root.findAll("expect($ACTUAL).lastCalledWith($$$ARGS)").map((node) =>
-		node.replace(
-			`expect(${node.getMatch("ACTUAL")?.text()}.mock.calls.at(-1)?.arguments).toStrictEqual([${node
-				.getMultipleMatches("ARGS")
-				.map((n) => n.text())
-				.join("")}])`,
-		),
-	);
+	const lastCalledWithEdits = rootNode
+		.findAll("expect($ACTUAL).lastCalledWith($$$ARGS)")
+		.map((node) =>
+			node.replace(
+				`expect(${node.getMatch("ACTUAL")?.text()}.mock.calls.at(-1)?.arguments).toStrictEqual([${node
+					.getMultipleMatches("ARGS")
+					.map((n) => n.text())
+					.join("")}])`,
+			),
+		);
 
-	const toHaveBeenNthCalledWithEdits = root
+	const toHaveBeenNthCalledWithEdits = rootNode
 		.findAll("expect($ACTUAL).toHaveBeenNthCalledWith($INDEX, $$$ARGS)")
 		.map((node) =>
 			node.replace(
@@ -147,7 +176,7 @@ export async function workflow(source: string) {
 			),
 		);
 
-	const nthCalledWithEdits = root
+	const nthCalledWithEdits = rootNode
 		.findAll("expect($ACTUAL).nthCalledWith($INDEX, $$$ARGS)")
 		.map((node) =>
 			node.replace(
@@ -158,7 +187,7 @@ export async function workflow(source: string) {
 			),
 		);
 
-	const toHaveReturnedEdits = root
+	const toHaveReturnedEdits = rootNode
 		.findAll("expect($ACTUAL).toHaveReturned()")
 		.map((node) =>
 			node.replace(
@@ -166,7 +195,7 @@ export async function workflow(source: string) {
 			),
 		);
 
-	const toReturnEdits = root
+	const toReturnEdits = rootNode
 		.findAll("expect($ACTUAL).toReturn()")
 		.map((node) =>
 			node.replace(
@@ -174,7 +203,7 @@ export async function workflow(source: string) {
 			),
 		);
 
-	const toHaveReturnedTimesEdits = root
+	const toHaveReturnedTimesEdits = rootNode
 		.findAll("expect($ACTUAL).toHaveReturnedTimes($TIMES)")
 		.map((node) =>
 			node.replace(
@@ -182,7 +211,7 @@ export async function workflow(source: string) {
 			),
 		);
 
-	const toReturnTimesEdits = root
+	const toReturnTimesEdits = rootNode
 		.findAll("expect($ACTUAL).toReturnTimes($TIMES)")
 		.map((node) =>
 			node.replace(
@@ -190,7 +219,7 @@ export async function workflow(source: string) {
 			),
 		);
 
-	const toHaveReturnedWithEdits = root
+	const toHaveReturnedWithEdits = rootNode
 		.findAll("expect($ACTUAL).toHaveReturnedWith($VALUE)")
 		.map((node) =>
 			node.replace(
@@ -198,7 +227,7 @@ export async function workflow(source: string) {
 			),
 		);
 
-	const toReturnWithEdits = root
+	const toReturnWithEdits = rootNode
 		.findAll("expect($ACTUAL).toReturnWith($VALUE)")
 		.map((node) =>
 			node.replace(
@@ -206,7 +235,7 @@ export async function workflow(source: string) {
 			),
 		);
 
-	const toHaveLastReturnedWithEdits = root
+	const toHaveLastReturnedWithEdits = rootNode
 		.findAll("expect($ACTUAL).toHaveLastReturnedWith($VALUE)")
 		.map((node) =>
 			node.replace(
@@ -214,7 +243,7 @@ export async function workflow(source: string) {
 			),
 		);
 
-	const lastReturnedWithEdits = root
+	const lastReturnedWithEdits = rootNode
 		.findAll("expect($ACTUAL).lastReturnedWith($VALUE)")
 		.map((node) =>
 			node.replace(
@@ -222,7 +251,7 @@ export async function workflow(source: string) {
 			),
 		);
 
-	const toHaveNthReturnedWithEdits = root
+	const toHaveNthReturnedWithEdits = rootNode
 		.findAll("expect($ACTUAL).toHaveNthReturnedWith($INDEX, $VALUE)")
 		.map((node) =>
 			node.replace(
@@ -230,7 +259,7 @@ export async function workflow(source: string) {
 			),
 		);
 
-	const nthReturnedWithEdits = root
+	const nthReturnedWithEdits = rootNode
 		.findAll("expect($ACTUAL).nthReturnedWith($INDEX, $VALUE)")
 		.map((node) =>
 			node.replace(
@@ -238,39 +267,42 @@ export async function workflow(source: string) {
 			),
 		);
 
-	const mockCallsEdits = root
+	const mockCallsEdits = rootNode
 		.findAll("$MOCK.mock.calls")
 		.map((node) =>
 			node.replace(`${node.getMatch("MOCK")?.text()}.mock.calls.map((call) => call.arguments)`),
 		);
 
 	// TODO: Consider other possible translations
-	const mockResultsEdits = root.findAll("$MOCK.mock.results").map((node) =>
-		node.replace(`${node.getMatch("MOCK")?.text()}.mock.calls.map((call) => ({
-	type: call.error ? "throw" : "return",
-	value: call.error ? call.error : call.result,
-}))`),
-	);
+	const mockResultsEdits = rootNode.findAll("$MOCK.mock.results").map((node) => {
+		const mock = node.getMatch("MOCK")?.text();
+		const indent = getIndent(node, rootNode);
+
+		return node.replace(`${mock}.mock.calls.map((call) => ({
+${indent}\ttype: call.error ? "throw" : "return",
+${indent}\tvalue: call.error ? call.error : call.result,
+${indent}}))`);
+	});
 
 	// TODO: Consider if instances are translatable
 
 	// TODO: Consider if contexts are translatable
 
 	// TODO: Consider case where it wasn't called and result is undefined
-	const mockLastCallEdits = root
+	const mockLastCallEdits = rootNode
 		.findAll("$MOCK.mock.lastCall")
 		.map((node) => node.replace(`${node.getMatch("MOCK")?.text()}.mock.calls.at(-1)?.arguments`));
 
-	const mockClearEdits = root
+	const mockClearEdits = rootNode
 		.findAll("$MOCK.mockClear()")
 		.map((node) => node.replace(`${node.getMatch("MOCK")?.text()}.mock.resetCalls()`));
 
 	// TODO: consider doing something like a.mock.mockImplementation((...args: unknown[]) => {}); for consistent behavior
-	const mockResetEdits = root
+	const mockResetEdits = rootNode
 		.findAll("$MOCK.mockReset()")
 		.map((node) => node.replace(`${node.getMatch("MOCK")?.text()}.mock.restore()`));
 
-	const mockRestoreEdits = root
+	const mockRestoreEdits = rootNode
 		.findAll("$MOCK.mockRestore()")
 		.map((node) => node.replace(`${node.getMatch("MOCK")?.text()}.mock.restore()`));
 
@@ -278,7 +310,7 @@ export async function workflow(source: string) {
 
 	// TODO: consider doing `a.mock.mockImplementation(function () { return this; });` for mockReturnThis
 
-	const mockImplementationEdits = root
+	const mockImplementationEdits = rootNode
 		.findAll("$MOCK.mockImplementation($IMPLEMENTATION)")
 		.map((node) => {
 			const mock = node.getMatch("MOCK")?.text();
@@ -286,7 +318,7 @@ export async function workflow(source: string) {
 			return node.replace(`${mock}.mock.mockImplementation(${implementation})`);
 		});
 
-	const mockImplementationOnceEdits = root
+	const mockImplementationOnceEdits = rootNode
 		.findAll("$MOCK.mockImplementationOnce($IMPLEMENTATION)")
 		.map((node) => {
 			const mock = node.getMatch("MOCK")?.text();
@@ -294,43 +326,49 @@ export async function workflow(source: string) {
 			return node.replace(`${mock}.mock.mockImplementationOnce(${implementation})`);
 		});
 
-	const mockReturnValueEdits = root.findAll("$MOCK.mockReturnValue($VALUE)").map((node) => {
+	const mockReturnValueEdits = rootNode.findAll("$MOCK.mockReturnValue($VALUE)").map((node) => {
 		const mock = node.getMatch("MOCK")?.text();
 		const value = node.getMatch("VALUE")?.text();
 		return node.replace(`${mock}.mock.mockImplementation(() => ${value})`);
 	});
 
-	const mockReturnValueOnceEdits = root.findAll("$MOCK.mockReturnValueOnce($VALUE)").map((node) => {
-		const mock = node.getMatch("MOCK")?.text();
-		const value = node.getMatch("VALUE")?.text();
-		return node.replace(`${mock}.mock.mockImplementationOnce(() => ${value})`);
-	});
+	const mockReturnValueOnceEdits = rootNode
+		.findAll("$MOCK.mockReturnValueOnce($VALUE)")
+		.map((node) => {
+			const mock = node.getMatch("MOCK")?.text();
+			const value = node.getMatch("VALUE")?.text();
+			return node.replace(`${mock}.mock.mockImplementationOnce(() => ${value})`);
+		});
 
-	const mockRejectedValueEdits = root.findAll("$MOCK.mockRejectedValue($ERROR)").map((node) => {
+	const mockRejectedValueEdits = rootNode.findAll("$MOCK.mockRejectedValue($ERROR)").map((node) => {
 		const mock = node.getMatch("MOCK")?.text();
 		const error = node.getMatch("ERROR")?.text();
+		const indent = getIndent(node, rootNode);
+
 		return node.replace(`${mock}.mock.mockImplementation(async () => {
-	throw ${error};
-})`);
+${indent}\tthrow ${error};
+${indent}})`);
 	});
 
-	const mockRejectedValueOnceEdits = root
+	const mockRejectedValueOnceEdits = rootNode
 		.findAll("$MOCK.mockRejectedValueOnce($ERROR)")
 		.map((node) => {
 			const mock = node.getMatch("MOCK")?.text();
 			const error = node.getMatch("ERROR")?.text();
+			const indent = getIndent(node, rootNode);
+
 			return node.replace(`${mock}.mock.mockImplementationOnce(async () => {
-	throw ${error};
-})`);
+${indent}\tthrow ${error};
+${indent}})`);
 		});
 
-	const mockResolvedValueEdits = root.findAll("$MOCK.mockResolvedValue($VALUE)").map((node) => {
+	const mockResolvedValueEdits = rootNode.findAll("$MOCK.mockResolvedValue($VALUE)").map((node) => {
 		const mock = node.getMatch("MOCK")?.text();
 		const value = node.getMatch("VALUE")?.text();
 		return node.replace(`${mock}.mock.mockImplementation(async () => ${value})`);
 	});
 
-	const mockResolvedValueOnceEdits = root
+	const mockResolvedValueOnceEdits = rootNode
 		.findAll("$MOCK.mockResolvedValueOnce($VALUE)")
 		.map((node) => {
 			const mock = node.getMatch("MOCK")?.text();
@@ -341,7 +379,7 @@ export async function workflow(source: string) {
 	let snapshotNodes: SgNode[] = [];
 
 	// TODO: Consider if translation of matchers is possible
-	const toMatchSnapshotEdits = root
+	const toMatchSnapshotEdits = rootNode
 		.findAll("expect($ACTUAL).toMatchSnapshot($$$_ARGS)")
 		.map((node) => {
 			snapshotNodes.push(node);
@@ -350,7 +388,7 @@ export async function workflow(source: string) {
 		});
 
 	// TODO: Consider if translation of matchers is possible
-	const toMatchInlineSnapshotEdits = root
+	const toMatchInlineSnapshotEdits = rootNode
 		.findAll("expect($ACTUAL).toMatchInlineSnapshot($$$_ARGS)")
 		.map((node) => {
 			snapshotNodes.push(node);
@@ -371,35 +409,35 @@ export async function workflow(source: string) {
 		})
 		.filter((edit) => edit !== undefined);
 
-	const jestUseFakeTimersEdits = root
+	const jestUseFakeTimersEdits = rootNode
 		.findAll("jest.useFakeTimers()")
 		.map((node) => node.replace("mock.timers.enable()"));
 
-	const jestUseRealTimersEdits = root
+	const jestUseRealTimersEdits = rootNode
 		.findAll("jest.useRealTimers()")
 		.map((node) => node.replace("mock.timers.reset()"));
 
 	// TODO: Check if we can do this the run all recursively to match behavior
 	// TODO: Check if we can run only microtasks
-	const jestRunAllTicksEdits = root
+	const jestRunAllTicksEdits = rootNode
 		.findAll("jest.runAllTicks()")
 		.map((node) => node.replace("mock.timers.runAll()"));
 
-	const jestRunAllTimersEdits = root
+	const jestRunAllTimersEdits = rootNode
 		.findAll("jest.runAllTimers()")
 		.map((node) => node.replace("mock.timers.runAll()"));
 
 	// FIXME: Potentially incorrect if used with await/promise chaining
-	const jestRunAllTimersAsyncEdits = root
+	const jestRunAllTimersAsyncEdits = rootNode
 		.findAll("jest.runAllTimersAsync()")
 		.map((node) => node.replace("mock.timers.runAll()"));
 
 	// TODO: Check if we can run only immediates
-	const jestRunAllImmediatesEdits = root
+	const jestRunAllImmediatesEdits = rootNode
 		.findAll("jest.runAllImmediates()")
 		.map((node) => node.replace("mock.timers.runAll()"));
 
-	const jestAdvanceTimersByTimeEdits = root
+	const jestAdvanceTimersByTimeEdits = rootNode
 		.findAll("jest.advanceTimersByTime($TIME)")
 		.map((node) => {
 			const time = node.getMatch("TIME")?.text();
@@ -407,18 +445,18 @@ export async function workflow(source: string) {
 		});
 
 	// FIXME: Potentially incorrect if used with await/promise chaining
-	const jestAdvanceTimersByTimeAsyncEdits = root
+	const jestAdvanceTimersByTimeAsyncEdits = rootNode
 		.findAll("jest.advanceTimersByTimeAsync($TIME)")
 		.map((node) => {
 			const time = node.getMatch("TIME")?.text();
 			return node.replace(`mock.timers.tick(${time})`);
 		});
 
-	const jestRunOnlyPendingTimersEdits = root
+	const jestRunOnlyPendingTimersEdits = rootNode
 		.findAll("jest.runOnlyPendingTimers()")
 		.map((node) => node.replace("mock.timers.runAll()"));
 
-	const jestRunOnlyPendingTimersAsyncEdits = root
+	const jestRunOnlyPendingTimersAsyncEdits = rootNode
 		.findAll("jest.runOnlyPendingTimersAsync()")
 		.map((node) => node.replace("mock.timers.runAll()"));
 
@@ -426,15 +464,15 @@ export async function workflow(source: string) {
 
 	// TODO: Consider if advanceToNextTimerAsync is translatable
 
-	const jestClearAllTimersEdits = root
+	const jestClearAllTimersEdits = rootNode
 		.findAll("jest.clearAllTimers()")
 		.map((node) => node.replace("mock.timers.reset()"));
 
 	// TODO: Consider if getTimerCount is translatable"
 
-	const jestNowEdits = root.findAll("jest.now()").map((node) => node.replace("Date.now()"));
+	const jestNowEdits = rootNode.findAll("jest.now()").map((node) => node.replace("Date.now()"));
 
-	const jestSetSystemTimeEdits = root.findAll("jest.setSystemTime($TIME)").map((node) => {
+	const jestSetSystemTimeEdits = rootNode.findAll("jest.setSystemTime($TIME)").map((node) => {
 		const time = node.getMatch("TIME")?.text();
 		// FIXME: Hack to work with Date and number
 		return node.replace(`mock.timers.setTime(Number(${time}))`);
@@ -444,7 +482,8 @@ export async function workflow(source: string) {
 
 	edits.push(
 		...deleteJestImportEdits,
-		...moduleMockEdits,
+		...moduleMockWithFactoryEdits,
+		...requireActualEdits,
 		...fnMockEdits,
 		...jestSpyOnEdits,
 		...toHaveBeenCalledEdits,
@@ -499,5 +538,5 @@ export async function workflow(source: string) {
 		...testArgumentEdits,
 	);
 
-	return root.commitEdits(edits);
+	return rootNode.commitEdits(edits);
 }
