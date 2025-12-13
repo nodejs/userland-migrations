@@ -52,17 +52,6 @@ const getObjectPropertyValue = (
 	return pair?.field('value');
 };
 
-const stripWrappingQuotes = (value: string) => {
-	const trimmed = value.trim();
-	if (
-		(trimmed.startsWith("'") && trimmed.endsWith("'")) ||
-		(trimmed.startsWith('"') && trimmed.endsWith('"'))
-	) {
-		return trimmed.slice(1, -1);
-	}
-	return trimmed;
-};
-
 const getBodyExpression = (
 	bodyNode: SgNode<Js>,
 	payloadKind: NonNullable<CreateOptionsType['payloadKind']>,
@@ -302,15 +291,13 @@ const baseUpdates: {
 			const url = urlNode.text();
 
 			const methodNode = getObjectPropertyValue(config, 'method');
-			let method = methodNode?.text();
-			if (method) {
-				method = stripWrappingQuotes(method);
-				if (methodNode.kind() === 'string') {
-					method = method.toUpperCase();
-				}
-			}
-			if (!method) {
-				method = 'GET';
+
+			// Default value for method
+			let method = 'GET';
+
+			// If method is specified, replace default value with actual value
+			if (methodNode?.kind() === 'string') {
+				method = methodNode.child(1).text().toUpperCase();
 			}
 
 			const options = createOptions({
