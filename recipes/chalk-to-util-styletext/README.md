@@ -4,60 +4,37 @@ This recipe migrates from the external `chalk` package to Node.js built-in `util
 
 ## Examples
 
-**Before:**
-```js
-import chalk from 'chalk';
-
-console.log(chalk.red('Error message'));
-console.log(chalk.green('Success message'));
-console.log(chalk.blue('Info message'));
+```diff
+- import chalk from 'chalk';
++ import { styleText } from 'node:util';
+- console.log(chalk.red('Error message'));
++ console.log(styleText('red', 'Error message'));
+- console.log(chalk.green('Success message'));
++ console.log(styleText('green', 'Success message'));
+- console.log(chalk.blue('Info message'));
++ console.log(styleText('blue', 'Info message'));
 ```
 
-**After:**
-```js
-import { styleText } from 'node:util';
-
-console.log(styleText('red', 'Error message'));
-console.log(styleText('green', 'Success message'));
-console.log(styleText('blue', 'Info message'));
+```diff
+- import chalk from 'chalk';
++ import { styleText } from 'node:util';
+- console.log(chalk.red.bold('Important error'));
++ console.log(styleText(['red', 'bold'], 'Important error'));
+- console.log(chalk.green.underline('Success with emphasis'));
++ console.log(styleText(['green', 'underline'], 'Success with emphasis'));
 ```
 
-**Before:**
-```js
-import chalk from 'chalk';
-
-console.log(chalk.red.bold('Important error'));
-console.log(chalk.green.underline('Success with emphasis'));
-```
-
-**After:**
-```js
-import { styleText } from 'node:util';
-
-console.log(styleText(['red', 'bold'], 'Important error'));
-console.log(styleText(['green', 'underline'], 'Success with emphasis'));
-```
-
-**Before:**
-```js
-const chalk = require('chalk');
-
-const red = chalk.red;
-const boldBlue = chalk.blue.bold;
-
-console.log(red('Error'));
-console.log(boldBlue('Info'));
-```
-
-**After:**
-```js
-const { styleText } = require('node:util');
-
-const red = (text) => styleText('red', text);
-const boldBlue = (text) => styleText(['blue', 'bold'], text);
-
-console.log(red('Error'));
-console.log(boldBlue('Info'));
+```diff
+- const chalk = require('chalk');
++ const { styleText } = require('node:util');
+- const red = chalk.red;
++ const red = (text) => styleText('red', text);
+- const boldBlue = chalk.blue.bold;
++ const boldBlue = (text) => styleText(['blue', 'bold'], text);
+- console.log(red('Error'));
++ console.log(red('Error'));
+- console.log(boldBlue('Info'));
++ console.log(boldBlue('Info'));
 ```
 
 ## Usage

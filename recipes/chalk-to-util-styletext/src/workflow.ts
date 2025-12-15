@@ -71,27 +71,73 @@ const COMPAT_MAP: Record<string, string> = {
 	overline: 'overlined',
 };
 
-// Chalk methods that are not supported by util.styleText
-const UNSUPPORTED_METHODS = new Set([
-	'hex',
-	'rgb',
-	'ansi256',
-	'bgAnsi256',
-	'visible',
+// Chalk methods that are supported by util.styleText
+const SUPPORTED_METHODS = new Set([
+	// Foreground colors
+	'black',
+	'red',
+	'green',
+	'yellow',
+	'blue',
+	'magenta',
+	'cyan',
+	'white',
+	'gray',
+	'grey',
+	'blackBright',
+	'redBright',
+	'greenBright',
+	'yellowBright',
+	'blueBright',
+	'magentaBright',
+	'cyanBright',
+	'whiteBright',
+	// Background colors
+	'bgBlack',
+	'bgRed',
+	'bgGreen',
+	'bgYellow',
+	'bgBlue',
+	'bgMagenta',
+	'bgCyan',
+	'bgWhite',
+	'bgGray',
+	'bgGrey',
+	'bgBlackBright',
+	'bgRedBright',
+	'bgGreenBright',
+	'bgYellowBright',
+	'bgBlueBright',
+	'bgMagentaBright',
+	'bgCyanBright',
+	'bgWhiteBright',
+	// Modifiers
+	'reset',
+	'bold',
+	'italic',
+	'underline',
+	'strikethrough',
+	'hidden',
+	'dim',
+	'overlined',
+	'blink',
+	'inverse',
+	'doubleunderline',
+	'framed',
 ]);
 
 /**
  * Check if a method name is supported by util.styleText
  */
 function isSupportedMethod(method: string): boolean {
-	return !UNSUPPORTED_METHODS.has(method);
+	return SUPPORTED_METHODS.has(method);
 }
 
 /**
  * Check if a style chain contains any unsupported methods
  */
 function hasUnsupportedMethods(styles: string[]): boolean {
-	return styles.some((style) => UNSUPPORTED_METHODS.has(style));
+	return styles.some((style) => !SUPPORTED_METHODS.has(style));
 }
 
 /**
@@ -312,7 +358,7 @@ function processDefaultImports(
 
 		if (hasUnsupportedMethods(styles)) {
 			for (const style of styles) {
-				if (UNSUPPORTED_METHODS.has(style)) {
+				if (!SUPPORTED_METHODS.has(style)) {
 					warnOnUnsupportedMethod(style, rootNode, call);
 				}
 			}
@@ -440,9 +486,13 @@ function createMemberExpressionAssignment(
 ): string | null {
 	const styles = extractChalkStyles(valueExpr, binding);
 
-	if (styles.length === 0) return null;
+	if (styles.length === 0) {
+		return null;
+	}
 
-	if (hasUnsupportedMethods(styles)) return null;
+	if (hasUnsupportedMethods(styles)) {
+		return null;
+	}
 
 	const styleTextCall = createMultiStyleTextReplacement(styles, 'text');
 	const wrapperFunction = `(text) => ${styleTextCall}`;
@@ -462,7 +512,9 @@ function createTernaryExpressionAssignment(
 	const consequent = valueExpr.field('consequence');
 	const alternative = valueExpr.field('alternative');
 
-	if (!condition || !consequent || !alternative) return null;
+	if (!condition || !consequent || !alternative) {
+		return null;
+	}
 
 	// Extract styles from both sides if they are member expressions
 	if (
@@ -476,11 +528,13 @@ function createTernaryExpressionAssignment(
 	const alternativeStyles = extractChalkStyles(alternative, binding);
 
 	// Only transform if both sides are chalk expressions
-	if (consequentStyles.length === 0 || alternativeStyles.length === 0)
+	if (consequentStyles.length === 0 || alternativeStyles.length === 0) {
 		return null;
+	}
 
-	if (hasUnsupportedMethods([...consequentStyles, ...alternativeStyles]))
+	if (hasUnsupportedMethods([...consequentStyles, ...alternativeStyles])) {
 		return null;
+	}
 
 	const consequentCall = createMultiStyleTextReplacement(
 		consequentStyles,
