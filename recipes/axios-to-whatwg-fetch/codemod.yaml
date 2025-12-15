@@ -1,5 +1,5 @@
 schema_version: "1.0"
-name: "@nodejs/util-print-to-console-log"
+name: "@nodejs/axios-to-whatwg-fetch"
 version: 1.0.0
 description: Replace `axios` with `fetch`
 author: Bruno Rodrigues
@@ -19,3 +19,9 @@ keywords:
 registry:
   access: public
   visibility: public
+
+# needed for removing dependencies
+capabilities:
+  - fs
+  - child_process
+
