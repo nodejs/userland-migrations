@@ -6,19 +6,14 @@ See [DEP0059](https://nodejs.org/api/deprecations.html#DEP0059).
 
 ## Example
 
-**Before:**
-
-```js
-const util = require("node:util");
-
-util.log("Hello world");
-```
-
-**After:**
-
-```js
-console.log(new Date().toLocaleString(), "Hello world");
-```
+```diff
+- const util = require("node:util");
+-
+- util.log("Hello world");
+-
++ console.log(new Date().toLocaleString(), "Hello world");
++
+`````
 
 **Before:**
 

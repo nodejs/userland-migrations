@@ -6,18 +6,15 @@ See [DEP0191](https://nodejs.org/api/deprecations.html#DEP0191) and [DEP0142](ht
 
 ## Examples
 
-**Before:**
-```js
-import repl from 'node:repl';
-
-console.log(repl.builtinModules);
-console.log(repl._builtinLibs);
-```
-
-**After:**
-```js
-import module from 'node:module';
-
-console.log(module.builtinModules);
-console.log(module.builtinModules);
-```
+```diff
+- import repl from 'node:repl';
+-
+- console.log(repl.builtinModules);
+- console.log(repl._builtinLibs);
+-
++ import module from 'node:module';
++
++ console.log(module.builtinModules);
++ console.log(module.builtinModules);
++
+`````

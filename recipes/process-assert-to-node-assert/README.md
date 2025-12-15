@@ -6,18 +6,13 @@ See [DEP0100](https://nodejs.org/api/deprecations.html#DEP0100).
 
 ## Example
 
-**Before:**
-
-```js
-process.assert(condition, "Assertion failed");
-```
-
-**After:**
-
-```js
-import assert from "node:assert";
-assert(condition, "Assertion failed");
-```
+```diff
+- process.assert(condition, "Assertion failed");
+-
++ import assert from "node:assert";
++ assert(condition, "Assertion failed");
++
+`````
 
 ## Additional Notes
 

@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/buffer-atob-btoa",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Migrates usage of the legacy APIs `buffer.atob()` and `buffer.btoa()` to the current recommended approaches",
   "type": "module",
   "scripts": {

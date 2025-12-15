@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: "@nodejs/fs-truncate-fd-deprecation"
-version: 1.0.0
+version: "1.0.1"
 description: Handle DEP0081 via transforming `truncate` to `ftruncateSync` when using a file descriptor.
 author: Augustin Mauroy
 license: MIT

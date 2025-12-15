@@ -6,28 +6,23 @@ See [DEP0195](https://nodejs.org/api/deprecations.html#DEP0195).
 
 ## Examples
 
-**Before:**
-
-```js
-// import { IncomingMessage, ClientRequest } from "node:http";
-// const http = require("node:http");
-
-const message = http.OutgoingMessage();
-const response = http.ServerResponse(socket);
-
-const incoming = IncomingMessage(socket);
-const request = ClientRequest(options);
-```
-
-**After:**
-
-```js
-// import { IncomingMessage, ClientRequest } from "node:http";
-// const http = require("node:http");
-
-const message = new http.OutgoingMessage();
-const response = new http.ServerResponse(socket);
-
-const incoming = new IncomingMessage(socket);
-const request = new ClientRequest(options);
-```
+```diff
+- // import { IncomingMessage, ClientRequest } from "node:http";
+- // const http = require("node:http");
+-
+- const message = http.OutgoingMessage();
+- const response = http.ServerResponse(socket);
+-
+- const incoming = IncomingMessage(socket);
+- const request = ClientRequest(options);
+-
++ // import { IncomingMessage, ClientRequest } from "node:http";
++ // const http = require("node:http");
++
++ const message = new http.OutgoingMessage();
++ const response = new http.ServerResponse(socket);
++
++ const incoming = new IncomingMessage(socket);
++ const request = new ClientRequest(options);
++
+`````

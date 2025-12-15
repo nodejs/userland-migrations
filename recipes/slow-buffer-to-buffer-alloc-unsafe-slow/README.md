@@ -12,16 +12,11 @@ This codemod transforms:
 
 ## Example
 
-**Before:**
-
-```javascript
-import { SlowBuffer } from "buffer";
-const buf = new SlowBuffer(1024);
-```
-
-**After:**
-
-```javascript
-import { Buffer } from "buffer";
-const buf = Buffer.allocUnsafeSlow(1024);
-```
+```diff
+- import { SlowBuffer } from "buffer";
+- const buf = new SlowBuffer(1024);
+-
++ import { Buffer } from "buffer";
++ const buf = Buffer.allocUnsafeSlow(1024);
++
+`````
