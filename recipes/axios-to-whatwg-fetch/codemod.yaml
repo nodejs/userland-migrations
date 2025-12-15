@@ -24,4 +24,3 @@ registry:
 capabilities:
   - fs
   - child_process
-
