@@ -30,6 +30,10 @@ type CreateOptionsType = {
 	payloadKind?: 'json' | 'form';
 };
 
+let currentEol = '\n';
+
+const detectEol = (source: string) => (source.includes('\r\n') ? '\r\n' : '\n');
+
 const unsupportedMethods: string[] = [];
 
 const getObjectPropertyValue = (
@@ -384,7 +388,7 @@ const createOptions = ({
 	if (options.length === 1) return `{ ${options.toString()} }`;
 
 	return dedent.withOptions({ alignValues: true })`{
-		${options.join(',\n')}
+		${options.join(`,${currentEol}`)}
 	}`;
 };
 
@@ -396,6 +400,7 @@ const createOptions = ({
  */
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
+	currentEol = detectEol(rootNode.text());
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
 	const bindsToReplace: BindingToReplace[] = [];
