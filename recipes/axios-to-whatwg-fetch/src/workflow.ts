@@ -1,5 +1,4 @@
 import dedent from 'dedent';
-import { EOL } from 'node:os';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import {
 	getNodeImportCalls,
@@ -385,7 +384,7 @@ const createOptions = ({
 	if (options.length === 1) return `{ ${options.toString()} }`;
 
 	return dedent.withOptions({ alignValues: true })`{
-		${options.join(`,${EOL}`)}
+		${options.join(',\n')}
 	}`;
 };
 
