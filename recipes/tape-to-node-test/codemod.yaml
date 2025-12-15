@@ -17,3 +17,7 @@ keywords:
   - migration
   - tape
   - node:test
+
+capabilities:
+  - fs
+  - child_process
