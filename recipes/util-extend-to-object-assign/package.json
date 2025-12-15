@@ -1,0 +1,24 @@
+{
+  "name": "@nodejs/util-extend-to-object-assign",
+  "version": "1.0.0",
+  "description": "Handle DEP0060 by replacing `util._extend()` with `Object.assign()`.",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/util-extend-to-object-assign",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "GitHub Copilot",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/util-extend-to-object-assign/README.md",
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.0.9"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
+  }
+}

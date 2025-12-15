@@ -1,0 +1,13 @@
+{
+  "servers": {
+    "codemod": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "codemod@latest",
+        "mcp"
+      ]
+    }
+  }
+}
