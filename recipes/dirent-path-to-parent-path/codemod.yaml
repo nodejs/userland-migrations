@@ -1,0 +1,21 @@
+schema_version: "1.0"
+name: "@nodejs/dirent-path-to-parent-path"
+version: 1.0.0
+description: Handle DEP0178 via transforming `dirent.path` to `dirent.parentPath`.
+author: Bruno Rodrigues
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+
+registry:
+  access: public
+  visibility: public
