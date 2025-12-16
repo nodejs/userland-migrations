@@ -8,13 +8,9 @@ See [DEP0197](https://nodejs.org/api/deprecations.html#DEP0197).
 
 ```diff
 - import { types } from "node:util";
--
+
 - if (types.isNativeError(err)) {
-- 	// handle the error
-- }
--
 + if (Error.isError(err)) {
-+ 	// handle the error
-+ }
-+
+  	// handle the error
+  }
 `````

@@ -11,17 +11,15 @@ See [DEP0029](https://nodejs.org/api/deprecations.html#DEP0029).
 
 ```diff
 - const util = require("node:util");
--
+
 - util.print("Hello world");
++ console.log("Hello world");
 - util.puts("Hello world");
++ console.log("Hello world");
 - util.debug("Hello world");
++ console.error("Hello world");
 - util.error("Hello world");
--
-+ console.log("Hello world");
-+ console.log("Hello world");
 + console.error("Hello world");
-+ console.error("Hello world");
-+
 `````
 
 **Before:**

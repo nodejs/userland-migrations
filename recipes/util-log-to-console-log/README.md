@@ -8,11 +8,9 @@ See [DEP0059](https://nodejs.org/api/deprecations.html#DEP0059).
 
 ```diff
 - const util = require("node:util");
--
+
 - util.log("Hello world");
--
 + console.log(new Date().toLocaleString(), "Hello world");
-+
 `````
 
 **Before:**

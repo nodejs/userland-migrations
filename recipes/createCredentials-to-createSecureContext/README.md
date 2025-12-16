@@ -7,26 +7,18 @@ See [DEP0010](https://nodejs.org/api/deprecations.html#DEP0010).
 ## Examples
 
 ```diff
-- // Using the deprecated createCredentials from node:crypto
+  // Using the deprecated createCredentials from node:crypto
 - const { createCredentials } = require('node:crypto');
-- // OR
-- import { createCredentials } from 'node:crypto';
--
-- const credentials = createCredentials({
--   key: privateKey,
--   cert: certificate,
--   ca: [caCertificate]
-- });
--
 + // Updated to use createSecureContext from node:tls
 + const { createSecureContext } = require('node:tls');
-+ // OR
+  // OR
+- import { createCredentials } from 'node:crypto';
 + import { createSecureContext } from 'node:tls';
-+
+
+- const credentials = createCredentials({
 + const credentials = createSecureContext({
-+   key: privateKey,
-+   cert: certificate,
-+   ca: [caCertificate]
-+ });
-+
+    key: privateKey,
+    cert: certificate,
+    ca: [caCertificate]
+  });
 `````
