@@ -7,34 +7,25 @@ See [DEP0093](https://nodejs.org/api/deprecations.html#DEP0093).
 ## Examples
 
 ```diff
-- import crypto from "node:crypto";
+  import crypto from "node:crypto";
 - import { fips } from "node:crypto";
--
-- // Using crypto.fips
-- crypto.fips;
-- fips;
--
-- // Using crypto.fips = true
-- crypto.fips = true;
-- fips = true;
--
-- // Using crypto.fips = false
-- crypto.fips = false;
-- fips = false;
--
-+ import crypto from "node:crypto";
 + import { getFips, setFips } from "node:crypto";
-+
-+ // Using crypto.getFips()
+
+  // Using crypto.fips
+- crypto.fips;
 + crypto.getFips();
+- fips;
 + getFips();
-+
-+ // Using crypto.setFips(true)
+
+  // Using crypto.fips = true
+- crypto.fips = true;
 + crypto.setFips(true);
+- fips = true;
 + setFips(true);
-+
-+ // Using crypto.setFips(false)
+
+  // Using crypto.fips = false
+- crypto.fips = false;
 + crypto.setFips(false);
+- fips = false;
 + setFips(false);
-+
 `````

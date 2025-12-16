@@ -14,9 +14,7 @@ This codemod transforms:
 
 ```diff
 - import { SlowBuffer } from "buffer";
-- const buf = new SlowBuffer(1024);
--
 + import { Buffer } from "buffer";
+- const buf = new SlowBuffer(1024);
 + const buf = Buffer.allocUnsafeSlow(1024);
-+
 `````

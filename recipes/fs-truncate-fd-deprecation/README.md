@@ -8,23 +8,14 @@ See [DEP0081](https://nodejs.org/api/deprecations.html#DEP0081).
 
 ```diff
 - const { truncate, open, close } = require('node:fs');
--
-- open('file.txt', 'w', (err, fd) => {
--   if (err) throw err;
--   truncate(fd, 10, (err) => {
--     if (err) throw err;
--     close(fd, () => {});
--   });
-- });
--
 + const { ftruncate, open, close } = require('node:fs');
-+
-+ open('file.txt', 'w', (err, fd) => {
-+   if (err) throw err;
+
+  open('file.txt', 'w', (err, fd) => {
+    if (err) throw err;
+-   truncate(fd, 10, (err) => {
 +   ftruncate(fd, 10, (err) => {
-+     if (err) throw err;
-+     close(fd, () => {});
-+   });
-+ });
-+
+      if (err) throw err;
+      close(fd, () => {});
+    });
+  });
 `````

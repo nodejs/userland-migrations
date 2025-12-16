@@ -8,9 +8,7 @@ See [DEP0022](https://nodejs.org/docs/latest/api/deprecations.html#dep0022-ostmp
 
 ```diff
 - import { tmpDir } from 'node:os';
-- const foo = tmpDir()
--
 + import { tmpdir } from 'node:os';
+- const foo = tmpDir()
 + const foo = tmpdir()
-+
 `````

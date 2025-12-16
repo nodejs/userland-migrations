@@ -8,15 +8,9 @@ See [DEP0138](https://nodejs.org/api/deprecations.html#DEP0138).
 
 ```diff
 - if (process.mainModule === "mod.js") {
-- 	// cli thing
-- } else {
-- 	// module thing
-- }
--
 + if (require.main === "mod.js") {
-+ 	// cli thing
-+ } else {
-+ 	// module thing
-+ }
-+
+  	// cli thing
+  } else {
+  	// module thing
+  }
 `````
