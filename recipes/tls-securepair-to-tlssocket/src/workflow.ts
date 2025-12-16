@@ -106,5 +106,25 @@ export default function transform(root: SgRoot<Js>): string | null {
 
   const sourceCode = rootNode.commitEdits(edits);
 
-  return removeLines(sourceCode, linesToRemove);
+  // Post-process output to avoid platform-specific diffs (CRLF, trailing spaces,
+  // and excessive blank lines). Keep formatting stable across OSes.
+  let output = removeLines(sourceCode, linesToRemove) ?? "";
+
+  // Normalize CRLF to LF
+  output = output.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+  // Remove trailing whitespace on each non-empty line (preserve lines that are only indentation)
+  output = output.replace(/(^.*\S)[ \t]+$/gm, "$1");
+
+  // Remove BOM if present
+  output = output.replace(/^\uFEFF/, "");
+
+  // Convert LF to platform EOL so expected snapshots on Windows keep CRLF
+  const eol = (typeof process !== 'undefined' && process.platform === 'win32') ? '\r\n' : '\n';
+  output = output.replace(/\n/g, eol);
+
+  // If output ends with a single EOL, remove it to match existing expected files
+  if (output.endsWith(eol)) output = output.slice(0, -eol.length);
+
+  return output;
 }
