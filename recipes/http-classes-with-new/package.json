@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/http-classes-with-new",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Handle DEP0195: Instantiating node:http classes without new.",
   "type": "module",
   "scripts": {
