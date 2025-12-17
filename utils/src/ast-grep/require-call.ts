@@ -91,7 +91,13 @@ export const getNodeRequireCalls = (
 	});
 
 /**
- * Get the identifier from a namespace require (e.g., const util = require('util'))
+ * Get the identifier from a namespace require (e.g., `const util = require('util')`).
+ *
+ * This returns the `identifier` node representing the namespace binding when the
+ * require is assigned to a single variable. Returns `null` for destructured requires.
+ *
+ * @param requireNode - The `variable_declarator` node containing the require call
+ * @returns The identifier node for the namespace binding, or `null`
  */
 export const getRequireNamespaceIdentifier = (
 	requireNode: SgNode<Js>,

@@ -1,7 +1,16 @@
-import type { Range } from "@codemod.com/jssg-types/main";
+import type { Range } from '@codemod.com/jssg-types/main';
 
+/**
+ * Safely remove multiple line ranges from a source file.
+ * Handles duplicate and overlapping ranges by normalizing and applying
+ * removals in order.
+ *
+ * @param sourceCode - The original source code as a single string
+ * @param ranges - An array of ranges to remove (1-based line numbers)
+ * @returns The modified source code with the specified ranges removed
+ */
 export function removeLines(sourceCode: string, ranges: Range[]) {
-	const lines = sourceCode.split("\n");
+	const lines = sourceCode.split('\n');
 
 	// Remove duplicate ranges to prevent attempting to delete the same range multiple times,
 	// which could cause inconsistent behavior
@@ -26,5 +35,5 @@ export function removeLines(sourceCode: string, ranges: Range[]) {
 		removeCounter += removedLines.length;
 	}
 
-	return lines.join("\n");
+	return lines.join('\n');
 }
