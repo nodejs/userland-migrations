@@ -9,6 +9,7 @@ import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 const chalkBinding = 'chalk';
 const chalkStdErrBinding = 'chalkStderr';
+
 /**
  * Transform function that converts chalk method calls to Node.js util.styleText calls.
  *
