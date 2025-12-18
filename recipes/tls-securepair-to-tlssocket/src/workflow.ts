@@ -1,7 +1,7 @@
-import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
-import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import { updateBinding } from "@nodejs/codemod-utils/ast-grep/update-binding";
-import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
+import { getNodeImportStatements, getNodeImportCalls as getNodeNodeImportCall } from "../../../utils/src/ast-grep/import-statement.ts";
+import { getNodeRequireCalls } from "../../../utils/src/ast-grep/require-call.ts";
+import { updateBinding } from "../../../utils/src/ast-grep/update-binding.ts";
+import { removeLines } from "../../../utils/src/ast-grep/remove-lines.ts";
 import type { Edit, SgRoot, Range, SgNode } from "@codemod.com/jssg-types/main";
 import type Js from "@codemod.com/jssg-types/langs/javascript";
 
