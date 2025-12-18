@@ -23,7 +23,8 @@ export default function transform(root: SgRoot<Js>): string | null {
 
   const importNodes = [
     ...getNodeImportStatements(root, "tls"),
-    ...getNodeRequireCalls(root, "tls")
+    ...getNodeRequireCalls(root, "tls"),
+    ...getNodeNodeImportCall(root, "tls")
   ];
 
   for (const node of importNodes) {
