@@ -25,6 +25,7 @@ export default function transform(root: SgRoot<Js>): string | null {
     ...getNodeImportStatements(root, "tls"),
     ...getNodeRequireCalls(root, "tls")
   ];
+
   for (const node of importNodes) {
     const change = updateBinding(node, { old: "SecurePair", new: "TLSSocket" });
     if (change?.edit) edits.push(change.edit);
