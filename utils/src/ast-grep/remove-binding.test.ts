@@ -432,4 +432,60 @@ describe('remove-binding', () => {
 			},
 		});
 	});
+
+	it('should retain default import when usageCheck detects remaining references', () => {
+		const code = dedent`
+			import util from 'node:util';
+			console.log(util.format('%s', 'hi'));
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root() as SgNode<Js>;
+
+		const importStatement = node.find({
+			rule: {
+				kind: 'import_statement',
+			},
+		});
+
+		const change = removeBinding(importStatement!, 'util', {
+			usageCheck: { ignoredRanges: [] },
+			root: node,
+		});
+
+		assert.equal(change, undefined);
+	});
+
+	it('should remove default import when usageCheck ignores all remaining references', () => {
+		const code = dedent`
+			import util from 'node:util';
+			console.log(util.format('%s', 'hi'));
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root() as SgNode<Js>;
+
+		const importStatement = node.find({
+			rule: {
+				kind: 'import_statement',
+			},
+		});
+
+		const utilUsage = node.find({
+			rule: {
+				kind: 'identifier',
+				pattern: 'util',
+				inside: {
+					kind: 'member_expression',
+				},
+			},
+		});
+
+		const change = removeBinding(importStatement!, 'util', {
+			usageCheck: { ignoredRanges: [utilUsage!.range()] },
+			root: node,
+		});
+
+		assert.deepEqual(change?.lineToRemove, importStatement?.range());
+	});
 });
