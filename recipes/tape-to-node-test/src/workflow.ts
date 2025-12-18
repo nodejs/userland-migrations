@@ -187,14 +187,13 @@ export default function transform(root: SgRoot<Js>): string | null {
 							kind: 'member_expression',
 							has: {
 								field: 'object',
-								regex: `^${tName}$`,
+								pattern: tName,
 							},
 						},
 					},
 				});
 
 				for (const endCall of endCalls) {
-					let isNested = false;
 					let curr = endCall.parent();
 					while (curr && curr.id() !== body.id()) {
 						if (
@@ -202,14 +201,10 @@ export default function transform(root: SgRoot<Js>): string | null {
 							curr.kind() === 'function_expression' ||
 							curr.kind() === 'function_declaration'
 						) {
-							isNested = true;
+							usesEndInCallback = true;
 							break;
 						}
 						curr = curr.parent();
-					}
-
-					if (isNested) {
-						usesEndInCallback = true;
 					}
 				}
 			}
@@ -295,7 +290,7 @@ function transformAssertions(
 				kind: 'member_expression',
 				has: {
 					field: 'object',
-					regex: `^${tName}$`,
+					pattern: tName,
 				},
 			},
 		},
@@ -305,188 +300,167 @@ function transformAssertions(
 		const method = call.field('function')?.field('property')?.text();
 		if (!method) continue;
 
+		const args = call.field('arguments');
+		const func = call.field('function');
+
 		if (ASSERTION_MAPPING[method]) {
 			const newMethod = ASSERTION_MAPPING[method];
-			const func = call.field('function');
 			if (func) {
 				edits.push(func.replace(`assert.${newMethod}`));
 			}
-		} else if (method === 'notOk' || method === 'notok') {
-			// t.notOk(val, msg) -> assert.ok(!val, msg)
-			const args = call.field('arguments');
-			if (args) {
-				const val = args.child(1); // child(0) is '('
-				if (val) {
-					edits.push({
-						startPos: val.range().start.index,
-						endPos: val.range().start.index,
-						insertedText: '!',
-					});
-					const func = call.field('function');
-					if (func) edits.push(func.replace('assert.ok'));
-				}
-			}
-		} else if (method === 'comment') {
-			// t.comment(msg) -> t.diagnostic(msg)
-			const func = call.field('function');
-			if (func) edits.push(func.replace(`${tName}.diagnostic`));
-		} else if (method === 'true') {
-			// t.true(val, msg) -> assert.ok(val, msg)
-			const func = call.field('function');
-			if (func) edits.push(func.replace('assert.ok'));
-		} else if (method === 'false') {
-			// t.false(val, msg) -> assert.ok(!val, msg)
-			const args = call.field('arguments');
-			if (args) {
-				const val = args.child(1);
-				if (val) {
-					edits.push({
-						startPos: val.range().start.index,
-						endPos: val.range().start.index,
-						insertedText: '!',
-					});
-					const func = call.field('function');
-					if (func) edits.push(func.replace('assert.ok'));
-				}
-			}
-		} else if (method === 'pass') {
-			// t.pass(msg) -> assert.ok(true, msg)
-			const args = call.field('arguments');
-			if (args) {
-				// Insert 'true' as first arg
-				// args text is like "('msg')" or "()"
-				const openParen = args.child(0);
-				if (openParen) {
-					edits.push({
-						startPos: openParen.range().end.index,
-						endPos: openParen.range().end.index,
-						insertedText: args.children().length > 2 ? 'true, ' : 'true',
-					});
-					const func = call.field('function');
-					if (func) edits.push(func.replace('assert.ok'));
-				}
-			}
-		} else if (method === 'plan') {
-			edits.push(call.replace(`// ${call.text()}`));
-		} else if (method === 'end') {
-			if (useDone) {
-				edits.push(call.replace('done()'));
-			} else {
-				edits.push(call.replace(`// ${call.text()}`));
-			}
-		} else if (method === 'test') {
-			edits.push({
-				startPos: call.range().start.index,
-				endPos: call.range().start.index,
-				insertedText: 'await ',
-			});
+			continue;
+		}
 
-			const args = call.field('arguments');
-			const cb = args
-				?.children()
-				.find(
-					(c) =>
-						c.kind() === 'arrow_function' || c.kind() === 'function_expression',
-				);
-			if (cb) {
-				const p = cb.field('parameters');
-				let stName = 't';
-				const paramId = p?.find({ rule: { kind: 'identifier' } });
-				if (paramId) stName = paramId.text();
-
-				const b = cb.field('body');
-				if (b) transformAssertions(b, stName, edits, call);
-
-				if (!cb.text().startsWith('async')) {
-					if (p) {
+		switch (method.toLowerCase()) {
+			case 'notok':
+				// t.notOk(val, msg) -> assert.ok(!val, msg)
+				if (args) {
+					const val = args.child(1); // child(0) is '('
+					if (val) {
 						edits.push({
-							startPos: cb.range().start.index,
-							endPos: p.range().start.index,
-							insertedText: 'async ',
+							startPos: val.range().start.index,
+							endPos: val.range().start.index,
+							insertedText: '!',
 						});
+						const func = call.field('function');
+						if (func) edits.push(func.replace('assert.ok'));
 					}
 				}
-			}
-		} else if (method === 'teardown') {
-			const func = call.field('function');
-			if (func) {
-				edits.push(func.replace(`${tName}.after`));
-			}
-		} else if (method === 'timeoutAfter') {
-			const args = call.field('arguments');
-			const timeoutArg = args?.child(1); // child(0) is '('
-			if (timeoutArg) {
-				const timeoutVal = timeoutArg.text();
-
-				// Add to test options
-				const testArgs = testCall.field('arguments');
-				if (testArgs) {
-					const children = testArgs.children();
-					// children[0] is '(', children[last] is ')'
-					// args are in between.
-					// We expect:
-					// 1. test('name', cb) -> insert options
-					// 2. test('name', opts, cb) -> update options
-
-					// Filter out punctuation to get actual args
-					const actualArgs = children.filter(
-						(c) =>
-							c.kind() !== '(' &&
-							c.kind() !== ')' &&
-							c.kind() !== ',' &&
-							c.kind() !== 'comment',
-					);
-
-					if (actualArgs.length === 2) {
-						// test('name', cb)
-						// Insert options as 2nd arg
-						const cbArg = actualArgs[1];
+				break;
+			case 'comment':
+				if (func) edits.push(func.replace(`${tName}.diagnostic`));
+				break;
+			case 'true':
+				if (func) edits.push(func.replace('assert.ok'));
+				break;
+			case 'false':
+				if (args) {
+					const val = args.child(1);
+					if (val) {
 						edits.push({
-							startPos: cbArg.range().start.index,
-							endPos: cbArg.range().start.index,
-							insertedText: `{ timeout: ${timeoutVal} }, `,
+							startPos: val.range().start.index,
+							endPos: val.range().start.index,
+							insertedText: '!',
 						});
-						// remove the original timeout call
-						const parent = call.parent();
-						if (parent && parent.kind() === 'expression_statement') {
-							edits.push(parent.replace(''));
-						} else {
-							edits.push(call.replace(''));
+						if (func) edits.push(func.replace('assert.ok'));
+					}
+				}
+				break;
+			case 'pass':
+				if (args) {
+					// Insert 'true' as first arg
+					// args text is like "('msg')" or "()"
+					const openParen = args.child(0);
+					if (openParen) {
+						edits.push({
+							startPos: openParen.range().end.index,
+							endPos: openParen.range().end.index,
+							insertedText: args.children().length > 2 ? 'true, ' : 'true',
+						});
+						if (func) edits.push(func.replace('assert.ok'));
+					}
+				}
+				break;
+			case 'plan':
+				edits.push(call.replace(`// ${call.text()}`));
+				break;
+			case 'end':
+				if (useDone) {
+					edits.push(call.replace('done()'));
+				} else {
+					edits.push(call.replace(`// ${call.text()}`));
+				}
+				break;
+			case 'test':
+				edits.push({
+					startPos: call.range().start.index,
+					endPos: call.range().start.index,
+					insertedText: 'await ',
+				});
+				const cb = args
+					?.children()
+					.find(
+						(c) =>
+							c.kind() === 'arrow_function' ||
+							c.kind() === 'function_expression',
+					);
+				if (cb) {
+					const p = cb.field('parameters');
+					let stName = 't';
+					const paramId = p?.find({ rule: { kind: 'identifier' } });
+					if (paramId) stName = paramId.text();
+
+					const b = cb.field('body');
+					if (b) transformAssertions(b, stName, edits, call);
+
+					if (!cb.text().startsWith('async')) {
+						if (p) {
+							edits.push({
+								startPos: cb.range().start.index,
+								endPos: p.range().start.index,
+								insertedText: 'async ',
+							});
 						}
-					} else if (actualArgs.length === 3) {
-						// test('name', opts, cb)
-						const optsArg = actualArgs[1];
-						if (optsArg.kind() === 'object') {
-							// Add property to object
-							const props = optsArg
-								.children()
-								.filter((c) => c.kind() === 'pair');
-							if (props.length > 0) {
-								const lastProp = props[props.length - 1];
-								edits.push({
-									startPos: lastProp.range().end.index,
-									endPos: lastProp.range().end.index,
-									insertedText: `, timeout: ${timeoutVal}`,
-								});
-								// remove the original timeout call
-								const parent = call.parent();
-								if (parent && parent.kind() === 'expression_statement') {
-									edits.push(parent.replace(''));
-								} else {
-									edits.push(call.replace(''));
-								}
+					}
+				}
+				break;
+			case 'teardown':
+				if (func) edits.push(func.replace(`${tName}.after`));
+				break;
+			case 'timeoutafter':
+				const timeoutArg = args?.child(1); // child(0) is '('
+				if (timeoutArg) {
+					const timeoutVal = timeoutArg.text();
+
+					// Add to test options
+					const testArgs = testCall.field('arguments');
+					if (testArgs) {
+						const children = testArgs.children();
+						// children[0] is '(', children[last] is ')'
+						// args are in between.
+						// We expect:
+						// 1. test('name', cb) -> insert options
+						// 2. test('name', opts, cb) -> update options
+
+						// Filter out punctuation to get actual args
+						const actualArgs = children.filter(
+							(c) =>
+								c.kind() !== '(' &&
+								c.kind() !== ')' &&
+								c.kind() !== ',' &&
+								c.kind() !== 'comment',
+						);
+
+						if (actualArgs.length === 2) {
+							// test('name', cb)
+							// Insert options as 2nd arg
+							const cbArg = actualArgs[1];
+							edits.push({
+								startPos: cbArg.range().start.index,
+								endPos: cbArg.range().start.index,
+								insertedText: `{ timeout: ${timeoutVal} }, `,
+							});
+							// remove the original timeout call
+							const parent = call.parent();
+							if (parent && parent.kind() === 'expression_statement') {
+								edits.push(parent.replace(''));
 							} else {
-								// Empty object {}
-								// We need to find where to insert.
-								// It's safer to replace the whole object if it's empty, or find the closing brace.
-								const closingBrace = optsArg
+								edits.push(call.replace(''));
+							}
+						} else if (actualArgs.length === 3) {
+							// test('name', opts, cb)
+							const optsArg = actualArgs[1];
+							if (optsArg.kind() === 'object') {
+								// Add property to object
+								const props = optsArg
 									.children()
-									.find((c) => c.text() === '}');
-								if (closingBrace) {
+									.filter((c) => c.kind() === 'pair');
+								if (props.length > 0) {
+									const lastProp = props[props.length - 1];
 									edits.push({
-										startPos: closingBrace.range().start.index,
-										endPos: closingBrace.range().start.index,
-										insertedText: ` timeout: ${timeoutVal} `,
+										startPos: lastProp.range().end.index,
+										endPos: lastProp.range().end.index,
+										insertedText: `, timeout: ${timeoutVal}`,
 									});
 									// remove the original timeout call
 									const parent = call.parent();
@@ -495,27 +469,51 @@ function transformAssertions(
 									} else {
 										edits.push(call.replace(''));
 									}
+								} else {
+									// Empty object {}
+									// We need to find where to insert.
+									// It's safer to replace the whole object if it's empty, or find the closing brace.
+									const closingBrace = optsArg
+										.children()
+										.find((c) => c.text() === '}');
+									if (closingBrace) {
+										edits.push({
+											startPos: closingBrace.range().start.index,
+											endPos: closingBrace.range().start.index,
+											insertedText: ` timeout: ${timeoutVal} `,
+										});
+										// remove the original timeout call
+										const parent = call.parent();
+										if (parent && parent.kind() === 'expression_statement') {
+											edits.push(parent.replace(''));
+										} else {
+											edits.push(call.replace(''));
+										}
+									}
 								}
+							} else {
+								// Options is a variable or expression — replace the timeout call with a TODO comment
+								edits.push(
+									call.replace(
+										`// TODO: Add timeout: ${timeoutVal} to test options manually`,
+									),
+								);
 							}
+						}
+					} else {
+						// If we couldn't find the test call args, remove the timeout call
+						const parent = call.parent();
+						if (parent && parent.kind() === 'expression_statement') {
+							edits.push(parent.replace(''));
 						} else {
-							// Options is a variable or expression — replace the timeout call with a TODO comment
-							edits.push(
-								call.replace(
-									`// TODO: Add timeout: ${timeoutVal} to test options manually`,
-								),
-							);
+							edits.push(call.replace(''));
 						}
 					}
-				} else {
-					// If we couldn't find the test call args, remove the timeout call
-					const parent = call.parent();
-					if (parent && parent.kind() === 'expression_statement') {
-						edits.push(parent.replace(''));
-					} else {
-						edits.push(call.replace(''));
-					}
 				}
-			}
+
+				break;
+			default:
+				console.log('method not handled');
 		}
 	}
 }
