@@ -371,7 +371,7 @@ function transformAssertions(
 					edits.push(call.replace(`// ${call.text()}`));
 				}
 				break;
-			case 'test':
+			case 'test': {
 				edits.push({
 					startPos: call.range().start.index,
 					endPos: call.range().start.index,
@@ -404,10 +404,11 @@ function transformAssertions(
 					}
 				}
 				break;
+			}
 			case 'teardown':
 				if (func) edits.push(func.replace(`${tName}.after`));
 				break;
-			case 'timeoutafter':
+			case 'timeoutafter': {
 				const timeoutArg = args?.child(1); // child(0) is '('
 				if (timeoutArg) {
 					const timeoutVal = timeoutArg.text();
@@ -512,6 +513,7 @@ function transformAssertions(
 				}
 
 				break;
+			}
 			default:
 				console.log('method not handled');
 		}
