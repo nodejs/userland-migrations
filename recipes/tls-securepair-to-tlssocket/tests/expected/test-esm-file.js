@@ -5,4 +5,4 @@ import { TLSSocket } from 'node:tls';
 const socket1 = new tls.TLSSocket(socket);
 
 // Case 2: Direct
-const socket2 = new TLSSocket(socket);
+const socket2 = new TLSSocket(socket);

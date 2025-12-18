@@ -4,4 +4,4 @@ const { TLSSocket } = require('node:tls');
 const socket = new TLSSocket(socket);
 
 // Usage
-socket.doSomething();
+socket.doSomething();

@@ -109,14 +109,5 @@ export default function transform(root: SgRoot<Js>): string | null {
 
   let output = removeLines(sourceCode, linesToRemove) ?? "";
 
-  output = output.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  output = output.replace(/(^.*\S)[ \t]+$/gm, "$1");
-  output = output.replace(/^\uFEFF/, "");
-
-  const eol = (typeof process !== 'undefined' && process.platform === 'win32') ? '\r\n' : '\n';
-  output = output.replace(/\n/g, eol);
-
-  if (output.endsWith(eol)) output = output.slice(0, -eol.length);
-
   return output;
 }

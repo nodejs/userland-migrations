@@ -4,4 +4,4 @@ const socket = new tls.TLSSocket(socket);
 const mySocket = new tls.TLSSocket(socket);
 const secureSocketInstance = new tls.TLSSocket(socket);
 
-// Specific cleanup for each variable
+// Specific cleanup for each variable
