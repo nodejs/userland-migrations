@@ -26,13 +26,16 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const linesToRemove: Range[] = [];
 
 	const netImportStatements = getAllNetImportStatements(root);
-	if (netImportStatements.length === 0) return null;
+
+	// If no import found we don't process the file
+	if (!netImportStatements.length) return null;
 
 	for (const statement of netImportStatements) {
 		processNetImportStatement(rootNode, statement, linesToRemove, edits);
 	}
 
-	if (edits.length === 0 && linesToRemove.length === 0) return null;
+	//No changes, nothing to do
+	if (!edits.length && !linesToRemove.length) return null;
 
 	return applyTransformations(rootNode, edits, linesToRemove);
 }
@@ -42,9 +45,9 @@ export default function transform(root: SgRoot<Js>): string | null {
  */
 function getAllNetImportStatements(root: SgRoot<Js>): SgNode<Js>[] {
 	return [
-		...getNodeImportStatements(root, 'node:net'),
-		...getNodeImportCalls(root, 'node:net'),
-		...getNodeRequireCalls(root, 'node:net'),
+		...getNodeImportStatements(root, 'net'),
+		...getNodeImportCalls(root, 'net'),
+		...getNodeRequireCalls(root, 'net'),
 	];
 }
 
@@ -58,33 +61,24 @@ function processNetImportStatement(
 	edits: Edit[]
 ): void {
 	const bindingPath = resolveBindingPath(statementNode, '$');
+
 	if (!bindingPath) return;
 
-	const callExpressions = findSetSimultaneousAcceptsCalls(rootNode, bindingPath);
+	const callExpressions = rootNode.findAll({
+		rule: {
+			pattern: `${bindingPath}._setSimultaneousAccepts($ARG)`,
+		},
+	});
 
 	for (const callNode of callExpressions) {
 		const argNode = callNode.getMatch('ARG');
-		
+
 		if (argNode) {
 			handleCallArgument(rootNode, argNode, linesToRemove);
 		}
 
 		removeCallExpression(callNode, linesToRemove, edits);
 	}
-}
-
-/**
- * Finds all _setSimultaneousAccepts() call expressions
- */
-function findSetSimultaneousAcceptsCalls(
-	rootNode: SgNode<Js>,
-	bindingPath: string
-): SgNode<Js>[] {
-	return rootNode.findAll({
-		rule: {
-			pattern: `${bindingPath}._setSimultaneousAccepts($ARG)`,
-		},
-	});
 }
 
 /**
@@ -98,10 +92,9 @@ function handleCallArgument(
 ): void {
 	const argKind = argNode.kind();
 
-	if (argKind === 'member_expression') {
-		handleMemberExpressionArgument(rootNode, argNode, linesToRemove);
-	} else if (argKind === 'identifier') {
-		handleIdentifierArgument(rootNode, argNode, linesToRemove);
+	switch(argKind) {
+		case 'member_expression': handleMemberExpressionArgument(rootNode, argNode, linesToRemove); break;
+	    case 'identifier': handleIdentifierArgument(rootNode, argNode, linesToRemove); break;
 	}
 }
 
@@ -116,17 +109,17 @@ function handleMemberExpressionArgument(
 ): void {
 	const objectNode = argNode.child(0);
 	const propertyNode = argNode.child(2);
-	
+
 	if (!objectNode || !propertyNode) return;
 
 	const objectName = objectNode.text();
 	const propertyName = propertyNode.text();
-	
+
 	const propertyRefs = rootNode.findAll({
 		rule: { pattern: `${objectName}.${propertyName}` },
 	});
-	
-	// Only remove if this is the only reference
+
+	// Remove when this is the only reference
 	if (propertyRefs.length === 1) {
 		removePropertyFromObjectDeclaration(rootNode, objectName, propertyName, linesToRemove);
 	}
@@ -141,33 +134,35 @@ function removePropertyFromObjectDeclaration(
 	propertyName: string,
 	linesToRemove: Range[]
 ): void {
-	const objDeclarations = rootNode.findAll({
-		rule: {
-			any: [
-				{ pattern: `const ${objectName} = $_` },
-				{ pattern: `let ${objectName} = $_` },
-				{ pattern: `var ${objectName} = $_` },
-			],
-		},
-	});
-	
-	for (const objDecl of objDeclarations) {
-		const objectLiterals = objDecl.findAll({ rule: { kind: 'object' } });
-		
-		for (const obj of objectLiterals) {
-			const pairs = obj.findAll({ rule: { kind: 'pair' } });
-			
-			for (const pair of pairs) {
-				const key = pair.child(0);
-				if (key?.text() === propertyName) {
-					const rangeWithComma = expandRangeToIncludeTrailingComma(
-						pair.range(),
-						rootNode.text()
-					);
-					linesToRemove.push(rangeWithComma);
-				}
-			}
-		}
+	const pairs = rootNode
+		.findAll({
+			rule: {
+				kind: 'variable_declarator',
+				has: {
+					kind: 'identifier',
+					field: 'name',
+					pattern: objectName,
+				},
+			},
+		})
+		.flatMap((decl) =>
+			decl.findAll({
+				rule: {
+					kind: 'pair',
+					has: {
+						field: 'key',
+						regex: propertyName,
+					},
+				},
+			}),
+		);
+
+	for (const pair of pairs) {
+		const rangeWithComma = expandRangeToIncludeTrailingComma(
+			pair.range(),
+			rootNode.text()
+		);
+		linesToRemove.push(rangeWithComma);
 	}
 }
 
@@ -176,7 +171,7 @@ function removePropertyFromObjectDeclaration(
  */
 function expandRangeToIncludeTrailingComma(range: Range, sourceText: string): Range {
 	const endPos = range.end.index;
-	
+
 	if (endPos < sourceText.length && sourceText[endPos] === ',') {
 		return {
 			start: range.start,
@@ -187,7 +182,7 @@ function expandRangeToIncludeTrailingComma(range: Range, sourceText: string): Ra
 			}
 		};
 	}
-	
+
 	return range;
 }
 
@@ -201,14 +196,14 @@ function handleIdentifierArgument(
 	linesToRemove: Range[]
 ): void {
 	const varName = argNode.text().trim();
-	
+
 	const allIdentifiers = rootNode.findAll({
 		rule: {
 			pattern: varName,
 			kind: 'identifier',
 		},
 	});
-	
+
 	// Only remove if there are exactly 2 references (declaration + usage)
 	if (allIdentifiers.length === 2) {
 		removeVariableDeclaration(rootNode, varName, linesToRemove);
@@ -225,14 +220,15 @@ function removeVariableDeclaration(
 ): void {
 	const varDeclarationStatements = rootNode.findAll({
 		rule: {
-			any: [
-				{ pattern: `let ${varName} = $$$_` },
-				{ pattern: `const ${varName} = $$$_` },
-				{ pattern: `var ${varName} = $$$_` },
-			],
+			kind: 'variable_declarator',
+			has: {
+				kind: 'identifier',
+				field: 'name',
+				pattern: varName,
+			},
 		},
 	});
-	
+
 	for (const declNode of varDeclarationStatements) {
 		const topLevelStatement = findTopLevelStatement(declNode);
 		if (topLevelStatement) {
@@ -246,18 +242,18 @@ function removeVariableDeclaration(
  */
 function findTopLevelStatement(node: SgNode<Js>): SgNode<Js> | null {
 	let current: SgNode<Js> | null = node;
-	
+
 	while (current) {
 		const parent = current.parent();
 		if (!parent) break;
-		
+
 		if (parent.kind() === 'program') {
 			return current;
 		}
-		
+
 		current = parent;
 	}
-	
+
 	return null;
 }
 
@@ -283,11 +279,11 @@ function removeCallExpression(
  */
 function findParentExpressionStatement(node: SgNode<Js>): SgNode<Js> | null {
 	let current: SgNode<Js> | null = node.parent();
-	
+
 	while (current && current.kind() !== 'expression_statement') {
 		current = current.parent();
 	}
-	
+
 	return current;
 }
 
@@ -299,8 +295,8 @@ function applyTransformations(
 	edits: Edit[],
 	linesToRemove: Range[]
 ): string {
-	const sourceCode = edits.length > 0 
-		? rootNode.commitEdits(edits) 
+	const sourceCode = edits.length > 0
+		? rootNode.commitEdits(edits)
 		: rootNode.text();
 
 	return linesToRemove.length > 0

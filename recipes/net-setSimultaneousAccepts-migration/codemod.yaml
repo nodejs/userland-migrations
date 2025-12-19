@@ -1,5 +1,5 @@
 schema_version: "1.0"
-name: "@nodejs/net-setSimultaneousAccepts-migration"
+name: "@nodejs/net-setSimultaneousAccepts-deprecation"
 version: 1.0.0
 description: "Handle DEDEP0121: Remove net._setSimultaneousAccepts()"
 author: Alejandro Espa

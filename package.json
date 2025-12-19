@@ -19,7 +19,7 @@
     "automation",
     "codemod",
     "migrations",
-    "node.js"  
+    "node.js" 
   ],
   "license": "MIT",
   "bugs": {
