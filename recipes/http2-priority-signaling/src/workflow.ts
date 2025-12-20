@@ -11,6 +11,7 @@ import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
 function getLexicalScope(node: SgNode<Js>): SgNode<Js> {
 	let current = node.parent();
 	let candidate: SgNode<Js> | undefined;
+
 	while (current) {
 		const kind = current.kind();
 		if (kind === 'block' || kind === 'program') {
@@ -19,10 +20,12 @@ function getLexicalScope(node: SgNode<Js>): SgNode<Js> {
 		if (kind === 'program') break;
 		current = current.parent();
 	}
+
 	if (candidate) return candidate;
+
 	// Ascend to top-most ancestor (program)
-	let top: SgNode<Js> = node;
-	while (top.parent()) top = top.parent() as SgNode<Js>;
+	let top = node;
+	while (top.parent()) top = top.parent();
 	return top;
 }
 
@@ -43,11 +46,10 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const linesToRemove: Range[] = [];
 
 	// Gather all http2 import/require statements/calls
-	const dynamicHttp2Imports = getNodeImportCalls(root, 'http2');
 	const http2Statements = [
 		...getNodeImportStatements(root, 'http2'),
 		...getNodeRequireCalls(root, 'http2'),
-		...dynamicHttp2Imports,
+		...getNodeImportCalls(root, 'http2'),
 	];
 
 	// If any import do nothing
@@ -55,17 +57,27 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	// Resolve all local callee names for http2.connect (handles namespace, default, named, alias, require/import)
 	const connectCallees = new Set<string>();
-	for (const stmt of http2Statements) {
-		if (stmt.kind() === 'expression_statement') continue; // skip dynamic imports
+	const sessionVars: { name: string; decl: SgNode<Js>; scope: SgNode<Js> }[] =
+		[];
 
-		const resolved = resolveBindingPath(stmt, '$.connect');
-		if (resolved) connectCallees.add(resolved);
+	for (const stmt of http2Statements) {
+		if (stmt.kind() === 'expression_statement') {
+			const binding = stmt.field('name');
+			if (binding) {
+				sessionVars.push({
+					name: binding.text(),
+					decl: stmt,
+					scope: getLexicalScope(stmt),
+				});
+			}
+		} else {
+			const resolved = resolveBindingPath(stmt, '$.connect');
+			if (resolved) connectCallees.add(resolved);
+		}
 	}
 
 	// Discover session variables created via http2.connect or destructured connect calls by
 	// locating call expressions and climbing to the variable declarator.
-	const sessionVars: { name: string; decl: SgNode<Js>; scope: SgNode<Js> }[] =
-		[];
 	const connectCalls: SgNode<Js>[] = [
 		...rootNode.findAll({ rule: { pattern: '$HTTP2.connect($$$_ARGS)' } }),
 		// Also include direct calls when `connect` is imported as a named binding or alias (e.g., `connect(...)` or `bar(...)`).
@@ -89,18 +101,6 @@ export default function transform(root: SgRoot<Js>): string | null {
 			decl: n,
 			scope: getLexicalScope(n),
 		});
-	}
-
-	// Handle dynamic imports of http2
-	for (const importNode of dynamicHttp2Imports) {
-		const binding = importNode.field('name');
-		if (binding) {
-			sessionVars.push({
-				name: binding.text(),
-				decl: importNode,
-				scope: getLexicalScope(importNode),
-			});
-		}
 	}
 
 	// Case 1: Remove priority object from http2.connect() options (direct call sites)
