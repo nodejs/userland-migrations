@@ -7,27 +7,7 @@ import {
 } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
-
-function getLexicalScope(node: SgNode<Js>): SgNode<Js> {
-	let current = node.parent();
-	let candidate: SgNode<Js> | undefined;
-
-	while (current) {
-		const kind = current.kind();
-		if (kind === 'block' || kind === 'program') {
-			candidate = current;
-		}
-		if (kind === 'program') break;
-		current = current.parent();
-	}
-
-	if (candidate) return candidate;
-
-	// Ascend to top-most ancestor (program)
-	let top = node;
-	while (top.parent()) top = top.parent();
-	return top;
-}
+import { getScope } from '@nodejs/codemod-utils/ast-grep/get-scope';
 
 /*
  * Transforms HTTP/2 priority-related options and methods.
@@ -67,7 +47,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 				sessionVars.push({
 					name: binding.text(),
 					decl: stmt,
-					scope: getLexicalScope(stmt),
+					scope: getScope(stmt),
 				});
 			}
 		} else {
@@ -99,7 +79,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 		sessionVars.push({
 			name: nameNode.text(),
 			decl: n,
-			scope: getLexicalScope(n),
+			scope: getScope(n),
 		});
 	}
 
@@ -181,10 +161,9 @@ function removeConnectPriority(rootNode: SgNode<Js>): Edit[] {
 					new RegExp(`(,\\s*)?${escapeRegex(objText)}(,\\s*)?`, 's'),
 					'',
 				);
-				const finalCall = cleanedCall.replace(/,\s*\)/, ')');
 
-				if (finalCall !== callText) {
-					edits.push(call.replace(finalCall));
+				if (cleanedCall !== callText) {
+					edits.push(call.replace(cleanedCall));
 				}
 			} else if (hasPriority) {
 				// Object has other properties, so just remove priority pair
@@ -245,17 +224,8 @@ function removeRequestPriority(
 				if (keyNode) hasPriority = true;
 				else allPriority = false;
 			}
-			if (allPriority && hasPriority) {
-				const callText = call.text();
-				const objText = obj.text();
-				// Remove object argument (with potential surrounding commas)
-				let cleanedCall = callText;
-				cleanedCall = cleanedCall.replace(objText, '');
-				cleanedCall = cleanedCall.replace(/,\s*\)/, ')');
-				cleanedCall = cleanedCall.replace(/\(\s*,/, '(');
-				const finalCall = cleanedCall;
-				if (finalCall !== callText) edits.push(call.replace(finalCall));
-			} else if (hasPriority) {
+
+			if (!allPriority || !hasPriority) {
 				edits.push(...removePriorityPairFromObject(obj));
 			}
 		}
@@ -297,6 +267,7 @@ function removePriorityMethodCalls(
 				},
 			},
 		});
+
 		for (const c of calls) safeCalls.add(c);
 	}
 
@@ -363,16 +334,8 @@ function removeSettingsPriority(
 				if (keyNode) hasPriority = true;
 				else allPriority = false;
 			}
-			if (allPriority && hasPriority) {
-				const callText = call.text();
-				const objText = obj.text();
-				let cleanedCall = callText;
-				cleanedCall = cleanedCall.replace(objText, '');
-				cleanedCall = cleanedCall.replace(/,\s*\)/, ')');
-				cleanedCall = cleanedCall.replace(/\(\s*,/, '(');
-				const finalCall = cleanedCall;
-				if (finalCall !== callText) edits.push(call.replace(finalCall));
-			} else if (hasPriority) {
+
+			if (!allPriority || !hasPriority) {
 				edits.push(...removePriorityPairFromObject(obj));
 			}
 		}
@@ -386,6 +349,7 @@ function collectStreamVars(
 	sessionVars: { name: string; scope: SgNode<Js> }[],
 ): { name: string; scope: SgNode<Js> }[] {
 	const streamVars: { name: string; scope: SgNode<Js> }[] = [];
+
 	// From sessionVar.request(...)
 	for (const sess of sessionVars) {
 		const decls = sess.scope.findAll({
@@ -403,8 +367,8 @@ function collectStreamVars(
 			},
 		});
 		for (const d of decls) {
-			const nameNode = (d as SgNode<Js, 'variable_declarator'>).field('name');
-			streamVars.push({ name: nameNode.text(), scope: getLexicalScope(d) });
+			const nameNode = d.field('name');
+			streamVars.push({ name: nameNode.text(), scope: getScope(d) });
 		}
 	}
 	// From connect().request(...) chained assignments.
@@ -423,13 +387,11 @@ function collectStreamVars(
 		},
 	});
 	for (const d of chainedDecls) {
-		const valueText = (d as SgNode<Js, 'variable_declarator'>)
-			.field('value')
-			.text();
+		const valueText = d.field('value').text();
 		// Quick heuristic: contains ".connect(" before ".request(".
 		if (/connect\s*\([^)]*\).*\.request\s*\(/.test(valueText)) {
-			const nameNode = (d as SgNode<Js, 'variable_declarator'>).field('name');
-			streamVars.push({ name: nameNode.text(), scope: getLexicalScope(d) });
+			const nameNode = d.field('name');
+			streamVars.push({ name: nameNode.text(), scope: getScope(d) });
 		}
 	}
 	return streamVars;
@@ -500,13 +462,7 @@ function removePriorityPairFromObject(obj: SgNode<Js>): Edit[] {
 		}
 	}
 
-	// Clean up any resulting spacing issues
-	result = result.replace(/,\s*,/g, ',');
-	result = result.replace(/{\s*,/g, '{');
-	result = result.replace(/,\s*}/g, '}');
-	result = result.replace(/{(\S)/g, '{ $1');
-	result = result.replace(/(\S)}/g, '$1 }');
-
+	// if changes were made, create the edit
 	if (result !== objText) {
 		edits.push(obj.replace(result));
 	}
