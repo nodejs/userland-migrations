@@ -158,28 +158,16 @@ function buildCipherReplacement(params: {
 	const scryptCall = getMemberAccess(binding, 'scryptSync');
 	const cipherCall = getCallableBinding(binding, 'createCipheriv');
 
-	const lines = [
-		'(() => {',
-		`\tconst __dep0106Salt = ${randomBytesCall}(16);`,
-		'\tconst __dep0106Key = ' +
-			scryptCall +
-			'(' +
-			password +
-			', __dep0106Salt, 32);',
-		`\tconst __dep0106Iv = ${randomBytesCall}(16);`,
-		'\t// DEP0106: Persist __dep0106Salt and __dep0106Iv with the ciphertext so it can be decrypted later.',
-		'\t// DEP0106: Adjust the derived key length (32 bytes) and IV length to match the chosen algorithm.',
-		'\treturn ' +
-			cipherCall +
-			'(' +
-			algorithm +
-			', __dep0106Key, __dep0106Iv' +
-			(options ? `, ${options}` : '') +
-			');',
-		'})()',
-	];
-
-	return lines.join(EOL);
+	return dedent(`
+	(() => {
+		const __dep0106Salt = ${randomBytesCall}(16);
+		const __dep0106Key = ${scryptCall}(${password}, __dep0106Salt, 32);
+		const __dep0106Iv = ${randomBytesCall}(16);
+		// DEP0106: Persist __dep0106Salt and __dep0106Iv with the ciphertext so it can be decrypted later.
+		// DEP0106: Adjust the derived key length (32 bytes) and IV length to match the chosen algorithm.
+		return ${cipherCall}(${algorithm}, __dep0106Key, __dep0106Iv${options ? `, ${options}` : ''});
+	})()
+`);
 }
 
 function buildDecipherReplacement(params: {
@@ -192,28 +180,16 @@ function buildDecipherReplacement(params: {
 	const scryptCall = getMemberAccess(binding, 'scryptSync');
 	const decipherCall = getCallableBinding(binding, 'createDecipheriv');
 
-	const lines = [
-		'(() => {',
-		'\t// DEP0106: Replace the placeholders below with the salt and IV that were stored with the ciphertext.',
-		"\tconst __dep0106Salt = /* TODO: stored salt Buffer */ Buffer.alloc(16);",
-		"\tconst __dep0106Iv = /* TODO: stored IV Buffer */ Buffer.alloc(16);",
-		'\tconst __dep0106Key = ' +
-			scryptCall +
-			'(' +
-			password +
-			', __dep0106Salt, 32);',
-		'\t// DEP0106: Ensure __dep0106Salt and __dep0106Iv match the values used during encryption.',
-		'\treturn ' +
-			decipherCall +
-			'(' +
-			algorithm +
-			', __dep0106Key, __dep0106Iv' +
-			(options ? `, ${options}` : '') +
-			');',
-		'})()',
-	];
-
-	return lines.join(EOL);
+	return dedent(`
+	(() => {
+		// DEP0106: Replace the placeholders below with the salt and IV that were stored with the ciphertext.
+		const __dep0106Salt = /* TODO: stored salt Buffer */ Buffer.alloc(16);
+		const __dep0106Iv = /* TODO: stored IV Buffer */ Buffer.alloc(16);
+		const __dep0106Key = ${scryptCall}(${password}, __dep0106Salt, 32);
+		// DEP0106: Ensure __dep0106Salt and __dep0106Iv match the values used during encryption.
+		return ${decipherCall}(${algorithm}, __dep0106Key, __dep0106Iv${options ? `, ${options}` : ''});
+	})()
+`);
 }
 
 function getCallableBinding(binding: string, target: string): string {
