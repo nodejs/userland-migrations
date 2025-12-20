@@ -1,4 +1,5 @@
 import { EOL } from 'node:os';
+import dedent from 'dedent';
 import {
 	getNodeImportCalls,
 	getNodeImportStatements,
@@ -194,8 +195,8 @@ function buildDecipherReplacement(params: {
 	const lines = [
 		'(() => {',
 		'\t// DEP0106: Replace the placeholders below with the salt and IV that were stored with the ciphertext.',
-		'\tconst __dep0106Salt = /* TODO: stored salt Buffer */ Buffer.alloc(16);',
-		'\tconst __dep0106Iv = /* TODO: stored IV Buffer */ Buffer.alloc(16);',
+		"\tconst __dep0106Salt = /* TODO: stored salt Buffer */ Buffer.alloc(16);",
+		"\tconst __dep0106Iv = /* TODO: stored IV Buffer */ Buffer.alloc(16);",
 		'\tconst __dep0106Key = ' +
 			scryptCall +
 			'(' +

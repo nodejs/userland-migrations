@@ -19,6 +19,7 @@
     "@codemod.com/jssg-types": "^1.0.9"
   },
   "dependencies": {
-    "@nodejs/codemod-utils": "*"
+    "@nodejs/codemod-utils": "*",
+    "dedent": "^1.7.1"
   }
 }
