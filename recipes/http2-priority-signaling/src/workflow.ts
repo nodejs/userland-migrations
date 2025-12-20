@@ -117,20 +117,13 @@ function removeConnectPriority(rootNode: SgNode<Js>): Edit[] {
 
 	// Match any connect() call
 	const connectCalls = rootNode.findAll({
-		rule: {
-			pattern: '$HTTP2.connect($$$ARGS)',
-		},
+		rule: { pattern: '$HTTP2.connect($$$ARGS)' },
 	});
 
 	for (const call of connectCalls) {
-		const objects = call.findAll({
-			rule: {
-				kind: 'object',
-			},
-		});
+		const objects = call.findAll({ rule: { kind: 'object' } });
 
 		for (const obj of objects) {
-			// Check if object only contains priority properties
 			// Get immediate children pairs only (not nested)
 			const pairs = obj.children().filter((child) => child.kind() === 'pair');
 
@@ -139,34 +132,17 @@ function removeConnectPriority(rootNode: SgNode<Js>): Edit[] {
 
 			for (const pair of pairs) {
 				const keyNode = pair.find({
-					rule: {
-						kind: 'property_identifier',
-						regex: '^priority$',
-					},
+					rule: { kind: 'property_identifier', regex: '^priority$' },
 				});
-
-				if (keyNode) {
-					hasPriority = true;
-				} else {
-					allPriority = false;
-				}
+				if (keyNode) hasPriority = true;
+				else allPriority = false;
 			}
 
 			if (allPriority && hasPriority) {
-				// Remove the entire object argument from the call
-				const callText = call.text();
-				const objText = obj.text();
-				// Use s flag to match across newlines (including the multiline object)
-				const cleanedCall = callText.replace(
-					new RegExp(`(,\\s*)?${escapeRegex(objText)}(,\\s*)?`, 's'),
-					'',
-				);
-
-				if (cleanedCall !== callText) {
-					edits.push(call.replace(cleanedCall));
-				}
+				// Remove the entire object argument from the call using AST ranges
+				edits.push(buildDeletionEdit(obj));
 			} else if (hasPriority) {
-				// Object has other properties, so just remove priority pair
+				// Object has other properties, so just remove priority pair(s)
 				edits.push(...removePriorityPairFromObject(obj));
 			}
 		}
@@ -387,9 +363,12 @@ function collectStreamVars(
 		},
 	});
 	for (const d of chainedDecls) {
-		const valueText = d.field('value').text();
-		// Quick heuristic: contains ".connect(" before ".request(".
-		if (/connect\s*\([^)]*\).*\.request\s*\(/.test(valueText)) {
+		const valueNode = d.field('value');
+		// Prefer AST matching over string heuristics: look for connect().request() chains
+		const chainMatch = valueNode?.find({
+			rule: { pattern: '$X.connect($$$_ARGS).request($$ARGS)' },
+		});
+		if (chainMatch) {
 			const nameNode = d.field('name');
 			streamVars.push({ name: nameNode.text(), scope: getScope(d) });
 		}
@@ -403,73 +382,61 @@ function collectStreamVars(
 function removePriorityPairFromObject(obj: SgNode<Js>): Edit[] {
 	const edits: Edit[] = [];
 
-	const pairs = obj.findAll({
-		rule: {
-			kind: 'pair',
-		},
-	});
+	const pairs = obj.findAll({ rule: { kind: 'pair' } });
 
 	// Find all priority pairs
 	const priorityPairs: SgNode<Js>[] = [];
 	for (const pair of pairs) {
 		const keyNode = pair.find({
-			rule: {
-				kind: 'property_identifier',
-				regex: '^priority$',
-			},
+			rule: { kind: 'property_identifier', regex: '^priority$' },
 		});
-
-		if (keyNode) {
-			priorityPairs.push(pair);
-		}
+		if (keyNode) priorityPairs.push(pair);
 	}
 
-	if (priorityPairs.length === 0) {
-		return edits;
-	}
+	// If no priority pairs, nothing to do
+	if (priorityPairs.length === 0) return edits;
 
 	// If all pairs are priority, remove the entire object
 	if (priorityPairs.length === pairs.length) {
-		edits.push(obj.replace(''));
+		edits.push(buildDeletionEdit(obj));
+
 		return edits;
 	}
 
-	// Otherwise, we need to remove pairs and clean up commas
-	// Strategy: replace the object with a cleaned version
-	const objText = obj.text();
-	let result = objText;
-
-	// For each priority pair, remove it along with associated comma
+	// Otherwise remove each priority pair while preserving comma separators.
+	// Build deletion edits for each pair, preferring to include an adjacent comma.
 	for (const pair of priorityPairs) {
-		const pairText = pair.text();
-
-		// Try to match and remove: ", priority: {...}" or similar
-		// First try with leading comma
-		const leadingCommaPattern = `,\\s*${escapeRegex(pairText)}`;
-		if (result.includes(',') && result.includes(pairText)) {
-			result = result.replace(new RegExp(leadingCommaPattern), '');
-		}
-
-		// If still not removed, try with trailing comma
-		if (result.includes(pairText)) {
-			const trailingCommaPattern = `${escapeRegex(pairText)},`;
-			result = result.replace(new RegExp(trailingCommaPattern), '');
-		}
-
-		// If still not removed, just remove the pair
-		if (result.includes(pairText)) {
-			result = result.replace(pairText, '');
-		}
-	}
-
-	// if changes were made, create the edit
-	if (result !== objText) {
-		edits.push(obj.replace(result));
+		edits.push(buildDeletionEdit(pair));
 	}
 
 	return edits;
 }
 
-function escapeRegex(str: string): string {
-	return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/**
+ * Build an `Edit` that deletes `node` from the source while attempting to
+ * preserve surrounding punctuation. The helper will:
+ *
+ * - Prefer to include a preceding comma if present (to avoid leaving a
+ *   leading comma on the remaining properties).
+ * - Otherwise include a following comma if present.
+ * - Fall back to deleting the node's exact range if neither comma is found.
+ *
+ * @param node - The AST node to remove.
+ * @returns An `Edit` with `startPos`, `endPos`, and empty `insertedText`.
+ */
+function buildDeletionEdit(node: SgNode<Js>): Edit {
+	const rng = node.range();
+	let start = rng.start.index;
+	let end = rng.end.index;
+
+	const prev = node.prev?.();
+	const next = node.next?.();
+
+	if (prev && prev.text().trim() === ',') {
+		start = prev.range().start.index;
+	} else if (next && next.text().trim() === ',') {
+		end = next.range().end.index;
+	}
+
+	return { startPos: start, endPos: end, insertedText: '' };
 }
