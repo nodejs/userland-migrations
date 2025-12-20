@@ -1,0 +1,25 @@
+schema_version: "1.0"
+name: "@nodejs/process-assert-to-node-assert"
+version: "1.0.1"
+description: Handle DEP0100 via transforming `process.assert` to `node:assert`.
+author: matheusmorett2
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+
+registry:
+  access: public
+  visibility: public
+
+# https://docs.codemod.com/jssg/security#enabling-capabilities
+capabilities:
+  - fs

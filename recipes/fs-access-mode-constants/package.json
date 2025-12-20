@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/fs-access-mode-constants",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Handle DEP0176 via transforming imports of `fs.F_OK`, `fs.R_OK`, `fs.W_OK`, `fs.X_OK` from the root `fs` module to `fs.constants`.",
   "type": "module",
   "scripts": {
@@ -19,6 +19,6 @@
     "@nodejs/codemod-utils": "*"
   },
   "devDependencies": {
-    "@codemod.com/jssg-types": "^1.0.9"
+    "@codemod.com/jssg-types": "^1.3.1"
   }
 }

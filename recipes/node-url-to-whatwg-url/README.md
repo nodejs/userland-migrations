@@ -8,57 +8,44 @@ See [DEP0116](https://nodejs.org/api/deprecations.html#DEP0116).
 
 ### `url.parse` to `new URL()`
 
-**Before:**
-```js
-const url = require('node:url');
+```diff
+- const url = require('node:url');
 
-const myURL = url.parse('https://example.com/path?query=string#hash');
+- const myURL = url.parse('https://example.com/path?query=string#hash');
++ const myURL = new URL('https://example.com/path?query=string#hash');
 
-const { auth } = myURL;
-const urlAuth = myURL.auth;
+- const { auth } = myURL;
++ const auth = `${myURL.username}:${myURL.password}`;
+- const urlAuth = myURL.auth;
++ const urlAuth = `${myURL.username}:${myURL.password}`;
 
-const { path } = myURL;
-const urlPath = myURL.path;
+- const { path } = myURL;
++ const path = `${myURL.pathname}${myURL.search}`;
+- const urlPath = myURL.path;
++ const urlPath = `${myURL.pathname}${myURL.search}`;
 
-const { hostname } = myURL;
-const urlHostname = myURL.hostname;
-```
-
-**After:**
-```js
-const myURL = new URL('https://example.com/path?query=string#hash');
-
-const auth = `${myURL.username}:${myURL.password}`;
-const urlAuth = `${myURL.username}:${myURL.password}`;
-
-const path = `${myURL.pathname}${myURL.search}`;
-const urlPath = `${myURL.pathname}${myURL.search}`;
-
-const hostname = myURL.hostname.replace(/^\[|\]$/, '');
-const urlHostname = myURL.hostname.replace(/^\[|\]$/, '');
-```
+- const { hostname } = myURL;
++ const hostname = myURL.hostname.replace(/^\[|\]$/, '');
+- const urlHostname = myURL.hostname;
++ const urlHostname = myURL.hostname.replace(/^\[|\]$/, '');
+`````
 
 ### `url.format` to `myUrl.toString()
 
-**Before:**
-```js
-const url = require('node:url');
+```diff
+- const url = require('node:url');
 
-url.format({
-  protocol: 'https',
-  hostname: 'example.com',
-  pathname: '/some/path',
-  query: {
-    page: 1,
-    format: 'json',
-  },
-});
-```
-
-**After:**
-```js
-const myUrl = new URL('https://example.com/some/path?page=1&format=json').toString();
-```
+- url.format({
++ const myUrl = new URL('https://example.com/some/path?page=1&format=json').toString();
+-   protocol: 'https',
+-   hostname: 'example.com',
+-   pathname: '/some/path',
+-   query: {
+-     page: 1,
+-     format: 'json',
+-   },
+- });
+`````
 
 > **Note:** The migration of `url.format` can also be done as `` `${new URL('https://example.com/some/path?page=1&format=json')}` `` which is little bit more efficient. But it may be less readable for some users.
 

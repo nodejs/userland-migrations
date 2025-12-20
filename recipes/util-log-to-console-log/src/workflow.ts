@@ -1,16 +1,16 @@
-import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
-import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
-import { removeBinding } from "@nodejs/codemod-utils/ast-grep/remove-binding";
-import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
+import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
+import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
+import { removeBinding } from '@nodejs/codemod-utils/ast-grep/remove-binding';
+import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
 import type {
 	Edit,
 	Range,
 	Rule,
 	SgNode,
 	SgRoot,
-} from "@codemod.com/jssg-types/main";
-import type Js from "@codemod.com/jssg-types/langs/javascript";
+} from '@codemod.com/jssg-types/main';
+import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 type BindingToReplace = {
 	rule: Rule<Js>;
@@ -36,15 +36,16 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const linesToRemove: Range[] = [];
 	const bindsToReplace: BindingToReplace[] = [];
 
-	const nodeRequires = getNodeRequireCalls(root, "util");
-	const nodeImports = getNodeImportStatements(root, "util");
-	const path = "$.log";
-	const importRequireStatement = [...nodeRequires, ...nodeImports];
+	const importRequireStatement = [
+		...getNodeRequireCalls(root, 'util'),
+		...getNodeImportStatements(root, 'util'),
+	];
 
+	// if no imports are present it means that we don't need to process the file
 	if (!importRequireStatement.length) return null;
 
 	for (const node of importRequireStatement) {
-		const bind = resolveBindingPath(node, path);
+		const bind = resolveBindingPath(node, '$.log');
 
 		// if `log` function ins't coming from `node:util`
 		if (!bind) continue;
@@ -64,23 +65,25 @@ export default function transform(root: SgRoot<Js>): string | null {
 		});
 
 		for (const match of matches) {
-			const args = match.getMultipleMatches("ARG");
+			const args = match.getMultipleMatches('ARG');
 
 			const argsStr = args
 				.map((arg) => {
 					const text = arg.text();
-					if (text === ",") {
+					if (text === ',') {
 						// if arg is a comman, add a space at end
-						return text.padEnd(2, " ");
+						return text.padEnd(2, ' ');
 					}
 					return text;
 				})
-				.join("");
+				.join('');
 
-			edits.push(match.replace(`console.log(new Date().toLocaleString(), ${argsStr})`));
+			edits.push(
+				match.replace(`console.log(new Date().toLocaleString(), ${argsStr})`),
+			);
 		}
 
-		const result = removeBinding(bind.node, bind.binding.split(".").at(0));
+		const result = removeBinding(bind.node, bind.binding.split('.').at(0));
 
 		if (result?.lineToRemove) {
 			linesToRemove.push(result.lineToRemove);

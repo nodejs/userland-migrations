@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/crypto-fips-to-getFips",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Handle DEP0093 via transforming `crypto.fips` to `crypto.getFips()` and `crypto.setFips()`",
   "type": "module",
   "scripts": {
@@ -16,7 +16,7 @@
   "license": "MIT",
   "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/crypto-fips-to-getFips/README.md",
   "devDependencies": {
-    "@codemod.com/jssg-types": "^1.0.9"
+    "@codemod.com/jssg-types": "^1.3.1"
   },
   "dependencies": {
     "@nodejs/codemod-utils": "*"

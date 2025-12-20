@@ -1,5 +1,5 @@
-import astGrep from "codemod:ast-grep";
-import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
+import astGrep from 'codemod:ast-grep';
+import type { SgRoot, Edit } from '@codemod.com/jssg-types/main';
 
 /**
  * Get the "scripts" node from a package.json AST.
@@ -7,21 +7,19 @@ import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
  * @returns The "scripts" node, or null if not found.
  */
 export const getScriptsNode = (packageJsonRootNode: SgRoot) =>
-	packageJsonRootNode
-	.root()
-	.findAll({
+	packageJsonRootNode.root().findAll({
 		rule: {
-			kind: "pair",
+			kind: 'pair',
 			inside: {
-				kind: "object",
+				kind: 'object',
 				inside: {
-					kind: "pair",
+					kind: 'pair',
 					has: {
-						field: "key",
-						kind: "string",
+						field: 'key',
+						kind: 'string',
 						has: {
-							kind: "string_content",
-							regex: "scripts",
+							kind: 'string_content',
+							regex: 'scripts',
 						},
 					},
 				},
@@ -35,18 +33,19 @@ export const getScriptsNode = (packageJsonRootNode: SgRoot) =>
  * @returns An array of nodes representing the usage of Node.js.
  */
 export const getNodeJsUsage = (packageJsonRootNode: SgRoot) =>
-	getScriptsNode(packageJsonRootNode)
-		.flatMap((node) =>
-			node.findAll({
+	getScriptsNode(packageJsonRootNode).flatMap((node) =>
+		node
+			.findAll({
 				rule: {
-					kind: "string",
-					regex: "\\bnode(\\.exe)?\\b",
+					kind: 'string',
+					regex: '\\bnode(\\.exe)?\\b',
 					inside: {
-						field: "value",
-						kind: "pair",
+						field: 'value',
+						kind: 'pair',
 					},
 				},
-			}).map((n) => {
+			})
+			.map((n) => {
 				const raw = n.text();
 				let unquoted = raw;
 				if (unquoted.startsWith('"') && unquoted.endsWith('"')) {
@@ -56,8 +55,8 @@ export const getNodeJsUsage = (packageJsonRootNode: SgRoot) =>
 					node: n,
 					text: () => unquoted,
 				};
-			})
-		);
+			}),
+	);
 
 /**
  * Replace Node.js arguments in the "scripts" node of a package.json AST.
@@ -65,19 +64,22 @@ export const getNodeJsUsage = (packageJsonRootNode: SgRoot) =>
  * @param argsToValues A record mapping arguments to their replacement values.
  * @param edits An array to collect the edits made.
  */
-export const replaceNodeJsArgs = (packageJsonRootNode: SgRoot, argsToValues: Record<string, string>) => {
-	const edits: Edit[] = []
+export const replaceNodeJsArgs = (
+	packageJsonRootNode: SgRoot,
+	argsToValues: Record<string, string>,
+) => {
+	const edits: Edit[] = [];
 
 	for (const usage of getNodeJsUsage(packageJsonRootNode)) {
 		const text = usage.text();
-		const bashAST = astGrep.parse("bash", text).root();
-		const command = bashAST.findAll({ rule: { kind: "command" } });
+		const bashAST = astGrep.parse('bash', text).root();
+		const command = bashAST.findAll({ rule: { kind: 'command' } });
 		for (const cmd of command) {
 			const args = cmd.findAll({
 				rule: {
-					kind: "word",
+					kind: 'word',
 					not: {
-						inside: { kind: "command_name" },
+						inside: { kind: 'command_name' },
 					},
 				},
 			});
@@ -91,10 +93,9 @@ export const replaceNodeJsArgs = (packageJsonRootNode: SgRoot, argsToValues: Rec
 		}
 	}
 
-	return edits
+	return edits;
 };
 
-// TODO: add removeNodeJsArgs
 /**
  * Remove Node.js arguments in the "scripts" node of a package.json AST.
  * @param packageJsonRootNode The root node of the package.json AST.
@@ -109,21 +110,21 @@ export const removeNodeJsArgs = (
 
 	for (const usage of getNodeJsUsage(packageJsonRootNode)) {
 		const text = usage.text();
-		const bashAST = astGrep.parse("bash", text).root();
-		const command = bashAST.findAll({ rule: { kind: "command" } });
+		const bashAST = astGrep.parse('bash', text).root();
+		const command = bashAST.findAll({ rule: { kind: 'command' } });
 		for (const cmd of command) {
 			const args = cmd.findAll({
 				rule: {
-					kind: "word",
+					kind: 'word',
 					not: {
-						inside: { kind: "command_name" },
+						inside: { kind: 'command_name' },
 					},
 				},
 			});
 			for (const arg of args) {
 				const oldArg = arg.text();
 				if (argsToRemove.includes(oldArg)) {
-					edits.push(arg.replace(""));
+					edits.push(arg.replace(''));
 				}
 			}
 		}

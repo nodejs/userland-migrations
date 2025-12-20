@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/util-print-to-console-log",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Handle DEP0026, DEP0027, DEP0028, DEP0029 via transforming `util.print|puts|debug|error()` to `console.log|error()`",
   "type": "module",
   "scripts": {
@@ -16,7 +16,7 @@
   "license": "MIT",
   "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/util-print-to-console-log/README.md",
   "devDependencies": {
-    "@codemod.com/jssg-types": "^1.0.9"
+    "@codemod.com/jssg-types": "^1.3.1"
   },
   "dependencies": {
     "@nodejs/codemod-utils": "*"
