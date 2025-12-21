@@ -1,0 +1,24 @@
+{
+  "name": "@nodejs/mocha-to-node-test-runner",
+  "version": "1.0.0",
+  "description": "FIXME",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/mocha-to-node-test-runner",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "Richie McColl",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/mocha-to-node-test-runner/README.md",
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.3.1"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
+  }
+}
