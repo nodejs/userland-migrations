@@ -1,4 +1,4 @@
-import type { Edit, SgRoot } from '@codemod.com/jssg-types/main';
+import type { Edit, Range, SgRoot } from '@codemod.com/jssg-types/main';
 import isESM from '@nodejs/codemod-utils/is-esm';
 import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
@@ -23,13 +23,17 @@ export default function transform(root: SgRoot<JS>): string | null {
 		transformImport,
 		transformDoneCallbacks,
 		transformThisSkip,
+		transformThisTimeout,
 	].flatMap((transform) => transform(root));
-
 	if (!edits.length) {
 		return null;
 	}
 
-	return rootNode.commitEdits(edits);
+	return rootNode
+		.commitEdits(edits)
+		.split('\n')
+		.map((line) => (line.trim() === '' ? line.trim() : line))
+		.join('\n');
 }
 
 function transformImport(root: SgRoot<JS>): Edit[] {
@@ -95,7 +99,7 @@ function transformImport(root: SgRoot<JS>): Edit[] {
 					endPos: lastImportStatement.range().end.index,
 					insertedText,
 				},
-			] as Edit[];
+			];
 		}
 	} else {
 		const requireStatements = rootNode.findAll({
@@ -110,7 +114,7 @@ function transformImport(root: SgRoot<JS>): Edit[] {
 					endPos: lastRequireStatements.range().end.index,
 					insertedText,
 				},
-			] as Edit[];
+			];
 		}
 	}
 	return [
@@ -119,7 +123,7 @@ function transformImport(root: SgRoot<JS>): Edit[] {
 			endPos: 0,
 			insertedText,
 		},
-	] as Edit[];
+	];
 }
 
 function transformDoneCallbacks(root: SgRoot<JS>): Edit[] {
@@ -144,6 +148,18 @@ function transformDoneCallbacks(root: SgRoot<JS>): Edit[] {
 					},
 					{
 						pattern: '$CALLEE_NO_TITLE(function($DONE) { $$$BODY })',
+					},
+					{
+						pattern: '$CALLEE($TITLE, ($DONE) => { $$$BODY })',
+					},
+					{
+						pattern: '$CALLEE_NO_TITLE(($DONE) => { $$$BODY })',
+					},
+					{
+						pattern: '$CALLEE($TITLE, $DONE => { $$$BODY })',
+					},
+					{
+						pattern: '$CALLEE_NO_TITLE($DONE => { $$$BODY })',
 					},
 				],
 			},
@@ -195,6 +211,36 @@ function transformThisSkip(root: SgRoot<JS>): Edit[] {
 			});
 		}
 
+		return edits;
+	});
+}
+
+function transformThisTimeout(root: SgRoot<JS>): Edit[] {
+	const rootNode = root.root();
+	const thisTimeoutCalls = rootNode.findAll({
+		rule: { pattern: 'this.timeout($TIME)' },
+	});
+
+	return thisTimeoutCalls.flatMap((thisTimeoutCall) => {
+		const edits = [] as Edit[];
+		const thisTimeoutExpression = thisTimeoutCall.parent();
+		edits.push(thisTimeoutExpression.replace(''));
+
+		const enclosingFunction = thisTimeoutCall
+			.ancestors()
+			.find((ancestor) =>
+				['function_expression', 'arrow_function'].includes(ancestor.kind()),
+			);
+		if (enclosingFunction === undefined) {
+			return edits;
+		}
+
+		const time = thisTimeoutCall.getMatch('TIME').text();
+		edits.push({
+			startPos: enclosingFunction.range().start.index,
+			endPos: enclosingFunction.range().start.index,
+			insertedText: `{ timeout: ${time} }, `,
+		});
 		return edits;
 	});
 }
