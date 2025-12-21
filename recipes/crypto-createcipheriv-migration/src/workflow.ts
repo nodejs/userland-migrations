@@ -213,7 +213,7 @@ function updateDestructuredStatement(
 		const content = namedImports.text().replace(/^{\s*|\s*}$/g, '');
 		const parts = content.split(',').map((p) => p.trim()).filter(Boolean);
 		const entries: string[] = parts.map((p) => {
-			if (new RegExp('^' + escapeRegExp(oldName) + '(\\b|\\s|:|\\s+as\\b)').test(p)) {
+			if (new RegExp(`^${escapeRegExp(oldName)}(\\b|\\s|:|\\s+as\\b)`).test(p)) {
 				const local = localName ?? oldName;
 				return isEsm ? `${targetName} as ${local}` : `${targetName}: ${local}`;
 			}
@@ -221,7 +221,7 @@ function updateDestructuredStatement(
 		});
 
 		for (const a of additions) {
-			if (!entries.some((e) => new RegExp('\\b' + escapeRegExp(a) + '\\b').test(e))) entries.push(a);
+			if (!entries.some((e) => new RegExp(`\\b${escapeRegExp(a)}\\b`).test(e))) entries.push(a);
 		}
 		return namedImports.replace(`{ ${entries.join(', ')} }`);
 	}
@@ -286,10 +286,10 @@ function findLocalSpecifierName(statement: SgNode<Js>, propertyName: string): st
 	// import_specifier: { name, alias }
 	const specs = statement.findAll({ rule: { kind: 'import_specifier' } });
 	for (const s of specs) {
-		const nameNode = s.field && s.field('name');
-		const aliasNode = s.field && s.field('alias');
+		const nameNode = s.field?.('name');
+		const aliasNode = s.field?.('alias');
 		const idNode = s.find({ rule: { kind: 'identifier' } });
-		const prop = (nameNode && nameNode.text()) || idNode?.text();
+		const prop = (nameNode?.text()) || idNode?.text();
 
 		if (prop && prop === propertyName) {
 			if (aliasNode) return aliasNode.text();
