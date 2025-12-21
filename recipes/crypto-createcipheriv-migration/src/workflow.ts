@@ -1,4 +1,3 @@
-import { EOL } from 'node:os';
 import dedent from 'dedent';
 import {
 	getNodeImportCalls,
@@ -11,23 +10,12 @@ import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 type CallKind = 'cipher' | 'decipher';
 
-type StatementChange = {
-	rename: Map<string, string>;
-	additions: Set<string>;
-};
-
-type BindingEntry = {
-	property: string;
-	local: string;
-};
-
 type CollectParams = {
 	rootNode: SgNode<Js>;
 	statement: SgNode<Js>;
 	binding: string;
 	kind: CallKind;
 	edits: Edit[];
-	statementChanges: Map<SgNode<Js>, StatementChange>;
 	seenCallRanges: Set<string>;
 };
 
@@ -38,43 +26,29 @@ type CollectParams = {
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
-	const statementChanges = new Map<SgNode<Js>, StatementChange>();
 	const seenCallRanges = new Set<string>();
 
-	for (const statement of collectCryptoStatements(root)) {
-		const cipherBinding = safeResolveBinding(statement, '$.createCipher');
-		if (cipherBinding) {
-			collectCallEdits({
-				rootNode,
-				statement,
-				binding: cipherBinding,
-				kind: 'cipher',
-				edits,
-				statementChanges,
-				seenCallRanges,
-			});
-		}
+	const importStatements = [
+		...getNodeImportStatements(root, 'crypto'),
+		...getNodeImportCalls(root, 'crypto'),
+		...getNodeRequireCalls(root, 'crypto'),
+	];
 
-		const decipherBinding = safeResolveBinding(statement, '$.createDecipher');
-		if (decipherBinding) {
-			collectCallEdits({
-				rootNode,
-				statement,
-				binding: decipherBinding,
-				kind: 'decipher',
-				edits,
-				statementChanges,
-				seenCallRanges,
-			});
-		}
+	if (!importStatements.length) return null;
+
+	for (const statement of importStatements) {
+		const cipherBinding = resolveBindingPath(statement, '$.createCipher');
+		collectCallEdits(
+			{ rootNode, statement, binding: cipherBinding, kind: 'cipher', edits, seenCallRanges }
+		);
+
+		const decipherBinding = resolveBindingPath(statement, '$.createDecipher');
+		collectCallEdits(
+			{ rootNode, statement, binding: decipherBinding, kind: 'decipher', edits, seenCallRanges }
+		);
 	}
 
-	for (const [statement, change] of statementChanges) {
-		const edit = applyStatementChanges(statement, change);
-		if (edit) edits.push(edit);
-	}
-
-	if (edits.length === 0) return null;
+	if (!edits.length) return null;
 
 	return rootNode.commitEdits(edits);
 }
@@ -85,9 +59,10 @@ function collectCallEdits({
 	binding,
 	kind,
 	edits,
-	statementChanges,
 	seenCallRanges,
 }: CollectParams) {
+	if (!binding || binding === '') return;
+
 	const patterns = [
 		`${binding}($ALGORITHM, $PASSWORD, $OPTIONS)`,
 		`${binding}($ALGORITHM, $PASSWORD)`,
@@ -116,36 +91,47 @@ function collectCallEdits({
 
 		const optionsText = call.getMatch('OPTIONS')?.text()?.trim();
 
-		const replacement =
-			kind === 'cipher'
-				? buildCipherReplacement({
-						binding,
-						algorithm,
-						password,
-						options: optionsText,
-					})
-				: buildDecipherReplacement({
-						binding,
-						algorithm,
-						password,
-						options: optionsText,
-					});
+		if (kind === 'cipher') {
+			const replacement = buildCipherReplacement({
+				binding,
+				algorithm,
+				password,
+				options: optionsText,
+			});
+			edits.push(call.replace(replacement));
+		} else {
+			const replacement = buildDecipherReplacement({
+				binding,
+				algorithm,
+				password,
+				options: optionsText,
+			});
+			edits.push(call.replace(replacement));
+		}
 
-		edits.push(call.replace(replacement));
+		// Update the corresponding import/require binding if present.
+		// Rename `createCipher`/`createDecipher` -> `createCipheriv`/`createDecipheriv`
+		// and add helper bindings (`scryptSync`, and `randomBytes` for cipher).
+		const sourceName = kind === 'cipher' ? 'createCipher' : 'createDecipher';
+		const targetName = `${sourceName}iv`;
 
-		if (isDestructuredStatement(statement)) {
-			const change = ensureStatementChange(statementChanges, statement);
-			// Ensure the binding points to the iv-based API
-			const sourceName = kind === 'cipher' ? 'createCipher' : 'createDecipher';
-			const targetName = `${sourceName}iv`;
-			change.rename.set(sourceName, targetName);
-			if (kind === 'cipher') {
-				change.additions.add('randomBytes');
-			}
-			change.additions.add('scryptSync');
+		const additions: string[] = kind === 'cipher' ? ['randomBytes', 'scryptSync'] : ['scryptSync'];
+
+		// Preserve any local alias (e.g. `createCipher: makeCipher`) by
+		// constructing a property:local string for the renamed binding.
+		const local = findLocalSpecifierName(statement, sourceName);
+
+		// Prefer an explicit update for destructured/named imports when
+		// present so we can preserve aliasing and ordering exactly.
+		const explicit = updateDestructuredStatement(statement, sourceName, targetName, local, additions);
+
+		if (explicit) {
+			edits.push(explicit);
 		}
 	}
 }
+
+
 
 function buildCipherReplacement(params: {
 	binding: string;
@@ -208,198 +194,112 @@ function getMemberAccess(binding: string, member: string): string {
 	return `${binding.slice(0, lastDot)}.${member}`;
 }
 
-function isDestructuredStatement(statement: SgNode<Js>): boolean {
-	return Boolean(
-		statement.find({ rule: { kind: 'object_pattern' } }) ||
-			statement.find({ rule: { kind: 'named_imports' } }),
-	);
-}
-
-function ensureStatementChange(
-	statementChanges: Map<SgNode<Js>, StatementChange>,
+function updateDestructuredStatement(
 	statement: SgNode<Js>,
-): StatementChange {
-	let change = statementChanges.get(statement);
-	if (!change) {
-		change = { rename: new Map(), additions: new Set() };
-		statementChanges.set(statement, change);
-	}
-	return change;
-}
-
-function applyStatementChanges(
-	statement: SgNode<Js>,
-	change: StatementChange,
+	oldName: string,
+	targetName: string,
+	localName: string | undefined,
+	additions: string[],
 ): Edit | undefined {
-	if (change.rename.size === 0 && change.additions.size === 0) {
-		return undefined;
+	let namedImports = statement.find({ rule: { kind: 'named_imports' } });
+	if (!namedImports) {
+		const clause = statement.find({ rule: { kind: 'import_clause' } });
+		if (clause) namedImports = clause.find({ rule: { kind: 'named_imports' } });
+	}
+	if (namedImports) {
+		const isEsm = namedImports.parent()?.kind() === 'import_clause';
+
+		// Work on textual specifiers to preserve formatting and order.
+		const content = namedImports.text().replace(/^{\s*|\s*}$/g, '');
+		const parts = content.split(',').map((p) => p.trim()).filter(Boolean);
+		const entries: string[] = parts.map((p) => {
+			if (new RegExp('^' + escapeRegExp(oldName) + '(\\b|\\s|:|\\s+as\\b)').test(p)) {
+				const local = localName ?? oldName;
+				return isEsm ? `${targetName} as ${local}` : `${targetName}: ${local}`;
+			}
+			return p;
+		});
+
+		for (const a of additions) {
+			if (!entries.some((e) => new RegExp('\\b' + escapeRegExp(a) + '\\b').test(e))) entries.push(a);
+		}
+		return namedImports.replace(`{ ${entries.join(', ')} }`);
 	}
 
-	if (
-		statement.kind() === 'import_statement' ||
-		statement.kind() === 'import_clause'
-	) {
-		return updateImportSpecifiers(statement, change);
-	}
+	const objectPattern = statement.find({ rule: { kind: 'object_pattern' } });
+	if (objectPattern) {
+		const pairs = objectPattern.findAll({ rule: { any: [{ kind: 'pair_pattern' }, { kind: 'shorthand_property_identifier_pattern' }] } });
+		if (pairs.length === 0) return undefined;
 
-	if (statement.find({ rule: { kind: 'object_pattern' } })) {
-		return updateRequirePattern(statement, change);
+		const entries: string[] = [];
+		for (const p of pairs) {
+			if (p.kind() === 'pair_pattern') {
+				const key = p.find({ rule: { kind: 'property_identifier' } });
+				const value = p.children().find((c) => c.kind() === 'identifier');
+				const prop = key.text();
+				const local = value.text() ?? prop;
+
+				const localToUse = localName ?? local;
+				entries.push(`${targetName}: ${localToUse}`);
+			} else {
+				const text = p.text();
+
+				if (text === oldName) {
+					const local = text;
+					const localToUse = localName ?? local;
+					entries.push(`${targetName}: ${localToUse}`);
+				}
+			}
+		}
+
+		for (const a of additions) {
+			if (!entries.some((e) => e.includes(a))) entries.push(a);
+		}
+
+		return objectPattern.replace(`{ ${entries.join(', ')} }`);
 	}
 
 	return undefined;
 }
 
-function updateImportSpecifiers(
-	statement: SgNode<Js>,
-	change: StatementChange,
-): Edit | undefined {
-	const clause =
-		statement.kind() === 'import_clause'
-			? statement
-			: statement.find({ rule: { kind: 'import_clause' } });
-	if (!clause) return undefined;
-
-	const namedImports = clause.find({ rule: { kind: 'named_imports' } });
-	if (!namedImports) return undefined;
-
-	const specNodes = namedImports.findAll({
-		rule: { kind: 'import_specifier' },
-	});
-	if (specNodes.length === 0) return undefined;
-
-	const entries: BindingEntry[] = specNodes.map((spec) =>
-		parseImportSpecifier(spec.text()),
-	);
-	let modified = false;
-
-	for (const entry of entries) {
-		const newProperty = change.rename.get(entry.property);
-		if (newProperty && newProperty !== entry.property) {
-			entry.property = newProperty;
-			modified = true;
-		}
-	}
-
-	for (const addition of change.additions) {
-		const exists = entries.some(
-			(entry) => entry.property === addition || entry.local === addition,
-		);
-		if (!exists) {
-			entries.push({ property: addition, local: addition });
-			modified = true;
-		}
-	}
-
-	if (!modified) return undefined;
-
-	const rendered = entries
-		.map((entry) =>
-			entry.property === entry.local
-				? entry.property
-				: `${entry.property} as ${entry.local}`,
-		)
-		.join(', ');
-
-	return namedImports.replace(`{ ${rendered} }`);
-}
-
-function updateRequirePattern(
-	statement: SgNode<Js>,
-	change: StatementChange,
-): Edit | undefined {
-	const objectPattern = statement.find({ rule: { kind: 'object_pattern' } });
-	if (!objectPattern) return undefined;
-
-	const specNodes = objectPattern.findAll({
-		rule: {
-			any: [
-				{ kind: 'pair_pattern' },
-				{ kind: 'shorthand_property_identifier_pattern' },
-			],
-		},
-	});
-	if (specNodes.length === 0) return undefined;
-
-	const entries: BindingEntry[] = specNodes.map((spec) =>
-		parseRequireSpecifier(spec.text()),
-	);
-	let modified = false;
-
-	for (const entry of entries) {
-		const newProperty = change.rename.get(entry.property);
-		if (newProperty && newProperty !== entry.property) {
-			entry.property = newProperty;
-			modified = true;
-		}
-	}
-
-	for (const addition of change.additions) {
-		const exists = entries.some(
-			(entry) => entry.property === addition || entry.local === addition,
-		);
-		if (!exists) {
-			entries.push({ property: addition, local: addition });
-			modified = true;
-		}
-	}
-
-	if (!modified) return undefined;
-
-	const rendered = entries
-		.map((entry) =>
-			entry.property === entry.local
-				? entry.property
-				: `${entry.property}: ${entry.local}`,
-		)
-		.join(', ');
-
-	return objectPattern.replace(`{ ${rendered} }`);
-}
-
-function parseImportSpecifier(text: string): BindingEntry {
-	const parts = text
-		.split(/\s+as\s+/)
-		.map((value) => value.trim())
-		.filter(Boolean);
-	if (parts.length === 2) {
-		return { property: parts[0], local: parts[1] };
-	}
-	const name = parts[0] ?? text.trim();
-	return { property: name, local: name };
-}
-
-function parseRequireSpecifier(text: string): BindingEntry {
-	const parts = text
-		.split(':')
-		.map((value) => value.trim())
-		.filter(Boolean);
-	if (parts.length === 2) {
-		return { property: parts[0], local: parts[1] };
-	}
-	const name = parts[0] ?? text.trim();
-	return { property: name, local: name };
-}
-
-function collectCryptoStatements(root: SgRoot<Js>): SgNode<Js>[] {
-	return [
-		...getNodeImportStatements(root, 'crypto'),
-		...getNodeImportCalls(root, 'crypto'),
-		...getNodeRequireCalls(root, 'crypto'),
-	];
-}
-
-function safeResolveBinding(
-	node: SgNode<Js>,
-	path: string,
-): string | undefined {
-	try {
-		return resolveBindingPath(node, path) ?? undefined;
-	} catch {
-		return undefined;
-	}
+function escapeRegExp(str: string): string {
+	return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function getRangeKey(node: SgNode<Js>): string {
 	const range = node.range();
 	return `${range.start.line}:${range.start.column}-${range.end.line}:${range.end.column}`;
+}
+
+function findLocalSpecifierName(statement: SgNode<Js>, propertyName: string): string | undefined {
+	// pair_pattern: { prop: local }
+	const pairs = statement.findAll({ rule: { kind: 'pair_pattern' } });
+	for (const pair of pairs) {
+		const key = pair.find({ rule: { kind: 'property_identifier' } });
+
+		if (key && key.text() === propertyName) {
+			const value = pair.children().find((c) => c.kind() === 'identifier');
+			if (value) return value.text();
+		}
+	}
+
+	// import_specifier: { name, alias }
+	const specs = statement.findAll({ rule: { kind: 'import_specifier' } });
+	for (const s of specs) {
+		const nameNode = s.field && s.field('name');
+		const aliasNode = s.field && s.field('alias');
+		const idNode = s.find({ rule: { kind: 'identifier' } });
+		const prop = (nameNode && nameNode.text()) || idNode?.text();
+
+		if (prop && prop === propertyName) {
+			if (aliasNode) return aliasNode.text();
+			return prop;
+		}
+	}
+
+	// shorthand destructure
+	const sh = statement.find({ rule: { kind: 'shorthand_property_identifier_pattern' } });
+	if (sh && sh.text() === propertyName) return propertyName;
+
+	return undefined;
 }
