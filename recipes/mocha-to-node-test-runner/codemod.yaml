@@ -4,7 +4,7 @@ version: 1.0.0
 capabilities:
   - fs
   - child_process
-description: FIXME
+description: Converts Mocha v8 tests to Node.js test runner (v22, v24+)
 author: Xavier Stouder
 license: MIT
 workflow: workflow.yaml
@@ -16,7 +16,10 @@ targets:
     - typescript
 
 keywords:
-  - FIXME
+  - transformation
+  - migration
+  - mocha
+  - test
 
 registry:
   access: public

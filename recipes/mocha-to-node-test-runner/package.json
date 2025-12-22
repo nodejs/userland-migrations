@@ -1,7 +1,7 @@
 {
   "name": "@nodejs/mocha-to-node-test-runner",
   "version": "1.0.0",
-  "description": "FIXME",
+  "description": "Converts Mocha v8 tests to Node.js test runner (v22, v24+)",
   "type": "module",
   "scripts": {
     "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
