@@ -4,7 +4,7 @@ version: 1.0.0
 capabilities:
   - fs
   - child_process
-description: Converts Mocha v8 tests to Node.js test runner (v22, v24+)
+description: Migrate Mocha v8 tests to Node.js test runner (v22, v24+)
 author: Xavier Stouder
 license: MIT
 workflow: workflow.yaml

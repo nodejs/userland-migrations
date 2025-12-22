@@ -7,7 +7,7 @@ nodes:
     name: Apply AST Transformations
     type: automatic
     steps:
-      - name: FIXME
+      - name: Migrate Mocha v8 tests to Node.js test runner (v22, v24+)
         js-ast-grep:
           js_file: src/workflow.ts
           base_path: .
