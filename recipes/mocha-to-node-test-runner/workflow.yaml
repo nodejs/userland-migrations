@@ -23,20 +23,3 @@ nodes:
           exclude:
             - "**/node_modules/**"
           language: typescript
-
-  - id: remove-dependencies
-    name: FIXME
-    type: automatic
-    steps:
-      - name: FIXME
-        js-ast-grep:
-          js_file: src/remove-dependencies.ts
-          base_path: .
-          include:
-            - "**/package.json"
-          exclude:
-            - "**/node_modules/**"
-          language: typescript
-          capabilities:
-            - child_process
-            - fs
