@@ -15,6 +15,10 @@ on:
         required: true
         type: string
 
+permissions:
+    id-token: write
+    contents: read
+
 jobs:
   validate-and-publish:
     name: Validate and Publish Codemod
@@ -103,14 +107,11 @@ jobs:
         working-directory: ${{ steps.parse-tag.outputs.codemod-path }}
         run: node --test
 
-      - name: Authenticate with Codemod registry
-        env:
-          CODEMOD_TOKEN: ${{ secrets.CODEMOD_TOKEN }}
-        run: npx codemod login --api-key "$CODEMOD_TOKEN"
 
-      - name: Publish codemod
-        working-directory: ${{ steps.parse-tag.outputs.codemod-path }}
-        run: npx codemod publish
+      - name: Publish codemod to registry
+        uses: codemod/publish-action@v1
+        with:
+            path: ${{ steps.parse-tag.outputs.codemod-path }}
 
       - name: Create release summary
         env:
