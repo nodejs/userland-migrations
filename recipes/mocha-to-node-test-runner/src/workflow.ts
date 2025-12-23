@@ -1,7 +1,7 @@
 import isESM from '@nodejs/codemod-utils/is-esm';
 import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
-import type { Edit, Range, SgRoot } from '@codemod.com/jssg-types/main';
+import type { Edit, SgRoot } from '@codemod.com/jssg-types/main';
 import type JS from '@codemod.com/jssg-types/langs/javascript';
 
 export default function transform(root: SgRoot<JS>): string | null {
@@ -15,7 +15,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 			.some((pattern) => rootNode.findAll({ rule: { pattern } }).length > 0),
 	);
 
-	if (!usedGlobalIdentifiers.length) return null;
+	if (usedGlobalIdentifiers.length === 0) return null;
 
 	const edits = [
 		transformImport,
@@ -23,7 +23,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 		transformThisSkip,
 		transformThisTimeout,
 	].flatMap((transform) => transform(root));
-	if (!edits.length) return null;
+	if (edits.length === 0) return null;
 
 	return rootNode
 		.commitEdits(edits)
@@ -64,15 +64,16 @@ function transformImport(root: SgRoot<JS>): Edit[] {
 			),
 		),
 	];
-	// if mocha isn't founded don't try to apply change
-	if (!usedMochaGlobals.length) return [];
+
+	// if mocha isn't found, don't try to apply changes
+	if (usedMochaGlobals.length === 0) return [];
 
 	const esm = isESM(root);
 
 	const existingNodeTestImports = esm
 		? getNodeImportStatements(rootNode.getRoot(), 'test')
 		: getNodeRequireCalls(rootNode.getRoot(), 'test');
-	if (!existingNodeTestImports.length) return [];
+	if (existingNodeTestImports.length > 0) return [];
 
 	const imports = usedMochaGlobals.join(', ');
 
