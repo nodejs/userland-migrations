@@ -1,7 +1,9 @@
 # Mocha to Node.js Test Runner
+
 This recipe migrate Mocha v8 tests to Node.js test runner (v22, v24+)
 
 ## Features
+
 - Automatically adds `node:test` imports/requires
 - Converts global `describe`, `it`, and hooks to imported versions
 - Transforms `done` callbacks to `(t, done)` signature
@@ -13,7 +15,9 @@ This recipe migrate Mocha v8 tests to Node.js test runner (v22, v24+)
 ## Examples
 
 ### Example 1: Basic
+
 ```diff
+```
  const assert = require('assert');
 +const { describe, it } = require('node:test');
 
@@ -28,7 +32,9 @@ This recipe migrate Mocha v8 tests to Node.js test runner (v22, v24+)
 ```
 
 ### Example 2: Async
+
 ```diff
+```
  const assert = require('assert');
 +const { describe, it } = require('node:test');
  describe('Async Test', function() {
@@ -41,7 +47,9 @@ This recipe migrate Mocha v8 tests to Node.js test runner (v22, v24+)
 ```
 
 ### Example 3: Hooks
+
 ```diff
+```
  const assert = require('assert');
  const fs = require('fs');
 +const { describe, before, after, it } = require('node:test');
@@ -62,7 +70,9 @@ This recipe migrate Mocha v8 tests to Node.js test runner (v22, v24+)
  ```
 
 ### Example 4: Done
+
 ```diff
+```
 const assert = require('assert');
 +const { describe, it } = require('node:test');
 describe('Callback Test', function() {
@@ -77,7 +87,9 @@ describe('Callback Test', function() {
 ```
 
 ### Example 5: Skipped
+
 ```diff
+```
  const assert = require('assert');
 +const { describe, it } = require('node:test');
  describe('Skipped Test', () => {
@@ -108,11 +120,14 @@ describe('Callback Test', function() {
 ```
 
 ### Example 6: Dynamic
+
 ```diff
+```
  const assert = require('assert');
 +const { describe, it } = require('node:test');
  describe('Dynamic Tests', () => {
         const tests = [1, 2, 3];
+
         tests.forEach((test) => {
                 it(`should handle test ${test}`, () => {
                         assert.strictEqual(test % 2, 0);
@@ -122,6 +137,7 @@ describe('Callback Test', function() {
 ```
 
 ### Example 7: Timeouts
+
 ```diff
 const assert = require('assert');
 -describe('Timeout Test', function() {
@@ -145,8 +161,11 @@ const assert = require('assert');
       });
 });
 ```
+
 ## Caveats
+
 * `node:test` doesn't support the `retry` option that Mocha has, so any tests using that will need to be handled separately.
+```
 
 ## References
 - [Node Test Runner](https://nodejs.org/api/test.html)
