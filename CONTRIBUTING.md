@@ -38,11 +38,17 @@ Each codemod resides in its own directory under `recipes/` and should include:
 | `tests/` | Test suite using `jssg` testing utilities |
 | `tsconfig.json` | TypeScript configuration |
 
+> [!NOTE]
+> The `workflow.ts` naming is conventional but can be changed as needed. Ensure to update the `workflow.yml` accordingly. We use `workflow` when there are one step codemods; for multi-step codemods, consider using `what-to-change.ts` or similar descriptive names.
+
 ### Example Files
 
 **`src/workflow.ts` example:**
 ```ts
-import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
+import {
+	getNodeImportCalls,
+	getNodeImportStatements,
+} from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
@@ -64,16 +70,21 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const allStatementNodes = [
 		...getNodeImportStatements(root, 'api'),
 		...getNodeRequireCalls(root, 'api')
-		];
+		...getNodeImportCalls(root, 'api'),
+	];
+
+	// No imports or requires for 'api', skip transformation
+	if (!allStatementNodes.length) return null;
 
 	for (const statementNode of allStatementNodes) {
 		const bindingPath = resolveBindingPath(statementNode, 'api.fn');
-		if (!bindingPath) continue;
+
 		// Find all calls to the resolved bindingPath
 		const callNodes = rootNode.findDescendants((node) => {
 			return node.isCallExpression() &&
 				node.getChild('callee')?.getText() === bindingPath;
 		});
+
 		for (const callNode of callNodes) {
 			// Perform transformation on callNode
 			// e.g., replace 'api.fn' with 'api.newFn'
@@ -81,7 +92,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 		}
 	}
 
-	if (edits.length === 0) return null;
+	if (!edits.length) return null;
 
 	return rootNode.commitEdits(edits);
 }
@@ -117,7 +128,9 @@ registry:
 - [Codemod CLI Reference](https://docs.codemod.com/cli/cli-reference)
 - [Codemod Workflow Documentation](https://docs.codemod.com/cli/workflows)
 - [Codemod Studio Documentation](https://docs.codemod.com/codemod-studio)
-- [JS ast-grep (jssg) API reference](https://docs.codemod.com/cli/cli-reference#cli-command-reference)
+- [JS ast-grep (jssg) API reference](https://docs.codemod.com/jssg/reference)
+- [JS ast-grep Testing Utilities](https://docs.codemod.com/jssg/testing)
+- [JS ast-grep Semantic Analysis](https://docs.codemod.com/jssg/semantic-analysis)
 - [ast-grep Documentation](https://ast-grep.github.io/)
 
 ## Development Workflow
@@ -196,5 +209,4 @@ By contributing to this project, I certify that:
   a record of the contribution (including all personal information I submit with it,
   including my sign-off) is maintained indefinitely and may be redistributed consistent
   with this project or the open source license(s) involved.
-
 ```

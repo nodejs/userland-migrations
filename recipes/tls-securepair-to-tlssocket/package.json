@@ -9,7 +9,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nodejs/userland-migrations.git",
-  "directory": "recipes/tls-securepair-to-tlssocket",
+    "directory": "recipes/tls-securepair-to-tlssocket",
     "bugs": "https://github.com/nodejs/userland-migrations/issues"
   },
   "author": "Maxime Devillet",

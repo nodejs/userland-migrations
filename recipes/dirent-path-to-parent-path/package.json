@@ -1,0 +1,25 @@
+{
+  "name": "@nodejs/dirent-path-to-parent-path",
+  "version": "1.0.0",
+  "description": "Handle DEP0178 via transforming `dirent.path` to `dirent.parentPath`",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./",
+    "testu": "npx codemod jssg test -l typescript -u ./src/workflow.ts ./"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/dirent-path-to-parent-path",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "Bruno Rodrigues",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/dirent-path-to-parent-path/README.md",
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.3.1"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
+  }
+}
