@@ -24,6 +24,16 @@ jobs:
     name: Validate and Publish Codemod
     runs-on: ubuntu-latest
 
+permissions: read-all
+
+jobs:
+  validate-and-publish:
+    name: Validate and Publish Codemod
+    runs-on: ubuntu-latest
+
+    permissions:
+        id-token: write
+        contents: read
     outputs:
       version: ${{ steps.parse-tag.outputs.version }}
       codemod-name: ${{ steps.parse-tag.outputs.codemod-name }}
