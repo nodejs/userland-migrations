@@ -109,7 +109,7 @@ jobs:
 
 
       - name: Publish codemod to registry
-        uses: codemod/publish-action@v1
+        uses: codemod/publish-action@dd6c8dbc5ceb1a6146feba41481d88b43da50024
         with:
             path: ${{ steps.parse-tag.outputs.codemod-path }}
 
