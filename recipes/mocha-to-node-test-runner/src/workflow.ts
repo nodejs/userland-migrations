@@ -218,7 +218,22 @@ function transformThisTimeout(root: SgRoot<JS>): Edit[] {
 	return thisTimeoutCalls.flatMap((thisTimeoutCall) => {
 		const edits = [] as Edit[];
 		const thisTimeoutExpression = thisTimeoutCall.parent();
-		edits.push(thisTimeoutExpression.replace(''));
+
+		const source = rootNode.text();
+		const startIndex = thisTimeoutExpression.range().start.index;
+		const endIndex = thisTimeoutExpression.range().end.index;
+
+		let lineStart = startIndex;
+		while (lineStart > 0 && source[lineStart - 1] !== '\n') lineStart--;
+		let lineEnd = endIndex;
+		while (lineEnd < source.length && source[lineEnd] !== '\n') lineEnd++;
+		if (lineEnd < source.length) lineEnd++;
+
+		edits.push({
+			startPos: lineStart,
+			endPos: lineEnd,
+			insertedText: '',
+		});
 
 		const enclosingFunction = thisTimeoutCall
 			.ancestors()
