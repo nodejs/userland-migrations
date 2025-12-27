@@ -6,18 +6,11 @@ See [DEP0176](https://nodejs.org/api/deprecations.html#dep0176-fsf_ok-fsr_ok-fsw
 
 ## Example
 
-**Before:**
-```js
-const fs = require('node:fs');
+```diff
+  const fs = require('node:fs');
 
-fs.access('/path/to/file', fs.F_OK, callback);
-fs.access('/path/to/file', fs.R_OK | fs.W_OK, callback);
-```
-
-**After:**
-```js
-const fs = require('node:fs');
-
-fs.access('/path/to/file', fs.constants.F_OK, callback);
-fs.access('/path/to/file', fs.constants.R_OK | fs.constants.W_OK, callback);
-```
+- fs.access('/path/to/file', fs.F_OK, callback);
++ fs.access('/path/to/file', fs.constants.F_OK, callback);
+- fs.access('/path/to/file', fs.R_OK | fs.W_OK, callback);
++ fs.access('/path/to/file', fs.constants.R_OK | fs.constants.W_OK, callback);
+`````
