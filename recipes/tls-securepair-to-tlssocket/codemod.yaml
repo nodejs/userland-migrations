@@ -1,0 +1,23 @@
+schema_version: "1.0"
+name: "@nodejs/tls-securepair-to-tlssocket"
+version: "1.0.0"
+description: Migrate usages of `tls.SecurePair` to `tls.TLSSocket` where possible.
+author: Maxime Devillet
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - tls
+  - securepair
+
+registry:
+  access: public
+  visibility: public
