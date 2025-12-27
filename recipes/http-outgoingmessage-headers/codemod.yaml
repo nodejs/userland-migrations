@@ -1,0 +1,22 @@
+schema_version: "1.0"
+name: "@nodejs/http-outgoingmessage-headers"
+version: 1.0.0
+description: Migrate deprecated usages of OutgoingMessage.prototype._headers and ._headerNames to public HTTP header APIs
+author: Node.js Team
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - http
+
+registry:
+  access: public
+  visibility: public
