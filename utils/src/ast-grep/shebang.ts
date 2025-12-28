@@ -13,7 +13,7 @@ export const getShebang = (root: SgRoot) =>
 			kind: 'hash_bang_line',
 			regex: '\\bnode(\\.exe)?\\b',
 			not: {
-				tree-sitter wraps hash-bang in Error node
+				// tree-sitter wraps hash-bang in Error node
 				// when it's not in the top of program node
 				inside: {
 					kind: 'ERROR',
