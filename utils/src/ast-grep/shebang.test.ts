@@ -15,8 +15,7 @@ describe('shebang', () => {
 
 			const shebang = getShebang(ast);
 
-			assert.ok(shebang);
-			assert.equal(shebang.text(), '#!/usr/bin/env node');
+			assert.equal(shebang?.text(), '#!/usr/bin/env node');
 		});
 
 		it('should take the last shebang line if multiple exist on top of the code', () => {
@@ -40,6 +39,7 @@ describe('shebang', () => {
 			const ast = astGrep.parse(astGrep.Lang.JavaScript, code);
 
 			const shebang = getShebang(ast);
+
 			assert.strictEqual(shebang, null);
 		});
 
@@ -153,6 +153,11 @@ describe('shebang', () => {
 				console.log("Hello, world!");
 			`;
 			const ast = astGrep.parse(astGrep.Lang.JavaScript, code);
+
+			/**
+			 * replace --foo-bar to --baz-bar
+			 * replace --bar_foo to --qux_foo
+			 */
 			const edits = replaceNodeJsArgs(ast, {
 				'--foo-bar': '--baz-bar',
 				'--bar_foo': '--qux_foo',
@@ -175,6 +180,7 @@ describe('shebang', () => {
 				console.log("Hello, world!");
 			`;
 			const ast = astGrep.parse(astGrep.Lang.JavaScript, code);
+
 			const edits = replaceNodeJsArgs(ast, {});
 
 			assert.strictEqual(edits.length, 0);

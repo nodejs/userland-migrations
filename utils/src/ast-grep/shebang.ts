@@ -1,5 +1,7 @@
 import type { SgRoot, Edit } from '@codemod.com/jssg-types/main';
 
+const REGEX_ESCAPE_PATTERN = /[.*+?^${}()|[\]\\]/g;
+
 /**
  * Get the shebang line from the root.
  * @param root The root node to search.
@@ -11,7 +13,7 @@ export const getShebang = (root: SgRoot) =>
 			kind: 'hash_bang_line',
 			regex: '\\bnode(\\.exe)?\\b',
 			not: {
-				// tree-sitter wrap hash bang in Error node
+				tree-sitter wraps hash-bang in Error node
 				// when it's not in the top of program node
 				inside: {
 					kind: 'ERROR',
@@ -27,26 +29,21 @@ export const getShebang = (root: SgRoot) =>
  * @param edits The list of edits to apply.
  * @returns The updated shebang line if any replacements were made, otherwise null.
  */
-/**
- * Replace Node.js arguments in the shebang line and return edits.
- * @param root The root node to search.
- * @param argsToValues The mapping of argument names to their new values.
- * @returns Array of edits to apply (empty if none).
- */
 export const replaceNodeJsArgs = (
 	root: SgRoot,
 	argsToValues: Record<string, string>,
-): Edit[] => {
-	const edits: Edit[] = [];
+) => {
 	const shebang = getShebang(root);
 
-	if (!shebang) return edits;
+	if (!shebang) return [];
 
+	const edits: Edit[] = [];
 	const text = shebang.text();
+
 	// Find the "node" argument in the shebang
 	const nodeMatch = text.match(/\bnode(\.exe)?\b/);
 
-	if (!nodeMatch) return edits;
+	if (!nodeMatch) return;
 
 	// We only touch to something after node because before it's env thing
 	const nodeIdx = nodeMatch.index! + nodeMatch[0].length;
@@ -55,7 +52,7 @@ export const replaceNodeJsArgs = (
 
 	for (const argC of Object.keys(argsToValues)) {
 		// Escape special regex characters in arg
-		const esc = argC.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+		const esc = argC.replace(REGEX_ESCAPE_PATTERN, '\\$&');
 		const regex = new RegExp(`(\\s+)(["']?)${esc}(["']?)(?=\\s|$)`, 'g');
 
 		// handling quote and whitespaces
