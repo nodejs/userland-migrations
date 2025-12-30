@@ -165,7 +165,6 @@ const assert = require('assert');
 ## Caveats
 
 * `node:test` doesn't support the `retry` option that Mocha has, so any tests using that will need to be handled separately.
-```
 
 ## References
 - [Node Test Runner](https://nodejs.org/api/test.html)
