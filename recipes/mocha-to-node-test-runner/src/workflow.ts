@@ -3,6 +3,7 @@ import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-s
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import type { Edit, SgRoot } from '@codemod.com/jssg-types/main';
 import type JS from '@codemod.com/jssg-types/langs/javascript';
+import { EOL } from 'node:os';
 
 export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
@@ -25,11 +26,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 	].flatMap((transform) => transform(root));
 	if (edits.length === 0) return null;
 
-	return rootNode
-		.commitEdits(edits)
-		.split('\n')
-		.map((line) => (line.trim() === '' ? line.trim() : line))
-		.join('\n');
+	return rootNode.commitEdits(edits);
 }
 
 function transformImport(root: SgRoot<JS>): Edit[] {
@@ -78,8 +75,8 @@ function transformImport(root: SgRoot<JS>): Edit[] {
 	const imports = usedMochaGlobals.join(', ');
 
 	const insertedText = esm
-		? `\nimport { ${imports} } from 'node:test';`
-		: `\nconst { ${imports} } = require('node:test');`;
+		? `${EOL}import { ${imports} } from 'node:test';`
+		: `${EOL}const { ${imports} } = require('node:test');`;
 
 	if (esm) {
 		const importStatements = rootNode.findAll({
@@ -224,9 +221,9 @@ function transformThisTimeout(root: SgRoot<JS>): Edit[] {
 		const endIndex = thisTimeoutExpression.range().end.index;
 
 		let lineStart = startIndex;
-		while (lineStart > 0 && source[lineStart - 1] !== '\n') lineStart--;
+		while (lineStart > 0 && source[lineStart - 1] !== EOL) lineStart--;
 		let lineEnd = endIndex;
-		while (lineEnd < source.length && source[lineEnd] !== '\n') lineEnd++;
+		while (lineEnd < source.length && source[lineEnd] !== EOL) lineEnd++;
 		if (lineEnd < source.length) lineEnd++;
 
 		edits.push({
