@@ -17,6 +17,21 @@ These utilities provide battle-tested solutions for common codemod operations, r
 
 ### Import and Require Detection
 
+#### `getModuleDependencies(rootNode, nodeModuleName)`
+
+Finds all module import/require statements for a specific Node.js module.
+Under the hood, calls `getNodeRequireCalls`, `getNodeImportStatements`, `getNodeImportCalls`, and
+combines the return values.
+
+```typescript
+import { getNodeImportStatements } from '@nodejs/codemod-utils';
+
+// Finds: import fs from 'fs'; import { readFile } from 'node:fs';
+// Finds: const fs = require('fs')
+// Finds: const fs = await import('fs')
+const fsImports = getModuleDependencies(ast, 'fs');
+```
+
 #### `getNodeImportStatements(rootNode, nodeModuleName)`
 
 Finds all ES module import statements for a specific Node.js module.

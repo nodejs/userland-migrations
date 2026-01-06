@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/slow-buffer-to-buffer-alloc-unsafe-slow",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Handle DEP0030 via transforming SlowBuffer usage to Buffer.allocUnsafeSlow().",
   "type": "module",
   "scripts": {

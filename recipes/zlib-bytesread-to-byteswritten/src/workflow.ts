@@ -1,12 +1,8 @@
-import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
-import {
-	getNodeImportCalls,
-	getNodeImportStatements,
-} from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
 import type { Edit, Range, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 
 const ZLIB_FACTORIES = [
 	'createGzip',
@@ -30,11 +26,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const linesToRemove: Range[] = [];
 
 	// 1 Find all static and dynamic zlib imports/requires
-	const importNodes = [
-		...getNodeRequireCalls(root, 'node:zlib'),
-		...getNodeImportStatements(root, 'node:zlib'),
-		...getNodeImportCalls(root, 'node:zlib'),
-	];
+	const importNodes = getModuleDependencies(root, 'node:zlib');
 
 	// If no import is found that means we can skip transformation on this file
 	if (!importNodes.length) return null;

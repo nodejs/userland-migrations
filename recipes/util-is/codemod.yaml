@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: "@nodejs/util-is"
-version: 1.0.1
+version: 1.0.2
 description: "Replaces deprecated `util.is*()` methods with their modern equivalents."
 author: Augustin Mauroy
 license: MIT
