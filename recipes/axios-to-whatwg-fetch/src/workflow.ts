@@ -311,8 +311,7 @@ const baseUpdates: {
 	},
 ];
 
-const updates: { oldBind: string; replaceFn: BindingToReplace['replaceFn'] }[] =
-	baseUpdates.flatMap((update) => {
+const updates = baseUpdates.flatMap((update) => {
 		const bindings = [update.oldBind];
 		if (
 			update.supportDefaultAccess !== false &&
