@@ -270,7 +270,7 @@ const baseUpdates: {
 			const config = args[0];
 			if (!config) {
 				console.warn(
-					'[Codemod] Missing config object in axios.request. Skipping migration.',
+					'[Codemod] Missing config object in axios.request. Skipping.',
 				);
 				return '';
 			}
