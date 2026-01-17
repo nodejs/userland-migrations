@@ -55,7 +55,6 @@ export default function transform(root: SgRoot<Js>): string | null {
 			if (!statement) continue;
 
 			if (handledStatements.has(statement.id())) continue;
-			handledStatements.add(statement.id());
 
 			const indent = getLineIndent(sourceCode, statement.range().start.index);
 			const resourceText = resourceNode.text();
@@ -72,6 +71,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 				`${childIndent}}${EOL}` +
 				`${indent}}, ${resourceText}._idleTimeout);`;
 
+			handledStatements.add(statement.id());
 			edits.push(statement.replace(replacement));
 		}
 	}

@@ -6,31 +6,31 @@ import { active as markActive } from "node:timers";
 import * as timersESMNamespace from "node:timers";
 
 async function fromNamespace(resource) {
-    timersNamespace.active(resource.target);
+	timersNamespace.active(resource.target);
 }
 
 function fromCjsAlias(resource) {
-    activeAlias(resource.target);
+	activeAlias(resource.target);
 }
 
 function fromEsmDefault(resource) {
-    timersDefault.active(resource);
+	timersDefault.active(resource);
 }
 
 function fromEsmNamed(resource) {
-    markActive(resource.item);
+	markActive(resource.item);
 }
 
 function fromEsmNamespace(resource) {
-    timersESMNamespace.active(resource.node);
+	timersESMNamespace.active(resource.node);
 }
 
 async function fromDynamic(resource) {
-    const { active } = await import("node:timers");
-    active(resource.session);
+	const { active } = await import("node:timers");
+	active(resource.session);
 }
 
 async function fromDynamicAlias(resource) {
-    const { active: activateDynamic } = await import("node:timers");
-    activateDynamic(resource.session);
+	const { active: activateDynamic } = await import("node:timers");
+	activateDynamic(resource.session);
 }

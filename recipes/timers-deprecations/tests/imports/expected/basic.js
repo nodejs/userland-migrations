@@ -1,3 +1,4 @@
+
 const resource = {
 	_idleTimeout: 100,
 	timeout: setTimeout(() => { }, 100),

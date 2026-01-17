@@ -13,13 +13,8 @@ import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-bindi
 import type { Edit, Range, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 
-const DEPRECATED_METHODS = [
-	'enroll',
-	'unenroll',
-	'active',
-	'_unrefActive',
-] as const;
-const DEPRECATED_SET = new Set<string>(DEPRECATED_METHODS);
+const DEPRECATED_METHODS = ['enroll', 'unenroll', 'active', '_unrefActive'];
+const DEPRECATED_SET = new Set(DEPRECATED_METHODS);
 
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
@@ -33,9 +28,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	];
 
 	for (const statement of statements) {
-		if (statement.kind() === 'expression_statement') {
-			continue;
-		}
+		if (statement.kind() === 'expression_statement') continue;
 		if (shouldRemoveEntireStatement(statement)) {
 			linesToRemove.push(statement.range());
 			continue;
@@ -67,9 +60,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 			removedBindings.add(localBinding);
 		}
 
-		if (statementMarkedForRemoval) {
-			continue;
-		}
+		if (statementMarkedForRemoval) continue;
 
 		const namespaceIdentifier = getNamespaceIdentifier(statement);
 		if (!namespaceIdentifier) continue;
@@ -95,7 +86,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 		source = removeLines(source, linesToRemove);
 	}
 
-	return source.replace(/^\s*\n/, '');
+	return source;
 }
 
 function isBindingStillUsed(
@@ -144,24 +135,33 @@ function getNamespaceIdentifier(statement: SgNode<Js>): SgNode<Js> | null {
 
 function shouldRemoveEntireStatement(statement: SgNode<Js>): boolean {
 	const objectPattern = statement.find({ rule: { kind: 'object_pattern' } });
+
 	if (objectPattern) {
 		const propertyNames = new Set<string>();
-		for (const shorthand of objectPattern.findAll({
+		const shorthands = objectPattern.findAll({
 			rule: { kind: 'shorthand_property_identifier_pattern' },
-		})) {
+		});
+		const pairs = objectPattern.findAll({
+			rule: { kind: 'pair_pattern' },
+		});
+
+		for (const shorthand of shorthands) {
 			propertyNames.add(shorthand.text());
 		}
-		for (const pair of objectPattern.findAll({
-			rule: { kind: 'pair_pattern' },
-		})) {
+
+		for (const pair of pairs) {
 			const property = pair.find({ rule: { kind: 'property_identifier' } });
+
 			if (!property) return false;
 			propertyNames.add(property.text());
 		}
+
 		if (!propertyNames.size) return false;
+
 		for (const name of propertyNames) {
 			if (!DEPRECATED_SET.has(name)) return false;
 		}
+
 		return true;
 	}
 
