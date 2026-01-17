@@ -1,5 +1,3 @@
-import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
-import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { removeBinding } from '@nodejs/codemod-utils/ast-grep/remove-binding';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
@@ -11,6 +9,7 @@ import type {
 	SgRoot,
 } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 
 type BindingToReplace = {
 	rule: Rule<Js>;
@@ -59,10 +58,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const linesToRemove: Range[] = [];
 	const bindsToReplace: BindingToReplace[] = [];
 
-	const importRequireStatement = [
-		...getNodeRequireCalls(root, 'util'),
-		...getNodeImportStatements(root, 'util'),
-	];
+	const importRequireStatement = getModuleDependencies(root, 'util');
 
 	// if no imports are present it means that we don't need to process the file
 	if (!importRequireStatement.length) return null;

@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/util-extend-to-object-assign",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Handle DEP0060 by replacing `util._extend()` with `Object.assign()`.",
   "type": "module",
   "scripts": {
