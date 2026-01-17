@@ -67,72 +67,48 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const tapeRequires = getNodeRequireCalls(root, 'tape');
 	const tapeImportCalls = getNodeImportCalls(root, 'tape');
 
-	if (
-		tapeImports.length === 0 &&
-		tapeRequires.length === 0 &&
-		tapeImportCalls.length === 0
-	) {
+	const modDeps = [
+		...tapeImports.map((node) => ({
+			node,
+			import: `import { test } from 'node:test';${EOL}import assert from 'node:assert';`,
+		})),
+		...tapeRequires.map((node) => ({
+			node,
+			import: `const { test } = require('node:test');${EOL}const assert = require('node:assert');`,
+		})),
+		...tapeImportCalls.map((node) => ({
+			node,
+			import: `const { test } = await import('node:test');${EOL}const { default: assert } = await import('node:assert');`,
+		})),
+	];
+
+	if (modDeps.length === 0) {
 		return null;
 	}
 
 	let testVarName = 'test';
 
 	// 1. Replace imports
-	for (const imp of tapeImports) {
-		const defaultImport = imp.find({
-			rule: { kind: 'import_clause', has: { kind: 'identifier' } },
-		});
-		if (defaultImport) {
-			const id = defaultImport.find({ rule: { kind: 'identifier' } });
-			if (id) testVarName = id.text();
-			edits.push(
-				imp.replace(
-					`import { test } from 'node:test';${EOL}import assert from 'node:assert';`,
-				),
-			);
+	for (const mod of modDeps) {
+		if (mod.node.kind() === 'variable_declarator') {
+			mod.node = mod.node.parent();
 		}
-	}
 
-	for (const req of tapeRequires) {
-		const id = req.find({
-			rule: { kind: 'identifier', inside: { kind: 'variable_declarator' } },
+		const binding = mod.node.find({
+			rule: {
+				any: [
+					{ kind: 'identifier', inside: { kind: 'variable_declarator' } },
+					{
+						kind: 'identifier',
+						inside: { kind: 'import_clause', stopBy: 'end' },
+					},
+				],
+			},
 		});
-		if (id) testVarName = id.text();
-		const declaration = req
-			.ancestors()
-			.find(
-				(a) =>
-					a.kind() === 'variable_declaration' ||
-					a.kind() === 'lexical_declaration',
-			);
-		if (declaration) {
-			edits.push(
-				declaration.replace(
-					`const { test } = require('node:test');${EOL}const assert = require('node:assert');`,
-				),
-			);
-		}
-	}
 
-	for (const call of tapeImportCalls) {
-		const id = call.find({
-			rule: { kind: 'identifier', inside: { kind: 'variable_declarator' } },
-		});
-		if (id) testVarName = id.text();
-		const declaration = call
-			.ancestors()
-			.find(
-				(a) =>
-					a.kind() === 'variable_declaration' ||
-					a.kind() === 'lexical_declaration',
-			);
-		if (declaration) {
-			edits.push(
-				declaration.replace(
-					`const { test } = await import('node:test');${EOL}const { default: assert } = await import('node:assert');`,
-				),
-			);
-		}
+		if (binding) testVarName = binding.text();
+
+		edits.push(mod.node.replace(mod.import));
 	}
 
 	const testCalls = rootNode.findAll({
