@@ -4,10 +4,10 @@ const updatedTodo = await fetch(base, {
 	method: "PUT",
 	headers: { 'Content-Type': 'application/json' },
 	body: JSON.stringify({
-		todo: 'Use DummyJSON in the project',
-		completed: false,
-		userId: 5,
-	})
+			todo: 'Use DummyJSON in the project',
+			completed: false,
+			userId: 5,
+		})
 })
 	.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
 	.catch(() => null);

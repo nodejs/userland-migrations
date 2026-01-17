@@ -20,7 +20,12 @@ type BindingToReplace = {
 	rule: Rule<Js>;
 	node: SgNode<Js>;
 	binding: string;
-	replaceFn: (arg: SgNode<Js>[]) => string;
+	replaceFn: (arg: SgNode<Js>[], context: WarningContext) => string;
+};
+
+type WarningContext = {
+	root: SgRoot<Js>;
+	match: SgNode<Js>;
 };
 
 type CreateOptionsType = {
@@ -33,6 +38,29 @@ type CreateOptionsType = {
 let currentEol = '\n';
 
 const detectEol = (source: string) => (source.includes('\r\n') ? '\r\n' : '\n');
+
+const formatLocation = ({
+	root,
+	node,
+}: {
+	root: SgRoot<Js>;
+	node: SgNode<Js>;
+}) => {
+	const { line, column } = node.range().start;
+	return `${root.filename()}:${line + 1}:${column + 1}`;
+};
+
+const warnWithLocation = (
+	context: WarningContext,
+	message: string,
+	node?: SgNode<Js>,
+) => {
+	const location = formatLocation({
+		root: context.root,
+		node: node ?? context.match,
+	});
+	console.warn(`[Codemod] ${message} (at ${location})`);
+};
 
 const getObjectPropertyValue = (
 	objectNode: SgNode<Js>,
@@ -106,10 +134,10 @@ const baseUpdates: {
 }[] = [
 	{
 		oldBind: '$.get',
-		replaceFn: (args) => {
+		replaceFn: (args, context) => {
 			const [url, oldOptions] = args;
 			if (!url) {
-				console.warn('[Codemod] Missing URL in axios.get. Skipping.');
+				warnWithLocation(context, 'Missing URL in axios.get. Skipping.');
 				return '';
 			}
 			const options = createOptions({ oldOptions });
@@ -122,10 +150,10 @@ const baseUpdates: {
 	},
 	{
 		oldBind: '$.post',
-		replaceFn: (args) => {
+		replaceFn: (args, context) => {
 			const url = args[0];
 			if (!url) {
-				console.warn('[Codemod] Missing URL in axios.post. Skipping.');
+				warnWithLocation(context, 'Missing URL in axios.post. Skipping.');
 				return '';
 			}
 			const options = createOptions({
@@ -143,10 +171,10 @@ const baseUpdates: {
 	},
 	{
 		oldBind: '$.put',
-		replaceFn: (args) => {
+		replaceFn: (args, context) => {
 			const url = args[0];
 			if (!url) {
-				console.warn('[Codemod] Missing URL in axios.put. Skipping.');
+				warnWithLocation(context, 'Missing URL in axios.put. Skipping.');
 				return '';
 			}
 			const options = createOptions({
@@ -164,10 +192,10 @@ const baseUpdates: {
 	},
 	{
 		oldBind: '$.patch',
-		replaceFn: (args) => {
+		replaceFn: (args, context) => {
 			const url = args[0];
 			if (!url) {
-				console.warn('[Codemod] Missing URL in axios.patch. Skipping.');
+				warnWithLocation(context, 'Missing URL in axios.patch. Skipping.');
 				return '';
 			}
 			const options = createOptions({
@@ -185,10 +213,10 @@ const baseUpdates: {
 	},
 	{
 		oldBind: '$.postForm',
-		replaceFn: (args) => {
+		replaceFn: (args, context) => {
 			const url = args[0];
 			if (!url) {
-				console.warn('[Codemod] Missing URL in axios.postForm. Skipping.');
+				warnWithLocation(context, 'Missing URL in axios.postForm. Skipping.');
 				return '';
 			}
 			const options = createOptions({
@@ -206,10 +234,10 @@ const baseUpdates: {
 	},
 	{
 		oldBind: '$.putForm',
-		replaceFn: (args) => {
+		replaceFn: (args, context) => {
 			const url = args[0];
 			if (!url) {
-				console.warn('[Codemod] Missing URL in axios.putForm. Skipping.');
+				warnWithLocation(context, 'Missing URL in axios.putForm. Skipping.');
 				return '';
 			}
 			const options = createOptions({
@@ -227,10 +255,10 @@ const baseUpdates: {
 	},
 	{
 		oldBind: '$.patchForm',
-		replaceFn: (args) => {
+		replaceFn: (args, context) => {
 			const url = args[0];
 			if (!url) {
-				console.warn('[Codemod] Missing URL in axios.patchForm. Skipping.');
+				warnWithLocation(context, 'Missing URL in axios.patchForm. Skipping.');
 				return '';
 			}
 			const options = createOptions({
@@ -248,10 +276,10 @@ const baseUpdates: {
 	},
 	{
 		oldBind: '$.delete',
-		replaceFn: (args) => {
+		replaceFn: (args, context) => {
 			const url = args[0];
 			if (!url) {
-				console.warn('[Codemod] Missing URL in axios.delete. Skipping.');
+				warnWithLocation(context, 'Missing URL in axios.delete. Skipping.');
 				return '';
 			}
 			const options = createOptions({
@@ -267,10 +295,10 @@ const baseUpdates: {
 	},
 	{
 		oldBind: '$.head',
-		replaceFn: (args) => {
+		replaceFn: (args, context) => {
 			const url = args[0];
 			if (!url) {
-				console.warn('[Codemod] Missing URL in axios.head. Skipping.');
+				warnWithLocation(context, 'Missing URL in axios.head. Skipping.');
 				return '';
 			}
 			const options = createOptions({
@@ -286,10 +314,10 @@ const baseUpdates: {
 	},
 	{
 		oldBind: '$.options',
-		replaceFn: (args) => {
+		replaceFn: (args, context) => {
 			const url = args[0];
 			if (!url) {
-				console.warn('[Codemod] Missing URL in axios.options. Skipping.');
+				warnWithLocation(context, 'Missing URL in axios.options. Skipping.');
 				return '';
 			}
 			const options = createOptions({
@@ -305,26 +333,31 @@ const baseUpdates: {
 	},
 	{
 		oldBind: '$.request',
-		replaceFn: (args) => {
+		replaceFn: (args, context) => {
 			const config = args[0];
 			if (!config) {
-				console.warn(
-					'[Codemod] Missing config object in axios.request. Skipping.',
+				warnWithLocation(
+					context,
+					'Missing config object in axios.request. Skipping.',
 				);
 				return '';
 			}
 
 			if (config.kind() !== 'object') {
-				console.warn(
-					'[Codemod] Unsupported axios.request configuration shape. Skipping migration.',
+				warnWithLocation(
+					context,
+					'Unsupported axios.request configuration shape. Skipping migration.',
+					config,
 				);
 				return '';
 			}
 
 			const urlNode = getObjectPropertyValue(config, 'url');
 			if (!urlNode) {
-				console.warn(
-					'[Codemod] Missing URL in axios.request config. Skipping migration.',
+				warnWithLocation(
+					context,
+					'Missing URL in axios.request config. Skipping migration.',
+					config,
 				);
 				return '';
 			}
@@ -402,30 +435,35 @@ const createOptions = ({
 	const optionParts: string[] = [];
 
 	if (method) {
-		optionParts.push(`method: "${method}"`);
+		optionParts.push(`\tmethod: "${method}"`);
 	}
 
 	if (headers) {
-		optionParts.push(`headers: ${headers.text()}`);
+		optionParts.push(`\theaders: ${headers.text()}`);
 	}
 
 	if (bodyNode) {
 		const bodyExpression = getBodyExpression(bodyNode, payloadKind);
 		if (bodyExpression) {
-			optionParts.push(`body: ${bodyExpression}`);
+			// Indent multi-line body expressions properly
+			const indentedBody = bodyExpression
+				.split(currentEol)
+				.map((line, i) => (i === 0 ? line : `\t${line}`))
+				.join(currentEol);
+			optionParts.push(`\tbody: ${indentedBody}`);
 		}
 	}
 
 	if (optionParts.length === 0) return '';
 
 	if (optionParts.length === 1) {
-		return `{ ${optionParts[0]} }`;
+		// Extract the property without leading tab for single-property objects
+		const property = optionParts[0].trim();
+		return `{ ${property} }`;
 	}
 
 	// Multi-line formatting with proper dedent
-	return dedent`{
-		${optionParts.join(`,${currentEol}\t`)}
-	}`;
+	return `{${currentEol}${optionParts.join(`,${currentEol}`)}${currentEol}}`;
 };
 
 /**
@@ -475,7 +513,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 			const argsAndCommaas = match.getMultipleMatches('ARG');
 			const args = argsAndCommaas.filter((arg) => arg.text() !== ',');
 
-			const replace = match.replace(bind.replaceFn(args));
+			const replace = match.replace(bind.replaceFn(args, { root, match }));
 			edits.push(replace);
 
 			const result = removeBinding(bind.node, bind.binding.split('.').at(0));
