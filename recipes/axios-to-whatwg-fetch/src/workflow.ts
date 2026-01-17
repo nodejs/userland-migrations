@@ -108,10 +108,8 @@ const baseUpdates: {
 	{
 		oldBind: '$.get',
 		replaceFn: (args) => {
-			const url = args.length > 0 && args[0];
-			const options = createOptions({
-				oldOptions: args[1],
-			});
+			const [url, oldOptions] = args;
+			const options = createOptions({ oldOptions });
 			return dedent.withOptions({ alignValues: true })`
 		fetch(${url.text()}${options ? `, ${options}` : ''})
 			.then(async (res) => Object.assign(res, { data: await res.json() }))
