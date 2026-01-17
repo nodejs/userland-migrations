@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/rmdir",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Handle DEP0147 via transforming `fs.rmdir` to `fs.rm` with the appropriate options.",
   "type": "module",
   "scripts": {
@@ -16,7 +16,7 @@
   "license": "MIT",
   "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/rmdirs/README.md",
   "devDependencies": {
-    "@codemod.com/jssg-types": "^1.3.0"
+    "@codemod.com/jssg-types": "^1.3.1"
   },
   "dependencies": {
     "@nodejs/codemod-utils": "*"

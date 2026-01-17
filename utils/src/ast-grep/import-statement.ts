@@ -160,7 +160,16 @@ export const getNodeImportCalls = (
 };
 
 /**
- * Get the default import identifier from an import statement
+ * Get the default import identifier from an import statement.
+ *
+ * Example:
+ * ```ts
+ * // import fs from 'fs';
+ * // getDefaultImportIdentifier(importNode) -> identifier node for `fs`
+ * ```
+ *
+ * @param importNode - The `import_statement` or its `import_clause` node
+ * @returns The identifier node for the default import, or `null` if none
  */
 export const getDefaultImportIdentifier = (
 	importNode: SgNode<Js>,

@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/http-classes-with-new",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Handle DEP0195: Instantiating node:http classes without new.",
   "type": "module",
   "scripts": {
@@ -16,7 +16,7 @@
   "license": "MIT",
   "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/http-classes-with-new/README.md",
   "devDependencies": {
-    "@codemod.com/jssg-types": "^1.3.0"
+    "@codemod.com/jssg-types": "^1.3.1"
   },
   "dependencies": {
     "@nodejs/codemod-utils": "*"

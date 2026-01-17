@@ -7,6 +7,9 @@ import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-bindi
 import type { Edit, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 
+const chalkBinding = 'chalk';
+const chalkStdErrBinding = 'chalkStderr';
+
 /**
  * Transform function that converts chalk method calls to Node.js util.styleText calls.
  *
@@ -17,7 +20,6 @@ import type Js from '@codemod.com/jssg-types/langs/javascript';
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
-	const chalkBinding = 'chalk';
 
 	// This actually catches `node:chalk` import but we don't care as it shouldn't append
 	const statements = [
@@ -39,8 +41,6 @@ export default function transform(root: SgRoot<Js>): string | null {
 			// Handle destructured imports
 			// const { red } = require('chalk') or import { red } from 'chalk'
 			processDestructuredImports(rootNode, destructuredNames, edits);
-
-			// TODO - Handle special instances like chalkStderr
 		} else {
 			// Handle default imports
 			// const chalk = require('chalk') or import chalk from 'chalk'
@@ -237,7 +237,12 @@ function getFirstCallArgument(call: SgNode<Js>): string | null {
 function createStyleTextReplacement(
 	styleMethod: string,
 	textArg: string,
+	isStderr = false,
 ): string {
+	if (isStderr) {
+		return `styleText("${styleMethod}", ${textArg}, { stream: process.stderr })`;
+	}
+
 	return `styleText("${styleMethod}", ${textArg})`;
 }
 
@@ -247,12 +252,17 @@ function createStyleTextReplacement(
 function createMultiStyleTextReplacement(
 	styles: string[],
 	textArg: string,
+	isStderr = false,
 ): string {
 	if (styles.length === 1) {
-		return createStyleTextReplacement(styles[0], textArg);
+		return createStyleTextReplacement(styles[0], textArg, isStderr);
 	}
 
 	const stylesArray = `[${styles.map((s) => `"${s}"`).join(', ')}]`;
+
+	if (isStderr) {
+		return `styleText(${stylesArray}, ${textArg}, { stream: process.stderr })`;
+	}
 
 	return `styleText(${stylesArray}, ${textArg})`;
 }
@@ -266,31 +276,91 @@ function processDestructuredImports(
 	edits: Edit[],
 ): void {
 	for (const name of destructuredNames) {
-		const directCalls = rootNode.findAll({
+		const isStderr = name.imported === chalkStdErrBinding;
+
+		const calls = rootNode.findAll({
 			rule: {
 				kind: 'call_expression',
 				has: {
 					field: 'function',
-					kind: 'identifier',
-					pattern: name.local,
+					any: [
+						{
+							kind: 'identifier',
+							pattern: name.local,
+						},
+						{
+							kind: 'member_expression',
+							has: {
+								field: 'object',
+								any: [
+									{
+										kind: 'identifier',
+										pattern: name.local,
+									},
+									{
+										kind: 'member_expression',
+										has: {
+											field: 'object',
+											kind: 'identifier',
+											pattern: name.local,
+										},
+									},
+								],
+							},
+						},
+					],
 				},
 			},
 		});
 
-		for (const call of directCalls) {
-			if (!isSupportedMethod(name.imported)) {
-				warnOnUnsupportedMethod(name.imported, rootNode, call);
-				continue;
+		for (const call of calls) {
+			const functionExpr = call.field('function');
+			if (!functionExpr) continue;
+
+			if (isStderr) {
+				if (functionExpr.kind() === 'identifier') continue;
+
+				const { styles } = extractChalkStyles(functionExpr, name.local);
+
+				if (styles.length === 0) continue;
+
+				if (hasUnsupportedMethods(styles)) {
+					for (const style of styles) {
+						if (!SUPPORTED_METHODS.has(style)) {
+							warnOnUnsupportedMethod(style, rootNode, call);
+						}
+					}
+					continue;
+				}
+
+				const textArg = getFirstCallArgument(call);
+
+				if (!textArg) continue;
+
+				const replacement = createMultiStyleTextReplacement(
+					styles,
+					textArg,
+					isStderr,
+				);
+
+				edits.push(call.replace(replacement));
+			} else {
+				if (functionExpr.kind() !== 'identifier') continue;
+
+				if (!isSupportedMethod(name.imported)) {
+					warnOnUnsupportedMethod(name.imported, rootNode, call);
+					continue;
+				}
+
+				const textArg = getFirstCallArgument(call);
+
+				if (!textArg) continue;
+
+				const styleMethod = COMPAT_MAP[name.imported] || name.imported;
+				const replacement = createStyleTextReplacement(styleMethod, textArg);
+
+				edits.push(call.replace(replacement));
 			}
-
-			const textArg = getFirstCallArgument(call);
-
-			if (!textArg) continue;
-
-			const styleMethod = COMPAT_MAP[name.imported] || name.imported;
-			const replacement = createStyleTextReplacement(styleMethod, textArg);
-
-			edits.push(call.replace(replacement));
 		}
 	}
 }
@@ -313,33 +383,40 @@ function processDefaultImports(
 					field: 'object',
 					any: [
 						// Direct chalk calls
-						{
-							kind: 'identifier',
-							pattern: binding,
-						},
+						{ kind: 'identifier', pattern: binding },
+
 						// Chained chalk calls
 						{
 							kind: 'member_expression',
-							any: [
-								{
+							has: { field: 'object', kind: 'identifier', pattern: binding },
+						},
+
+						// chalk.method1.method2() or chalk.chalkStderr.method()
+						{
+							kind: 'member_expression',
+							has: {
+								field: 'object',
+								kind: 'member_expression',
+								has: { field: 'object', kind: 'identifier', pattern: binding },
+							},
+						},
+
+						// chalk.method1.method2.method3 or chalk.chalkStderr.method1.method2
+						{
+							kind: 'member_expression',
+							has: {
+								field: 'object',
+								kind: 'member_expression',
+								has: {
+									field: 'object',
+									kind: 'member_expression',
 									has: {
 										field: 'object',
 										kind: 'identifier',
-										pattern: binding, // chalk.method1.method2
+										pattern: binding,
 									},
 								},
-								{
-									has: {
-										field: 'object',
-										kind: 'member_expression',
-										has: {
-											field: 'object',
-											kind: 'identifier',
-											pattern: binding, // chalk.method1.method2.method3
-										},
-									},
-								},
-							],
+							},
 						},
 					],
 				},
@@ -352,7 +429,7 @@ function processDefaultImports(
 
 		if (!functionExpr) continue;
 
-		const styles = extractChalkStyles(functionExpr, binding);
+		const { styles, isStderr } = extractChalkStyles(functionExpr, binding);
 
 		if (styles.length === 0) continue;
 
@@ -369,7 +446,11 @@ function processDefaultImports(
 
 		if (!textArg) continue;
 
-		const replacement = createMultiStyleTextReplacement(styles, textArg);
+		const replacement = createMultiStyleTextReplacement(
+			styles,
+			textArg,
+			isStderr,
+		);
 
 		edits.push(call.replace(replacement));
 	}
@@ -441,10 +522,14 @@ function createImportReplacement(statement: SgNode<Js>): string {
 
 /**
  * Traverses a member expression node to extract chained chalk styles.
- * and returns a list of styles in the order they were called.
+ * Returns both the styles and whether chalkStderr was encountered.
  */
-function extractChalkStyles(node: SgNode<Js>, chalkBinding: string): string[] {
+function extractChalkStyles(
+	node: SgNode<Js>,
+	chalkBinding: string,
+): { styles: string[]; isStderr: boolean } {
 	const styles: string[] = [];
+	let isStderr = false;
 
 	function traverse(node: SgNode<Js>): boolean {
 		const obj = node.field('object');
@@ -456,15 +541,32 @@ function extractChalkStyles(node: SgNode<Js>, chalkBinding: string): string[] {
 			if (obj.kind() === 'identifier' && obj.text() === chalkBinding) {
 				// Base case: chalk.method
 				styles.push(COMPAT_MAP[propName] || propName);
-
 				return true;
 			}
 
-			if (obj.kind() === 'member_expression' && traverse(obj)) {
-				// Recursive case: chain.method
-				styles.push(COMPAT_MAP[propName] || propName);
+			// Handle chalkStderr case: chalk.chalkStderr.method
+			if (obj.kind() === 'member_expression') {
+				const innerObj = obj.field('object');
+				const innerProp = obj.field('property');
 
-				return true;
+				if (
+					innerObj &&
+					innerProp &&
+					innerObj.kind() === 'identifier' &&
+					innerObj.text() === chalkBinding &&
+					innerProp.kind() === 'property_identifier' &&
+					innerProp.text() === chalkStdErrBinding
+				) {
+					styles.push(COMPAT_MAP[propName] || propName);
+					isStderr = true;
+					return true;
+				}
+
+				if (traverse(obj)) {
+					// Recursive case: chain.method
+					styles.push(COMPAT_MAP[propName] || propName);
+					return true;
+				}
 			}
 		}
 
@@ -473,7 +575,7 @@ function extractChalkStyles(node: SgNode<Js>, chalkBinding: string): string[] {
 
 	traverse(node);
 
-	return styles;
+	return { styles, isStderr };
 }
 
 /**
@@ -484,7 +586,7 @@ function createMemberExpressionAssignment(
 	variableName: string,
 	binding: string,
 ): string | null {
-	const styles = extractChalkStyles(valueExpr, binding);
+	const { styles } = extractChalkStyles(valueExpr, binding);
 
 	if (styles.length === 0) {
 		return null;
@@ -524,8 +626,11 @@ function createTernaryExpressionAssignment(
 		return null;
 	}
 
-	const consequentStyles = extractChalkStyles(consequent, binding);
-	const alternativeStyles = extractChalkStyles(alternative, binding);
+	const { styles: consequentStyles } = extractChalkStyles(consequent, binding);
+	const { styles: alternativeStyles } = extractChalkStyles(
+		alternative,
+		binding,
+	);
 
 	// Only transform if both sides are chalk expressions
 	if (consequentStyles.length === 0 || alternativeStyles.length === 0) {
