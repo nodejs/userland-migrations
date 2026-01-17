@@ -1,3 +1,4 @@
+import { EOL } from 'node:os';
 import dedent from 'dedent';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import {
@@ -34,10 +35,6 @@ type CreateOptionsType = {
 	bodyNode?: SgNode<Js> | null;
 	payloadKind?: 'json' | 'form';
 };
-
-let currentEol = '\n';
-
-const detectEol = (source: string) => (source.includes('\r\n') ? '\r\n' : '\n');
 
 const formatLocation = ({
 	root,
@@ -447,9 +444,9 @@ const createOptions = ({
 		if (bodyExpression) {
 			// Indent multi-line body expressions properly
 			const indentedBody = bodyExpression
-				.split(currentEol)
+				.split(EOL)
 				.map((line, i) => (i === 0 ? line : `\t${line}`))
-				.join(currentEol);
+				.join(EOL);
 			optionParts.push(`\tbody: ${indentedBody}`);
 		}
 	}
@@ -463,7 +460,7 @@ const createOptions = ({
 	}
 
 	// Multi-line formatting with proper dedent
-	return `{${currentEol}${optionParts.join(`,${currentEol}`)}${currentEol}}`;
+	return `{${EOL}${optionParts.join(`,${EOL}`)}${EOL}}`;
 };
 
 /**
@@ -474,7 +471,6 @@ const createOptions = ({
  */
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
-	currentEol = detectEol(rootNode.text());
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
 	const bindsToReplace: BindingToReplace[] = [];
