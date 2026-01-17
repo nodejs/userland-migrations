@@ -3,13 +3,11 @@
 const base = 'https://dummyjson.com/todos/1';
 
 const patchedTodo = await fetch(base, {
-
-"method": "PATCH",
-
-"body": "JSON.stringify({
-\ttodo: 'Updated todo',
-\tcompleted: true,
-})"
+	method: "PATCH",
+	body: JSON.stringify({
+	todo: 'Updated todo',
+	completed: true,
+})
 })
 	.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
 	.catch(() => null);

@@ -398,24 +398,34 @@ const createOptions = ({
 		},
 	});
 
-	const options = new Map();
+	// Build the options object string with proper formatting
+	const optionParts: string[] = [];
 
-	if (method) options.set('method', method);
+	if (method) {
+		optionParts.push(`method: "${method}"`);
+	}
 
-	if (headers) options.set('headers', headers);
+	if (headers) {
+		optionParts.push(`headers: ${headers.text()}`);
+	}
 
 	if (bodyNode) {
 		const bodyExpression = getBodyExpression(bodyNode, payloadKind);
-		if (bodyExpression) options.set('body', bodyExpression);
+		if (bodyExpression) {
+			optionParts.push(`body: ${bodyExpression}`);
+		}
 	}
 
-	const initObj = Object.fromEntries(options);
+	if (optionParts.length === 0) return '';
 
-	if (options.size === 1) return JSON.stringify(initObj);
+	if (optionParts.length === 1) {
+		return `{ ${optionParts[0]} }`;
+	}
 
-	return dedent.withOptions({
-		alignValues: true,
-	})`${JSON.stringify(initObj, null, currentEol)}`;
+	// Multi-line formatting with proper dedent
+	return dedent`{
+		${optionParts.join(`,${currentEol}\t`)}
+	}`;
 };
 
 /**
