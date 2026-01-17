@@ -27,9 +27,9 @@
   },
   "homepage": "https://nodejs.org/learn/userland-migrations",
   "devDependencies": {
-    "@biomejs/biome": "2.3.1",
-    "@types/node": "^24.9.1",
-    "@typescript/native-preview": "^7.0.0-dev.20251027.1"
+    "@biomejs/biome": "2.3.11",
+    "@types/node": "^25.0.9",
+    "@typescript/native-preview": "^7.0.0-dev.20260112.1"
   },
   "workspaces": [
     "./recipes/*",

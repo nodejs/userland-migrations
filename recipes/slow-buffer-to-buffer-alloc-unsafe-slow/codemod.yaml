@@ -1,0 +1,23 @@
+schema_version: "1.0"
+name: "@nodejs/slow-buffer-to-buffer-alloc-unsafe-slow"
+version: "1.0.1"
+description: Handle DEP0030 via transforming SlowBuffer usage to Buffer.allocUnsafeSlow().
+author: lluisemper(Lluis Semper Lloret)
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - buffer
+  - slowbuffer
+
+registry:
+  access: public
+  visibility: public
