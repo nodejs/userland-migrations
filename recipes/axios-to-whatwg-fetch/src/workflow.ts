@@ -293,17 +293,11 @@ const baseUpdates: {
 
 			const methodNode = getObjectPropertyValue(config, 'method');
 
-			// Default value for method
-			let method = 'GET';
-
-			// If method is specified, replace default value with actual value
-			if (methodNode?.kind() === 'string') {
-				method = methodNode.child(1).text().toUpperCase();
-			}
+			const method = methodNode.child(1)?.text().toUpperCase();
 
 			const options = createOptions({
 				oldOptions: config,
-				method,
+				method: method ?? 'GET', // axios.request's default is GET
 				bodyNode: getObjectPropertyValue(config, 'data') ?? null,
 				payloadKind: 'json',
 			});
