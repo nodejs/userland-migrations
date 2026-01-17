@@ -154,20 +154,32 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 			const body = callback.field('body');
 			let usesEndInCallback = false;
+			let hasEndCall = false;
+			let hasPlanCall = false;
 			if (body) {
 				const endCalls = body.findAll({
 					rule: {
 						kind: 'call_expression',
-						has: {
-							field: 'function',
-							kind: 'member_expression',
-							has: {
-								field: 'object',
-								pattern: tName,
+						all: [
+							{
+								has: {
+									field: 'function',
+									kind: 'member_expression',
+									has: { field: 'object', pattern: tName },
+								},
 							},
-						},
+							{
+								has: {
+									field: 'function',
+									kind: 'member_expression',
+									has: { field: 'property', regex: '^end$' },
+								},
+							},
+						],
 					},
 				});
+
+				hasEndCall = endCalls.length > 0;
 
 				for (const endCall of endCalls) {
 					let curr = endCall.parent();
@@ -183,14 +195,41 @@ export default function transform(root: SgRoot<Js>): string | null {
 						curr = curr.parent();
 					}
 				}
+
+				hasPlanCall = Boolean(
+					body.find({
+						rule: {
+							kind: 'call_expression',
+							all: [
+								{
+									has: {
+										field: 'function',
+										kind: 'member_expression',
+										has: { field: 'object', pattern: tName },
+									},
+								},
+								{
+									has: {
+										field: 'function',
+										kind: 'member_expression',
+										has: { field: 'property', regex: '^plan$' },
+									},
+								},
+							],
+						},
+					}),
+				);
 			}
 
 			const isAsync = callback.text().startsWith('async');
-			let useDone = false;
+			const shouldUseDone = hasEndCall && (usesEndInCallback || hasPlanCall);
+			let useDone = shouldUseDone;
 
-			if (usesEndInCallback && !isAsync) {
-				useDone = true;
-				if (params) {
+			if (shouldUseDone && params) {
+				const hasDoneParam = Boolean(
+					params.find({ rule: { kind: 'identifier', regex: '^done$' } }),
+				);
+				if (!hasDoneParam) {
 					const text = params.text();
 					if (text.startsWith('(') && text.endsWith(')')) {
 						edits.push({
@@ -383,7 +422,9 @@ function transformAssertions(
 				}
 				break;
 			case 'plan':
-				edits.push(call.replace(`// ${call.text()}`));
+				if (!useDone) {
+					edits.push(call.replace(`// ${call.text()}`));
+				}
 				break;
 			case 'end':
 				if (useDone) {
@@ -514,10 +555,15 @@ function transformAssertions(
 									}
 								}
 							} else {
-								// Options is a variable or expression — replace the timeout call with a TODO comment
+								// Options is a variable or expression — replace the timeout call with a TODO comment and warning
+								const { line, column } = call.range().start;
+								const fileName = node.getRoot().filename();
+								console.warn(
+									`[Codemod] Warning: Unable to automatically add timeout option at ${fileName}:${line}:${column}. Please add it manually.`,
+								);
 								edits.push(
 									call.replace(
-										`// TODO: Add timeout: ${timeoutVal} to test options manually`,
+										`// TODO: Add timeout: \`${timeoutVal}\` to test options manually`,
 									),
 								);
 							}
