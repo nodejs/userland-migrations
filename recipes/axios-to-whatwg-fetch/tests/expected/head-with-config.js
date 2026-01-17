@@ -1,7 +1,9 @@
 
 const all = await fetch('https://dummyjson.com/todos', {
-	method: 'HEAD',
-	headers: { 'Content-Type': 'application/json' }
+
+"method": "HEAD",
+
+"headers": {}
 })
-	.then(async (res) => Object.assign(res, { data: await res.json() }))
+	.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
 	.catch(() => null);

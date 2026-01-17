@@ -1,8 +1,10 @@
 
 const deletedTodo = await fetch('https://dummyjson.com/todos/1', {
-	method: 'DELETE',
-	headers: { 'Content-Type': 'application/json' }
+
+"method": "DELETE",
+
+"headers": {}
 })
-	.then(async (res) => Object.assign(res, { data: await res.json() }))
+	.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
 	.catch(() => null);
 console.log('\nDELETE /todos1/1 ->', deletedTodo);

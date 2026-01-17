@@ -34,8 +34,6 @@ let currentEol = '\n';
 
 const detectEol = (source: string) => (source.includes('\r\n') ? '\r\n' : '\n');
 
-const unsupportedMethods: string[] = [];
-
 const getObjectPropertyValue = (
 	objectNode: SgNode<Js>,
 	propertyName: string,
@@ -79,10 +77,11 @@ const getFormBodyExpression = (
 		return `new URLSearchParams(${source})`;
 	}
 
+	// if it's already a FormData or URLSearchParams instance, return as is
+	// we only check for common instantiation patterns here maybe add complex ones later
 	if (
 		trimmed.startsWith('new URLSearchParams') ||
-		trimmed.startsWith('URLSearchParams(') ||
-		trimmed.startsWith('await new URLSearchParams')
+		trimmed.startsWith('URLSearchParams(')
 	) {
 		return source;
 	}
@@ -109,6 +108,10 @@ const baseUpdates: {
 		oldBind: '$.get',
 		replaceFn: (args) => {
 			const [url, oldOptions] = args;
+			if (!url) {
+				console.warn('[Codemod] Missing URL in axios.get. Skipping.');
+				return '';
+			}
 			const options = createOptions({ oldOptions });
 			return dedent.withOptions({ alignValues: true })`
 		fetch(${url.text()}${options ? `, ${options}` : ''})
@@ -120,7 +123,11 @@ const baseUpdates: {
 	{
 		oldBind: '$.post',
 		replaceFn: (args) => {
-			const url = args.length > 0 && args[0];
+			const url = args[0];
+			if (!url) {
+				console.warn('[Codemod] Missing URL in axios.post. Skipping.');
+				return '';
+			}
 			const options = createOptions({
 				oldOptions: args[2],
 				method: 'POST',
@@ -129,7 +136,7 @@ const baseUpdates: {
 			});
 			return dedent.withOptions({ alignValues: true })`
 		fetch(${url.text()}${options ? `, ${options}` : ''})
-			.then(async (res) => Object.assign(res, { data: await res.json() }))
+			.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
 			.catch(() => null)
 		`;
 		},
@@ -137,7 +144,11 @@ const baseUpdates: {
 	{
 		oldBind: '$.put',
 		replaceFn: (args) => {
-			const url = args.length > 0 && args[0];
+			const url = args[0];
+			if (!url) {
+				console.warn('[Codemod] Missing URL in axios.put. Skipping.');
+				return '';
+			}
 			const options = createOptions({
 				oldOptions: args[2],
 				method: 'PUT',
@@ -146,7 +157,7 @@ const baseUpdates: {
 			});
 			return dedent.withOptions({ alignValues: true })`
 		fetch(${url.text()}${options ? `, ${options}` : ''})
-			.then(async (res) => Object.assign(res, { data: await res.json() }))
+			.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
 			.catch(() => null)
 		`;
 		},
@@ -154,7 +165,11 @@ const baseUpdates: {
 	{
 		oldBind: '$.patch',
 		replaceFn: (args) => {
-			const url = args.length > 0 && args[0];
+			const url = args[0];
+			if (!url) {
+				console.warn('[Codemod] Missing URL in axios.patch. Skipping.');
+				return '';
+			}
 			const options = createOptions({
 				oldOptions: args[2],
 				method: 'PATCH',
@@ -163,7 +178,7 @@ const baseUpdates: {
 			});
 			return dedent.withOptions({ alignValues: true })`
 		fetch(${url.text()}${options ? `, ${options}` : ''})
-			.then(async (res) => Object.assign(res, { data: await res.json() }))
+			.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
 			.catch(() => null)
 		`;
 		},
@@ -171,7 +186,11 @@ const baseUpdates: {
 	{
 		oldBind: '$.postForm',
 		replaceFn: (args) => {
-			const url = args.length > 0 && args[0];
+			const url = args[0];
+			if (!url) {
+				console.warn('[Codemod] Missing URL in axios.postForm. Skipping.');
+				return '';
+			}
 			const options = createOptions({
 				oldOptions: args[2],
 				method: 'POST',
@@ -180,7 +199,7 @@ const baseUpdates: {
 			});
 			return dedent.withOptions({ alignValues: true })`
 		fetch(${url.text()}${options ? `, ${options}` : ''})
-			.then(async (res) => Object.assign(res, { data: await res.json() }))
+			.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
 			.catch(() => null)
 		`;
 		},
@@ -188,7 +207,11 @@ const baseUpdates: {
 	{
 		oldBind: '$.putForm',
 		replaceFn: (args) => {
-			const url = args.length > 0 && args[0];
+			const url = args[0];
+			if (!url) {
+				console.warn('[Codemod] Missing URL in axios.putForm. Skipping.');
+				return '';
+			}
 			const options = createOptions({
 				oldOptions: args[2],
 				method: 'PUT',
@@ -197,7 +220,7 @@ const baseUpdates: {
 			});
 			return dedent.withOptions({ alignValues: true })`
 		fetch(${url.text()}${options ? `, ${options}` : ''})
-			.then(async (res) => Object.assign(res, { data: await res.json() }))
+			.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
 			.catch(() => null)
 		`;
 		},
@@ -205,7 +228,11 @@ const baseUpdates: {
 	{
 		oldBind: '$.patchForm',
 		replaceFn: (args) => {
-			const url = args.length > 0 && args[0];
+			const url = args[0];
+			if (!url) {
+				console.warn('[Codemod] Missing URL in axios.patchForm. Skipping.');
+				return '';
+			}
 			const options = createOptions({
 				oldOptions: args[2],
 				method: 'PATCH',
@@ -214,7 +241,7 @@ const baseUpdates: {
 			});
 			return dedent.withOptions({ alignValues: true })`
 		fetch(${url.text()}${options ? `, ${options}` : ''})
-			.then(async (res) => Object.assign(res, { data: await res.json() }))
+			.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
 			.catch(() => null)
 		`;
 		},
@@ -222,14 +249,18 @@ const baseUpdates: {
 	{
 		oldBind: '$.delete',
 		replaceFn: (args) => {
-			const url = args.length > 0 && args[0];
+			const url = args[0];
+			if (!url) {
+				console.warn('[Codemod] Missing URL in axios.delete. Skipping.');
+				return '';
+			}
 			const options = createOptions({
 				oldOptions: args[1],
 				method: 'DELETE',
 			});
 			return dedent.withOptions({ alignValues: true })`
 		fetch(${url.text()}, ${options})
-			.then(async (res) => Object.assign(res, { data: await res.json() }))
+			.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
 			.catch(() => null)
 		`;
 		},
@@ -237,14 +268,18 @@ const baseUpdates: {
 	{
 		oldBind: '$.head',
 		replaceFn: (args) => {
-			const url = args.length > 0 && args[0];
+			const url = args[0];
+			if (!url) {
+				console.warn('[Codemod] Missing URL in axios.head. Skipping.');
+				return '';
+			}
 			const options = createOptions({
 				oldOptions: args[1],
 				method: 'HEAD',
 			});
 			return dedent.withOptions({ alignValues: true })`
 		fetch(${url.text()}, ${options})
-			.then(async (res) => Object.assign(res, { data: await res.json() }))
+			.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
 			.catch(() => null)
 		`;
 		},
@@ -252,14 +287,18 @@ const baseUpdates: {
 	{
 		oldBind: '$.options',
 		replaceFn: (args) => {
-			const url = args.length > 0 && args[0];
+			const url = args[0];
+			if (!url) {
+				console.warn('[Codemod] Missing URL in axios.options. Skipping.');
+				return '';
+			}
 			const options = createOptions({
 				oldOptions: args[1],
 				method: 'OPTIONS',
 			});
 			return dedent.withOptions({ alignValues: true })`
 		fetch(${url.text()}, ${options})
-			.then(async (res) => Object.assign(res, { data: await res.json() }))
+			.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
 			.catch(() => null)
 		`;
 		},
@@ -304,7 +343,7 @@ const baseUpdates: {
 
 			return dedent.withOptions({ alignValues: true })`
 	fetch(${url}${options ? `, ${options}` : ''})
-		.then(async (res) => Object.assign(res, { data: await res.json() }))
+		.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
 		.catch(() => null)
 	`;
 		},
@@ -312,19 +351,19 @@ const baseUpdates: {
 ];
 
 const updates = baseUpdates.flatMap((update) => {
-		const bindings = [update.oldBind];
-		if (
-			update.supportDefaultAccess !== false &&
-			!update.oldBind.includes('.default.')
-		) {
-			bindings.push(update.oldBind.replace('$.', '$.default.'));
-		}
+	const bindings = [update.oldBind];
+	if (
+		update.supportDefaultAccess !== false &&
+		!update.oldBind.includes('.default.')
+	) {
+		bindings.push(update.oldBind.replace('$.', '$.default.'));
+	}
 
-		return bindings.map((binding) => ({
-			oldBind: binding,
-			replaceFn: update.replaceFn,
-		}));
-	});
+	return bindings.map((binding) => ({
+		oldBind: binding,
+		replaceFn: update.replaceFn,
+	}));
+});
 
 /**
  * Generates options for the Fetch API based on the provided parameters.
@@ -374,7 +413,9 @@ const createOptions = ({
 
 	if (options.size === 1) return JSON.stringify(initObj);
 
-	return dedent.withOptions({ alignValues: true })`${JSON.stringify(initObj, null, currentEol)}`;
+	return dedent.withOptions({
+		alignValues: true,
+	})`${JSON.stringify(initObj, null, currentEol)}`;
 };
 
 /**
@@ -423,13 +464,6 @@ export default function transform(root: SgRoot<Js>): string | null {
 		for (const match of matches) {
 			const argsAndCommaas = match.getMultipleMatches('ARG');
 			const args = argsAndCommaas.filter((arg) => arg.text() !== ',');
-
-			if (unsupportedMethods.includes(bind.binding.split('.').at(-1))) {
-				console.warn(
-					'Un-migratable method has been found. Please revise this part of the code.',
-				);
-				continue;
-			}
 
 			const replace = match.replace(bind.replaceFn(args));
 			edits.push(replace);
