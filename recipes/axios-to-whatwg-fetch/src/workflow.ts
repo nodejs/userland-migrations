@@ -366,28 +366,22 @@ const createOptions = ({
 		},
 	});
 
-	const options = [];
+	const options = new Map();
 
-	if (method) {
-		options.push(`method: '${method}'`);
-	}
+	if (method) options.set('method', method);
 
-	if (headers) {
-		options.push(`headers: ${headers?.text()}`);
-	}
+	if (headers) options.set('headers', headers);
 
 	if (bodyNode) {
 		const bodyExpression = getBodyExpression(bodyNode, payloadKind);
-		if (bodyExpression) {
-			options.push(`body: ${bodyExpression}`);
-		}
+		if (bodyExpression) options.set('body', bodyExpression);
 	}
 
-	if (options.length === 1) return `{ ${options.toString()} }`;
+	const initObj = Object.fromEntries(options);
 
-	return dedent.withOptions({ alignValues: true })`{
-		${options.join(`,${currentEol}`)}
-	}`;
+	if (options.size === 1) return JSON.stringify(initObj);
+
+	return dedent.withOptions({ alignValues: true })`${JSON.stringify(initObj, null, currentEol)}`;
 };
 
 /**
