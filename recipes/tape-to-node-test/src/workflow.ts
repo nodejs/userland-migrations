@@ -205,16 +205,61 @@ export default function transform(root: SgRoot<Js>): string | null {
 			}
 
 			if (body) {
+				// Apply assertion transformations first
 				transformAssertions(body, tName, edits, call, useDone);
-			}
 
-			if (!usesEndInCallback && !isAsync) {
-				if (params) {
-					edits.push({
-						startPos: callback.range().start.index,
-						endPos: params.range().start.index,
-						insertedText: 'async ',
-					});
+				// Determine if the callback needs to be async.
+				// It must be async if it already is, or if the body contains any await expressions,
+				// or if there are subtests (t.test(...)) which we convert to 'await test(...)'.
+				const hasAwait = Boolean(
+					body.find({ rule: { kind: 'await_expression' } }),
+				);
+				const hasSubtestCall = Boolean(
+					body.find({
+						rule: {
+							kind: 'call_expression',
+							all: [
+								{
+									has: {
+										field: 'function',
+										kind: 'member_expression',
+									},
+								},
+								{
+									has: {
+										field: 'function',
+										kind: 'member_expression',
+										has: { field: 'object', pattern: tName },
+									},
+								},
+								{
+									has: {
+										field: 'function',
+										kind: 'member_expression',
+										has: { field: 'property', regex: '^test$' },
+									},
+								},
+							],
+						},
+					}),
+				);
+
+				// If the callback has a parameter (e.g., TestContext `t`),
+				// we keep it async to align with expected behavior unless it already uses done style.
+				// For zero-arg callbacks, only add async when truly needed (awaits or subtests).
+				const hasParam = Boolean(paramId);
+				const needsAsync = hasParam
+					? true
+					: isAsync || hasAwait || hasSubtestCall;
+
+				if (!usesEndInCallback && !isAsync && needsAsync) {
+					if (params) {
+						edits.push({
+							startPos: callback.range().start.index,
+							endPos: params.range().start.index,
+							insertedText: 'async ',
+						});
+					}
 				}
 			}
 		}

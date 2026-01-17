@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 
-test('sync test with no args', async () => {
+test('sync test with no args', () => {
     const a = 1;
 });
 
