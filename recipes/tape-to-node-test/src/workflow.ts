@@ -536,7 +536,7 @@ function transformAssertions(
 				break;
 			}
 			default:
-				console.log('method not handled');
+				console.log(`Warning: Unhandled Tape assertion method: ${method}`);
 		}
 	}
 }
