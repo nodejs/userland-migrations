@@ -82,9 +82,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 		})),
 	];
 
-	if (modDeps.length === 0) {
-		return null;
-	}
+	if (!modDeps.length) return null;
 
 	let testVarName = 'test';
 
@@ -223,7 +221,6 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 			const isAsync = callback.text().startsWith('async');
 			const shouldUseDone = hasEndCall && (usesEndInCallback || hasPlanCall);
-			let useDone = shouldUseDone;
 
 			if (shouldUseDone && params) {
 				const hasDoneParam = Boolean(
@@ -245,7 +242,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 			if (body) {
 				// Apply assertion transformations first
-				transformAssertions(body, tName, edits, call, useDone);
+				transformAssertions(body, tName, edits, call, shouldUseDone);
 
 				// Determine if the callback needs to be async.
 				// It must be async if it already is, or if the body contains any await expressions,
@@ -316,6 +313,15 @@ export default function transform(root: SgRoot<Js>): string | null {
 	});
 
 	for (const call of lifecycleCalls) {
+		const { line, column } = call.range().start;
+		const fileName = root.filename();
+		const methodName =
+			call.field('function')?.field('property')?.text() || 'lifecycle method';
+
+		console.warn(
+			`[Codemod] Warning: ${methodName} at ${fileName}:${line}:${column} has no direct equivalent in node:test. Please migrate manually.`,
+		);
+
 		const lines = call.text().split(/\r?\n/);
 		const newText = lines
 			.map((line, i) => (i === 0 ? `// TODO: ${line}` : `// ${line}`))
@@ -422,9 +428,6 @@ function transformAssertions(
 				}
 				break;
 			case 'plan':
-				if (!useDone) {
-					edits.push(call.replace(`// ${call.text()}`));
-				}
 				break;
 			case 'end':
 				if (useDone) {

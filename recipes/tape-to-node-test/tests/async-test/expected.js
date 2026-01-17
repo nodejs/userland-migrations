@@ -6,7 +6,7 @@ function someAsyncThing() {
 }
 
 test("async test with promises", async (t) => {
-    // t.plan(1);
+    t.plan(1);
     const result = await someAsyncThing();
     assert.ok(result, "async result is truthy");
 });
