@@ -19,30 +19,21 @@ export const getShebang = (root: SgRoot) => {
 		},
 	});
 
-	if (!allShebangs.length) return null;
+	// Find the last consecutive shebang from the start of the file
+	let lastValidShebang = null;
+	let expectedLine = 0;
 
-	// Check if first shebang is at line 0 (start of file)
-	const firstShebang = allShebangs[0];
-	if (firstShebang.range().start.line !== 0) {
-		return null; // Shebang not at start of file
+	for (const shebang of allShebangs) {
+		const range = shebang.range();
+
+		// Shebang must be at the expected line (0 for first, then consecutive)
+		if (range.start.line !== expectedLine) break;
+
+		lastValidShebang = shebang;
+		expectedLine = range.end.line + 1;
 	}
 
-	// Collect all consecutive shebangs from the start
-	const validShebangs = [firstShebang];
-	for (let i = 1; i < allShebangs.length; i++) {
-		const prevLine = allShebangs[i - 1].range().end.line;
-		const currentLine = allShebangs[i].range().start.line;
-
-		// Check if this shebang is on the next consecutive line
-		if (currentLine === prevLine || currentLine === prevLine + 1) {
-			validShebangs.push(allShebangs[i]);
-		} else {
-			break; // Stop at first non-consecutive shebang
-		}
-	}
-
-	// Return the last consecutive shebang from the start
-	return validShebangs[validShebangs.length - 1];
+	return lastValidShebang;
 };
 
 /**
