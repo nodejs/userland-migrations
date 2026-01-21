@@ -1,4 +1,5 @@
-import test from "tape";
+import { test } from 'node:test';
+import assert from 'node:assert';
 
 async function fetchValue() {
     return Promise.resolve(1);
@@ -6,9 +7,9 @@ async function fetchValue() {
 
 test("nested async tests", async (t) => {
     const value = await fetchValue();
-    t.equal(value, 1, "outer assertion");
+    assert.strictEqual(value, 1, "outer assertion");
     await t.test("inner async", async (st) => {
         const inner = await fetchValue();
-        st.equal(inner, 1, "inner assertion");
+        assert.strictEqual(inner, 1, "inner assertion");
     });
 });
