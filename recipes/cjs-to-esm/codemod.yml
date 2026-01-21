@@ -1,0 +1,22 @@
+schema_version: "1.0"
+name: "@nodejs/cjs-to-esm"
+version: "0.1.0"
+description: "Codemod to assist CommonJS -> ESM migrations (imports, exports, package.json guidance)"
+author: "Augustin Mauroy"
+license: "MIT"
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - migration
+  - esm
+  - commonjs
+
+registry:
+  access: public
+  visibility: public

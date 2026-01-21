@@ -1,0 +1,44 @@
+version: "1"
+
+nodes:
+  - id: apply-transforms
+    name: Apply AST transformations
+    type: automatic
+    runtime:
+      type: direct
+    steps:
+      - name: Convert requires/imports to ESM imports
+        js-ast-grep:
+          js_file: src/import-process.ts
+          base_path: .
+          include:
+            - "**/*.cjs"
+            - "**/*.js"
+            - "**/*.mjs"
+            - "**/*.ts"
+            - "**/*.tsx"
+          exclude:
+            - "**/node_modules/**"
+          language: typescript
+      - name: Convert CommonJS exports to ESM exports
+        js-ast-grep:
+          js_file: src/exports-process.ts
+          base_path: .
+          include:
+            - "**/*.cjs"
+            - "**/*.js"
+            - "**/*.mjs"
+            - "**/*.ts"
+            - "**/*.tsx"
+          exclude:
+            - "**/node_modules/**"
+          language: typescript
+      - name: "Suggest package.json updates (type: module)"
+        js-ast-grep:
+          js_file: src/package-json-process.ts
+          base_path: .
+          include:
+            - "package.json"
+          exclude:
+            - "**/node_modules/**"
+          language: json
