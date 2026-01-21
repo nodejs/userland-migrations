@@ -43,6 +43,9 @@ function rebuildEnginesText(node: SgNode<Json>): {
 	return { text: `"engines": ${newValue}`, changed: true };
 }
 
+/**
+ * @see https://github.com/nodejs/package-examples/tree/main/guide/05-cjs-esm-migration/migrating-package-json
+ */
 export default function transform(root: SgRoot<Json>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];

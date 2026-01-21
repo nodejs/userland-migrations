@@ -4,10 +4,11 @@
   "description": "Codemod to assist CommonJS -> ESM migrations (imports, exports, package.json guidance)",
   "type": "module",
   "scripts": {
-     "test": "node --run test:import && node --run test:export && node --run test:package-json",
+    "test": "node --run test:import && node --run test:export && node --run test:package-json && node --run test:context-local-variable",
     "test:import": "npx codemod jssg test -l typescript ./src/import-process.ts ./tests/import",
     "test:export": "npx codemod jssg test -l typescript ./src/export-process.ts ./tests/export",
-    "test:package-json": "npx codemod jssg test -l json ./src/package-json-process.ts ./tests/package-json"
+    "test:package-json": "npx codemod jssg test -l json ./src/package-json-process.ts ./tests/package-json",
+    "test:context-local-variable": "npx codemod jssg test -l typescript ./src/context-local-variable-process.ts ./tests/context-local-variable"
   },
   "repository": {
     "type": "git",

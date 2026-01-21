@@ -22,7 +22,20 @@ nodes:
           language: typescript
       - name: Convert CommonJS exports to ESM exports
         js-ast-grep:
-          js_file: src/exports-process.ts
+          js_file: src/export-process.ts
+          base_path: .
+          include:
+            - "**/*.cjs"
+            - "**/*.js"
+            - "**/*.mjs"
+            - "**/*.ts"
+            - "**/*.tsx"
+          exclude:
+            - "**/node_modules/**"
+          language: typescript
+      - name: Migrate context-local variables and built-ins
+        js-ast-grep:
+          js_file: src/context-local-variable-process.ts
           base_path: .
           include:
             - "**/*.cjs"
