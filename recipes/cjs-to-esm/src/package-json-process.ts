@@ -3,6 +3,7 @@ import type Json from '@codemod.com/jssg-types/langs/json';
 
 const TARGET_NODE_TEXT = '"node": "^20.19.0 || >=22.12.0"';
 
+// in future, I (@AugustinMauroy) want to use `@vlt/semver` to compare versions properly
 function rebuildEnginesText(node: SgNode<Json>): {
 	text: string;
 	changed: boolean;
