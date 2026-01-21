@@ -241,61 +241,30 @@ export default function transform(root: SgRoot<Js>): string | null {
 			}
 
 			if (body) {
-				// Apply assertion transformations first
-				transformAssertions(body, tName, edits, call, shouldUseDone);
+				// Apply assertion transformations first and determine whether they introduced
+				// async requirements (e.g., awaiting a subtest).
+				const assertionsRequireAsync = transformAssertions(
+					body,
+					tName,
+					edits,
+					call,
+					shouldUseDone,
+				);
 
 				// Determine if the callback needs to be async.
-				// It must be async if it already is, or if the body contains any await expressions,
-				// or if there are subtests (t.test(...)) which we convert to 'await test(...)'.
+				// Only add async when the original callback was async, it already contained awaits,
+				// or the assertion transformations inserted awaits for subtests.
 				const hasAwait = Boolean(
 					body.find({ rule: { kind: 'await_expression' } }),
 				);
-				const hasSubtestCall = Boolean(
-					body.find({
-						rule: {
-							kind: 'call_expression',
-							all: [
-								{
-									has: {
-										field: 'function',
-										kind: 'member_expression',
-									},
-								},
-								{
-									has: {
-										field: 'function',
-										kind: 'member_expression',
-										has: { field: 'object', pattern: tName },
-									},
-								},
-								{
-									has: {
-										field: 'function',
-										kind: 'member_expression',
-										has: { field: 'property', regex: '^test$' },
-									},
-								},
-							],
-						},
-					}),
-				);
+				const needsAsync = isAsync || hasAwait || assertionsRequireAsync;
 
-				// If the callback has a parameter (e.g., TestContext `t`),
-				// we keep it async to align with expected behavior unless it already uses done style.
-				// For zero-arg callbacks, only add async when truly needed (awaits or subtests).
-				const hasParam = Boolean(paramId);
-				const needsAsync = hasParam
-					? true
-					: isAsync || hasAwait || hasSubtestCall;
-
-				if (!usesEndInCallback && !isAsync && needsAsync) {
-					if (params) {
-						edits.push({
-							startPos: callback.range().start.index,
-							endPos: params.range().start.index,
-							insertedText: 'async ',
-						});
-					}
+				if (needsAsync && !isAsync && params) {
+					edits.push({
+						startPos: callback.range().start.index,
+						endPos: params.range().start.index,
+						insertedText: 'async ',
+					});
 				}
 			}
 		}
@@ -347,7 +316,8 @@ function transformAssertions(
 	edits: Edit[],
 	testCall: SgNode<Js>,
 	useDone = false,
-) {
+): boolean {
+	let requiresAsync = false;
 	const calls = node.findAll({
 		rule: {
 			kind: 'call_expression',
@@ -437,11 +407,8 @@ function transformAssertions(
 				}
 				break;
 			case 'test': {
-				edits.push({
-					startPos: call.range().start.index,
-					endPos: call.range().start.index,
-					insertedText: 'await ',
-				});
+				const alreadyAwaited = call.parent()?.kind() === 'await_expression';
+				let shouldAwaitSubtest = false;
 				const cb = args
 					?.children()
 					.find(
@@ -456,18 +423,36 @@ function transformAssertions(
 					if (paramId) stName = paramId.text();
 
 					const b = cb.field('body');
-					if (b) transformAssertions(b, stName, edits, call);
+					const nestedRequiresAsync = b
+						? transformAssertions(b, stName, edits, call)
+						: false;
+					const subtestHasAwait = Boolean(
+						b?.find({ rule: { kind: 'await_expression' } }),
+					);
+					const subtestIsAsync = cb.text().startsWith('async');
+					const subtestNeedsAsync =
+						subtestIsAsync || subtestHasAwait || nestedRequiresAsync;
 
-					if (!cb.text().startsWith('async')) {
-						if (p) {
-							edits.push({
-								startPos: cb.range().start.index,
-								endPos: p.range().start.index,
-								insertedText: 'async ',
-							});
-						}
+					if (subtestNeedsAsync && !subtestIsAsync && p) {
+						edits.push({
+							startPos: cb.range().start.index,
+							endPos: p.range().start.index,
+							insertedText: 'async ',
+						});
 					}
+
+					shouldAwaitSubtest = subtestNeedsAsync;
 				}
+
+				if (shouldAwaitSubtest && !alreadyAwaited) {
+					edits.push({
+						startPos: call.range().start.index,
+						endPos: call.range().start.index,
+						insertedText: 'await ',
+					});
+				}
+
+				requiresAsync = requiresAsync || shouldAwaitSubtest;
 				break;
 			}
 			case 'teardown':
@@ -588,4 +573,6 @@ function transformAssertions(
 				console.log(`Warning: Unhandled Tape assertion method: ${method}`);
 		}
 	}
+
+	return requiresAsync;
 }

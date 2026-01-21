@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 
-test('advanced assertions', async (t) => {
+test('advanced assertions', (t) => {
 	assert.throws(() => { throw new Error('fail'); }, /fail/);
 	assert.doesNotThrow(() => { });
 	assert.match('string', /ring/);

@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-test('new features', async (t) => {
+test('new features', (t) => {
 	assert.strictEqual(1, 1, 'equals alias');
 	assert.strictEqual(1, 1, 'is alias');
 	assert.notStrictEqual(1, 2, 'notEquals alias');

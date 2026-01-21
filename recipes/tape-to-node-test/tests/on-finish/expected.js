@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 
-test('some test', async (t) => {
+test('some test', (t) => {
 	assert.ok(true, 'assertion passes');
 });
 

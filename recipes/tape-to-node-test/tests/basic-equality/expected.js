@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 
-test("basic equality", async (t) => {
+test("basic equality", (t) => {
 	assert.strictEqual(1, 1, "equal numbers");
 	assert.notStrictEqual(1, 2, "not equal numbers");
 	assert.strictEqual(true, true, "strict equality");
