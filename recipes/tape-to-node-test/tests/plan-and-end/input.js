@@ -6,5 +6,4 @@ test("basic equality", (t) => {
 	t.notEqual(1, 2, "not equal numbers");
 	t.strictEqual(true, true, "strict equality");
 	t.notStrictEqual("1", 1, "not strict equality");
-	t.end();
 });

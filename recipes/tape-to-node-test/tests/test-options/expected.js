@@ -2,11 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 
 test.skip('skipped test', async (t) => {
-    assert.fail('should not run');
-    // t.end();
+	assert.fail('should not run');
 });
 
 test.only('only test', async (t) => {
-    assert.ok(true, 'should run');
-    // t.end();
+	assert.ok(true, 'should run');
 });

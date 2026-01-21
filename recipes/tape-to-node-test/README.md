@@ -50,7 +50,7 @@ This codemod migrates tests written using [`tape`](https://github.com/tape-testi
 + import assert from 'node:assert';
 
 - test("plan with end", (t) => {
-+ test("plan with end", async (t, done) => {
++ test("plan with end", (t, done) => {
     t.plan(2);
 -   t.equal(1, 1, "first assertion");
 +   assert.strictEqual(1, 1, "first assertion");
@@ -111,8 +111,6 @@ This codemod migrates tests written using [`tape`](https://github.com/tape-testi
 + test("timeout test", { timeout: 100 }, async (t) => {
 -   t.ok(true);
 +   assert.ok(true);
--   t.end();
-+   // t.end();
   });
 ```
 

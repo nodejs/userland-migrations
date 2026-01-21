@@ -566,7 +566,7 @@ function transformAssertions(
 								);
 								edits.push(
 									call.replace(
-										`// TODO: Add timeout: \`${timeoutVal}\` to test options manually`,
+										`// TODO(codemod@nodejs/tape-to-node-test): Add timeout: \`${timeoutVal}\` to test options manually`,
 									),
 								);
 							}
