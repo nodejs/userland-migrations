@@ -42,7 +42,7 @@ export function resolveBindingPath(node: SgNode<Js>, path: string) {
 
 	if (!supportedKinds.includes(rootKind.toString())) {
 		throw Error(
-			`Invalid node kind. To resolve binding path, one of these types must be provided: ${supportedKinds.join(', ')}`,
+			`The node kind "${rootKind}" is invalid. To resolve binding path, one of these types must be provided: ${supportedKinds.join(', ')}`,
 		);
 	}
 

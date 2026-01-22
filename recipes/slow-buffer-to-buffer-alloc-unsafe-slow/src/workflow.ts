@@ -7,6 +7,7 @@ import {
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 import { updateBinding } from "@nodejs/codemod-utils/ast-grep/update-binding";
+import { getModuleDependencies } from "@nodejs/codemod-utils/ast-grep/module-dependencies";
 
 type StatementType = "import-dynamic" | "import-static" | "require";
 
@@ -244,11 +245,7 @@ function transformSlowBufferCall(match: SgNode<JS>, binding: string, edits: Edit
  */
 function processSlowBufferUsage(rootNode: SgNode<JS>, edits: Edit[]): void {
 	const root = rootNode.getRoot();
-	const allStatements = [
-		...getNodeImportStatements(root, "buffer"),
-		...getNodeRequireCalls(root, "buffer"),
-		...getNodeImportCalls(root, "buffer"),
-	];
+	const allStatements = getModuleDependencies(root, "buffer")
 
 	// Process bound SlowBuffer calls (from imports/requires)
 	for (const importNode of allStatements) {

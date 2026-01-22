@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/process-assert-to-node-assert",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Handle DEP0100 via transforming `process.assert` to `node:assert`.",
   "type": "module",
   "scripts": {
