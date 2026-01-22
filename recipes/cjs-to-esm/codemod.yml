@@ -20,3 +20,6 @@ keywords:
 registry:
   access: public
   visibility: public
+
+capabilities:
+  - fs

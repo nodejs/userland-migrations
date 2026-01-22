@@ -1,8 +1,41 @@
 version: "1"
 
+state:
+  schema:
+    extension_changes:
+      description: Tracks files renamed from .cjs/.mjs to .js for downstream specifier fixes
+      type: array
+      items:
+        type: object
+        properties:
+          from:
+            type: string
+          to:
+            type: string
+
 nodes:
+  - id: normalize-extensions
+    name: Normalize file extensions
+    type: automatic
+    runtime:
+      type: direct
+    steps:
+      - id: change-extensions
+        name: Rename .cjs/.mjs files to .js and record mapping
+        js-ast-grep:
+          js_file: src/extension-change.ts
+          base_path: .
+          include:
+            - "**/*.cjs"
+            - "**/*.mjs"
+          exclude:
+            - "**/node_modules/**"
+          language: typescript
+
   - id: apply-transforms
     name: Apply AST transformations
+    depends_on:
+      - normalize-extensions
     type: automatic
     runtime:
       type: direct
