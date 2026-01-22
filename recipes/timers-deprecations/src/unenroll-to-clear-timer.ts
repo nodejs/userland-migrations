@@ -1,17 +1,9 @@
 import { EOL } from 'node:os';
-import {
-	getNodeImportStatements,
-	getNodeImportCalls,
-} from '@nodejs/codemod-utils/ast-grep/import-statement';
-import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
-import {
-	findParentStatement,
-	isSafeResourceTarget,
-} from '@nodejs/codemod-utils/ast-grep/general';
 import { getLineIndent } from '@nodejs/codemod-utils/ast-grep/indent';
 import type { Edit, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 
 const TARGET_METHOD = 'unenroll';
 
@@ -21,14 +13,10 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const edits: Edit[] = [];
 	const handledStatements = new Set<number>();
 
-	const importNodes = [
-		...getNodeRequireCalls(root, 'timers'),
-		...getNodeImportStatements(root, 'timers'),
-		...getNodeImportCalls(root, 'timers'),
-	];
+	const importNodes = getModuleDependencies(root, 'timers');
 
 	for (const importNode of importNodes) {
-		if (importNode.kind() === 'expression_statement') continue;
+		if (importNode.is('expression_statement')) continue;
 		const bindingPath = resolveBindingPath(importNode, `$.${TARGET_METHOD}`);
 		if (!bindingPath) continue;
 
@@ -45,9 +33,18 @@ export default function transform(root: SgRoot<Js>): string | null {
 			const resourceNode = match.getMatch('RESOURCE');
 			if (!resourceNode) continue;
 
-			if (!isSafeResourceTarget(resourceNode)) continue;
+			const isSafeResourceTarget =
+				resourceNode.is('identifier') || resourceNode.is('member_expression');
+			if (!isSafeResourceTarget) continue;
 
-			const statement = findParentStatement(match);
+			const statement = match.find({
+				rule: {
+					inside: {
+						kind: 'expression_statement',
+						stopBy: 'end',
+					},
+				},
+			});
 			if (!statement) continue;
 
 			if (handledStatements.has(statement.id())) continue;

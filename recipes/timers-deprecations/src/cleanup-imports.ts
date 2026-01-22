@@ -1,12 +1,6 @@
-import {
-	getNodeImportStatements,
-	getDefaultImportIdentifier,
-	getNodeImportCalls,
-} from '@nodejs/codemod-utils/ast-grep/import-statement';
-import {
-	getNodeRequireCalls,
-	getRequireNamespaceIdentifier,
-} from '@nodejs/codemod-utils/ast-grep/require-call';
+import { getDefaultImportIdentifier } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import { getRequireNamespaceIdentifier } from '@nodejs/codemod-utils/ast-grep/require-call';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { removeBinding } from '@nodejs/codemod-utils/ast-grep/remove-binding';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
@@ -14,21 +8,16 @@ import type { Edit, Range, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 const DEPRECATED_METHODS = ['enroll', 'unenroll', 'active', '_unrefActive'];
-const DEPRECATED_SET = new Set(DEPRECATED_METHODS);
 
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
 
-	const statements = [
-		...getNodeRequireCalls(root, 'timers'),
-		...getNodeImportStatements(root, 'timers'),
-		...getNodeImportCalls(root, 'timers'),
-	];
+	const importNodes = getModuleDependencies(root, 'timers');
 
-	for (const statement of statements) {
-		if (statement.kind() === 'expression_statement') continue;
+	for (const statement of importNodes) {
+		if (statement.is('expression_statement')) continue;
 		if (shouldRemoveEntireStatement(statement)) {
 			linesToRemove.push(statement.range());
 			continue;
@@ -134,63 +123,43 @@ function getNamespaceIdentifier(statement: SgNode<Js>): SgNode<Js> | null {
 }
 
 function shouldRemoveEntireStatement(statement: SgNode<Js>): boolean {
-	const objectPattern = statement.find({ rule: { kind: 'object_pattern' } });
-
-	if (objectPattern) {
-		const propertyNames = new Set<string>();
-		const shorthands = objectPattern.findAll({
-			rule: { kind: 'shorthand_property_identifier_pattern' },
-		});
-		const pairs = objectPattern.findAll({
-			rule: { kind: 'pair_pattern' },
-		});
-
-		for (const shorthand of shorthands) {
-			propertyNames.add(shorthand.text());
-		}
-
-		for (const pair of pairs) {
-			const property = pair.find({ rule: { kind: 'property_identifier' } });
-
-			if (!property) return false;
-			propertyNames.add(property.text());
-		}
-
-		if (!propertyNames.size) return false;
-
-		for (const name of propertyNames) {
-			if (!DEPRECATED_SET.has(name)) return false;
-		}
-
-		return true;
-	}
-
-	const namedImports = statement.find({ rule: { kind: 'named_imports' } });
-	if (!namedImports) return false;
-
-	const importClause = statement.find({ rule: { kind: 'import_clause' } });
-	if (!importClause) return false;
-
-	if (importClause.find({ rule: { kind: 'namespace_import' } })) return false;
-
-	const defaultImport = importClause.find({
+	const supportedMethods = statement.findAll({
+		constraints: {
+			METHOD: {
+				regex: `^(${DEPRECATED_METHODS.join('|')})$`,
+			},
+		},
 		rule: {
-			kind: 'identifier',
-			not: { inside: { kind: 'named_imports' } },
+			any: [
+				{
+					inside: {
+						kind: 'object_pattern',
+					},
+					kind: 'shorthand_property_identifier_pattern',
+					pattern: '$METHOD',
+				},
+				{
+					inside: {
+						kind: 'pair_pattern',
+						inside: {
+							kind: 'object_pattern',
+						},
+					},
+					kind: 'property_identifier',
+					pattern: '$METHOD',
+				},
+				{
+					inside: {
+						kind: 'import_specifier',
+						inside: {
+							kind: 'named_imports',
+						},
+					},
+					kind: 'identifier',
+					pattern: '$METHOD',
+				},
+			],
 		},
 	});
-	if (defaultImport) return false;
-
-	let hasSpecifier = false;
-	for (const specifier of namedImports.findAll({
-		rule: { kind: 'import_specifier' },
-	})) {
-		hasSpecifier = true;
-		const identifiers = specifier.findAll({ rule: { kind: 'identifier' } });
-		if (!identifiers.length) return false;
-		const importedName = identifiers[0]?.text();
-		if (!importedName || !DEPRECATED_SET.has(importedName)) return false;
-	}
-
-	return hasSpecifier;
+	return Boolean(supportedMethods.length);
 }
