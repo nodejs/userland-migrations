@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/types-is-native-error",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Handle DEP0197 via transforming `types.isNativeError` to `Error.isError`",
   "type": "module",
   "scripts": {
@@ -15,7 +15,7 @@
   "author": "Bruno Rodrigues",
   "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/types-is-native-error/README.md",
   "devDependencies": {
-    "@codemod.com/jssg-types": "^1.0.9"
+    "@codemod.com/jssg-types": "^1.3.1"
   },
   "dependencies": {
     "@nodejs/codemod-utils": "*"

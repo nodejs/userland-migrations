@@ -1,0 +1,24 @@
+{
+    "name": "@nodejs/chalk-to-util-styletext",
+    "version": "1.0.1",
+    "description": "Migrate from the chalk package to Node.js's built-in util.styleText API",
+    "type": "module",
+    "scripts": {
+        "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/nodejs/userland-migrations.git",
+        "directory": "recipes/chalk-to-util-styletext",
+        "bugs": "https://github.com/nodejs/userland-migrations/issues"
+    },
+    "author": "Richie McColl",
+    "license": "MIT",
+    "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/chalk-to-util-styletext/README.md",
+    "devDependencies": {
+        "@codemod.com/jssg-types": "^1.3.1"
+    },
+    "dependencies": {
+        "@nodejs/codemod-utils": "*"
+    }
+}

@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: "@nodejs/types-is-native-error"
-version: 1.0.0
+version: "1.0.1"
 description: Handle DEP0197 via transforming `types.isNativeError` to `Error.isError`
 author: Bruno Rodrigues
 license: MIT

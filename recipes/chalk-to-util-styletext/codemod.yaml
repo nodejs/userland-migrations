@@ -1,0 +1,24 @@
+schema_version: "1.0"
+name: "@nodejs/chalk-to-util-styletext"
+version: 1.0.1
+capabilities:
+  - fs
+  - child_process
+description: Migrate from the chalk package to Node.js's built-in util.styleText API
+author: Richie McColl
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+
+registry:
+  access: public
+  visibility: public
