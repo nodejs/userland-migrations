@@ -8,12 +8,30 @@ type QueueEvent = {
 	handler: () => Edit[];
 };
 
-const SUPPORTED_HTTP_METHODS = ['createServer'];
+const SUPPORTED_HTTP_METHODS = ['createServer', 'on'];
+const SUPPORTED_SERVER_METHODS = ['on'];
 const replaceMap = {
 	_headers: 'getHeaders()',
 	_headerNames: 'getRawHeaderNames()',
 };
 const queue: QueueEvent[] = [];
+
+function addResponseArgToQueue(node: SgNode<Js, 'arrow_function'>) {
+	const resArgs = node.field('parameters').findAll<'identifier'>({
+		rule: {
+			kind: 'identifier',
+		},
+	});
+
+	if (resArgs.length >= 2) {
+		const responseArg = resArgs[1]; // second arg that is OutgoingMessage.prototype (normally called res)
+
+		queue.unshift({
+			name: 'responseReference',
+			handler: () => parsers.responseReference(responseArg),
+		});
+	}
+}
 
 const parsers = {
 	createServer: (node: SgNode<Js, 'call_expression'>): Edit[] => {
@@ -45,22 +63,7 @@ const parsers = {
 			},
 		});
 
-		const resArgs = createServerHandler
-			.field('parameters')
-			.findAll<'identifier'>({
-				rule: {
-					kind: 'identifier',
-				},
-			});
-
-		if (resArgs.length >= 2) {
-			const responseArg = resArgs[1]; // second arg that is OutgoingMessage.prototype (normally called res)
-
-			queue.unshift({
-				name: 'responseReference',
-				handler: () => parsers.responseReference(responseArg),
-			});
-		}
+		addResponseArgToQueue(createServerHandler);
 
 		return [];
 	},
@@ -70,6 +73,64 @@ const parsers = {
 			| SgNode<Js, 'array_pattern'>
 			| SgNode<Js, 'object_pattern'>,
 	): Edit[] => {
+		const refs = serverNode.references();
+
+		for (const ref of refs) {
+			for (const node of ref.nodes) {
+				const fn = node.find<'call_expression'>({
+					rule: {
+						inside: {
+							kind: 'call_expression',
+							stopBy: 'end',
+						},
+					},
+				});
+
+				const fnName = node.find({
+					rule: {
+						inside: {
+							kind: 'member_expression',
+						},
+					},
+				});
+
+				const method = (fnName as SgNode<Js, 'member_expression'>)
+					.field('property')
+					.text();
+
+				switch (method) {
+					case 'on':
+						const argEvent = fn.field('arguments').find({
+							rule: {
+								any: [
+									{
+										kind: 'string_fragment',
+									},
+								],
+							},
+						});
+						const argListener = fn.field('arguments').find<'arrow_function'>({
+							rule: {
+								any: [
+									{
+										kind: 'arrow_function',
+									},
+									{
+										kind: 'function_expression',
+									},
+								],
+							},
+						});
+
+						if (argEvent?.text() === 'request' && argListener) {
+							addResponseArgToQueue(argListener);
+						}
+
+						break;
+				}
+			}
+		}
+
 		return [];
 	},
 	responseReference: (responseNode: SgNode<Js, 'identifier'>): Edit[] => {
