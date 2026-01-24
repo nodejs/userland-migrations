@@ -156,7 +156,12 @@ const parsers = {
 							}
 						}
 
-						if (event?.text() === 'request' && listener) {
+						if (
+							['request', 'checkContinue', 'checkExpectation'].includes(
+								event?.text(),
+							) &&
+							listener
+						) {
 							addResponseArgToQueue(listener as SgNode<Js, 'arrow_function'>);
 						}
 
