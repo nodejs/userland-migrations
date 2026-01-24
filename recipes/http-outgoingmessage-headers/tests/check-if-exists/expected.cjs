@@ -8,9 +8,7 @@ const server = http.createServer((req, res) => {
 		console.log('exists');
 	}
 
-	if (
-		Object.prototype.hasOwnProperty.call(res.getHeaders(), 'x-custom-header')
-	) {
+	if (Object.prototype.hasOwnProperty.call(res.getHeaders(), 'x-custom-header')) {
 		console.log('exists');
 	}
 

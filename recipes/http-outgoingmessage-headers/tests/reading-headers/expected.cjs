@@ -7,7 +7,7 @@ const server = http.createServer((req, res) => {
 	console.log({
 		headers: res.getHeaders(),
 		headerNames: res.getRawHeaderNames(),
-		customHeader: res.getHeader('x-custom-header'),
+		customHeader: res.getHeaders()['x-custom-header'],
 		count: Object.keys(res.getHeaders()).length,
 	});
 

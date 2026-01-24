@@ -1,118 +1,166 @@
-import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
-import type Js from "@codemod.com/jssg-types/langs/javascript";
+import type { SgRoot, SgNode, Edit } from '@codemod.com/jssg-types/main';
+import type Js from '@codemod.com/jssg-types/langs/javascript';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
+import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
+
+type QueueEvent = {
+	name: keyof typeof parsers;
+	handler: () => Edit[];
+};
+
+const SUPPORTED_HTTP_METHODS = ['createServer'];
+const replaceMap = {
+	_headers: 'getHeaders()',
+	_headerNames: 'getRawHeaderNames()',
+};
+const queue: QueueEvent[] = [];
+
+const parsers = {
+	createServer: (node: SgNode<Js, 'call_expression'>): Edit[] => {
+		const serverVar = node
+			.find<'variable_declarator'>({
+				rule: {
+					inside: {
+						kind: 'variable_declarator',
+					},
+				},
+			})
+			.field('name');
+
+		queue.unshift({
+			name: 'scanHttpServerReferences',
+			handler: () => parsers.scanHttpServerReferences(serverVar),
+		});
+
+		const createServerHandler = node.field('arguments').find<'arrow_function'>({
+			rule: {
+				any: [
+					{
+						kind: 'arrow_function',
+					},
+					{
+						kind: 'function_expression',
+					},
+				],
+			},
+		});
+
+		const resArgs = createServerHandler
+			.field('parameters')
+			.findAll<'identifier'>({
+				rule: {
+					kind: 'identifier',
+				},
+			});
+
+		if (resArgs.length >= 2) {
+			const responseArg = resArgs[1]; // second arg that is OutgoingMessage.prototype (normally called res)
+
+			queue.unshift({
+				name: 'responseReference',
+				handler: () => parsers.responseReference(responseArg),
+			});
+		}
+
+		return [];
+	},
+	scanHttpServerReferences: (
+		serverNode:
+			| SgNode<Js, 'identifier'>
+			| SgNode<Js, 'array_pattern'>
+			| SgNode<Js, 'object_pattern'>,
+	): Edit[] => {
+		return [];
+	},
+	responseReference: (responseNode: SgNode<Js, 'identifier'>): Edit[] => {
+		const edits: Edit[] = [];
+		const refs = responseNode.references();
+
+		for (const ref of refs) {
+			for (const node of ref.nodes) {
+				const memberExpressionNode = node.find<'member_expression'>({
+					rule: {
+						inside: {
+							kind: 'member_expression',
+						},
+					},
+				});
+				const resProperty = memberExpressionNode.field('property');
+				if (resProperty?.text() in replaceMap) {
+					const edit = resProperty.replace(
+						replaceMap[resProperty.text() as keyof typeof replaceMap],
+					);
+					edits.push(edit);
+				}
+			}
+		}
+
+		return edits;
+	},
+};
 
 export default function transform(root: SgRoot<Js>): string | null {
-  const rootNode = root.root();
-  const edits: Edit[] = [];
+	const rootNode = root.root();
+	let edits: Edit[] = [];
+	const httpHandlers = [];
 
-  {
-    const matches = rootNode.findAll({
-      rule: { pattern: "$OBJ._headers[$KEY]" },
-    });
-    for (const m of matches) {
-      const obj = m.getMatch("OBJ");
-      const key = m.getMatch("KEY");
-      if (!obj || !key) continue;
+	const modDependencies = getModuleDependencies(root, 'http');
 
-			const name = obj.text();
-      if (!looksLikeOutgoingMessage(rootNode, name)) continue;
+	let httpImports = [];
+	for (const dep of modDependencies) {
+		const binding = resolveBindingPath(dep, '$.createServer');
+		const localVarName = binding.split('.')[0];
+		httpImports.push(
+			dep.find({
+				rule: {
+					kind: 'identifier',
+					pattern: localVarName,
+				},
+			}),
+		);
+	}
 
-      edits.push(m.replace(`${obj.text()}.getHeader(${key.text()})`));
-    }
-  }
+	for (const http of httpImports) {
+		const references = http.references();
 
-  {
-    const matches = rootNode.findAll({
-      rule: { pattern: "$KEY in $OBJ._headers" },
-    });
-    for (const m of matches) {
-      const obj = m.getMatch("OBJ");
-      const key = m.getMatch("KEY");
-      if (!obj || !key) continue;
+		for (const reference of references) {
+			if (reference.root.filename() === root.filename()) {
+				for (const nodes of reference.nodes) {
+					const node = nodes.find<'call_expression'>({
+						rule: {
+							inside: {
+								kind: 'call_expression',
+								stopBy: 'end',
+							},
+						},
+					});
 
-			const name = obj.text();
-      if (!looksLikeOutgoingMessage(rootNode, name)) continue;
+					if (node) {
+						const fn = node.field<'function'>('function');
 
-      edits.push(m.replace(`${obj.text()}.hasHeader(${key.text()})`));
-    }
-  }
+						if (fn.is('member_expression')) {
+							const method = (fn as SgNode<Js, 'member_expression'>)
+								.field('property')
+								.text();
+							if (SUPPORTED_HTTP_METHODS.includes(method)) {
+								queue.unshift({
+									name: method as keyof typeof parsers,
+									handler: () => parsers[method as 'createServer'](node),
+								});
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 
-  {
-    const matches = rootNode.findAll({
-      rule: { pattern: "Object.keys($OBJ._headers)" },
-    });
-    for (const m of matches) {
-      const obj = m.getMatch("OBJ");
-      if (!obj) continue;
-
-			const name = obj.text();
-      if (!looksLikeOutgoingMessage(rootNode, name)) continue;
-
-      edits.push(m.replace(`${obj.text()}.getHeaderNames()`));
-    }
-  }
-
-  {
-    const matches = rootNode.findAll({
-      rule: { pattern: "$OBJ._headerNames" },
-    });
-    for (const m of matches) {
-      const obj = m.getMatch("OBJ");
-      if (!obj) continue;
-
-			const name = obj.text();
-      if (!looksLikeOutgoingMessage(rootNode, name)) continue;
-
-      edits.push(m.replace(`${obj.text()}.getHeaderNames()`));
-    }
-  }
-
-  {
-    const matches = rootNode.findAll({
-      rule: { pattern: "$OBJ._headers" },
-    });
-    for (const m of matches) {
-      const obj = m.getMatch("OBJ");
-      if (!obj) continue;
-
-			const name = obj.text();
-      if (!looksLikeOutgoingMessage(rootNode, name)) continue;
-
-      const text = m.text();
-      if (text.includes("[")) continue;
-
-      const parent = m.parent();
-      const parentText = parent?.text() ?? "";
-
-      if (parentText.startsWith("Object.keys(")) continue;
-
-      if (parentText.includes("=") && parentText.trim().startsWith(obj.text())) {
-        continue;
-      }
-
-      edits.push(m.replace(`${obj.text()}.getHeaders()`));
-    }
-  }
+	while (queue.length) {
+		const event = queue.at(-1);
+		edits = edits.concat(event.handler());
+		queue.pop();
+	}
 
 	if (!edits.length) return null;
-  return rootNode.commitEdits(edits);
-}
-
-function looksLikeOutgoingMessage(
-  file: ReturnType<SgRoot<Js>["root"]>,
-  name: string
-): boolean {
-  const methods = [
-    "setHeader",
-    "getHeader",
-    "getHeaders",
-    "hasHeader",
-    "removeHeader",
-    "writeHead",
-  ];
-  for (const m of methods) {
-    const hit = file.find({ rule: { pattern: `${name}.${m}($$)` } });
-    if (hit) return true;
-  }
-  return false;
+	return rootNode.commitEdits(edits);
 }
