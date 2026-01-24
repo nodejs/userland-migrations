@@ -9,7 +9,6 @@ type QueueEvent = {
 };
 
 const SUPPORTED_HTTP_METHODS = ['createServer', 'on'];
-const SUPPORTED_SERVER_METHODS = ['on'];
 const replaceMap = {
 	_headers: 'getHeaders()',
 	_headerNames: 'getRawHeaderNames()',
@@ -20,7 +19,7 @@ function getVariableValue(node: SgNode<Js, Kinds<Js>>) {
 	if (node.is('identifier')) {
 		const r = node.definition();
 		if (r?.node) {
-			const decl = r.node.find<'variable_declarator'>({
+			const variable = r.node.find<'variable_declarator'>({
 				rule: {
 					inside: {
 						kind: 'variable_declarator',
@@ -28,7 +27,22 @@ function getVariableValue(node: SgNode<Js, Kinds<Js>>) {
 				},
 			});
 
-			return decl.field('value');
+			const declaration = r.node.find({
+				rule: {
+					inside: {
+						kind: 'function_declaration',
+						stopBy: 'end',
+					},
+				},
+			});
+
+			if (variable?.is('variable_declarator')) {
+				return variable.field('value');
+			}
+
+			if (declaration?.is('function_declaration')) {
+				return declaration;
+			}
 		}
 	}
 }
@@ -85,14 +99,19 @@ const parsers = {
 
 		if (createServerHandler.is('identifier')) {
 			const value = getVariableValue(createServerHandler);
-			if (value.is('arrow_function') || value.is('function_expression')) {
+			if (
+				value.is('arrow_function') ||
+				value.is('function_expression') ||
+				value.is('function_declaration')
+			) {
 				createServerHandler = value;
 			}
 		}
 
 		if (
 			createServerHandler.is('arrow_function') ||
-			createServerHandler.is('function_expression')
+			createServerHandler.is('function_expression') ||
+			createServerHandler.is('function_declaration')
 		) {
 			addResponseArgToQueue(
 				createServerHandler as SgNode<Js, 'arrow_function'>,
@@ -150,7 +169,8 @@ const parsers = {
 							const value = getVariableValue(listener);
 							if (
 								value.is('arrow_function') ||
-								value.is('function_expression')
+								value.is('function_expression') ||
+								value.is('function_declaration')
 							) {
 								listener = value;
 							}
