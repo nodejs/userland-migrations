@@ -17,9 +17,9 @@ const queue: QueueEvent[] = [];
 
 function getVariableValue(node: SgNode<Js, Kinds<Js>>) {
 	if (node.is('identifier')) {
-		const r = node.definition();
-		if (r?.node) {
-			const variable = r.node.find<'variable_declarator'>({
+		const definition = node.definition();
+		if (definition?.node) {
+			const variable = definition.node.find<'variable_declarator'>({
 				rule: {
 					inside: {
 						kind: 'variable_declarator',
@@ -27,7 +27,7 @@ function getVariableValue(node: SgNode<Js, Kinds<Js>>) {
 				},
 			});
 
-			const declaration = r.node.find({
+			const declaration = definition.node.find({
 				rule: {
 					inside: {
 						kind: 'function_declaration',
@@ -222,7 +222,6 @@ const parsers = {
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	let edits: Edit[] = [];
-	const httpHandlers = [];
 
 	const modDependencies = getModuleDependencies(root, 'http');
 
