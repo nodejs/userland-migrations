@@ -12,7 +12,7 @@
     "directory": "recipes/http-outgoingmessage-headers",
     "bugs": "https://github.com/nodejs/userland-migrations/issues"
   },
-  "author": "elvessilvavieira (Elves Vieira)",
+  "author": "Node.js Team",
   "license": "MIT",
   "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/http-outgoingmessage-headers/README.md",
   "devDependencies": {

@@ -33,3 +33,8 @@ This recipe transforms the usage of deprecated private fields `_headers` and `_h
     console.log('Server running on port 3000');
   });
 ```
+
+### Refs
+
+- [http.getHeaderNames](https://nodejs.org/api/http.html#requestgetheadername)
+- [http.getHeaders](https://nodejs.org/api/http.html#requestgetheaders)
