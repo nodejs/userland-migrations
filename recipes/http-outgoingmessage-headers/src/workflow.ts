@@ -1,4 +1,4 @@
-import type { SgRoot, SgNode, Edit } from '@codemod.com/jssg-types/main';
+import type { SgRoot, SgNode, Edit, Kinds } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
@@ -16,6 +16,23 @@ const replaceMap = {
 };
 const queue: QueueEvent[] = [];
 
+function getVariableValue(node: SgNode<Js, Kinds<Js>>) {
+	if (node.is('identifier')) {
+		const r = node.definition();
+		if (r?.node) {
+			const decl = r.node.find<'variable_declarator'>({
+				rule: {
+					inside: {
+						kind: 'variable_declarator',
+					},
+				},
+			});
+
+			return decl.field('value');
+		}
+	}
+}
+
 function addResponseArgToQueue(node: SgNode<Js, 'arrow_function'>) {
 	const resArgs = node.field('parameters').findAll<'identifier'>({
 		rule: {
@@ -31,6 +48,20 @@ function addResponseArgToQueue(node: SgNode<Js, 'arrow_function'>) {
 			handler: () => parsers.responseReference(responseArg),
 		});
 	}
+}
+
+function getFunctionArguments(node: SgNode<Js, 'call_expression'>) {
+	return node
+		.field('arguments')
+		?.children()
+		.filter((a) => a.isNamed())
+		.map((a) => {
+			// map to return string_fragment
+			if (a.is('string')) {
+				return a.child(1);
+			}
+			return a;
+		});
 }
 
 const parsers = {
@@ -50,20 +81,23 @@ const parsers = {
 			handler: () => parsers.scanHttpServerReferences(serverVar),
 		});
 
-		const createServerHandler = node.field('arguments').find<'arrow_function'>({
-			rule: {
-				any: [
-					{
-						kind: 'arrow_function',
-					},
-					{
-						kind: 'function_expression',
-					},
-				],
-			},
-		});
+		let [createServerHandler] = getFunctionArguments(node);
 
-		addResponseArgToQueue(createServerHandler);
+		if (createServerHandler.is('identifier')) {
+			const value = getVariableValue(createServerHandler);
+			if (value.is('arrow_function') || value.is('function_expression')) {
+				createServerHandler = value;
+			}
+		}
+
+		if (
+			createServerHandler.is('arrow_function') ||
+			createServerHandler.is('function_expression')
+		) {
+			addResponseArgToQueue(
+				createServerHandler as SgNode<Js, 'arrow_function'>,
+			);
+		}
 
 		return [];
 	},
@@ -100,30 +134,30 @@ const parsers = {
 
 				switch (method) {
 					case 'on':
-						const argEvent = fn.field('arguments').find({
-							rule: {
-								any: [
-									{
-										kind: 'string_fragment',
-									},
-								],
-							},
-						});
-						const argListener = fn.field('arguments').find<'arrow_function'>({
-							rule: {
-								any: [
-									{
-										kind: 'arrow_function',
-									},
-									{
-										kind: 'function_expression',
-									},
-								],
-							},
-						});
+						let [event, listener] = getFunctionArguments(fn);
 
-						if (argEvent?.text() === 'request' && argListener) {
-							addResponseArgToQueue(argListener);
+						// if event is an identifier, go to definition and try to get the string value
+						if (event.is('identifier')) {
+							const value = getVariableValue(event);
+							if (value.is('string')) {
+								event = (
+									value as SgNode<Js, 'string'>
+								).child<'string_fragment'>(1);
+							}
+						}
+
+						if (listener.is('identifier')) {
+							const value = getVariableValue(listener);
+							if (
+								value.is('arrow_function') ||
+								value.is('function_expression')
+							) {
+								listener = value;
+							}
+						}
+
+						if (event?.text() === 'request' && listener) {
+							addResponseArgToQueue(listener as SgNode<Js, 'arrow_function'>);
 						}
 
 						break;
