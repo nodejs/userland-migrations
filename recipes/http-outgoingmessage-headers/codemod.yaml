@@ -2,7 +2,7 @@ schema_version: "1.0"
 name: "@nodejs/http-outgoingmessage-headers"
 version: 1.0.0
 description: Handle DEP0066: migrate deprecated use of `OutgoingMessage.prototype` `_headers` & `_headerNames` to public HTTP header APIs
-author: Node.js Team
+author: Elves Vieira
 license: MIT
 workflow: workflow.yaml
 category: migration
