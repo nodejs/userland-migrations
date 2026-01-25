@@ -1,0 +1,24 @@
+{
+  "name": "@nodejs/http-outgoingmessage-headers",
+  "version": "1.0.0",
+  "description": "Handle DEP0066: migrate deprecated use of `OutgoingMessage.prototype` `_headers` & `_headerNames` to public HTTP header APIs",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/http-outgoingmessage-headers",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "Elves Vieira",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/http-outgoingmessage-headers/README.md",
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.0.9"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
+  }
+}
