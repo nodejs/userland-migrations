@@ -153,33 +153,31 @@ const parsers = {
 					.field('property')
 					.text();
 
-				if (SUPPORTED_HTTP_SERVER_METHODS.includes(method)) {
-					let [event, listener] = getFunctionArguments(fn);
+				if (!SUPPORTED_HTTP_SERVER_METHODS.includes(method)) continue;
 
-					// if event is an identifier, go to definition and try to get the string value
-					if (event.is('identifier')) {
-						const value = getVariableValue(event);
-						if (value.is('string')) {
-							event = (value as SgNode<Js, 'string'>).child<'string_fragment'>(
-								1,
-							);
-						}
-					}
+				let [event, listener] = getFunctionArguments(fn);
 
-					if (listener.is('identifier')) {
-						const value = getVariableValue(listener);
-						if (
-							value.is('arrow_function') ||
-							value.is('function_expression') ||
-							value.is('function_declaration')
-						) {
-							listener = value;
-						}
+				// if event is an identifier, go to definition and try to get the string value
+				if (event.is('identifier')) {
+					const value = getVariableValue(event);
+					if (value.is('string')) {
+						event = (value as SgNode<Js, 'string'>).child<'string_fragment'>(1);
 					}
+				}
 
-					if (SUPPORTED_EVENTS.includes(event?.text()) && listener) {
-						addResponseArgToQueue(listener as SgNode<Js, 'arrow_function'>);
+				if (listener.is('identifier')) {
+					const value = getVariableValue(listener);
+					if (
+						value.is('arrow_function') ||
+						value.is('function_expression') ||
+						value.is('function_declaration')
+					) {
+						listener = value;
 					}
+				}
+
+				if (SUPPORTED_EVENTS.includes(event?.text()) && listener) {
+					addResponseArgToQueue(listener as SgNode<Js, 'arrow_function'>);
 				}
 			}
 		}
