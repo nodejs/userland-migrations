@@ -9,6 +9,7 @@ type QueueEvent = {
 };
 
 const SUPPORTED_HTTP_METHODS = ['createServer', 'on'];
+const SUPPORTED_EVENTS = ['request', 'checkContinue', 'checkExpectation'];
 const replaceMap = {
 	_headers: 'getHeaders()',
 	_headerNames: 'getRawHeaderNames()',
@@ -18,31 +19,31 @@ const queue: QueueEvent[] = [];
 function getVariableValue(node: SgNode<Js, Kinds<Js>>) {
 	if (node.is('identifier')) {
 		const definition = node.definition();
-		if (definition?.node) {
-			const variable = definition.node.find<'variable_declarator'>({
-				rule: {
-					inside: {
-						kind: 'variable_declarator',
-					},
+		if (!definition?.node) return;
+
+		const variable = definition.node.find<'variable_declarator'>({
+			rule: {
+				inside: {
+					kind: 'variable_declarator',
 				},
-			});
+			},
+		});
 
-			const declaration = definition.node.find({
-				rule: {
-					inside: {
-						kind: 'function_declaration',
-						stopBy: 'end',
-					},
+		if (variable?.is('variable_declarator')) {
+			return variable.field('value');
+		}
+
+		const declaration = definition.node.find({
+			rule: {
+				inside: {
+					kind: 'function_declaration',
+					stopBy: 'end',
 				},
-			});
+			},
+		});
 
-			if (variable?.is('variable_declarator')) {
-				return variable.field('value');
-			}
-
-			if (declaration?.is('function_declaration')) {
-				return declaration;
-			}
+		if (declaration?.is('function_declaration')) {
+			return declaration;
 		}
 	}
 }
@@ -54,14 +55,14 @@ function addResponseArgToQueue(node: SgNode<Js, 'arrow_function'>) {
 		},
 	});
 
-	if (resArgs.length >= 2) {
-		const responseArg = resArgs[1]; // second arg that is OutgoingMessage.prototype (normally called res)
+	if (resArgs.length < 2) return;
 
-		queue.unshift({
-			name: 'responseReference',
-			handler: () => parsers.responseReference(responseArg),
-		});
-	}
+	const responseArg = resArgs[1]; // second arg that is OutgoingMessage.prototype (normally called res)
+
+	queue.unshift({
+		name: 'responseReference',
+		handler: () => parsers.responseReference(responseArg),
+	});
 }
 
 function getFunctionArguments(node: SgNode<Js, 'call_expression'>) {
@@ -176,12 +177,7 @@ const parsers = {
 							}
 						}
 
-						if (
-							['request', 'checkContinue', 'checkExpectation'].includes(
-								event?.text(),
-							) &&
-							listener
-						) {
+						if (SUPPORTED_EVENTS.includes(event?.text()) && listener) {
 							addResponseArgToQueue(listener as SgNode<Js, 'arrow_function'>);
 						}
 
@@ -243,32 +239,33 @@ export default function transform(root: SgRoot<Js>): string | null {
 		const references = http.references();
 
 		for (const reference of references) {
-			if (reference.root.filename() === root.filename()) {
-				for (const nodes of reference.nodes) {
-					const node = nodes.find<'call_expression'>({
-						rule: {
-							inside: {
-								kind: 'call_expression',
-								stopBy: 'end',
-							},
+			if (reference.root.filename() !== root.filename()) continue;
+
+			for (const nodes of reference.nodes) {
+				const node = nodes.find<'call_expression'>({
+					rule: {
+						inside: {
+							kind: 'call_expression',
+							stopBy: 'end',
 						},
+					},
+				});
+
+				if (!node) continue;
+
+				const fn = node.field<'function'>('function');
+
+				if (!fn.is('member_expression')) continue;
+
+				const method = (fn as SgNode<Js, 'member_expression'>)
+					.field('property')
+					.text();
+
+				if (SUPPORTED_HTTP_METHODS.includes(method)) {
+					queue.unshift({
+						name: method as keyof typeof parsers,
+						handler: () => parsers[method as 'createServer'](node),
 					});
-
-					if (node) {
-						const fn = node.field<'function'>('function');
-
-						if (fn.is('member_expression')) {
-							const method = (fn as SgNode<Js, 'member_expression'>)
-								.field('property')
-								.text();
-							if (SUPPORTED_HTTP_METHODS.includes(method)) {
-								queue.unshift({
-									name: method as keyof typeof parsers,
-									handler: () => parsers[method as 'createServer'](node),
-								});
-							}
-						}
-					}
 				}
 			}
 		}
