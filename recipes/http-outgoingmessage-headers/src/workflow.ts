@@ -8,7 +8,8 @@ type QueueEvent = {
 	handler: () => Edit[];
 };
 
-const SUPPORTED_HTTP_METHODS = ['createServer', 'on'];
+const SUPPORTED_HTTP_METHODS = ['createServer'];
+const SUPPORTED_HTTP_SERVER_METHODS = ['on'];
 const SUPPORTED_EVENTS = ['request', 'checkContinue', 'checkExpectation'];
 const replaceMap = {
 	_headers: 'getHeaders()',
@@ -152,36 +153,33 @@ const parsers = {
 					.field('property')
 					.text();
 
-				switch (method) {
-					case 'on':
-						let [event, listener] = getFunctionArguments(fn);
+				if (SUPPORTED_HTTP_SERVER_METHODS.includes(method)) {
+					let [event, listener] = getFunctionArguments(fn);
 
-						// if event is an identifier, go to definition and try to get the string value
-						if (event.is('identifier')) {
-							const value = getVariableValue(event);
-							if (value.is('string')) {
-								event = (
-									value as SgNode<Js, 'string'>
-								).child<'string_fragment'>(1);
-							}
+					// if event is an identifier, go to definition and try to get the string value
+					if (event.is('identifier')) {
+						const value = getVariableValue(event);
+						if (value.is('string')) {
+							event = (value as SgNode<Js, 'string'>).child<'string_fragment'>(
+								1,
+							);
 						}
+					}
 
-						if (listener.is('identifier')) {
-							const value = getVariableValue(listener);
-							if (
-								value.is('arrow_function') ||
-								value.is('function_expression') ||
-								value.is('function_declaration')
-							) {
-								listener = value;
-							}
+					if (listener.is('identifier')) {
+						const value = getVariableValue(listener);
+						if (
+							value.is('arrow_function') ||
+							value.is('function_expression') ||
+							value.is('function_declaration')
+						) {
+							listener = value;
 						}
+					}
 
-						if (SUPPORTED_EVENTS.includes(event?.text()) && listener) {
-							addResponseArgToQueue(listener as SgNode<Js, 'arrow_function'>);
-						}
-
-						break;
+					if (SUPPORTED_EVENTS.includes(event?.text()) && listener) {
+						addResponseArgToQueue(listener as SgNode<Js, 'arrow_function'>);
+					}
 				}
 			}
 		}
@@ -221,7 +219,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	const modDependencies = getModuleDependencies(root, 'http');
 
-	let httpImports = [];
+	const httpImports = [];
 	for (const dep of modDependencies) {
 		const binding = resolveBindingPath(dep, '$.createServer');
 		const localVarName = binding.split('.')[0];
