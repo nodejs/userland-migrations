@@ -1,6 +1,6 @@
 # `OutgoingMessage` private header fields
 
-This recipe transforms the usage of deprecated private fields `_headers` and `_headerNames` on `OutgoingMessage.prototype` to their public equivalents.
+This migration addresses [`DEP0066`](https://nodejs.org/api/deprecations.html#dep0066-outgoingmessageprototype_headers-outgoingmessageprototype_headernames), transforming use of deprecated private fields `_headers` and `_headerNames` on `OutgoingMessage.prototype` to their public equivalents.
 
 ## Examples
 
