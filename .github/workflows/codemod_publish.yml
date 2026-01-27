@@ -15,15 +15,6 @@ on:
         required: true
         type: string
 
-permissions:
-    id-token: write
-    contents: read
-
-jobs:
-  validate-and-publish:
-    name: Validate and Publish Codemod
-    runs-on: ubuntu-latest
-
 permissions: read-all
 
 jobs:
@@ -32,8 +23,8 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-        id-token: write
-        contents: read
+      id-token: write
+      contents: read
     outputs:
       version: ${{ steps.parse-tag.outputs.version }}
       codemod-name: ${{ steps.parse-tag.outputs.codemod-name }}
@@ -121,7 +112,7 @@ jobs:
       - name: Publish codemod to registry
         uses: codemod/publish-action@dd6c8dbc5ceb1a6146feba41481d88b43da50024 # v1
         with:
-            path: ${{ steps.parse-tag.outputs.codemod-path }}
+          path: ${{ steps.parse-tag.outputs.codemod-path }}
 
       - name: Create release summary
         env:
