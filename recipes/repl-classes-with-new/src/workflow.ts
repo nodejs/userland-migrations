@@ -1,16 +1,12 @@
-import { getNodeImportStatements, getNodeImportCalls } from '@nodejs/codemod-utils/ast-grep/import-statement';
-import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import type { SgRoot, Edit, SgNode } from '@codemod.com/jssg-types/main';
-import type JS from "@codemod.com/jssg-types/langs/javascript";
+import type JS from '@codemod.com/jssg-types/langs/javascript';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 
 /**
  * Classes of the repl module
  */
-const CLASS_NAMES = [
-	'REPLServer',
-	'Recoverable',
-];
+const CLASS_NAMES = ['REPLServer', 'Recoverable'];
 
 /**
  * Transform function that converts deprecated node:repl classes to use the `new` keyword
@@ -25,11 +21,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 
-	const allStatementNodes = [
-		...getNodeImportStatements(root, 'repl'),
-		...getNodeRequireCalls(root, 'repl'),
-		...getNodeImportCalls(root, 'repl'),
-	];
+	const allStatementNodes = getModuleDependencies(root, 'repl');
 
 	// if no imports are present it means that we don't need to process the file
 	if (!allStatementNodes.length) return null;

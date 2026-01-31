@@ -1,11 +1,7 @@
-import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
-import {
-	getNodeImportCalls,
-	getNodeImportStatements,
-} from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import type { Edit, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 
 const chalkBinding = 'chalk';
 const chalkStdErrBinding = 'chalkStderr';
@@ -22,11 +18,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const edits: Edit[] = [];
 
 	// This actually catches `node:chalk` import but we don't care as it shouldn't append
-	const statements = [
-		...getNodeImportStatements(root, chalkBinding),
-		...getNodeRequireCalls(root, chalkBinding),
-		...getNodeImportCalls(root, chalkBinding),
-	];
+	const statements = getModuleDependencies(root, chalkBinding);
 
 	// If there aren't any imports then we don't process the file
 	if (!statements.length) return null;

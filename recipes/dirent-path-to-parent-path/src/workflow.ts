@@ -1,13 +1,9 @@
-import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
-import {
-	getNodeImportCalls,
-	getNodeImportStatements,
-} from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
 import { getScope } from '@nodejs/codemod-utils/ast-grep/get-scope';
 import type { Edit, Range, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 
 type BindingToReplace = {
 	node: SgNode<Js>;
@@ -56,9 +52,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	const importRequireStatement: SgNode<Js>[] = [];
 	for (const mod of handledModules) {
-		importRequireStatement.push(...getNodeRequireCalls(root, mod));
-		importRequireStatement.push(...getNodeImportStatements(root, mod));
-		importRequireStatement.push(...getNodeImportCalls(root, mod));
+		importRequireStatement.push(...getModuleDependencies(root, mod));
 	}
 
 	if (!importRequireStatement.length) return null;
@@ -166,7 +160,8 @@ export default function transform(root: SgRoot<Js>): string | null {
 	}
 
 	for (const dirArray of dirArrays) {
-		const pattern = dirArray.node.kind() === 'variable_declarator'
+		const pattern =
+			dirArray.node.kind() === 'variable_declarator'
 				? (dirArray.node as SgNode<Js, 'variable_declarator'>)
 						.field('name')
 						.text()
@@ -256,7 +251,8 @@ export default function transform(root: SgRoot<Js>): string | null {
 			});
 
 			for (const arrowFn of arrowFns) {
-				const parameters = arrowFn.field('parameters') || arrowFn.field('parameter');
+				const parameters =
+					arrowFn.field('parameters') || arrowFn.field('parameter');
 				const fnBody = arrowFn.field('body');
 
 				const param = parameters?.find<'identifier'>({
