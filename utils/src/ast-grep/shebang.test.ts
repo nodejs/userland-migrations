@@ -18,17 +18,17 @@ describe('shebang', () => {
 			assert.equal(shebang?.text(), '#!/usr/bin/env node');
 		});
 
-		it('should take the first shebang line if multiple exist on top of the code', () => {
+		it('should throw an error if multiple shebangs exist on top of the code', () => {
 			const code = dedent`
-			#!/usr/bin/env node 1
-			#!/usr/bin/env node 2
-			console.log("Hello, world!");
-		`;
+		#!/usr/bin/env node 1
+		#!/usr/bin/env node 2
+		console.log("Hello, world!");
+	`;
 			const ast = astGrep.parse(astGrep.Lang.JavaScript, code);
 
-			const shebang = getShebang(ast);
-
-			assert.strictEqual(shebang?.text(), '#!/usr/bin/env node 2');
+			assert.throws(() => getShebang(ast), {
+				message: 'Multiple shebang lines found',
+			});
 		});
 
 		it('should return null if no shebang line', () => {

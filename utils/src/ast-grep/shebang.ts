@@ -21,17 +21,18 @@ export const getShebang = (root: SgRoot) => {
 
 	// Find the last consecutive shebang from the start of the file
 	let lastValidShebang = null;
-	let expectedLine = 0;
 
-	for (const shebang of allShebangs) {
-		const range = shebang.range();
+	if (allShebangs.length === 0) return null;
 
-		// Shebang must be at the expected line (0 for first, then consecutive)
-		if (range.start.line !== expectedLine) break;
+	const firstShebang = allShebangs[0];
 
-		lastValidShebang = shebang;
-		expectedLine = range.end.line + 1;
+	if (firstShebang.range().start.line !== 0) return null;
+
+	if (allShebangs.length > 1) {
+		throw new Error('Multiple shebang lines found');
 	}
+
+	lastValidShebang = firstShebang;
 
 	return lastValidShebang;
 };
