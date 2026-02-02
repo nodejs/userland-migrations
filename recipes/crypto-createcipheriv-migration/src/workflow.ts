@@ -1,9 +1,5 @@
 import dedent from 'dedent';
-import {
-	getNodeImportCalls,
-	getNodeImportStatements,
-} from '@nodejs/codemod-utils/ast-grep/import-statement';
-import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import type { Edit, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
@@ -28,24 +24,30 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const edits: Edit[] = [];
 	const seenCallRanges = new Set<string>();
 
-	const importStatements = [
-		...getNodeImportStatements(root, 'crypto'),
-		...getNodeImportCalls(root, 'crypto'),
-		...getNodeRequireCalls(root, 'crypto'),
-	];
+	const importStatements = getModuleDependencies(root, 'crypto');
 
 	if (!importStatements.length) return null;
 
 	for (const statement of importStatements) {
 		const cipherBinding = resolveBindingPath(statement, '$.createCipher');
-		collectCallEdits(
-			{ rootNode, statement, binding: cipherBinding, kind: 'cipher', edits, seenCallRanges }
-		);
+		collectCallEdits({
+			rootNode,
+			statement,
+			binding: cipherBinding,
+			kind: 'cipher',
+			edits,
+			seenCallRanges,
+		});
 
 		const decipherBinding = resolveBindingPath(statement, '$.createDecipher');
-		collectCallEdits(
-			{ rootNode, statement, binding: decipherBinding, kind: 'decipher', edits, seenCallRanges }
-		);
+		collectCallEdits({
+			rootNode,
+			statement,
+			binding: decipherBinding,
+			kind: 'decipher',
+			edits,
+			seenCallRanges,
+		});
 	}
 
 	if (!edits.length) return null;
@@ -91,23 +93,16 @@ function collectCallEdits({
 
 		const optionsText = call.getMatch('OPTIONS')?.text()?.trim();
 
-		if (kind === 'cipher') {
-			const replacement = buildCipherReplacement({
+		const replacement = buildDeCipherReplacement(
+			{
 				binding,
 				algorithm,
 				password,
 				options: optionsText,
-			});
-			edits.push(call.replace(replacement));
-		} else {
-			const replacement = buildDecipherReplacement({
-				binding,
-				algorithm,
-				password,
-				options: optionsText,
-			});
-			edits.push(call.replace(replacement));
-		}
+			},
+			kind,
+		);
+		edits.push(call.replace(replacement));
 
 		// Update the corresponding import/require binding if present.
 		// Rename `createCipher`/`createDecipher` -> `createCipheriv`/`createDecipheriv`
@@ -115,7 +110,8 @@ function collectCallEdits({
 		const sourceName = kind === 'cipher' ? 'createCipher' : 'createDecipher';
 		const targetName = `${sourceName}iv`;
 
-		const additions: string[] = kind === 'cipher' ? ['randomBytes', 'scryptSync'] : ['scryptSync'];
+		const additions: string[] =
+			kind === 'cipher' ? ['randomBytes', 'scryptSync'] : ['scryptSync'];
 
 		// Preserve any local alias (e.g. `createCipher: makeCipher`) by
 		// constructing a property:local string for the renamed binding.
@@ -123,7 +119,13 @@ function collectCallEdits({
 
 		// Prefer an explicit update for destructured/named imports when
 		// present so we can preserve aliasing and ordering exactly.
-		const explicit = updateDestructuredStatement(statement, sourceName, targetName, local, additions);
+		const explicit = updateDestructuredStatement(
+			statement,
+			sourceName,
+			targetName,
+			local,
+			additions,
+		);
 
 		if (explicit) {
 			edits.push(explicit);
@@ -131,40 +133,39 @@ function collectCallEdits({
 	}
 }
 
-
-
-function buildCipherReplacement(params: {
-	binding: string;
-	algorithm: string;
-	password: string;
-	options?: string;
-}): string {
-	const { binding, algorithm, password, options } = params;
-	const randomBytesCall = getMemberAccess(binding, 'randomBytes');
+function buildDeCipherReplacement(
+	{
+		binding,
+		algorithm,
+		password,
+		options,
+	}: {
+		binding: string;
+		algorithm: string;
+		password: string;
+		options?: string;
+	},
+	kind: 'decipher' | 'cipher',
+): string {
 	const scryptCall = getMemberAccess(binding, 'scryptSync');
-	const cipherCall = getCallableBinding(binding, 'createCipheriv');
+	const method = getCallableBinding(
+		binding,
+		kind === 'cipher' ? 'createCipheriv' : 'createDecipheriv',
+	);
 
-	return dedent(`
-	(() => {
-		const __dep0106Salt = ${randomBytesCall}(16);
-		const __dep0106Key = ${scryptCall}(${password}, __dep0106Salt, 32);
-		const __dep0106Iv = ${randomBytesCall}(16);
-		// DEP0106: Persist __dep0106Salt and __dep0106Iv with the ciphertext so it can be decrypted later.
-		// DEP0106: Adjust the derived key length (32 bytes) and IV length to match the chosen algorithm.
-		return ${cipherCall}(${algorithm}, __dep0106Key, __dep0106Iv${options ? `, ${options}` : ''});
-	})()
-`);
-}
-
-function buildDecipherReplacement(params: {
-	binding: string;
-	algorithm: string;
-	password: string;
-	options?: string;
-}): string {
-	const { binding, algorithm, password, options } = params;
-	const scryptCall = getMemberAccess(binding, 'scryptSync');
-	const decipherCall = getCallableBinding(binding, 'createDecipheriv');
+	if (kind === 'cipher') {
+		const randomBytesCall = getMemberAccess(binding, 'randomBytes');
+		return dedent(`
+		(() => {
+			const __dep0106Salt = ${randomBytesCall}(16);
+			const __dep0106Key = ${scryptCall}(${password}, __dep0106Salt, 32);
+			const __dep0106Iv = ${randomBytesCall}(16);
+			// DEP0106: Persist __dep0106Salt and __dep0106Iv with the ciphertext so it can be decrypted later.
+			// DEP0106: Adjust the derived key length (32 bytes) and IV length to match the chosen algorithm.
+			return ${method}(${algorithm}, __dep0106Key, __dep0106Iv${options ? `, ${options}` : ''});
+		})()
+	`);
+	}
 
 	return dedent(`
 	(() => {
@@ -173,7 +174,7 @@ function buildDecipherReplacement(params: {
 		const __dep0106Iv = /* TODO: stored IV Buffer */ Buffer.alloc(16);
 		const __dep0106Key = ${scryptCall}(${password}, __dep0106Salt, 32);
 		// DEP0106: Ensure __dep0106Salt and __dep0106Iv match the values used during encryption.
-		return ${decipherCall}(${algorithm}, __dep0106Key, __dep0106Iv${options ? `, ${options}` : ''});
+		return ${method}(${algorithm}, __dep0106Key, __dep0106Iv${options ? `, ${options}` : ''});
 	})()
 `);
 }
@@ -211,9 +212,14 @@ function updateDestructuredStatement(
 
 		// Work on textual specifiers to preserve formatting and order.
 		const content = namedImports.text().replace(/^{\s*|\s*}$/g, '');
-		const parts = content.split(',').map((p) => p.trim()).filter(Boolean);
+		const parts = content
+			.split(',')
+			.map((p) => p.trim())
+			.filter(Boolean);
 		const entries: string[] = parts.map((p) => {
-			if (new RegExp(`^${escapeRegExp(oldName)}(\\b|\\s|:|\\s+as\\b)`).test(p)) {
+			if (
+				new RegExp(`^${escapeRegExp(oldName)}(\\b|\\s|:|\\s+as\\b)`).test(p)
+			) {
 				const local = localName ?? oldName;
 				return isEsm ? `${targetName} as ${local}` : `${targetName}: ${local}`;
 			}
@@ -221,14 +227,22 @@ function updateDestructuredStatement(
 		});
 
 		for (const a of additions) {
-			if (!entries.some((e) => new RegExp(`\\b${escapeRegExp(a)}\\b`).test(e))) entries.push(a);
+			if (!entries.some((e) => new RegExp(`\\b${escapeRegExp(a)}\\b`).test(e)))
+				entries.push(a);
 		}
 		return namedImports.replace(`{ ${entries.join(', ')} }`);
 	}
 
 	const objectPattern = statement.find({ rule: { kind: 'object_pattern' } });
 	if (objectPattern) {
-		const pairs = objectPattern.findAll({ rule: { any: [{ kind: 'pair_pattern' }, { kind: 'shorthand_property_identifier_pattern' }] } });
+		const pairs = objectPattern.findAll({
+			rule: {
+				any: [
+					{ kind: 'pair_pattern' },
+					{ kind: 'shorthand_property_identifier_pattern' },
+				],
+			},
+		});
 		if (pairs.length === 0) return undefined;
 
 		const entries: string[] = [];
@@ -271,7 +285,10 @@ function getRangeKey(node: SgNode<Js>): string {
 	return `${range.start.line}:${range.start.column}-${range.end.line}:${range.end.column}`;
 }
 
-function findLocalSpecifierName(statement: SgNode<Js>, propertyName: string): string | undefined {
+function findLocalSpecifierName(
+	statement: SgNode<Js>,
+	propertyName: string,
+): string | undefined {
 	// pair_pattern: { prop: local }
 	const pairs = statement.findAll({ rule: { kind: 'pair_pattern' } });
 	for (const pair of pairs) {
@@ -289,7 +306,7 @@ function findLocalSpecifierName(statement: SgNode<Js>, propertyName: string): st
 		const nameNode = s.field?.('name');
 		const aliasNode = s.field?.('alias');
 		const idNode = s.find({ rule: { kind: 'identifier' } });
-		const prop = (nameNode?.text()) || idNode?.text();
+		const prop = nameNode?.text() || idNode?.text();
 
 		if (prop && prop === propertyName) {
 			if (aliasNode) return aliasNode.text();
@@ -298,7 +315,9 @@ function findLocalSpecifierName(statement: SgNode<Js>, propertyName: string): st
 	}
 
 	// shorthand destructure
-	const sh = statement.find({ rule: { kind: 'shorthand_property_identifier_pattern' } });
+	const sh = statement.find({
+		rule: { kind: 'shorthand_property_identifier_pattern' },
+	});
 	if (sh && sh.text() === propertyName) return propertyName;
 
 	return undefined;
