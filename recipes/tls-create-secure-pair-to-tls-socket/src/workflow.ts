@@ -51,7 +51,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 	edits.push(...renamePairVariables(rootNode, cspBindings));
 
 	// Update imports
-	edits.push(...rewriteTlsImports(rootNode));
+	edits.push(...rewriteTlsImports(tlsStmts));
 
 	if (!edits.length) return null;
 
@@ -121,30 +121,19 @@ function renamePairVariables(rootNode: SgNode<JS>, bindings: string[]): Edit[] {
 	return edits;
 }
 
-function rewriteTlsImports(rootNode: SgNode<JS>): Edit[] {
+function rewriteTlsImports(
+	nodeImportStatements: Array<SgNode<JS>> = [],
+): Edit[] {
 	const edits: Edit[] = [];
 
 	// Handle ESM named imports
-	const esmNamed = rootNode.findAll({
-		rule: {
-			kind: 'import_statement',
-			all: [
-				{ has: { kind: 'import_clause', has: { kind: 'named_imports' } } },
-				{
-					has: {
-						field: 'source',
-						any: [
-							{ pattern: "'tls'" },
-							{ pattern: '"tls"' },
-							{ pattern: "'node:tls'" },
-							{ pattern: '"node:tls"' },
-						],
-					},
-				},
-			],
-			not: { has: { kind: 'namespace_import' } },
-		},
-	});
+	const esmNamed = nodeImportStatements
+		.map((stmt) => stmt)
+		.filter((stmt) => {
+			const named = stmt.find({ rule: { kind: 'named_imports' } });
+			const namespace = stmt.find({ rule: { kind: 'namespace_import' } });
+			return named && !namespace;
+		});
 
 	for (const decl of esmNamed) {
 		const srcText = decl.field('source')?.text()?.replace(/['"]/g, '') || '';
@@ -188,24 +177,14 @@ function rewriteTlsImports(rootNode: SgNode<JS>): Edit[] {
 	}
 
 	// Handle CJS destructured requires
-	const cjsNamed = rootNode.findAll({
-		rule: {
-			kind: 'variable_declarator',
-			all: [
-				{ has: { field: 'name', kind: 'object_pattern' } },
-				{
-					has: {
-						field: 'value',
-						any: [
-							{ pattern: "require('tls')" },
-							{ pattern: 'require("tls")' },
-							{ pattern: "require('node:tls')" },
-							{ pattern: 'require("node:tls")' },
-						],
-					},
-				},
-			],
-		},
+	const cjsNamed = nodeImportStatements.filter((stmt) => {
+		if (stmt.kind() !== 'variable_declarator') return false;
+
+		const name = stmt.field('name');
+		const value = stmt.field('value');
+		if (!name || name.kind() !== 'object_pattern' || !value) return false;
+
+		return true;
 	});
 
 	for (const decl of cjsNamed) {
