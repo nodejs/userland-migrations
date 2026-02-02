@@ -1,0 +1,24 @@
+schema_version: "1.0"
+name: "@nodejs/tls-create-secure-pair-to-tls-socket"
+version: 1.0.0
+description: Handle DEP0064 by transforming `createSecurePair` to `TLSSocket`
+author: Leonardo Trevizo
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - tls
+  - createSecurePair
+  - TLSSocket
+
+registry:
+  access: public
+  visibility: public
