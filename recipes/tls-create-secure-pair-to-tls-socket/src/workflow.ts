@@ -3,104 +3,72 @@ import type JS from '@codemod.com/jssg-types/langs/javascript';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 
-type CallSite = { call: SgNode<JS>; binding: string };
-
 export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
 	const tlsStmts = getModuleDependencies(root, 'tls');
-	const cspBindings = unique([
-		...(tlsStmts
-			.filter((s) => {
-				const kind = s.kind();
-				return (
-					kind === 'lexical_declaration' ||
-					kind === 'variable_declarator' ||
-					kind === 'import_statement' ||
-					kind === 'import_clause'
-				);
-			})
-			.map((s) =>
-				resolveBindingPath(s as unknown as SgNode<JS>, '$.createSecurePair'),
-			)
-			.filter(Boolean) as string[]),
-		...collectNamedImportAliases(tlsStmts, 'createSecurePair'),
-		...collectCjsAliases(rootNode),
-		...collectDefaultImportBindings(tlsStmts),
-		...collectDynamicImportIdentifiers(rootNode),
-		...collectDynamicImportThenBindings(rootNode),
-	]);
-	const callSites: CallSite[] = findCallsMatchingBindings(
-		rootNode,
-		cspBindings,
-	);
+
+	if (!tlsStmts.length) return null;
+
+	const cspBindings = collectAllBindings(tlsStmts);
+
+	if (!cspBindings.length) return null;
+
 	const edits: Edit[] = [];
 
-	for (const { call, binding } of callSites) {
-		// Get arguments
-		const args = call.field('arguments');
-		if (!args) continue;
-
-		// Extract up to 4 arguments
-		const argNodes = args
-			.children()
-			.filter((n) => n.kind() !== '(' && n.kind() !== ')' && n.kind() !== ',');
-		const a = argNodes[0] ? getText(argNodes[0]) : null;
-		const b = argNodes[1] ? getText(argNodes[1]) : null;
-		const c = argNodes[2] ? getText(argNodes[2]) : null;
-		const d = argNodes[3] ? getText(argNodes[3]) : null;
-
-		const options = buildOptions(a, b, c, d);
-		const isNamespace = binding.includes('.');
-		const replacement = isNamespace
-			? `new ${binding.replace(/\.createSecurePair$/, '.TLSSocket')}(underlyingSocket, ${options})`
-			: `new TLSSocket(underlyingSocket, ${options})`;
-		edits.push(call.replace(replacement));
-	}
-	edits.push(...renamePairAssignedVariables(rootNode, cspBindings));
-
-	edits.push(...rewriteTlsImports(rootNode));
-
-	if (edits.length === 0) return null;
-
-	return rootNode.commitEdits(edits);
-}
-
-function findCallsMatchingBindings(
-	rootNode: SgNode<JS>,
-	bindings: string[],
-): CallSite[] {
-	const out: CallSite[] = [];
-
-	// Find all call expressions
-	const calls = rootNode.findAll({
-		rule: { kind: 'call_expression' },
-	});
+	// Transform all createSecurePair calls
+	const calls = rootNode.findAll({ rule: { kind: 'call_expression' } });
 
 	for (const call of calls) {
 		const callee = call.field('function');
 		if (!callee) continue;
 
-		let binding: string;
-		if (callee.kind() === 'member_expression') {
-			// tls.createSecurePair or similar
-			const obj = callee.field('object');
-			const prop = callee.field('property');
-			if (!obj || !prop) continue;
-			binding = `${obj.text()}.${prop.text()}`;
-		} else if (callee.kind() === 'identifier') {
-			// createSecurePair or csp (alias)
-			binding = callee.text();
-		} else {
-			continue;
-		}
+		const binding = getCallBinding(callee);
+		if (!binding || !cspBindings.includes(binding)) continue;
 
-		// Only include calls that match our bindings
-		if (bindings.includes(binding)) {
-			out.push({ call, binding });
-		}
+		// Extract arguments
+		const args = call.field('arguments');
+		if (!args) continue;
+
+		const argNodes = args
+			.children()
+			.filter((n) => n.kind() !== '(' && n.kind() !== ')' && n.kind() !== ',');
+
+		const options = buildOptions(
+			argNodes[0]?.text() || null,
+			argNodes[1]?.text() || null,
+			argNodes[2]?.text() || null,
+			argNodes[3]?.text() || null,
+		);
+
+		const replacement = binding.includes('.')
+			? `new ${binding.replace(/\.createSecurePair$/, '.TLSSocket')}(underlyingSocket, ${options})`
+			: `new TLSSocket(underlyingSocket, ${options})`;
+
+		edits.push(call.replace(replacement));
 	}
 
-	return out;
+	// Rename variables named 'pair' to 'socket'
+	edits.push(...renamePairVariables(rootNode, cspBindings));
+
+	// Update imports
+	edits.push(...rewriteTlsImports(rootNode));
+
+	if (!edits.length) return null;
+
+	return rootNode.commitEdits(edits);
+}
+
+function getCallBinding(callee: SgNode<JS>): string | null {
+	if (callee.kind() === 'member_expression') {
+		const obj = callee.field('object');
+		const prop = callee.field('property');
+		if (!obj || !prop) return null;
+		return `${obj.text()}.${prop.text()}`;
+	}
+	if (callee.kind() === 'identifier') {
+		return callee.text();
+	}
+	return null;
 }
 
 function buildOptions(
@@ -114,27 +82,21 @@ function buildOptions(
 	if (isServer) kv.push(`isServer: ${isServer}`);
 	if (requestCert) kv.push(`requestCert: ${requestCert}`);
 	if (rejectUnauthorized) kv.push(`rejectUnauthorized: ${rejectUnauthorized}`);
-	return `{ ${kv.join(', ')} }`;
-}
-
-function getText(node: SgNode<JS> | undefined): string | null {
-	return node?.text()?.trim() || null;
+	return kv.length > 0 ? `{ ${kv.join(', ')} }` : '{}';
 }
 
 function unique<T>(arr: T[]): T[] {
 	return Array.from(new Set(arr));
 }
 
-function renamePairAssignedVariables(
-	rootNode: SgNode<JS>,
-	bindings: string[],
-): Edit[] {
+function renamePairVariables(rootNode: SgNode<JS>, bindings: string[]): Edit[] {
 	const edits: Edit[] = [];
+
 	const decls = rootNode.findAll({
 		rule: {
 			kind: 'variable_declarator',
 			all: [
-				{ has: { field: 'name', kind: 'identifier' } },
+				{ has: { field: 'name', pattern: 'pair' } },
 				{ has: { field: 'value', kind: 'call_expression' } },
 			],
 		},
@@ -144,29 +106,14 @@ function renamePairAssignedVariables(
 		const callExpr = decl.field('value');
 		if (!callExpr) continue;
 
-		// Check if this call is from the tls module
 		const callee = callExpr.field('function');
 		if (!callee) continue;
 
-		let binding: string;
-		if (callee.kind() === 'member_expression') {
-			// tls.createSecurePair or similar
-			const obj = callee.field('object');
-			const prop = callee.field('property');
-			if (!obj || !prop) continue;
-			binding = `${obj.text()}.${prop.text()}`;
-		} else if (callee.kind() === 'identifier') {
-			// createSecurePair or csp (alias)
-			binding = callee.text();
-		} else {
-			continue;
-		}
-
-		// Only rename if it's from the tls module
-		if (!bindings.includes(binding)) continue;
+		const binding = getCallBinding(callee);
+		if (!binding || !bindings.includes(binding)) continue;
 
 		const name = decl.field('name');
-		if (name && name.kind() === 'identifier' && name.text() === 'pair') {
+		if (name && name.kind() === 'identifier') {
 			edits.push(name.replace('socket'));
 		}
 	}
@@ -176,6 +123,8 @@ function renamePairAssignedVariables(
 
 function rewriteTlsImports(rootNode: SgNode<JS>): Edit[] {
 	const edits: Edit[] = [];
+
+	// Handle ESM named imports
 	const esmNamed = rootNode.findAll({
 		rule: {
 			kind: 'import_statement',
@@ -200,13 +149,16 @@ function rewriteTlsImports(rootNode: SgNode<JS>): Edit[] {
 	for (const decl of esmNamed) {
 		const srcText = decl.field('source')?.text()?.replace(/['"]/g, '') || '';
 		if (srcText !== 'tls' && srcText !== 'node:tls') continue;
+
 		const named = decl.find({ rule: { kind: 'named_imports' } });
 		if (!named) continue;
+
 		const specs = named.findAll({ rule: { kind: 'import_specifier' } });
 		const hasCSP = specs.some(
 			(s) => s.field('name')?.text() === 'createSecurePair',
 		);
 		if (!hasCSP) continue;
+
 		const kept: string[] = [];
 		for (const s of specs) {
 			const imported = s.field('name')?.text();
@@ -215,7 +167,9 @@ function rewriteTlsImports(rootNode: SgNode<JS>): Edit[] {
 				kept.push(maybeAlias ? `${imported} as ${maybeAlias}` : imported);
 			}
 		}
+
 		if (kept.indexOf('TLSSocket') === -1) kept.push('TLSSocket');
+
 		const def = decl
 			.find({
 				rule: {
@@ -225,11 +179,15 @@ function rewriteTlsImports(rootNode: SgNode<JS>): Edit[] {
 			})
 			?.field('name')
 			?.text();
+
 		const rebuilt = def
 			? `import ${def}, { ${kept.join(', ')} } from '${srcText}';`
 			: `import { ${kept.join(', ')} } from '${srcText}';`;
+
 		edits.push(decl.replace(rebuilt));
 	}
+
+	// Handle CJS destructured requires
 	const cjsNamed = rootNode.findAll({
 		rule: {
 			kind: 'variable_declarator',
@@ -253,6 +211,7 @@ function rewriteTlsImports(rootNode: SgNode<JS>): Edit[] {
 	for (const decl of cjsNamed) {
 		const obj = decl.field('name');
 		if (!obj) continue;
+
 		const props = obj.findAll({
 			rule: {
 				any: [
@@ -261,13 +220,16 @@ function rewriteTlsImports(rootNode: SgNode<JS>): Edit[] {
 				],
 			},
 		});
+
 		const hasCSP = props.some((p) =>
 			p.kind() === 'pair_pattern'
 				? p.field('key')?.text() === 'createSecurePair' ||
 					p.field('value')?.text() === 'createSecurePair'
 				: p.text() === 'createSecurePair',
 		);
+
 		if (!hasCSP) continue;
+
 		const kept: string[] = [];
 		for (const p of props) {
 			let name = '';
@@ -282,6 +244,7 @@ function rewriteTlsImports(rootNode: SgNode<JS>): Edit[] {
 			if (!name || name === 'createSecurePair') continue;
 			kept.push(alias && alias !== name ? `${name}: ${alias}` : name);
 		}
+
 		if (kept.indexOf('TLSSocket') === -1) kept.push('TLSSocket');
 
 		let stmt: SgNode<JS> = decl;
@@ -295,185 +258,119 @@ function rewriteTlsImports(rootNode: SgNode<JS>): Edit[] {
 			}
 			cur = cur.parent?.();
 		}
+
 		edits.push(
 			stmt.replace(`const { ${kept.join(', ')} } = require('node:tls');`),
 		);
 	}
+
 	return edits;
 }
 
-function collectDefaultImportBindings(tlsStmts: SgNode<JS>[]): string[] {
-	const out: string[] = [];
+function collectAllBindings(tlsStmts: SgNode<JS>[]): string[] {
+	const bindings: string[] = [];
 
 	for (const stmt of tlsStmts) {
-		if (stmt.kind() !== 'import_declaration') continue;
-		const src = stmt.field('source')?.text()?.replace(/['"]/g, '');
-		if (!/^(node:)?tls$/.test(src || '')) continue;
-		const def = stmt
-			.find({
-				rule: {
-					kind: 'import_clause',
-					has: { field: 'name', kind: 'identifier' },
-				},
-			})
-			?.field('name')
-			?.text();
-		if (def) out.push(`${def}.createSecurePair`);
-	}
+		const kind = stmt.kind();
 
-	return out;
-}
-
-function collectDynamicImportIdentifiers(rootNode: SgNode<JS>): string[] {
-	const out: string[] = [];
-	const pats = [
-		"const $ID = await import('tls')",
-		'const $ID = await import("tls")',
-		"const $ID = await import('node:tls')",
-		'const $ID = await import("node:tls")',
-		"const $ID = import('tls')",
-		'const $ID = import("tls")',
-		"const $ID = import('node:tls')",
-		'const $ID = import("node:tls")',
-	];
-
-	for (const p of pats) {
-		const nodes = rootNode.findAll({ rule: { pattern: p } });
-		for (const n of nodes) {
-			const id = n.getMatch('ID')?.text();
-			if (id) out.push(`${id}.createSecurePair`);
+		// Use resolveBindingPath for standard imports/requires
+		if (
+			kind === 'lexical_declaration' ||
+			kind === 'variable_declarator' ||
+			kind === 'import_statement' ||
+			kind === 'import_clause'
+		) {
+			const resolved = resolveBindingPath(
+				stmt as unknown as SgNode<JS>,
+				'$.createSecurePair',
+			);
+			if (resolved) bindings.push(resolved);
 		}
-	}
 
-	return unique(out);
-}
+		// Handle ESM aliases: import { createSecurePair as csp } from 'tls'
+		if (kind === 'import_statement') {
+			const specs = stmt.findAll({
+				rule: {
+					kind: 'import_specifier',
+					has: { field: 'alias', kind: 'identifier' },
+				},
+			});
 
-function collectDynamicImportThenBindings(rootNode: SgNode<JS>): string[] {
-	const out: string[] = [];
+			for (const spec of specs) {
+				if (spec.field('name')?.text() === 'createSecurePair') {
+					const alias = spec.field('alias')?.text();
+					if (alias) bindings.push(alias);
+				}
+			}
+		}
 
-	// Use simpler patterns that are known to work
-	const patterns = [
-		"import('tls').then($CB)",
-		'import("tls").then($CB)',
-		"import('node:tls').then($CB)",
-		'import("node:tls").then($CB)',
-	];
-
-	for (const pattern of patterns) {
-		const calls = rootNode.findAll({ rule: { pattern } });
-
-		for (const call of calls) {
-			const callback = call.getMatch('CB');
-			if (!callback) continue;
-
-			let paramName: string | undefined;
-
-			if (callback.kind() === 'arrow_function') {
-				// Arrow function: tls => ...
-				const param = callback.field('parameter');
-				if (param && param.kind() === 'identifier') {
-					paramName = param.text();
-				} else {
-					// Arrow function with parentheses: (tls) => ...
-					const params = callback.field('parameters');
-					if (params) {
-						const identifiers = params.findAll({
-							rule: { kind: 'identifier' },
-						});
-						if (identifiers.length > 0) {
-							paramName = identifiers[0].text();
+		// Handle CJS destructured aliases: const { createSecurePair: csp } = require('tls')
+		if (kind === 'variable_declarator') {
+			const objPattern = stmt.field('name');
+			if (objPattern?.kind() === 'object_pattern') {
+				const pairs = objPattern.findAll({ rule: { kind: 'pair_pattern' } });
+				for (const pair of pairs) {
+					if (pair.field('key')?.text() === 'createSecurePair') {
+						const alias = pair.field('value')?.text();
+						if (alias && alias !== 'createSecurePair') {
+							bindings.push(alias);
 						}
 					}
 				}
-			} else if (callback.kind() === 'function_expression') {
-				// Function expression: function(tls) { ... }
-				const params = callback.field('parameters');
-				if (params) {
-					const identifiers = params.findAll({ rule: { kind: 'identifier' } });
-					if (identifiers.length > 0) {
-						paramName = identifiers[0].text();
+			}
+
+			// Handle dynamic imports: const tls = await import('tls')
+			const value = stmt.field('value');
+			if (value?.kind() === 'await_expression') {
+				const name = stmt.field('name');
+				if (name?.kind() === 'identifier') {
+					bindings.push(`${name.text()}.createSecurePair`);
+				}
+			}
+		}
+
+		// Handle dynamic import .then(): import('tls').then(tls => ...)
+		// getModuleDependencies returns the expression_statement node
+		if (kind === 'expression_statement') {
+			const expr = stmt.children().find((c) => c.kind() === 'call_expression');
+			if (expr?.kind() === 'call_expression') {
+				const func = expr.field('function');
+				if (func?.kind() === 'member_expression') {
+					const prop = func.field('property');
+					if (prop?.text() === 'then') {
+						const args = expr.field('arguments');
+						const callback = args?.find({
+							rule: {
+								any: [
+									{ kind: 'arrow_function' },
+									{ kind: 'function_expression' },
+								],
+							},
+						});
+
+						if (callback) {
+							let param: SgNode<JS> | undefined;
+
+							if (callback.kind() === 'arrow_function') {
+								param = callback.field('parameter');
+								if (!param) {
+									const params = callback.field('parameters');
+									param = params?.find({ rule: { kind: 'identifier' } });
+								}
+							} else if (callback.kind() === 'function_expression') {
+								const params = callback.field('parameters');
+								param = params?.find({ rule: { kind: 'identifier' } });
+							}
+
+							if (param) {
+								bindings.push(`${param.text()}.createSecurePair`);
+							}
+						}
 					}
 				}
 			}
-
-			if (paramName) {
-				out.push(`${paramName}.createSecurePair`);
-			}
 		}
 	}
 
-	return unique(out);
-}
-
-function collectNamedImportAliases(
-	tlsStmts: SgNode<JS>[],
-	importName: string,
-): string[] {
-	const out: string[] = [];
-
-	for (const stmt of tlsStmts) {
-		if (stmt.kind() !== 'import_declaration') continue;
-
-		const specifiers = stmt.findAll({
-			rule: {
-				kind: 'import_specifier',
-				has: { field: 'alias', kind: 'identifier' },
-			},
-		});
-
-		for (const spec of specifiers) {
-			const name = spec.field('name')?.text();
-			const alias = spec.field('alias')?.text();
-			if (name === importName && alias) {
-				out.push(alias);
-			}
-		}
-	}
-
-	return out;
-}
-
-function collectCjsAliases(rootNode: SgNode<JS>): string[] {
-	const out: string[] = [];
-
-	const decls = rootNode.findAll({
-		rule: {
-			kind: 'variable_declarator',
-			all: [
-				{ has: { field: 'name', kind: 'object_pattern' } },
-				{
-					has: {
-						field: 'value',
-						any: [
-							{ pattern: "require('tls')" },
-							{ pattern: 'require("tls")' },
-							{ pattern: "require('node:tls')" },
-							{ pattern: 'require("node:tls")' },
-						],
-					},
-				},
-			],
-		},
-	});
-
-	for (const decl of decls) {
-		const objPattern = decl.field('name');
-		if (!objPattern) continue;
-
-		const pairPatterns = objPattern.findAll({
-			rule: {
-				kind: 'pair_pattern',
-				has: { field: 'key', pattern: 'createSecurePair' },
-			},
-		});
-
-		for (const pair of pairPatterns) {
-			const value = pair.field('value')?.text();
-			if (value) {
-				out.push(value);
-			}
-		}
-	}
-
-	return unique(out);
+	return unique(bindings);
 }
