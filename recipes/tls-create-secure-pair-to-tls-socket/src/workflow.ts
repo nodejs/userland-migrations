@@ -51,7 +51,9 @@ export default function transform(root: SgRoot<JS>): string | null {
 	edits.push(...renamePairVariables(rootNode, cspBindings));
 
 	// Update imports
-	edits.push(...rewriteTlsImports(tlsStmts));
+	edits.push(...rewriteTlsImports(tlsStmts.filter(s =>
+		s.kind() === 'import_statement' || s.kind() === 'variable_declarator'
+	)));
 
 	if (!edits.length) return null;
 
@@ -121,129 +123,108 @@ function renamePairVariables(rootNode: SgNode<JS>, bindings: string[]): Edit[] {
 	return edits;
 }
 
-function rewriteTlsImports(
-	nodeImportStatements: Array<SgNode<JS>> = [],
-): Edit[] {
+function rewriteTlsImports(nodeImportStatements: SgNode<JS>[]): Edit[] {
 	const edits: Edit[] = [];
 
-	// Handle ESM named imports
-	const esmNamed = nodeImportStatements
-		.map((stmt) => stmt)
-		.filter((stmt) => {
-			const named = stmt.find({ rule: { kind: 'named_imports' } });
-			const namespace = stmt.find({ rule: { kind: 'namespace_import' } });
-			return named && !namespace;
-		});
-
-	for (const decl of esmNamed) {
-		const srcText = decl.field('source')?.text()?.replace(/['"]/g, '') || '';
-		if (srcText !== 'tls' && srcText !== 'node:tls') continue;
-
-		const named = decl.find({ rule: { kind: 'named_imports' } });
-		if (!named) continue;
-
-		const specs = named.findAll({ rule: { kind: 'import_specifier' } });
-		const hasCSP = specs.some(
-			(s) => s.field('name')?.text() === 'createSecurePair',
-		);
-		if (!hasCSP) continue;
-
-		const kept: string[] = [];
-		for (const s of specs) {
-			const imported = s.field('name')?.text();
-			const maybeAlias = s.field('alias')?.text();
-			if (imported && imported !== 'createSecurePair') {
-				kept.push(maybeAlias ? `${imported} as ${maybeAlias}` : imported);
-			}
+	for (const stmt of nodeImportStatements) {
+		if (stmt.kind() === 'import_statement') {
+			const edit = rewriteEsmImport(stmt);
+			if (edit) edits.push(edit);
+		} else if (stmt.kind() === 'variable_declarator') {
+			const edit = rewriteCjsRequire(stmt);
+			if (edit) edits.push(edit);
 		}
-
-		if (kept.indexOf('TLSSocket') === -1) kept.push('TLSSocket');
-
-		const def = decl
-			.find({
-				rule: {
-					kind: 'import_clause',
-					has: { field: 'name', kind: 'identifier' },
-				},
-			})
-			?.field('name')
-			?.text();
-
-		const rebuilt = def
-			? `import ${def}, { ${kept.join(', ')} } from '${srcText}';`
-			: `import { ${kept.join(', ')} } from '${srcText}';`;
-
-		edits.push(decl.replace(rebuilt));
-	}
-
-	// Handle CJS destructured requires
-	const cjsNamed = nodeImportStatements.filter((stmt) => {
-		if (stmt.kind() !== 'variable_declarator') return false;
-
-		const name = stmt.field('name');
-		const value = stmt.field('value');
-		if (!name || name.kind() !== 'object_pattern' || !value) return false;
-
-		return true;
-	});
-
-	for (const decl of cjsNamed) {
-		const obj = decl.field('name');
-		if (!obj) continue;
-
-		const props = obj.findAll({
-			rule: {
-				any: [
-					{ kind: 'pair_pattern' },
-					{ kind: 'shorthand_property_identifier_pattern' },
-				],
-			},
-		});
-
-		const hasCSP = props.some((p) =>
-			p.kind() === 'pair_pattern'
-				? p.field('key')?.text() === 'createSecurePair' ||
-					p.field('value')?.text() === 'createSecurePair'
-				: p.text() === 'createSecurePair',
-		);
-
-		if (!hasCSP) continue;
-
-		const kept: string[] = [];
-		for (const p of props) {
-			let name = '';
-			let alias = '';
-			if (p.kind() === 'pair_pattern') {
-				name = p.field('key')?.text() || '';
-				alias = p.field('value')?.text() || '';
-			} else {
-				name = p.text();
-				alias = name;
-			}
-			if (!name || name === 'createSecurePair') continue;
-			kept.push(alias && alias !== name ? `${name}: ${alias}` : name);
-		}
-
-		if (kept.indexOf('TLSSocket') === -1) kept.push('TLSSocket');
-
-		let stmt: SgNode<JS> = decl;
-		let cur: SgNode<JS> | undefined = decl;
-
-		while (cur) {
-			const k = cur.kind();
-			if (k === 'lexical_declaration' || k === 'variable_declaration') {
-				stmt = cur;
-				break;
-			}
-			cur = cur.parent?.();
-		}
-
-		edits.push(
-			stmt.replace(`const { ${kept.join(', ')} } = require('node:tls');`),
-		);
 	}
 
 	return edits;
+}
+
+function rewriteEsmImport(stmt: SgNode<JS>): Edit | null {
+	const named = stmt.find({ rule: { kind: 'named_imports' } });
+	const namespace = stmt.find({ rule: { kind: 'namespace_import' } });
+	if (!named || namespace) return null;
+
+	const srcText = stmt.field('source')?.text()?.replace(/['"]/g, '') || '';
+	if (srcText !== 'tls' && srcText !== 'node:tls') return null;
+
+	const specs = named.findAll({ rule: { kind: 'import_specifier' } });
+	if (!specs.some((s) => s.field('name')?.text() === 'createSecurePair')) return null;
+
+	const kept = specs
+		.filter((s) => s.field('name')?.text() !== 'createSecurePair')
+		.map((s) => {
+			const imported = s.field('name')?.text();
+			const alias = s.field('alias')?.text();
+			return alias ? `${imported} as ${alias}` : imported;
+		});
+
+	if (!kept.includes('TLSSocket')) kept.push('TLSSocket');
+
+	const defaultImport = stmt
+		.find({
+			rule: {
+				kind: 'import_clause',
+				has: { field: 'name', kind: 'identifier' },
+			},
+		})
+		?.field('name')
+		?.text();
+
+	const rebuilt = defaultImport
+		? `import ${defaultImport}, { ${kept.join(', ')} } from '${srcText}';`
+		: `import { ${kept.join(', ')} } from '${srcText}';`;
+
+	return stmt.replace(rebuilt);
+}
+
+function rewriteCjsRequire(stmt: SgNode<JS>): Edit | null {
+	const name = stmt.field('name');
+	if (!name || name.kind() !== 'object_pattern') return null;
+
+	const props = name.findAll({
+		rule: {
+			any: [
+				{ kind: 'pair_pattern' },
+				{ kind: 'shorthand_property_identifier_pattern' },
+			],
+		},
+	});
+
+	const hasCSP = props.some((p) =>
+		p.kind() === 'pair_pattern'
+			? p.field('key')?.text() === 'createSecurePair' ||
+				p.field('value')?.text() === 'createSecurePair'
+			: p.text() === 'createSecurePair',
+	);
+	if (!hasCSP) return null;
+
+	const kept = props
+		.filter((p) => {
+			const key = p.kind() === 'pair_pattern' ? p.field('key')?.text() : p.text();
+			return key !== 'createSecurePair';
+		})
+		.map((p) => {
+			if (p.kind() === 'pair_pattern') {
+				const key = p.field('key')?.text();
+				const val = p.field('value')?.text();
+				return val && val !== key ? `${key}: ${val}` : key;
+			}
+			return p.text();
+		});
+
+	if (!kept.includes('TLSSocket')) kept.push('TLSSocket');
+
+	let decl: SgNode<JS> = stmt;
+	let cur = stmt.parent?.();
+	while (cur) {
+		if (cur.kind() === 'lexical_declaration' || cur.kind() === 'variable_declaration') {
+			decl = cur;
+			break;
+		}
+		cur = cur.parent?.();
+	}
+
+	return decl.replace(`const { ${kept.join(', ')} } = require('node:tls');`);
 }
 
 function collectAllBindings(tlsStmts: SgNode<JS>[]): string[] {
@@ -268,88 +249,101 @@ function collectAllBindings(tlsStmts: SgNode<JS>[]): string[] {
 
 		// Handle ESM aliases: import { createSecurePair as csp } from 'tls'
 		if (kind === 'import_statement') {
-			const specs = stmt.findAll({
-				rule: {
-					kind: 'import_specifier',
-					has: { field: 'alias', kind: 'identifier' },
-				},
-			});
-
-			for (const spec of specs) {
-				if (spec.field('name')?.text() === 'createSecurePair') {
-					const alias = spec.field('alias')?.text();
-					if (alias) bindings.push(alias);
-				}
-			}
+			const alias = getEsmAlias(stmt);
+			if (alias) bindings.push(alias);
 		}
 
 		// Handle CJS destructured aliases: const { createSecurePair: csp } = require('tls')
 		if (kind === 'variable_declarator') {
-			const objPattern = stmt.field('name');
-			if (objPattern?.kind() === 'object_pattern') {
-				const pairs = objPattern.findAll({ rule: { kind: 'pair_pattern' } });
-				for (const pair of pairs) {
-					if (pair.field('key')?.text() === 'createSecurePair') {
-						const alias = pair.field('value')?.text();
-						if (alias && alias !== 'createSecurePair') {
-							bindings.push(alias);
-						}
-					}
-				}
-			}
+			const cjsAlias = getCjsAlias(stmt);
+			if (cjsAlias) bindings.push(cjsAlias);
 
 			// Handle dynamic imports: const tls = await import('tls')
-			const value = stmt.field('value');
-			if (value?.kind() === 'await_expression') {
-				const name = stmt.field('name');
-				if (name?.kind() === 'identifier') {
-					bindings.push(`${name.text()}.createSecurePair`);
-				}
-			}
+			const awaitBinding = getAwaitImportBinding(stmt);
+			if (awaitBinding) bindings.push(awaitBinding);
 		}
 
 		// Handle dynamic import .then(): import('tls').then(tls => ...)
-		// getModuleDependencies returns the expression_statement node
 		if (kind === 'expression_statement') {
-			const expr = stmt.children().find((c) => c.kind() === 'call_expression');
-			if (expr?.kind() === 'call_expression') {
-				const func = expr.field('function');
-				if (func?.kind() === 'member_expression') {
-					const prop = func.field('property');
-					if (prop?.text() === 'then') {
-						const args = expr.field('arguments');
-						const callback = args?.find({
-							rule: {
-								any: [
-									{ kind: 'arrow_function' },
-									{ kind: 'function_expression' },
-								],
-							},
-						});
-
-						if (callback) {
-							let param: SgNode<JS> | undefined;
-
-							if (callback.kind() === 'arrow_function') {
-								param = callback.field('parameter');
-								if (!param) {
-									const params = callback.field('parameters');
-									param = params?.find({ rule: { kind: 'identifier' } });
-								}
-							} else if (callback.kind() === 'function_expression') {
-								const params = callback.field('parameters');
-								param = params?.find({ rule: { kind: 'identifier' } });
-							}
-
-							if (param) {
-								bindings.push(`${param.text()}.createSecurePair`);
-							}
-						}
-					}
-				}
-			}
+			const thenBinding = getThenImportBinding(stmt);
+			if (thenBinding) bindings.push(thenBinding);
 		}
 	}
 
 	return unique(bindings);
+}
+
+function getEsmAlias(stmt: SgNode<JS>): string | null {
+	const specs = stmt.findAll({
+		rule: {
+			kind: 'import_specifier',
+			has: { field: 'alias', kind: 'identifier' },
+		},
+	});
+
+	for (const spec of specs) {
+		if (spec.field('name')?.text() === 'createSecurePair') {
+			return spec.field('alias')?.text() || null;
+		}
+	}
+	return null;
+}
+
+function getCjsAlias(stmt: SgNode<JS>): string | null {
+	const objPattern = stmt.field('name');
+	if (objPattern?.kind() !== 'object_pattern') return null;
+
+	const pairs = objPattern.findAll({ rule: { kind: 'pair_pattern' } });
+	for (const pair of pairs) {
+		if (pair.field('key')?.text() === 'createSecurePair') {
+			const alias = pair.field('value')?.text();
+			if (alias && alias !== 'createSecurePair') {
+				return alias;
+			}
+		}
+	}
+	return null;
+}
+
+function getAwaitImportBinding(stmt: SgNode<JS>): string | null {
+	const value = stmt.field('value');
+	if (value?.kind() !== 'await_expression') return null;
+
+	const name = stmt.field('name');
+	if (name?.kind() === 'identifier') {
+		return `${name.text()}.createSecurePair`;
+	}
+	return null;
+}
+
+function getThenImportBinding(stmt: SgNode<JS>): string | null {
+	const expr = stmt.children().find((c) => c.kind() === 'call_expression');
+	if (!expr || expr.kind() !== 'call_expression') return null;
+
+	const func = expr.field('function');
+	if (func?.kind() !== 'member_expression') return null;
+
+	const prop = func.field('property');
+	if (prop?.text() !== 'then') return null;
+
+	const args = expr.field('arguments');
+	const callback = args?.find({
+		rule: {
+			any: [
+				{ kind: 'arrow_function' },
+				{ kind: 'function_expression' },
+			],
+		},
+	});
+
+	if (!callback) return null;
+
+	let param: SgNode<JS> | undefined;
+	if (callback.kind() === 'arrow_function') {
+		param = callback.field('parameter') || callback.field('parameters')?.find({ rule: { kind: 'identifier' } });
+	} else if (callback.kind() === 'function_expression') {
+		param = callback.field('parameters')?.find({ rule: { kind: 'identifier' } });
+	}
+
+	return param ? `${param.text()}.createSecurePair` : null;
 }
