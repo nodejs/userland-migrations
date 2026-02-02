@@ -1,4 +1,4 @@
-import type { Edit, SgRoot, SgNode } from '@codemod.com/jssg-types/main';
+import type { Edit, SgRoot } from '@codemod.com/jssg-types/main';
 import type Json from '@codemod.com/jssg-types/langs/json';
 
 /**
