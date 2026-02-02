@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: "@nodejs/zlib-bytesread-to-byteswritten"
-version: 1.0.0
+version: 1.0.1
 description: Handle DEP0108 by replacing deprecated `zlib.bytesRead` with `zlib.bytesWritten` in Node.js transform streams
 author: Elie Khoury
 license: MIT

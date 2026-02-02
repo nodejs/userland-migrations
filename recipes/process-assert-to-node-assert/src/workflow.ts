@@ -1,11 +1,6 @@
 import { EOL } from 'node:os';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
-import {
-	getNodeImportCalls,
-	getNodeImportStatements,
-} from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { removeBinding } from '@nodejs/codemod-utils/ast-grep/remove-binding';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
@@ -17,6 +12,7 @@ import type {
 	SgRoot,
 } from '@codemod.com/jssg-types/main';
 import type JS from '@codemod.com/jssg-types/langs/javascript';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 
 type ReplaceRule = {
 	importNode?: SgNode<JS>;
@@ -60,10 +56,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 
 	const processImportsToRemove = new Set<SgNode<JS>>();
 
-	const requireCalls = getNodeRequireCalls(root, 'process');
-	const importStatements = getNodeImportStatements(root, 'process');
-	const importCalls = getNodeImportCalls(root, 'process');
-	const allImports = [...requireCalls, ...importStatements, ...importCalls];
+	const allImports = getModuleDependencies(root, 'process');
 	const processUsages = rootNode.findAll({
 		rule: {
 			kind: 'member_expression',
@@ -183,11 +176,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 
 	if (edits.length === 0 && linesToRemove) return sourceCode;
 
-	const alreadyRequiringAssert = getNodeRequireCalls(root, 'assert');
-	const alreadyImportingAssert = getNodeImportStatements(root, 'assert');
-
-	if (alreadyRequiringAssert.length || alreadyImportingAssert.length)
-		return sourceCode;
+	if (getModuleDependencies(root, 'assert').length) return sourceCode;
 
 	/**
 	 * Re add the appropriate import or require statement for `node:assert`

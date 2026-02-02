@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/crypto-rsa-pss-update",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Handle DEP0154 via transforming deprecated RSA-PSS crypto options `hash` to `hashAlgorithm` and `mgf1Hash` to `mgf1HashAlgorithm`.",
   "type": "module",
   "scripts": {
