@@ -51,9 +51,13 @@ export default function transform(root: SgRoot<JS>): string | null {
 	edits.push(...renamePairVariables(rootNode, cspBindings));
 
 	// Update imports
-	edits.push(...rewriteTlsImports(tlsStmts.filter(s =>
-		s.kind() === 'import_statement' || s.kind() === 'variable_declarator'
-	)));
+	edits.push(
+		...rewriteTlsImports(
+			tlsStmts.filter(
+				(s) => s.is('import_statement') || s.is('variable_declarator'),
+			),
+		),
+	);
 
 	if (!edits.length) return null;
 
@@ -61,13 +65,13 @@ export default function transform(root: SgRoot<JS>): string | null {
 }
 
 function getCallBinding(callee: SgNode<JS>): string | null {
-	if (callee.kind() === 'member_expression') {
+	if (callee.is('member_expression')) {
 		const obj = callee.field('object');
 		const prop = callee.field('property');
 		if (!obj || !prop) return null;
 		return `${obj.text()}.${prop.text()}`;
 	}
-	if (callee.kind() === 'identifier') {
+	if (callee.is('identifier')) {
 		return callee.text();
 	}
 	return null;
@@ -115,7 +119,7 @@ function renamePairVariables(rootNode: SgNode<JS>, bindings: string[]): Edit[] {
 		if (!binding || !bindings.includes(binding)) continue;
 
 		const name = decl.field('name');
-		if (name && name.kind() === 'identifier') {
+		if (name.is('identifier')) {
 			edits.push(name.replace('socket'));
 		}
 	}
@@ -127,10 +131,10 @@ function rewriteTlsImports(nodeImportStatements: SgNode<JS>[]): Edit[] {
 	const edits: Edit[] = [];
 
 	for (const stmt of nodeImportStatements) {
-		if (stmt.kind() === 'import_statement') {
+		if (stmt.is('import_statement')) {
 			const edit = rewriteEsmImport(stmt);
 			if (edit) edits.push(edit);
-		} else if (stmt.kind() === 'variable_declarator') {
+		} else if (stmt.is('variable_declarator')) {
 			const edit = rewriteCjsRequire(stmt);
 			if (edit) edits.push(edit);
 		}
@@ -148,7 +152,8 @@ function rewriteEsmImport(stmt: SgNode<JS>): Edit | null {
 	if (srcText !== 'tls' && srcText !== 'node:tls') return null;
 
 	const specs = named.findAll({ rule: { kind: 'import_specifier' } });
-	if (!specs.some((s) => s.field('name')?.text() === 'createSecurePair')) return null;
+	if (!specs.some((s) => s.field('name')?.text() === 'createSecurePair'))
+		return null;
 
 	const kept = specs
 		.filter((s) => s.field('name')?.text() !== 'createSecurePair')
@@ -179,7 +184,7 @@ function rewriteEsmImport(stmt: SgNode<JS>): Edit | null {
 
 function rewriteCjsRequire(stmt: SgNode<JS>): Edit | null {
 	const name = stmt.field('name');
-	if (!name || name.kind() !== 'object_pattern') return null;
+	if (!name || !name.is('object_pattern')) return null;
 
 	const props = name.findAll({
 		rule: {
@@ -191,7 +196,7 @@ function rewriteCjsRequire(stmt: SgNode<JS>): Edit | null {
 	});
 
 	const hasCSP = props.some((p) =>
-		p.kind() === 'pair_pattern'
+		p.is('pair_pattern')
 			? p.field('key')?.text() === 'createSecurePair' ||
 				p.field('value')?.text() === 'createSecurePair'
 			: p.text() === 'createSecurePair',
@@ -200,11 +205,11 @@ function rewriteCjsRequire(stmt: SgNode<JS>): Edit | null {
 
 	const kept = props
 		.filter((p) => {
-			const key = p.kind() === 'pair_pattern' ? p.field('key')?.text() : p.text();
+			const key = p.is('pair_pattern') ? p.field('key')?.text() : p.text();
 			return key !== 'createSecurePair';
 		})
 		.map((p) => {
-			if (p.kind() === 'pair_pattern') {
+			if (p.is('pair_pattern')) {
 				const key = p.field('key')?.text();
 				const val = p.field('value')?.text();
 				return val && val !== key ? `${key}: ${val}` : key;
@@ -217,7 +222,7 @@ function rewriteCjsRequire(stmt: SgNode<JS>): Edit | null {
 	let decl: SgNode<JS> = stmt;
 	let cur = stmt.parent?.();
 	while (cur) {
-		if (cur.kind() === 'lexical_declaration' || cur.kind() === 'variable_declaration') {
+		if (cur.is('lexical_declaration') || cur.is('variable_declaration')) {
 			decl = cur;
 			break;
 		}
@@ -310,15 +315,15 @@ function getAwaitImportBinding(stmt: SgNode<JS>): string | null {
 	if (value?.kind() !== 'await_expression') return null;
 
 	const name = stmt.field('name');
-	if (name?.kind() === 'identifier') {
+	if (name.is('identifier')) {
 		return `${name.text()}.createSecurePair`;
 	}
 	return null;
 }
 
 function getThenImportBinding(stmt: SgNode<JS>): string | null {
-	const expr = stmt.children().find((c) => c.kind() === 'call_expression');
-	if (!expr || expr.kind() !== 'call_expression') return null;
+	const expr = stmt.children().find((c) => c.is('call_expression'));
+	if (!expr || !expr.is('call_expression')) return null;
 
 	const func = expr.field('function');
 	if (func?.kind() !== 'member_expression') return null;
@@ -329,20 +334,21 @@ function getThenImportBinding(stmt: SgNode<JS>): string | null {
 	const args = expr.field('arguments');
 	const callback = args?.find({
 		rule: {
-			any: [
-				{ kind: 'arrow_function' },
-				{ kind: 'function_expression' },
-			],
+			any: [{ kind: 'arrow_function' }, { kind: 'function_expression' }],
 		},
 	});
 
 	if (!callback) return null;
 
 	let param: SgNode<JS> | undefined;
-	if (callback.kind() === 'arrow_function') {
-		param = callback.field('parameter') || callback.field('parameters')?.find({ rule: { kind: 'identifier' } });
-	} else if (callback.kind() === 'function_expression') {
-		param = callback.field('parameters')?.find({ rule: { kind: 'identifier' } });
+	if (callback.is('arrow_function')) {
+		param =
+			callback.field('parameter') ||
+			callback.field('parameters')?.find({ rule: { kind: 'identifier' } });
+	} else if (callback.is('function_expression')) {
+		param = callback
+			.field('parameters')
+			?.find({ rule: { kind: 'identifier' } });
 	}
 
 	return param ? `${param.text()}.createSecurePair` : null;
