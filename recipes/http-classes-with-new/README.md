@@ -6,28 +6,17 @@ See [DEP0195](https://nodejs.org/api/deprecations.html#DEP0195).
 
 ## Examples
 
-**Before:**
+```diff
+  // import { IncomingMessage, ClientRequest } from "node:http";
+  // const http = require("node:http");
 
-```js
-// import { IncomingMessage, ClientRequest } from "node:http";
-// const http = require("node:http");
+- const message = http.OutgoingMessage();
++ const message = new http.OutgoingMessage();
+- const response = http.ServerResponse(socket);
++ const response = new http.ServerResponse(socket);
 
-const message = http.OutgoingMessage();
-const response = http.ServerResponse(socket);
-
-const incoming = IncomingMessage(socket);
-const request = ClientRequest(options);
-```
-
-**After:**
-
-```js
-// import { IncomingMessage, ClientRequest } from "node:http";
-// const http = require("node:http");
-
-const message = new http.OutgoingMessage();
-const response = new http.ServerResponse(socket);
-
-const incoming = new IncomingMessage(socket);
-const request = new ClientRequest(options);
-```
+- const incoming = IncomingMessage(socket);
++ const incoming = new IncomingMessage(socket);
+- const request = ClientRequest(options);
++ const request = new ClientRequest(options);
+`````

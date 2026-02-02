@@ -1,6 +1,6 @@
 # `@nodejs/codemod-utils`
 
-This is a local package, it's mean it's not published to npm registry it's only used in the monorepo.
+This is a local package, which means it isn’t published to the npm registry and is only used within the monorepo.
 
 ## Why Use These Utilities?
 
@@ -16,6 +16,21 @@ These utilities provide battle-tested solutions for common codemod operations, r
 ## AST-grep Utilities
 
 ### Import and Require Detection
+
+#### `getModuleDependencies(rootNode, nodeModuleName)`
+
+Finds all module import/require statements for a specific Node.js module.
+Under the hood, calls `getNodeRequireCalls`, `getNodeImportStatements`, `getNodeImportCalls`, and
+combines the return values.
+
+```typescript
+import { getNodeImportStatements } from '@nodejs/codemod-utils';
+
+// Finds: import fs from 'fs'; import { readFile } from 'node:fs';
+// Finds: const fs = require('fs')
+// Finds: const fs = await import('fs')
+const fsImports = getModuleDependencies(ast, 'fs');
+```
 
 #### `getNodeImportStatements(rootNode, nodeModuleName)`
 
@@ -142,4 +157,57 @@ import { getNodeJsUsage } from '@nodejs/codemod-utils';
 
 // Finds scripts like: "start": "node server.js", "build": "node.exe build.js"
 const nodeUsages = getNodeJsUsage(packageJsonAst);
+```
+
+### Additional AST-grep Helpers (missing in earlier list)
+
+#### `getScope(node, customParent?)`
+
+Finds the enclosing scope for a node (e.g., `statement_block` or `program`).
+
+```typescript
+import { getScope } from '@nodejs/codemod-utils';
+
+const scope = getScope(node);
+```
+
+#### `getDefaultImportIdentifier(importNode)`
+
+Returns the identifier node for a default `import` (e.g., `import fs from 'fs'`).
+
+```typescript
+import { getDefaultImportIdentifier } from '@nodejs/codemod-utils';
+
+const id = getDefaultImportIdentifier(importNode);
+```
+
+#### `getRequireNamespaceIdentifier(requireNode)`
+
+Returns the identifier node for namespace-style `require` (e.g., `const util = require('util')`).
+
+```typescript
+import { getRequireNamespaceIdentifier } from '@nodejs/codemod-utils';
+
+const id = getRequireNamespaceIdentifier(varDeclaratorNode);
+```
+
+#### `replaceNodeJsArgs(packageJsonRootNode, argsToValues)`
+
+Replaces Node.js script arguments in `package.json` scripts. Useful for normalizing or
+rewriting CLI arguments used with `node`.
+
+```typescript
+import { replaceNodeJsArgs } from '@nodejs/codemod-utils';
+
+const edits = replaceNodeJsArgs(packageJsonAst, { '--inspect': '' });
+```
+
+#### `removeNodeJsArgs(packageJsonRootNode, argsToRemove)`
+
+Removes specified arguments from Node.js script usages in `package.json`.
+
+```typescript
+import { removeNodeJsArgs } from '@nodejs/codemod-utils';
+
+const edits = removeNodeJsArgs(packageJsonAst, ['--inspect']);
 ```

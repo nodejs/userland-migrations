@@ -1,0 +1,24 @@
+{
+  "name": "@nodejs/createcredentials-to-createsecurecontext",
+  "version": "1.0.1",
+  "description": "Handle DEP0010 via transforming `crypto.createCredentials` to `tls.createSecureContext` with the appropriate options.",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/crypto-create-credentials",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "0hmx",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/crypto-create-credentials/README.md",
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.3.1"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
+  }
+}

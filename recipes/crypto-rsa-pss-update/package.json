@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/crypto-rsa-pss-update",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Handle DEP0154 via transforming deprecated RSA-PSS crypto options `hash` to `hashAlgorithm` and `mgf1Hash` to `mgf1HashAlgorithm`.",
   "type": "module",
   "scripts": {
@@ -16,7 +16,7 @@
   "license": "MIT",
   "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/crypto-rsa-pss-update/README.md",
   "devDependencies": {
-    "@codemod.com/jssg-types": "^1.0.3"
+    "@codemod.com/jssg-types": "^1.3.1"
   },
   "dependencies": {
     "@nodejs/codemod-utils": "*"
