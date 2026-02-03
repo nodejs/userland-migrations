@@ -1,0 +1,21 @@
+schema_version: "1.0"
+name: "@nodejs/timers-deprecations"
+version: 1.0.0
+description: Migrate deprecated node:timers APIs to public timer functions.
+author: Augustin Mauroy
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - migration
+  - timers
+
+registry:
+  access: public
+  visibility: public
