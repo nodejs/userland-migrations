@@ -16,7 +16,7 @@
   "license": "MIT",
   "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/crypto-create-credentials/README.md",
   "devDependencies": {
-    "@codemod.com/jssg-types": "^1.3.1"
+    "@codemod.com/jssg-types": "^1.3.2"
   },
   "dependencies": {
     "@nodejs/codemod-utils": "*"
