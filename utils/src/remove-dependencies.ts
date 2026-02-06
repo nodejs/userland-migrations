@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 /**
@@ -91,24 +91,23 @@ function detectPackageManager(): 'npm' | 'yarn' | 'pnpm' {
 function runPackageManagerInstall(
 	packageManager: 'npm' | 'yarn' | 'pnpm',
 ): void {
-	try {
-		console.log(`Running ${packageManager} install to update dependencies...`);
+	console.log(`Running ${packageManager} install to update dependencies...`);
 
-		switch (packageManager) {
-			case 'npm':
-				execSync('npm install', { stdio: 'inherit' });
-				break;
-			case 'yarn':
-				execSync('yarn install', { stdio: 'inherit' });
-				break;
-			case 'pnpm':
-				execSync('pnpm install', { stdio: 'inherit' });
-				break;
-		}
+	const command = packageManager;
+	const args = ['install'];
 
-		console.log(`Successfully updated dependencies with ${packageManager}`);
-	} catch (error) {
+	const child = spawn(command, args, { stdio: 'inherit' });
+
+	child.on('error', (error) => {
 		console.error(`Error running ${packageManager} install:`, error);
 		// Don't throw - dependency removal was successful, install failure shouldn't break the codemod
-	}
+	});
+
+	child.on('close', (code) => {
+		if (code === 0) {
+			console.log(`Successfully updated dependencies with ${packageManager}`);
+		} else {
+			console.error(`${packageManager} install exited with code ${code}`);
+		}
+	});
 }
