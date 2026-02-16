@@ -16,6 +16,6 @@
   "license": "MIT",
   "homepage": "https://github.com/nodejs/userland-migrations/tree/main/import-assertions-to-attributes#readme",
   "devDependencies": {
-    "@codemod.com/jssg-types": "^1.3.2"
+    "@codemod.com/jssg-types": "^1.4.1"
   }
 }
