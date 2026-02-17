@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/codemod-com/codemod/refs/heads/main/schemas/workflow.json
+
+version: "1"
+
+nodes:
+  - id: apply-transforms
+    name: Apply AST Transformations
+    type: automatic
+    runtime:
+      type: direct
+    steps:
+      - name: Replace `timers.enroll()` with `setTimeout()`
+        js-ast-grep:
+          js_file: src/enroll-to-set-timeout.ts
+          base_path: .
+          include:
+            - "**/*.cjs"
+            - "**/*.cts"
+            - "**/*.js"
+            - "**/*.jsx"
+            - "**/*.mjs"
+            - "**/*.mts"
+            - "**/*.ts"
+            - "**/*.tsx"
+          exclude:
+            - "**/node_modules/**"
+          language: typescript
+      - name: Replace `timers.unenroll()` with standard clear APIs
+        js-ast-grep:
+          js_file: src/unenroll-to-clear-timer.ts
+          base_path: .
+          include:
+            - "**/*.cjs"
+            - "**/*.cts"
+            - "**/*.js"
+            - "**/*.jsx"
+            - "**/*.mjs"
+            - "**/*.mts"
+            - "**/*.ts"
+            - "**/*.tsx"
+          exclude:
+            - "**/node_modules/**"
+          language: typescript
+      - name: Remove usages of `timers.active()`
+        js-ast-grep:
+          js_file: src/active-to-standard-timer.ts
+          base_path: .
+          include:
+            - "**/*.cjs"
+            - "**/*.cts"
+            - "**/*.js"
+            - "**/*.jsx"
+            - "**/*.mjs"
+            - "**/*.mts"
+            - "**/*.ts"
+            - "**/*.tsx"
+          exclude:
+            - "**/node_modules/**"
+          language: typescript
+      - name: Replace `timers._unrefActive()` with `setTimeout().unref()`
+        js-ast-grep:
+          js_file: src/unref-active-to-unref.ts
+          base_path: .
+          include:
+            - "**/*.cjs"
+            - "**/*.cts"
+            - "**/*.js"
+            - "**/*.jsx"
+            - "**/*.mjs"
+            - "**/*.mts"
+            - "**/*.ts"
+            - "**/*.tsx"
+          exclude:
+            - "**/node_modules/**"
+          language: typescript
+      - name: Clean up `node:timers` imports and requires
+        js-ast-grep:
+          js_file: src/cleanup-imports.ts
+          base_path: .
+          include:
+            - "**/*.cjs"
+            - "**/*.cts"
+            - "**/*.js"
+            - "**/*.jsx"
+            - "**/*.mjs"
+            - "**/*.mts"
+            - "**/*.ts"
+            - "**/*.tsx"
+          exclude:
+            - "**/node_modules/**"
+          language: typescript
