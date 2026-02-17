@@ -1,3 +1,6 @@
+/**
+ * Important notes, this utility is designed to be used in JSSG context so we use specific APIs avaible in that context. https://github.com/awslabs/llrt/blob/main/API.md
+ */
 import { spawn } from 'node:child_process';
 import { accessSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
