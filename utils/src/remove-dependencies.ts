@@ -1,22 +1,40 @@
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { accessSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+
+interface RemoveDependenciesOptions {
+	packageJsonPath?: string;
+	runInstall?: boolean;
+	persistFileWrite?: boolean;
+}
 
 /**
  * Remove specified dependencies from package.json and run appropriate package manager install
  */
 export default function removeDependencies(
 	dependenciesToRemove?: string | string[],
-): string | null {
-	const packageJsonPath = 'package.json';
+	options: RemoveDependenciesOptions = {},
+): Promise<string | null> {
+	const packageJsonPath = options.packageJsonPath ?? 'package.json';
+	const packageDirectory = dirname(packageJsonPath);
+	const persistFileWrite = options.persistFileWrite ?? true;
 
 	if (!dependenciesToRemove) {
 		console.log('No dependencies specified for removal');
-		return null;
+		return Promise.resolve(null);
 	}
 
-	if (!existsSync(packageJsonPath)) {
+	if (
+		Array.isArray(dependenciesToRemove) &&
+		dependenciesToRemove.length === 0
+	) {
+		console.log('No dependencies specified for removal');
+		return Promise.resolve(null);
+	}
+
+	if (!fileExists(packageJsonPath)) {
 		console.log('No package.json found, skipping dependency removal');
-		return null;
+		return Promise.resolve(null);
 	}
 
 	try {
@@ -53,36 +71,54 @@ export default function removeDependencies(
 			console.log(
 				`No specified dependencies (${depsToRemove.join(', ')}) found in package.json`,
 			);
-			return null;
+			return Promise.resolve(null);
 		}
 
 		const updatedContent = JSON.stringify(packageJson, null, 2);
-		writeFileSync(packageJsonPath, updatedContent, 'utf-8');
-		console.log('Updated package.json');
 
-		const packageManager = detectPackageManager();
-		runPackageManagerInstall(packageManager);
+		if (persistFileWrite) {
+			writeFileSync(packageJsonPath, updatedContent, 'utf-8');
+			console.log('Updated package.json');
+		}
 
-		return updatedContent;
+		if (options.runInstall !== false) {
+			const packageManager = detectPackageManager(packageDirectory);
+			return runPackageManagerInstall(packageManager, packageDirectory).then(
+				() => updatedContent,
+			);
+		}
+
+		return Promise.resolve(updatedContent);
 	} catch (error) {
 		console.error('Error removing dependencies:', error);
-		return null;
+		return Promise.resolve(null);
 	}
 }
 
 /**
  * Detect which package manager is being used based on lock files. Defaults to npm.
  */
-function detectPackageManager(): 'npm' | 'yarn' | 'pnpm' {
-	if (existsSync('pnpm-lock.yaml')) {
+function detectPackageManager(
+	packageDirectory: string,
+): 'npm' | 'yarn' | 'pnpm' {
+	if (fileExists(join(packageDirectory, 'pnpm-lock.yaml'))) {
 		return 'pnpm';
 	}
 
-	if (existsSync('yarn.lock')) {
+	if (fileExists(join(packageDirectory, 'yarn.lock'))) {
 		return 'yarn';
 	}
 
 	return 'npm';
+}
+
+function fileExists(path: string): boolean {
+	try {
+		accessSync(path);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 /**
@@ -90,24 +126,37 @@ function detectPackageManager(): 'npm' | 'yarn' | 'pnpm' {
  */
 function runPackageManagerInstall(
 	packageManager: 'npm' | 'yarn' | 'pnpm',
-): void {
+	packageDirectory: string,
+): Promise<void> {
 	console.log(`Running ${packageManager} install to update dependencies...`);
 
-	const command = packageManager;
-	const args = ['install'];
+	return new Promise((resolve) => {
+		const child = spawn(packageManager, ['install'], {
+			cwd: packageDirectory,
+			stdio: 'inherit',
+		});
 
-	const child = spawn(command, args, { stdio: 'inherit' });
+		let settled = false;
+		const settle = () => {
+			if (!settled) {
+				settled = true;
+				resolve();
+			}
+		};
 
-	child.on('error', (error) => {
-		console.error(`Error running ${packageManager} install:`, error);
-		// Don't throw - dependency removal was successful, install failure shouldn't break the codemod
-	});
+		child.on('error', (error) => {
+			console.error(`Error running ${packageManager} install:`, error);
+			settle();
+		});
 
-	child.on('close', (code) => {
-		if (code === 0) {
-			console.log(`Successfully updated dependencies with ${packageManager}`);
-		} else {
-			console.error(`${packageManager} install exited with code ${code}`);
-		}
+		child.on('close', (code) => {
+			if (code === 0) {
+				console.log(`Successfully updated dependencies with ${packageManager}`);
+			} else {
+				console.error(`${packageManager} install exited with code ${code}`);
+			}
+
+			settle();
+		});
 	});
 }

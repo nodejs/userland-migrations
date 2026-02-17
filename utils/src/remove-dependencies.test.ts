@@ -8,13 +8,13 @@ import { describe, it } from 'node:test';
 import removeDependencies from './remove-dependencies.ts';
 
 describe('removeDependencies', () => {
-	it('should return null when no dependencies are specified', () => {
-		const result = removeDependencies();
+	it('should return null when no dependencies are specified', async () => {
+		const result = await removeDependencies();
 		assert.strictEqual(result, null);
 	});
 
-	it('should return null when empty array is provided', () => {
-		const result = removeDependencies([]);
+	it('should return null when empty array is provided', async () => {
+		const result = await removeDependencies([]);
 		assert.strictEqual(result, null);
 	});
 
@@ -24,7 +24,7 @@ describe('removeDependencies', () => {
 
 		try {
 			process.chdir(tempDir);
-			const result = removeDependencies('chalk');
+			const result = await removeDependencies('chalk', { runInstall: false });
 			assert.strictEqual(result, null);
 		} finally {
 			process.chdir(originalCwd);
@@ -48,7 +48,7 @@ describe('removeDependencies', () => {
 				JSON.stringify(packageJsonContent, null, 2),
 			);
 
-			const result = removeDependencies('chalk');
+			const result = await removeDependencies('chalk', { runInstall: false });
 
 			assert.strictEqual(result, null);
 		} finally {
@@ -77,7 +77,7 @@ describe('removeDependencies', () => {
 				JSON.stringify(packageJsonContent, null, 2),
 			);
 
-			removeDependencies('chalk');
+			await removeDependencies('chalk', { runInstall: false });
 
 			const updatedContent = readFileSync('package.json', 'utf-8');
 			const updatedPackageJson = JSON.parse(updatedContent);
@@ -115,7 +115,7 @@ describe('removeDependencies', () => {
 				JSON.stringify(packageJsonContent, null, 2),
 			);
 
-			removeDependencies(['chalk', 'jest']);
+			await removeDependencies(['chalk', 'jest'], { runInstall: false });
 
 			const updatedContent = readFileSync('package.json', 'utf-8');
 			const updatedPackageJson = JSON.parse(updatedContent);
@@ -153,7 +153,9 @@ describe('removeDependencies', () => {
 				JSON.stringify(packageJsonContent, null, 2),
 			);
 
-			const result = removeDependencies(['chalk', 'jest']);
+			const result = await removeDependencies(['chalk', 'jest'], {
+				runInstall: false,
+			});
 
 			assert.strictEqual(result, null);
 		} finally {

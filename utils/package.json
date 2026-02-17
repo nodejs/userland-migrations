@@ -8,7 +8,8 @@
     ]
   },
   "scripts": {
-    "test": "node --no-warnings --import=./src/codemod-jssg-context.ts --experimental-test-snapshots --experimental-strip-types --import='./src/snapshots.ts' --test --experimental-test-coverage --test-coverage-include='src/**/*' --test-coverage-exclude='**/*.test.ts' './**/*.test.ts'"
+    "test": "node --no-warnings --import=./src/codemod-jssg-context.ts --experimental-test-snapshots --experimental-strip-types --import='./src/snapshots.ts' --test --experimental-test-coverage --test-coverage-include='src/**/*' --test-coverage-exclude='**/*.test.ts' './**/*.test.ts'",
+    "test:jssg:remove-dependencies": "npx codemod jssg test -l json ./src/remove-dependencies.jssg.ts ./tests/remove-dependencies-jssg --allow-child-process --allow-fs"
   },
   "author": "Augustin Maurouy",
   "license": "MIT",
