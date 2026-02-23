@@ -108,19 +108,15 @@ function detectPackageManager(
 	packageDirectory: string,
 	packageJson?: { packageManager?: string },
 ): 'npm' | 'yarn' | 'pnpm' {
-	const pManager = packageJson.packageManager?.match(/npm|pnpm|yarn/)?.[0];
+	const pManager = packageJson.packageManager?.match(/npm|pnpm|yarn/)?.[0] as
+		| 'npm'
+		| 'yarn'
+		| 'pnpm'
+		| undefined;
 
-	if (pManager) {
-		return pManager as 'npm' | 'yarn' | 'pnpm';
-	}
-
-	if (fileExists(join(packageDirectory, 'pnpm-lock.yaml'))) {
-		return 'pnpm';
-	}
-
-	if (fileExists(join(packageDirectory, 'yarn.lock'))) {
-		return 'yarn';
-	}
+	if (pManager) return pManager;
+	if (fileExists(join(packageDirectory, 'pnpm-lock.yaml'))) return 'pnpm';
+	if (fileExists(join(packageDirectory, 'yarn.lock'))) return 'yarn';
 
 	return 'npm';
 }
