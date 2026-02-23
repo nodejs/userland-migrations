@@ -1,6 +1,6 @@
 {
     "name": "@nodejs/chalk-to-util-styletext",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "Migrate from the chalk package to Node.js's built-in util.styleText API",
     "type": "module",
     "scripts": {
