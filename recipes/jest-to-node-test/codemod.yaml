@@ -1,0 +1,21 @@
+schema_version: "1.0"
+name: "@nodejs/jest-to-node-test-runner"
+version: 1.0.0
+description: Convert Jest tests to Node Test Runner tests
+author: Carlos Espa
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+
+registry:
+  access: public
+  visibility: public

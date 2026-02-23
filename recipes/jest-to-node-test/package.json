@@ -1,0 +1,31 @@
+{
+  "name": "@nodejs/jest-to-node-test",
+  "version": "1.0.0-rc.1",
+  "description": "Convert Jest tests to node:test tests",
+  "type": "module",
+  "main": "./src/workflow.ts",
+  "scripts": {
+    "test": "npx codemod@next jssg test -l typescript ./src/workflow.ts ./"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/jest-to-node-test-runner",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "Carlos Espa",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "homepage": "https://github.com/nodejs/userland-migrations/tree/main/jest-to-node-test-runner#readme",
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.0.3",
+    "@types/node": "^24.2.0"
+  },
+  "dependencies": {
+    "@jest/globals": "^30.2.0",
+    "@nodejs/codemod-utils": "*",
+    "expect": "^30.2.0"
+  }
+}
