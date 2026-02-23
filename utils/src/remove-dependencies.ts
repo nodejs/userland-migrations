@@ -106,15 +106,12 @@ export default async function removeDependencies(
  */
 function detectPackageManager(
 	packageDirectory: string,
-	packageJson?: { packageManager?: unknown },
+	packageJson?: { packageManager?: string },
 ): 'npm' | 'yarn' | 'pnpm' {
-	const pManager =
-		typeof packageJson?.packageManager === 'string'
-			? packageJson.packageManager.match(/npm|pnpm|yarn/)?.[0]
-			: undefined;
+	const pManager = packageJson.packageManager?.match(/npm|pnpm|yarn/)?.[0];
 
-	if (pManager === 'npm' || pManager === 'pnpm' || pManager === 'yarn') {
-		return pManager;
+	if (pManager) {
+		return pManager as 'npm' | 'yarn' | 'pnpm';
 	}
 
 	if (fileExists(join(packageDirectory, 'pnpm-lock.yaml'))) {
