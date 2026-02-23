@@ -4,7 +4,7 @@
     "description": "Migrate from the chalk package to Node.js's built-in util.styleText API",
     "type": "module",
     "scripts": {
-        "test": "npm run test:workflow && npm run test:remove-dependencies",
+        "test": "node --run test:workflow && node --run test:remove-dependencies",
         "test:workflow": "npx codemod jssg test -l typescript ./src/workflow.ts ./",
         "test:remove-dependencies": "npx codemod jssg test -l json ./src/remove-dependencies.ts ./tests/remove-dependencies --allow-child-process --allow-fs --strictness cst"
     },

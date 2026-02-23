@@ -5,19 +5,19 @@ import { spawn } from 'node:child_process';
 import { accessSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-interface RemoveDependenciesOptions {
+type RemoveDependenciesOptions = {
 	packageJsonPath?: string;
 	runInstall?: boolean;
 	persistFileWrite?: boolean;
-}
+};
 
 /**
  * Remove specified dependencies from package.json and run appropriate package manager install
  */
-export default function removeDependencies(
+export default async function removeDependencies(
 	dependenciesToRemove?: string | string[],
 	options: RemoveDependenciesOptions = {},
-): Promise<string | null> {
+) {
 	const packageJsonPath = options.packageJsonPath ?? 'package.json';
 	const packageDirectory = dirname(packageJsonPath);
 	const persistFileWrite = options.persistFileWrite ?? true;
@@ -85,25 +85,38 @@ export default function removeDependencies(
 		}
 
 		if (options.runInstall !== false) {
-			const packageManager = detectPackageManager(packageDirectory);
-			return runPackageManagerInstall(packageManager, packageDirectory).then(
-				() => updatedContent,
+			const packageManager = detectPackageManager(
+				packageDirectory,
+				packageJson,
 			);
+			await runPackageManagerInstall(packageManager, packageDirectory);
+			return updatedContent;
 		}
 
-		return Promise.resolve(updatedContent);
+		return updatedContent;
 	} catch (error) {
 		console.error('Error removing dependencies:', error);
-		return Promise.resolve(null);
+		return null;
 	}
 }
 
 /**
- * Detect which package manager is being used based on lock files. Defaults to npm.
+ * Detect which package manager is being used based on package.json packageManager,
+ * then lock files. Defaults to npm.
  */
 function detectPackageManager(
 	packageDirectory: string,
+	packageJson?: { packageManager?: unknown },
 ): 'npm' | 'yarn' | 'pnpm' {
+	const pManager =
+		typeof packageJson?.packageManager === 'string'
+			? packageJson.packageManager.match(/npm|pnpm|yarn/)?.[0]
+			: undefined;
+
+	if (pManager === 'npm' || pManager === 'pnpm' || pManager === 'yarn') {
+		return pManager;
+	}
+
 	if (fileExists(join(packageDirectory, 'pnpm-lock.yaml'))) {
 		return 'pnpm';
 	}
