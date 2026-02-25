@@ -1,22 +1,43 @@
-import { execSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+/**
+ * Important notes, this utility is designed to be used in JSSG context so we use specific APIs avaible in that context. https://github.com/awslabs/llrt/blob/main/API.md
+ */
+import { spawn } from 'node:child_process';
+import { accessSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+
+type RemoveDependenciesOptions = {
+	packageJsonPath?: string;
+	runInstall?: boolean;
+	persistFileWrite?: boolean;
+};
 
 /**
  * Remove specified dependencies from package.json and run appropriate package manager install
  */
-export default function removeDependencies(
+export default async function removeDependencies(
 	dependenciesToRemove?: string | string[],
-): string | null {
-	const packageJsonPath = 'package.json';
+	options: RemoveDependenciesOptions = {},
+) {
+	const packageJsonPath = options.packageJsonPath ?? 'package.json';
+	const packageDirectory = dirname(packageJsonPath);
+	const persistFileWrite = options.persistFileWrite ?? true;
 
 	if (!dependenciesToRemove) {
 		console.log('No dependencies specified for removal');
-		return null;
+		return Promise.resolve(null);
 	}
 
-	if (!existsSync(packageJsonPath)) {
+	if (
+		Array.isArray(dependenciesToRemove) &&
+		dependenciesToRemove.length === 0
+	) {
+		console.log('No dependencies specified for removal');
+		return Promise.resolve(null);
+	}
+
+	if (!fileExists(packageJsonPath)) {
 		console.log('No package.json found, skipping dependency removal');
-		return null;
+		return Promise.resolve(null);
 	}
 
 	try {
@@ -53,15 +74,24 @@ export default function removeDependencies(
 			console.log(
 				`No specified dependencies (${depsToRemove.join(', ')}) found in package.json`,
 			);
-			return null;
+			return Promise.resolve(null);
 		}
 
 		const updatedContent = JSON.stringify(packageJson, null, 2);
-		writeFileSync(packageJsonPath, updatedContent, 'utf-8');
-		console.log('Updated package.json');
 
-		const packageManager = detectPackageManager();
-		runPackageManagerInstall(packageManager);
+		if (persistFileWrite) {
+			writeFileSync(packageJsonPath, updatedContent, 'utf-8');
+			console.log('Updated package.json');
+		}
+
+		if (options.runInstall !== false) {
+			const packageManager = detectPackageManager(
+				packageDirectory,
+				packageJson,
+			);
+			await runPackageManagerInstall(packageManager, packageDirectory);
+			return updatedContent;
+		}
 
 		return updatedContent;
 	} catch (error) {
@@ -71,18 +101,33 @@ export default function removeDependencies(
 }
 
 /**
- * Detect which package manager is being used based on lock files. Defaults to npm.
+ * Detect which package manager is being used based on package.json packageManager,
+ * then lock files. Defaults to npm.
  */
-function detectPackageManager(): 'npm' | 'yarn' | 'pnpm' {
-	if (existsSync('pnpm-lock.yaml')) {
-		return 'pnpm';
-	}
+function detectPackageManager(
+	packageDirectory: string,
+	packageJson?: { packageManager?: string },
+): 'npm' | 'yarn' | 'pnpm' {
+	const pManager = packageJson.packageManager?.match(/npm|pnpm|yarn/)?.[0] as
+		| 'npm'
+		| 'yarn'
+		| 'pnpm'
+		| undefined;
 
-	if (existsSync('yarn.lock')) {
-		return 'yarn';
-	}
+	if (pManager) return pManager;
+	if (fileExists(join(packageDirectory, 'pnpm-lock.yaml'))) return 'pnpm';
+	if (fileExists(join(packageDirectory, 'yarn.lock'))) return 'yarn';
 
 	return 'npm';
+}
+
+function fileExists(path: string): boolean {
+	try {
+		accessSync(path);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 /**
@@ -90,25 +135,37 @@ function detectPackageManager(): 'npm' | 'yarn' | 'pnpm' {
  */
 function runPackageManagerInstall(
 	packageManager: 'npm' | 'yarn' | 'pnpm',
-): void {
-	try {
-		console.log(`Running ${packageManager} install to update dependencies...`);
+	packageDirectory: string,
+): Promise<void> {
+	console.log(`Running ${packageManager} install to update dependencies...`);
 
-		switch (packageManager) {
-			case 'npm':
-				execSync('npm install', { stdio: 'inherit' });
-				break;
-			case 'yarn':
-				execSync('yarn install', { stdio: 'inherit' });
-				break;
-			case 'pnpm':
-				execSync('pnpm install', { stdio: 'inherit' });
-				break;
-		}
+	return new Promise((resolve) => {
+		const child = spawn(packageManager, ['install'], {
+			cwd: packageDirectory,
+			stdio: 'inherit',
+		});
 
-		console.log(`Successfully updated dependencies with ${packageManager}`);
-	} catch (error) {
-		console.error(`Error running ${packageManager} install:`, error);
-		// Don't throw - dependency removal was successful, install failure shouldn't break the codemod
-	}
+		let settled = false;
+		const settle = () => {
+			if (!settled) {
+				settled = true;
+				resolve();
+			}
+		};
+
+		child.on('error', (error) => {
+			console.error(`Error running ${packageManager} install:`, error);
+			settle();
+		});
+
+		child.on('close', (code) => {
+			if (code === 0) {
+				console.log(`Successfully updated dependencies with ${packageManager}`);
+			} else {
+				console.error(`${packageManager} install exited with code ${code}`);
+			}
+
+			settle();
+		});
+	});
 }
