@@ -29,7 +29,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.4.4",
     "@types/node": "^25.3.0",
-    "@typescript/native-preview": "^7.0.0-dev.20260219.1"
+    "@typescript/native-preview": "^7.0.0-dev.20260225.1"
   },
   "workspaces": [
     "./recipes/*",
