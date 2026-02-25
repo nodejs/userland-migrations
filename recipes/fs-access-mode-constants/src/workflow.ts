@@ -1,146 +1,286 @@
-import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
-import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
+import { updateBinding } from '@nodejs/codemod-utils/ast-grep/update-binding';
 import type { Edit, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 const PATTERNS = ['F_OK', 'R_OK', 'W_OK', 'X_OK'];
 
-export default function tranform(root: SgRoot<Js>): string | null {
+type BindingMapping = {
+	local: string;
+	replacement: string;
+};
+
+export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
-	const replacementMap = new Map<string, string>();
+	const localBindings = new Map<string, string>();
+	const namespaceBindings = new Map<string, string>();
 
-	const requireStatements = getNodeRequireCalls(root, 'fs');
+	const importStatements = getModuleDependencies(root, 'fs');
 
-	for (const statement of requireStatements) {
-		const objectPattern = statement.find({
-			rule: { kind: 'object_pattern' },
-		});
-
-		if (objectPattern) {
-			const promisesBinding = getLocalPromisesBinding(statement);
-			let objPatArr = objectPattern
-				.findAll({
-					rule: { kind: 'shorthand_property_identifier_pattern' },
-				})
-				.map((v) => v.text());
-
-			const removedBindings = objPatArr.filter((v) => PATTERNS.includes(v));
-			if (removedBindings.length > 0) {
-				for (const binding of removedBindings) {
-					if (promisesBinding) {
-						replacementMap.set(
-							binding,
-							`${promisesBinding}.constants.${binding}`,
-						);
-					} else {
-						replacementMap.set(binding, `constants.${binding}`);
-					}
-				}
-
-				objPatArr = objPatArr.filter((v) => !PATTERNS.includes(v));
-				if (!promisesBinding && !objPatArr.includes('constants')) {
-					objPatArr.push('constants');
-				}
-				edits.push(objectPattern.replace(`{ ${objPatArr.join(', ')} }`));
-			}
-		}
-	}
-
-	const importStatements = getNodeImportStatements(root, 'fs');
+	if (!importStatements) return null;
 
 	for (const statement of importStatements) {
-		const promisesBinding = getLocalPromisesBinding(statement);
-		const objectPattern = statement.find({
-			rule: { kind: 'named_imports' },
-		});
+		const promisesBinding = resolveBindingPath(statement, '$.promises');
+		const rewritten = rewriteBindings(statement, promisesBinding);
+		edits.push(...rewritten.edits);
 
-		if (objectPattern) {
-			const specifiers = objectPattern.findAll({
-				rule: { kind: 'import_specifier' },
-			});
-
-			const filteredImports: string[] = [];
-			let removedAny = false;
-
-			for (const specifier of specifiers) {
-				const importedName = specifier.field('name')?.text() ?? '';
-				const localName = specifier.field('alias')?.text() ?? importedName;
-
-				if (PATTERNS.includes(importedName)) {
-					removedAny = true;
-					const replacementPrefix = promisesBinding
-						? `${promisesBinding}.constants`
-						: 'constants';
-					replacementMap.set(localName, `${replacementPrefix}.${importedName}`);
-					continue;
-				}
-
-				filteredImports.push(specifier.text());
-			}
-
-			if (removedAny) {
-				if (!promisesBinding && !filteredImports.includes('constants')) {
-					filteredImports.push('constants');
-				}
-				edits.push(objectPattern.replace(`{ ${filteredImports.join(', ')} }`));
-			}
+		for (const mapping of rewritten.mappings) {
+			localBindings.set(mapping.local, mapping.replacement);
 		}
-	}
 
-	for (const statement of [...requireStatements, ...importStatements]) {
-		for (const _OK of PATTERNS) {
-			const local = resolveBindingPath(statement, `$.${_OK}`);
-			if (!local?.includes('.') || local.includes('.constants.')) {
+		for (const pattern of PATTERNS) {
+			const resolved = resolveBindingPath(statement, `$.${pattern}`);
+			if (!resolved?.includes('.') || resolved.includes('.constants.')) {
 				continue;
 			}
 
-			replacementMap.set(local, local.replace(`.${_OK}`, `.constants.${_OK}`));
+			namespaceBindings.set(
+				resolved,
+				resolved.replace(`.${pattern}`, `.constants.${pattern}`),
+			);
 		}
 	}
 
-	for (const [local, replacement] of replacementMap) {
-		if (local.includes('.')) {
-			const nodes = rootNode.findAll({
-				rule: { pattern: local },
-			});
-			for (const node of nodes) {
-				edits.push(node.replace(replacement));
-			}
-			continue;
-		}
+	for (const [path, replacement] of namespaceBindings) {
+		const nodes = rootNode.findAll({
+			rule: { pattern: path },
+		});
 
-		const refs = rootNode.findAll({
+		for (const node of nodes) {
+			edits.push(node.replace(replacement));
+		}
+	}
+
+	for (const [local, replacement] of localBindings) {
+		const identifiers = rootNode.findAll({
 			rule: {
 				kind: 'identifier',
 				regex: `^${escapeRegExp(local)}$`,
 			},
 		});
 
-		for (const ref of refs) {
+		for (const identifier of identifiers) {
 			if (
-				ref.inside({ rule: { kind: 'named_imports' } }) ||
-				ref.inside({ rule: { kind: 'object_pattern' } })
+				identifier.inside({ rule: { kind: 'named_imports' } }) ||
+				identifier.inside({ rule: { kind: 'object_pattern' } })
 			) {
 				continue;
 			}
-			edits.push(ref.replace(replacement));
+
+			edits.push(identifier.replace(replacement));
 		}
 	}
+
+	if (edits.length === 0) return null;
 
 	return rootNode.commitEdits(edits);
 }
 
-function getLocalPromisesBinding(statement: SgNode<Js>): string {
-	const resolved = resolveBindingPath(statement, '$.promises');
-	if (!resolved || resolved.includes('.')) {
-		return '';
+function rewriteBindings(
+	statement: SgNode<Js>,
+	promisesBinding: string,
+): { edits: Edit[]; mappings: BindingMapping[] } {
+	const objectPattern = statement.find({
+		rule: { kind: 'object_pattern' },
+	});
+
+	if (objectPattern) {
+		return rewriteObjectPattern(statement, objectPattern, promisesBinding);
 	}
 
-	return resolved;
+	const namedImports = statement.find({
+		rule: { kind: 'named_imports' },
+	});
+
+	if (namedImports) {
+		return rewriteNamedImports(statement, namedImports, promisesBinding);
+	}
+
+	return { edits: [], mappings: [] };
+}
+
+function rewriteObjectPattern(
+	statement: SgNode<Js>,
+	pattern: SgNode<Js>,
+	promisesBinding: string,
+): { edits: Edit[]; mappings: BindingMapping[] } {
+	const shorthandBindings = pattern
+		.findAll({
+			rule: { kind: 'shorthand_property_identifier_pattern' },
+		})
+		.map((node) => node.text());
+
+	const aliasedBindings = pattern
+		.findAll({
+			rule: {
+				kind: 'pair_pattern',
+				has: {
+					field: 'key',
+					kind: 'property_identifier',
+				},
+			},
+		})
+		.map((pair) => {
+			const imported = pair.field('key')?.text() ?? '';
+			const local = pair.field('value')?.text() ?? imported;
+
+			return {
+				imported,
+				local,
+				text: pair.text(),
+			};
+		});
+
+	const removedShorthand = shorthandBindings.filter((name) =>
+		PATTERNS.includes(name),
+	);
+	const removedAliased = aliasedBindings.filter((binding) =>
+		PATTERNS.includes(binding.imported),
+	);
+
+	if (removedShorthand.length === 0 && removedAliased.length === 0) {
+		return { edits: [], mappings: [] };
+	}
+
+	const mappings: BindingMapping[] = [];
+	const replacementPrefix = promisesBinding
+		? `${promisesBinding}.constants`
+		: 'constants';
+
+	for (const imported of removedShorthand) {
+		mappings.push({
+			local: imported,
+			replacement: `${replacementPrefix}.${imported}`,
+		});
+	}
+
+	for (const binding of removedAliased) {
+		mappings.push({
+			local: binding.local,
+			replacement: `${replacementPrefix}.${binding.imported}`,
+		});
+	}
+
+	const shouldAddConstants =
+		!promisesBinding && !shorthandBindings.includes('constants');
+
+	if (removedShorthand.length === 1 && removedAliased.length === 0) {
+		const singleBindingEdit = getSingleBindingEdit(
+			statement,
+			removedShorthand[0],
+			shouldAddConstants,
+		);
+
+		if (singleBindingEdit) {
+			return { edits: [singleBindingEdit], mappings };
+		}
+	}
+
+	const kept = [
+		...shorthandBindings.filter((name) => !PATTERNS.includes(name)),
+		...aliasedBindings
+			.filter((binding) => !PATTERNS.includes(binding.imported))
+			.map((binding) => binding.text),
+	];
+
+	if (!promisesBinding && !kept.includes('constants')) {
+		kept.push('constants');
+	}
+
+	return {
+		edits: [pattern.replace(`{ ${kept.join(', ')} }`)],
+		mappings,
+	};
+}
+
+function rewriteNamedImports(
+	statement: SgNode<Js>,
+	pattern: SgNode<Js>,
+	promisesBinding: string,
+): { edits: Edit[]; mappings: BindingMapping[] } {
+	const specifiers = pattern.findAll({
+		rule: { kind: 'import_specifier' },
+	});
+
+	const kept: string[] = [];
+	const mappings: BindingMapping[] = [];
+	const removedUnaliased: string[] = [];
+	const removedAliased: string[] = [];
+	const replacementPrefix = promisesBinding
+		? `${promisesBinding}.constants`
+		: 'constants';
+
+	for (const specifier of specifiers) {
+		const imported = specifier.field('name')?.text() ?? '';
+		const local = specifier.field('alias')?.text() ?? imported;
+
+		if (PATTERNS.includes(imported)) {
+			mappings.push({
+				local,
+				replacement: `${replacementPrefix}.${imported}`,
+			});
+
+			if (local === imported) {
+				removedUnaliased.push(imported);
+			} else {
+				removedAliased.push(local);
+			}
+
+			continue;
+		}
+
+		kept.push(specifier.text());
+	}
+
+	if (!mappings.length) return { edits: [], mappings: [] };
+
+	const shouldAddConstants = !promisesBinding && !kept.includes('constants');
+
+	if (removedUnaliased.length === 1 && removedAliased.length === 0) {
+		const singleBindingEdit = getSingleBindingEdit(
+			statement,
+			removedUnaliased[0],
+			shouldAddConstants,
+		);
+
+		if (singleBindingEdit) {
+			return { edits: [singleBindingEdit], mappings };
+		}
+	}
+
+	if (!promisesBinding && !kept.includes('constants')) {
+		kept.push('constants');
+	}
+
+	return {
+		edits: [pattern.replace(`{ ${kept.join(', ')} }`)],
+		mappings,
+	};
 }
 
 function escapeRegExp(text: string): string {
 	return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function getSingleBindingEdit(
+	statement: SgNode<Js>,
+	oldBinding: string,
+	shouldAddConstants: boolean,
+): Edit | null {
+	const update = updateBinding(statement, {
+		old: oldBinding,
+		new: shouldAddConstants ? 'constants' : undefined,
+	});
+
+	if (update?.edit) {
+		return update.edit;
+	}
+
+	if (update?.lineToRemove) {
+		return statement.replace('');
+	}
+
+	return null;
 }
