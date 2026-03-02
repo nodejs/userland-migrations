@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/codemod-com/codemod/refs/heads/main/schemas/workflow.json
+
+version: "1"
+
+nodes:
+  - id: apply-transforms
+    name: Apply AST Transformations
+    type: automatic
+    steps:
+      - name: Migrate Mocha v8 tests to Node.js test runner (v22, v24+)
+        js-ast-grep:
+          js_file: src/workflow.ts
+          base_path: .
+          include:
+            - "**/*.cjs"
+            - "**/*.cts"
+            - "**/*.js"
+            - "**/*.jsx"
+            - "**/*.mjs"
+            - "**/*.mts"
+            - "**/*.ts"
+            - "**/*.tsx"
+          exclude:
+            - "**/node_modules/**"
+          language: typescript
+  - id: remove-dependencies
+    name: Remove Mocha dependency
+    type: automatic
+    steps:
+      - name: Detect package manager and remove chalk dependency
+        js-ast-grep:
+          js_file: src/remove-dependencies.ts
+          base_path: .
+          include:
+            - "**/package.json"
+          exclude:
+            - "**/node_modules/**"
+          language: typescript
+          capabilities:
+            - child_process
+            - fs
