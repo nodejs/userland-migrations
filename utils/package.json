@@ -16,6 +16,6 @@
     "@ast-grep/lang-json": "^0.0.6",
     "@ast-grep/napi": "^0.41.0",
     "@codemod.com/jssg-types": "^1.4.1",
-    "dedent": "^1.7.1"
+    "dedent": "^1.7.2"
   }
 }
