@@ -28,7 +28,6 @@ export default function transform(root: SgRoot<JS>): string | null {
 							pattern: moduleFn,
 						},
 					],
-					// handle others
 				},
 			},
 		});
@@ -88,12 +87,11 @@ export default function transform(root: SgRoot<JS>): string | null {
 			const innerExports = `${exportsLevel}${indentUnit}`;
 
 			const newValue =
-				`{${EOL}` +
-				`${exportsLevel}exports: {${EOL}` +
-				`${innerExports}${pairs.join(`,${EOL}${innerExports}`)}` +
-				`,${EOL}` +
-				`${exportsLevel}},${EOL}` +
-				`${indentLevel}}`;
+				`{${EOL}`
+				+ `${exportsLevel}exports: {${EOL}`
+				+ `${innerExports}${pairs.join(`,${EOL}${innerExports}`)}` + `,${EOL}`
+				+ `${exportsLevel}},${EOL}`
+				+ `${indentLevel}}`;
 
 			edits.push(optionsArg.replace(newValue));
 		}
