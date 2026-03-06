@@ -1,10 +1,5 @@
 import { EOL } from 'node:os';
 import dedent from 'dedent';
-import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
-import {
-	getNodeImportCalls,
-	getNodeImportStatements,
-} from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { removeBinding } from '@nodejs/codemod-utils/ast-grep/remove-binding';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
@@ -16,6 +11,7 @@ import type {
 	SgRoot,
 } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 
 type BindingToReplace = {
 	rule: Rule<Js>;
@@ -34,6 +30,16 @@ type CreateOptionsType = {
 	method?: string;
 	bodyNode?: SgNode<Js> | null;
 	payloadKind?: 'json' | 'form';
+};
+
+type AxiosMethodUpdateConfig = {
+	name: string;
+	method?: string;
+	oldOptionsIndex: number;
+	bodyIndex?: number;
+	payloadKind?: NonNullable<CreateOptionsType['payloadKind']>;
+	responseAlias?: string;
+	optionalOptionsArg?: boolean;
 };
 
 const formatLocation = ({
@@ -124,210 +130,98 @@ const getFormBodyExpression = (
 	`;
 };
 
+const createAxiosMethodUpdate = ({
+	name,
+	method,
+	oldOptionsIndex,
+	bodyIndex,
+	payloadKind = 'json',
+	responseAlias = 'resp',
+	optionalOptionsArg = true,
+}: AxiosMethodUpdateConfig) => ({
+	oldBind: `$.${name}`,
+	replaceFn: (args: SgNode<Js>[], context: WarningContext) => {
+		const url = args[0];
+		if (!url) {
+			warnWithLocation(context, `Missing URL in axios.${name}. Skipping.`);
+			return '';
+		}
+
+		const options = createOptions({
+			oldOptions: args[oldOptionsIndex],
+			method,
+			bodyNode: bodyIndex === undefined ? undefined : (args[bodyIndex] ?? null),
+			payloadKind,
+		});
+
+		const fetchCall = optionalOptionsArg
+			? `fetch(${url.text()}${options ? `, ${options}` : ''})`
+			: `fetch(${url.text()}, ${options})`;
+
+		return dedent.withOptions({ alignValues: true })`
+		${fetchCall}
+			.then(async (${responseAlias}) => Object.assign(${responseAlias}, { data: await ${responseAlias}.json() }))
+			.catch(() => null)
+		`;
+	},
+});
+
+const axiosMethodUpdates: AxiosMethodUpdateConfig[] = [
+	{ name: 'post', method: 'POST', oldOptionsIndex: 2, bodyIndex: 1 },
+	{ name: 'put', method: 'PUT', oldOptionsIndex: 2, bodyIndex: 1 },
+	{ name: 'patch', method: 'PATCH', oldOptionsIndex: 2, bodyIndex: 1 },
+	{
+		name: 'postForm',
+		method: 'POST',
+		oldOptionsIndex: 2,
+		bodyIndex: 1,
+		payloadKind: 'form',
+	},
+	{
+		name: 'putForm',
+		method: 'PUT',
+		oldOptionsIndex: 2,
+		bodyIndex: 1,
+		payloadKind: 'form',
+	},
+	{
+		name: 'patchForm',
+		method: 'PATCH',
+		oldOptionsIndex: 2,
+		bodyIndex: 1,
+		payloadKind: 'form',
+	},
+	{
+		name: 'delete',
+		method: 'DELETE',
+		oldOptionsIndex: 1,
+		optionalOptionsArg: false,
+	},
+	{
+		name: 'head',
+		method: 'HEAD',
+		oldOptionsIndex: 1,
+		optionalOptionsArg: false,
+	},
+	{
+		name: 'options',
+		method: 'OPTIONS',
+		oldOptionsIndex: 1,
+		optionalOptionsArg: false,
+	},
+];
+
 const baseUpdates: {
 	oldBind: string;
 	replaceFn: BindingToReplace['replaceFn'];
 	supportDefaultAccess?: boolean;
 }[] = [
-	{
-		oldBind: '$.get',
-		replaceFn: (args, context) => {
-			const [url, oldOptions] = args;
-			if (!url) {
-				warnWithLocation(context, 'Missing URL in axios.get. Skipping.');
-				return '';
-			}
-			const options = createOptions({ oldOptions });
-			return dedent.withOptions({ alignValues: true })`
-		fetch(${url.text()}${options ? `, ${options}` : ''})
-			.then(async (res) => Object.assign(res, { data: await res.json() }))
-			.catch(() => null)
-		`;
-		},
-	},
-	{
-		oldBind: '$.post',
-		replaceFn: (args, context) => {
-			const url = args[0];
-			if (!url) {
-				warnWithLocation(context, 'Missing URL in axios.post. Skipping.');
-				return '';
-			}
-			const options = createOptions({
-				oldOptions: args[2],
-				method: 'POST',
-				bodyNode: args[1] ?? null,
-				payloadKind: 'json',
-			});
-			return dedent.withOptions({ alignValues: true })`
-		fetch(${url.text()}${options ? `, ${options}` : ''})
-			.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
-			.catch(() => null)
-		`;
-		},
-	},
-	{
-		oldBind: '$.put',
-		replaceFn: (args, context) => {
-			const url = args[0];
-			if (!url) {
-				warnWithLocation(context, 'Missing URL in axios.put. Skipping.');
-				return '';
-			}
-			const options = createOptions({
-				oldOptions: args[2],
-				method: 'PUT',
-				bodyNode: args[1] ?? null,
-				payloadKind: 'json',
-			});
-			return dedent.withOptions({ alignValues: true })`
-		fetch(${url.text()}${options ? `, ${options}` : ''})
-			.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
-			.catch(() => null)
-		`;
-		},
-	},
-	{
-		oldBind: '$.patch',
-		replaceFn: (args, context) => {
-			const url = args[0];
-			if (!url) {
-				warnWithLocation(context, 'Missing URL in axios.patch. Skipping.');
-				return '';
-			}
-			const options = createOptions({
-				oldOptions: args[2],
-				method: 'PATCH',
-				bodyNode: args[1] ?? null,
-				payloadKind: 'json',
-			});
-			return dedent.withOptions({ alignValues: true })`
-		fetch(${url.text()}${options ? `, ${options}` : ''})
-			.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
-			.catch(() => null)
-		`;
-		},
-	},
-	{
-		oldBind: '$.postForm',
-		replaceFn: (args, context) => {
-			const url = args[0];
-			if (!url) {
-				warnWithLocation(context, 'Missing URL in axios.postForm. Skipping.');
-				return '';
-			}
-			const options = createOptions({
-				oldOptions: args[2],
-				method: 'POST',
-				bodyNode: args[1] ?? null,
-				payloadKind: 'form',
-			});
-			return dedent.withOptions({ alignValues: true })`
-		fetch(${url.text()}${options ? `, ${options}` : ''})
-			.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
-			.catch(() => null)
-		`;
-		},
-	},
-	{
-		oldBind: '$.putForm',
-		replaceFn: (args, context) => {
-			const url = args[0];
-			if (!url) {
-				warnWithLocation(context, 'Missing URL in axios.putForm. Skipping.');
-				return '';
-			}
-			const options = createOptions({
-				oldOptions: args[2],
-				method: 'PUT',
-				bodyNode: args[1] ?? null,
-				payloadKind: 'form',
-			});
-			return dedent.withOptions({ alignValues: true })`
-		fetch(${url.text()}${options ? `, ${options}` : ''})
-			.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
-			.catch(() => null)
-		`;
-		},
-	},
-	{
-		oldBind: '$.patchForm',
-		replaceFn: (args, context) => {
-			const url = args[0];
-			if (!url) {
-				warnWithLocation(context, 'Missing URL in axios.patchForm. Skipping.');
-				return '';
-			}
-			const options = createOptions({
-				oldOptions: args[2],
-				method: 'PATCH',
-				bodyNode: args[1] ?? null,
-				payloadKind: 'form',
-			});
-			return dedent.withOptions({ alignValues: true })`
-		fetch(${url.text()}${options ? `, ${options}` : ''})
-			.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
-			.catch(() => null)
-		`;
-		},
-	},
-	{
-		oldBind: '$.delete',
-		replaceFn: (args, context) => {
-			const url = args[0];
-			if (!url) {
-				warnWithLocation(context, 'Missing URL in axios.delete. Skipping.');
-				return '';
-			}
-			const options = createOptions({
-				oldOptions: args[1],
-				method: 'DELETE',
-			});
-			return dedent.withOptions({ alignValues: true })`
-		fetch(${url.text()}, ${options})
-			.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
-			.catch(() => null)
-		`;
-		},
-	},
-	{
-		oldBind: '$.head',
-		replaceFn: (args, context) => {
-			const url = args[0];
-			if (!url) {
-				warnWithLocation(context, 'Missing URL in axios.head. Skipping.');
-				return '';
-			}
-			const options = createOptions({
-				oldOptions: args[1],
-				method: 'HEAD',
-			});
-			return dedent.withOptions({ alignValues: true })`
-		fetch(${url.text()}, ${options})
-			.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
-			.catch(() => null)
-		`;
-		},
-	},
-	{
-		oldBind: '$.options',
-		replaceFn: (args, context) => {
-			const url = args[0];
-			if (!url) {
-				warnWithLocation(context, 'Missing URL in axios.options. Skipping.');
-				return '';
-			}
-			const options = createOptions({
-				oldOptions: args[1],
-				method: 'OPTIONS',
-			});
-			return dedent.withOptions({ alignValues: true })`
-		fetch(${url.text()}, ${options})
-			.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
-			.catch(() => null)
-		`;
-		},
-	},
+	createAxiosMethodUpdate({
+		name: 'get',
+		oldOptionsIndex: 1,
+		responseAlias: 'res',
+	}),
+	...axiosMethodUpdates.map(createAxiosMethodUpdate),
 	{
 		oldBind: '$.request',
 		replaceFn: (args, context) => {
@@ -475,11 +369,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const linesToRemove: Range[] = [];
 	const bindsToReplace: BindingToReplace[] = [];
 
-	const importRequireStatement = [
-		...getNodeRequireCalls(root, 'axios'),
-		...getNodeImportStatements(root, 'axios'),
-		...getNodeImportCalls(root, 'axios'),
-	];
+	const importRequireStatement = getModuleDependencies(root, 'axios');
 
 	if (!importRequireStatement.length) return null;
 
