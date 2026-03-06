@@ -1,0 +1,26 @@
+schema_version: "1.0"
+name: "@nodejs/mocha-to-node-test-runner"
+version: 1.0.0
+capabilities:
+  - fs
+  - child_process
+description: Migrate Mocha v8 tests to Node.js test runner (v22, v24+)
+author: Xavier Stouder
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - mocha
+  - test
+
+registry:
+  access: public
+  visibility: public
