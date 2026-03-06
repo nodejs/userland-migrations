@@ -1,30 +1,31 @@
 import {
 	getNodeImportStatements,
 	getNodeImportCalls,
-} from "@nodejs/codemod-utils/ast-grep/import-statement";
-import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
-import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
-import type { SgRoot, Edit, SgNode } from "@codemod.com/jssg-types/main";
-import type Js from "@codemod.com/jssg-types/langs/javascript";
+} from '@nodejs/codemod-utils/ast-grep/import-statement';
+import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
+import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
+import type { SgRoot, Edit, SgNode } from '@codemod.com/jssg-types/main';
+import type Js from '@codemod.com/jssg-types/langs/javascript';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 
 // Bindings we care about and their replacements for truncate ➜ ftruncate
 const checks = [
 	{
-		path: "$.truncate",
-		prop: "truncate",
-		replaceFn: (name: string) => name.replace(/truncate$/, "ftruncate"),
+		path: '$.truncate',
+		prop: 'truncate',
+		replaceFn: (name: string) => name.replace(/truncate$/, 'ftruncate'),
 		isSync: false,
 	},
 	{
-		path: "$.truncateSync",
-		prop: "truncateSync",
-		replaceFn: (name: string) => name.replace(/truncateSync$/, "ftruncateSync"),
+		path: '$.truncateSync',
+		prop: 'truncateSync',
+		replaceFn: (name: string) => name.replace(/truncateSync$/, 'ftruncateSync'),
 		isSync: true,
 	},
 	{
-		path: "$.promises.truncate",
-		prop: "truncate",
-		replaceFn: (name: string) => name.replace(/truncate$/, "ftruncate"),
+		path: '$.promises.truncate',
+		prop: 'truncate',
+		replaceFn: (name: string) => name.replace(/truncate$/, 'ftruncate'),
 		isSync: false,
 	},
 ];
@@ -46,7 +47,10 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const edits: Edit[] = [];
 
 	// Gather fs import/require statements to resolve local binding names
-	const stmtNodes = [...getNodeRequireCalls(root, "fs"), ...getNodeImportStatements(root, "fs")];
+	const stmtNodes = [
+		...getNodeRequireCalls(root, 'fs'),
+		...getNodeImportStatements(root, 'fs'),
+	];
 
 	let usedTruncate = false;
 	let usedTruncateSync = false;
@@ -73,7 +77,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 			let transformedAny = false;
 			for (const call of calls) {
-				const fdMatch = call.getMatch("FD");
+				const fdMatch = call.getMatch('FD');
 				if (!fdMatch) continue;
 
 				const fdText = fdMatch.text();
@@ -87,8 +91,10 @@ export default function transform(root: SgRoot<Js>): string | null {
 				let replacedAny = false;
 
 				// Try to replace a simple identifier callee (destructured import: `truncate(...)`)
-				const localName = local.split(".").at(-1) || local;
-				const idNode = call.find({ rule: { kind: "identifier", regex: `^${localName}$` } });
+				const localName = local.split('.').at(-1) || local;
+				const idNode = call.find({
+					rule: { kind: 'identifier', regex: `^${localName}$` },
+				});
 				if (idNode) {
 					edits.push(idNode.replace(check.replaceFn(idNode.text())));
 					replacedAny = true;
@@ -97,7 +103,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 				// Try to replace a member expression property (e.g. `fs.truncate(...)` or `myFS.truncate(...)`)
 				if (!replacedAny) {
 					const propNode = call.find({
-						rule: { kind: "property_identifier", regex: `^${propName}$` },
+						rule: { kind: 'property_identifier', regex: `^${propName}$` },
 					});
 					if (propNode) {
 						edits.push(propNode.replace(check.replaceFn(propNode.text())));
@@ -114,12 +120,12 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 			// Update import/destructure to include/rename to ftruncate/ftruncateSync where necessary
 			const namedNode =
-				stmt.find({ rule: { kind: "object_pattern" } }) ||
-				stmt.find({ rule: { kind: "named_imports" } });
+				stmt.find({ rule: { kind: 'object_pattern' } }) ||
+				stmt.find({ rule: { kind: 'named_imports' } });
 			if (transformedAny && namedNode?.text().includes(propName)) {
 				const original = namedNode.text();
 				const newText = original.replace(
-					new RegExp(`\\b${propName}\\b`, "g"),
+					new RegExp(`\\b${propName}\\b`, 'g'),
 					check.replaceFn(propName),
 				);
 				if (newText !== original) {
@@ -136,7 +142,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	// trigger a no-op replacement to force a reprint. This normalizes
 	// indentation (tabs → spaces) to match expected fixtures.
 	if (!edits.length) {
-		const dynImportCalls = getNodeImportCalls(root, "fs");
+		const dynImportCalls = getNodeImportCalls(root, 'fs');
 
 		for (const dynImport of dynImportCalls) {
 			edits.push(dynImport.replace(dynImport.text()));
@@ -157,21 +163,28 @@ function updateImportsAndRequires(
 	usedTruncateSync: boolean,
 	edits: Edit[],
 ): void {
-	const importStatements = getNodeImportStatements(root, "fs");
-	const requireStatements = getNodeRequireCalls(root, "fs");
+	const moduleDeps = getModuleDependencies(root, 'fs');
 
 	// Update import and require statements
-	for (const statement of [...importStatements, ...requireStatements]) {
+	for (const statement of moduleDeps) {
 		let text = statement.text();
 		let updated = false;
 
-		if (usedTruncate && text.includes("truncate") && !text.includes("ftruncate")) {
-			text = text.replace(/\btruncate\b/g, "ftruncate");
+		if (
+			usedTruncate &&
+			text.includes('truncate') &&
+			!text.includes('ftruncate')
+		) {
+			text = text.replace(/\btruncate\b/g, 'ftruncate');
 			updated = true;
 		}
 
-		if (usedTruncateSync && text.includes("truncateSync") && !text.includes("ftruncateSync")) {
-			text = text.replace(/\btruncateSync\b/g, "ftruncateSync");
+		if (
+			usedTruncateSync &&
+			text.includes('truncateSync') &&
+			!text.includes('ftruncateSync')
+		) {
+			text = text.replace(/\btruncateSync\b/g, 'ftruncateSync');
 			updated = true;
 		}
 
@@ -214,7 +227,7 @@ function isLikelyFileDescriptor(param: string, rootNode: SgNode<Js>): boolean {
 function isInCallbackContext(param: string, rootNode: SgNode<Js>): boolean {
 	const parameterUsages = rootNode.findAll({
 		rule: {
-			kind: "identifier",
+			kind: 'identifier',
 			regex: `^${param}$`,
 		},
 	});
@@ -223,20 +236,26 @@ function isInCallbackContext(param: string, rootNode: SgNode<Js>): boolean {
 		// Check if this usage is inside a callback parameter for fs.open or open
 		const isInOpenCallback = usage.inside({
 			rule: {
-				kind: "call_expression",
+				kind: 'call_expression',
 				has: {
-					field: "function",
+					field: 'function',
 					any: [
 						{
-							kind: "member_expression",
+							kind: 'member_expression',
 							all: [
-								{ has: { field: "object", kind: "identifier", regex: "^fs$" } },
-								{ has: { field: "property", kind: "property_identifier", regex: "^open$" } },
+								{ has: { field: 'object', kind: 'identifier', regex: '^fs$' } },
+								{
+									has: {
+										field: 'property',
+										kind: 'property_identifier',
+										regex: '^open$',
+									},
+								},
 							],
 						},
 						{
-							kind: "identifier",
-							regex: "^open$",
+							kind: 'identifier',
+							regex: '^open$',
 						},
 					],
 				},
@@ -260,32 +279,38 @@ function isAssignedFromOpenSync(param: string, rootNode: SgNode<Js>): boolean {
 		rule: {
 			any: [
 				{
-					kind: "variable_declarator",
+					kind: 'variable_declarator',
 					all: [
-						{ has: { field: "name", kind: "identifier", regex: `^${param}$` } },
+						{ has: { field: 'name', kind: 'identifier', regex: `^${param}$` } },
 						{
 							has: {
-								field: "value",
-								kind: "call_expression",
+								field: 'value',
+								kind: 'call_expression',
 								has: {
-									field: "function",
+									field: 'function',
 									any: [
 										{
-											kind: "member_expression",
+											kind: 'member_expression',
 											all: [
-												{ has: { field: "object", kind: "identifier", regex: "^fs$" } },
 												{
 													has: {
-														field: "property",
-														kind: "property_identifier",
-														regex: "^openSync$",
+														field: 'object',
+														kind: 'identifier',
+														regex: '^fs$',
+													},
+												},
+												{
+													has: {
+														field: 'property',
+														kind: 'property_identifier',
+														regex: '^openSync$',
 													},
 												},
 											],
 										},
 										{
-											kind: "identifier",
-											regex: "^openSync$",
+											kind: 'identifier',
+											regex: '^openSync$',
 										},
 									],
 								},
@@ -294,32 +319,38 @@ function isAssignedFromOpenSync(param: string, rootNode: SgNode<Js>): boolean {
 					],
 				},
 				{
-					kind: "assignment_expression",
+					kind: 'assignment_expression',
 					all: [
-						{ has: { field: "left", kind: "identifier", regex: `^${param}$` } },
+						{ has: { field: 'left', kind: 'identifier', regex: `^${param}$` } },
 						{
 							has: {
-								field: "right",
-								kind: "call_expression",
+								field: 'right',
+								kind: 'call_expression',
 								has: {
-									field: "function",
+									field: 'function',
 									any: [
 										{
-											kind: "member_expression",
+											kind: 'member_expression',
 											all: [
-												{ has: { field: "object", kind: "identifier", regex: "^fs$" } },
 												{
 													has: {
-														field: "property",
-														kind: "property_identifier",
-														regex: "^openSync$",
+														field: 'object',
+														kind: 'identifier',
+														regex: '^fs$',
+													},
+												},
+												{
+													has: {
+														field: 'property',
+														kind: 'property_identifier',
+														regex: '^openSync$',
 													},
 												},
 											],
 										},
 										{
-											kind: "identifier",
-											regex: "^openSync$",
+											kind: 'identifier',
+											regex: '^openSync$',
 										},
 									],
 								},

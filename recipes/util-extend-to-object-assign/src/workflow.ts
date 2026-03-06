@@ -1,10 +1,7 @@
 import {
-	getNodeImportStatements,
-	getNodeImportCalls,
 	getDefaultImportIdentifier,
 } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import {
-	getNodeRequireCalls,
 	getRequireNamespaceIdentifier,
 } from '@nodejs/codemod-utils/ast-grep/require-call';
 import { removeBinding } from '@nodejs/codemod-utils/ast-grep/remove-binding';
@@ -12,6 +9,7 @@ import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-bindi
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
 import type { SgRoot, Edit, Range } from '@codemod.com/jssg-types/main';
 import type JS from '@codemod.com/jssg-types/langs/javascript';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 
 const method = '_extend';
 
@@ -33,11 +31,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const linesToRemove: Range[] = [];
 	const editRanges: Range[] = [];
 
-	const importOrRequireNodes = [
-		...getNodeRequireCalls(root, 'util'),
-		...getNodeImportStatements(root, 'util'),
-		...getNodeImportCalls(root, 'util'),
-	];
+	const importOrRequireNodes = getModuleDependencies(root, 'util')
 
 	// If no util imports/requires, nothing to do
 	if (!importOrRequireNodes.length) return null;

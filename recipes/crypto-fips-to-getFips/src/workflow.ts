@@ -1,13 +1,9 @@
-import {
-	getNodeImportCalls,
-	getNodeImportStatements,
-} from '@nodejs/codemod-utils/ast-grep/import-statement';
-import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { updateBinding } from '@nodejs/codemod-utils/ast-grep/update-binding';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
 import type { SgRoot, SgNode, Edit, Range } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 
 type Binding = {
 	type: 'namespace' | 'destructured';
@@ -68,11 +64,7 @@ export default function transform(root: SgRoot<Js>): string | null {
  */
 function collectCryptoFipsBindings(root: SgRoot<Js>): Binding[] {
 	const bindings: Binding[] = [];
-	const allStatements = [
-		...getNodeImportStatements(root, 'crypto'),
-		...getNodeImportCalls(root, 'crypto'),
-		...getNodeRequireCalls(root, 'crypto'),
-	];
+	const allStatements = getModuleDependencies(root, 'crypto');
 
 	// If no statements found, skip transformation
 	if (!allStatements.length) return bindings;

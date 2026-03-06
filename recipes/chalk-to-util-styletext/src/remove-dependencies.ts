@@ -1,8 +1,13 @@
+import type { Transform } from '@codemod.com/jssg-types/main';
+import type Json from '@codemod.com/jssg-types/langs/json';
 import removeDependencies from '@nodejs/codemod-utils/remove-dependencies';
 
-/**
- * Remove chalk and @types/chalk dependencies from package.json
- */
-export default function removeChalkDependencies(): string | null {
-	return removeDependencies(['chalk', '@types/chalk']);
-}
+const transform: Transform<Json> = async (root) => {
+	return removeDependencies(['chalk', '@types/chalk'], {
+		packageJsonPath: root.filename(),
+		runInstall: false,
+		persistFileWrite: false,
+	});
+};
+
+export default transform;
