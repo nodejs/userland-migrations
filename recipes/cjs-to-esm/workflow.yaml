@@ -1,0 +1,90 @@
+version: "1"
+
+state:
+  schema:
+    extension_changes:
+      description: Tracks files renamed from .cjs/.mjs to .js for downstream specifier fixes
+      type: array
+      items:
+        type: object
+        properties:
+          from:
+            type: string
+          to:
+            type: string
+
+nodes:
+  - id: normalize-extensions
+    name: Normalize file extensions
+    type: automatic
+    runtime:
+      type: direct
+    steps:
+      - id: change-extensions
+        name: Rename .cjs/.mjs files to .js and record mapping
+        js-ast-grep:
+          js_file: src/extension-change.ts
+          base_path: .
+          include:
+            - "**/*.cjs"
+            - "**/*.mjs"
+          exclude:
+            - "**/node_modules/**"
+          language: typescript
+
+  - id: apply-transforms
+    name: Apply AST transformations
+    depends_on:
+      - normalize-extensions
+    type: automatic
+    runtime:
+      type: direct
+    steps:
+      - name: Convert requires/imports to ESM imports
+        js-ast-grep:
+          js_file: src/import-process.ts
+          base_path: .
+          include:
+            - "**/*.cjs"
+            - "**/*.js"
+            - "**/*.mjs"
+            - "**/*.ts"
+            - "**/*.tsx"
+          exclude:
+            - "**/node_modules/**"
+          language: typescript
+      - name: Convert CommonJS exports to ESM exports
+        js-ast-grep:
+          js_file: src/export-process.ts
+          base_path: .
+          include:
+            - "**/*.cjs"
+            - "**/*.js"
+            - "**/*.mjs"
+            - "**/*.ts"
+            - "**/*.tsx"
+          exclude:
+            - "**/node_modules/**"
+          language: typescript
+      - name: Migrate context-local variables and built-ins
+        js-ast-grep:
+          js_file: src/context-local-variable-process.ts
+          base_path: .
+          include:
+            - "**/*.cjs"
+            - "**/*.js"
+            - "**/*.mjs"
+            - "**/*.ts"
+            - "**/*.tsx"
+          exclude:
+            - "**/node_modules/**"
+          language: typescript
+      - name: "Suggest package.json updates (type: module)"
+        js-ast-grep:
+          js_file: src/package-json-process.ts
+          base_path: .
+          include:
+            - "package.json"
+          exclude:
+            - "**/node_modules/**"
+          language: json
