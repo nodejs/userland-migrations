@@ -1,7 +1,7 @@
 import isESM from '@nodejs/codemod-utils/is-esm';
 import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
-import type { Edit, SgRoot } from '@codemod.com/jssg-types/main';
+import type { Edit, Kinds, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type JS from '@codemod.com/jssg-types/langs/javascript';
 import { EOL } from 'node:os';
 
@@ -159,94 +159,97 @@ function transformDoneCallbacks(root: SgRoot<JS>): Edit[] {
 }
 
 function transformThisSkip(root: SgRoot<JS>): Edit[] {
-	const rootNode = root.root();
-	const thisSkipCalls = rootNode.findAll({
-		rule: { pattern: 'this.skip($$$)' },
-	});
-
-	return thisSkipCalls.flatMap((thisSkipCall) => {
-		const edits: Edit[] = [];
-		const memberExpr = thisSkipCall.find({
-			rule: { kind: 'member_expression', has: { kind: 'this' } },
-		});
-		if (memberExpr !== null) {
-			const thisKeyword = memberExpr.field('object');
-			if (thisKeyword !== null) {
+	return root
+		.root()
+		.findAll({ rule: { pattern: 'this.skip($$$)' } })
+		.flatMap((call) => {
+			const edits: Edit[] = [];
+			const memberExpr = call.find({
+				rule: { kind: 'member_expression', has: { kind: 'this' } },
+			});
+			const thisKeyword = memberExpr?.field('object');
+			if (thisKeyword) {
 				edits.push(thisKeyword.replace('t'));
 			}
-		}
 
-		const enclosingFunction = thisSkipCall
-			.ancestors()
-			.find((ancestor) =>
-				['function_expression', 'arrow_function'].includes(ancestor.kind()),
-			);
-		if (enclosingFunction === undefined) {
+			const fn = findEnclosingFunction(call);
+			if (!fn) {
+				return edits;
+			}
+
+			const params = getParameters(fn);
+			if (!params) return edits;
+
+			edits.push(...addTParameter(params));
+
 			return edits;
-		}
-
-		const parameters =
-			enclosingFunction.field('parameters') ??
-			enclosingFunction.field('parameter');
-		if (parameters === null) {
-			return edits;
-		}
-
-		if (parameters.kind() === 'identifier') {
-			edits.push(parameters.replace(`(t, ${parameters.text()})`));
-		} else if (parameters.kind() === 'formal_parameters') {
-			edits.push({
-				startPos: parameters.range().start.index + 1,
-				endPos: parameters.range().start.index + 1,
-				insertedText: `t${parameters.children().length > 2 ? ', ' : ''}`,
-			});
-		}
-
-		return edits;
-	});
+		});
 }
 
 function transformThisTimeout(root: SgRoot<JS>): Edit[] {
 	const rootNode = root.root();
-	const thisTimeoutCalls = rootNode.findAll({
-		rule: { pattern: 'this.timeout($TIME)' },
-	});
+	const source = rootNode.text();
 
-	return thisTimeoutCalls.flatMap((thisTimeoutCall) => {
-		const edits = [] as Edit[];
-		const thisTimeoutExpression = thisTimeoutCall.parent();
+	return rootNode
+		.findAll({ rule: { pattern: 'this.timeout($TIME)' } })
+		.flatMap((call) => {
+			const edits: Edit[] = [];
+			const expr = call.parent();
 
-		const source = rootNode.text();
-		const startIndex = thisTimeoutExpression.range().start.index;
-		const endIndex = thisTimeoutExpression.range().end.index;
+			const start = expr.range().start.index;
+			const end = expr.range().end.index;
+			let lineStart = start;
+			while (lineStart > 0 && source[lineStart - 1] !== EOL) lineStart--;
 
-		let lineStart = startIndex;
-		while (lineStart > 0 && source[lineStart - 1] !== EOL) lineStart--;
-		let lineEnd = endIndex;
-		while (lineEnd < source.length && source[lineEnd] !== EOL) lineEnd++;
-		if (lineEnd < source.length) lineEnd++;
+			let lineEnd = end;
+			while (lineEnd < source.length && source[lineEnd] !== EOL) lineEnd++;
+			if (lineEnd < source.length) lineEnd++;
 
-		edits.push({
-			startPos: lineStart,
-			endPos: lineEnd,
-			insertedText: '',
-		});
+			edits.push({
+				startPos: lineStart,
+				endPos: lineEnd,
+				insertedText: '',
+			});
 
-		const enclosingFunction = thisTimeoutCall
-			.ancestors()
-			.find((ancestor) =>
-				['function_expression', 'arrow_function'].includes(ancestor.kind()),
-			);
-		if (enclosingFunction === undefined) {
+			const fn = findEnclosingFunction(call);
+			if (!fn) return edits;
+
+			const time = call.getMatch('TIME').text();
+
+			edits.push({
+				startPos: fn.range().start.index,
+				endPos: fn.range().start.index,
+				insertedText: `{ timeout: ${time} }, `,
+			});
+
 			return edits;
-		}
-
-		const time = thisTimeoutCall.getMatch('TIME').text();
-		edits.push({
-			startPos: enclosingFunction.range().start.index,
-			endPos: enclosingFunction.range().start.index,
-			insertedText: `{ timeout: ${time} }, `,
 		});
-		return edits;
-	});
+}
+
+function findEnclosingFunction(node: SgNode<JS, Kinds<JS>>) {
+	return node
+		.ancestors()
+		.find((a: SgNode<JS, Kinds<JS>>) =>
+			['function_expression', 'arrow_function'].includes(a.kind()),
+		);
+}
+
+function getParameters(fn: SgNode<JS, Kinds<JS>>) {
+	return fn.field('parameters') ?? fn.field('parameter');
+}
+
+function addTParameter(parameters: SgNode<JS, Kinds<JS>>): Edit[] {
+	const edits: Edit[] = [];
+
+	if (parameters.kind() === 'identifier') {
+		edits.push(parameters.replace(`(t, ${parameters.text()})`));
+	} else if (parameters.kind() === 'formal_parameters') {
+		edits.push({
+			startPos: parameters.range().start.index + 1,
+			endPos: parameters.range().start.index + 1,
+			insertedText: `t${parameters.children().length > 2 ? ', ' : ''}`,
+		});
+	}
+
+	return edits;
 }
