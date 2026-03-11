@@ -49,7 +49,7 @@ function transformImport(root: SgRoot<JS>): Edit[] {
 			},
 		},
 		rule: {
-			any: [{ pattern: '$MOCHA_GLOBAL_FN($$$)' }],
+			pattern: '$MOCHA_GLOBAL_FN($$$)',
 		},
 	});
 
