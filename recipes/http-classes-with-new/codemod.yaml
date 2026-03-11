@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: "@nodejs/http-classes-with-new"
-version: 1.0.0
+version: "1.0.1"
 description: "Handle DEDEP0195: Instantiating node:http classes without new"
 author: Usman S.
 license: MIT

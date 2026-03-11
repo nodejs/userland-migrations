@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: "@nodejs/repl-builtin-modules"
-version: 1.0.0
+version: "1.0.1"
 description: Handle DEP0191 via transforming `repl.builtinModules` usage to `module.builtinModules`.
 author: Augustin Mauroy
 license: MIT

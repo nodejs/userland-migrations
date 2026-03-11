@@ -28,7 +28,6 @@ With the codemod CLI you can run a workflow from a local file. First, clone this
 git clone https://github.com/nodejs/userland-migrations.git
 cd /path/to/your-project
 npx codemod workflow run -w /path/to/folder/userland-migrations/recipes/<recipe>/workflow.yaml
-
 ```
 
 See the [codemod CLI doc](https://go.codemod.com/cli-docs) for a full list of available commands.
