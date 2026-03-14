@@ -72,14 +72,15 @@ const parsers: Parsers = {
 		if (!definition) return;
 
 		switch (definition.node.parent().kind()) {
-			case 'variable_declarator':
+			case 'variable_declarator': {
 				const parent = definition.node.parent<'variable_declarator'>();
 				queue.unshift({
 					event: 'parseOptions',
 					handler: () => parsers.parseOptions(parent.field('value')),
 				});
 				break;
-			case 'function_declaration':
+			}
+			case 'function_declaration': {
 				const fnDeclaration = definition.node.parent<'variable_declarator'>();
 
 				const returns = fnDeclaration
@@ -99,6 +100,7 @@ const parsers: Parsers = {
 					});
 				}
 				break;
+			}
 			default:
 				throw new Error('unhandled scenario');
 		}
@@ -274,7 +276,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 		edits.push(change.node.replace(newValue));
 	}
 
-	let sourceCode = rootNode.commitEdits(edits);
+	const sourceCode = rootNode.commitEdits(edits);
 
 	return sourceCode;
 }
