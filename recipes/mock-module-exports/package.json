@@ -1,11 +1,10 @@
 {
   "name": "@nodejs/mock-module-exports",
-  "version": "1.0.1",
-  "description": "",
+  "version": "1.0.0",
+  "description": "Handle mock.module exports deprecation",
   "type": "module",
   "scripts": {
     "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests/",
-    "testu": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests/ --filter \"variable\""
   },
   "repository": {
     "type": "git",

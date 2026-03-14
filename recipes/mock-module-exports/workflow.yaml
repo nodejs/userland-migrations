@@ -7,7 +7,7 @@ nodes:
     runtime:
       type: direct
     steps:
-      - name: ""
+      - name: Handle mock.module exports deprecation
         js-ast-grep:
           js_file: src/workflow.ts
           base_path: .

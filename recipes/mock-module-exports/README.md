@@ -1,4 +1,19 @@
 # Mock Module Exports
 
-This codemod helps migrate code that uses mock.module.
+This migration trasforming use of deprecated `options.defaultExport` and `options.namedExports` on
+`node:test.mock`
 
+## Example
+
+```diff
+mock.module('…', {
+-   defaultExport: …,
+-   namedExports: {
+-   	foo: …
+-   },
++   exports: {
++   	default: …,
++   	foo: …,
++   },
+});
+```
