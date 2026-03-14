@@ -10,7 +10,7 @@ import { EOL } from 'node:os';
 
 type QueueEvent = {
 	event: keyof typeof parsers;
-	handler: () => Edit[];
+	handler: () => void;
 };
 
 const queue: QueueEvent[] = [];
@@ -28,15 +28,15 @@ type ExportedValue = {
 const exportedValues: Map<number, ExportedValue> = new Map();
 
 type Parsers = {
-	parseOptions: (optionsNode: SgNode<JS, Kinds<JS>>) => undefined;
-	defaultExport: (node: SgNode<JS, Kinds<JS>>) => Edit[];
-	resolveVariables: (node: SgNode<JS, Kinds<JS>>) => undefined;
-	namedExports: (optionsNode: SgNode<JS, Kinds<JS>>) => Edit[];
-	spreadElements: (node: SgNode<JS, Kinds<JS>>) => undefined;
+	parseOptions: (optionsNode: SgNode<JS, Kinds<JS>>) => void;
+	defaultExport: (node: SgNode<JS, Kinds<JS>>) => void;
+	resolveVariables: (node: SgNode<JS, Kinds<JS>>) => void;
+	namedExports: (optionsNode: SgNode<JS, Kinds<JS>>) => void;
+	spreadElements: (node: SgNode<JS, Kinds<JS>>) => void;
 };
 
 const parsers: Parsers = {
-	parseOptions: (optionsNode: SgNode<JS, Kinds<JS>>): undefined => {
+	parseOptions: (optionsNode: SgNode<JS, Kinds<JS>>) => {
 		switch (optionsNode.kind()) {
 			case 'object':
 				queue.unshift({
@@ -51,11 +51,20 @@ const parsers: Parsers = {
 					event: 'spreadElements',
 					handler: () => parsers.spreadElements(optionsNode),
 				});
+				break;
 			case 'identifier':
 				queue.unshift({
 					event: 'resolveVariables',
 					handler: () => parsers.resolveVariables(optionsNode),
 				});
+				break;
+			case 'call_expression':
+				queue.unshift({
+					event: 'resolveVariables',
+					handler: () =>
+						parsers.resolveVariables(optionsNode.field('function')),
+				});
+				break;
 		}
 	},
 	resolveVariables: (node: SgNode<JS, Kinds<JS>>) => {
@@ -69,6 +78,26 @@ const parsers: Parsers = {
 					event: 'parseOptions',
 					handler: () => parsers.parseOptions(parent.field('value')),
 				});
+				break;
+			case 'function_declaration':
+				const fnDeclaration = definition.node.parent<'variable_declarator'>();
+
+				const returns = fnDeclaration
+					.findAll<'return_statement'>({
+						rule: {
+							kind: 'return_statement',
+						},
+					})
+					.map((n) => n.child(1));
+
+				for (const ret of returns) {
+					if (!ret) continue;
+
+					queue.unshift({
+						event: 'parseOptions',
+						handler: () => parsers.parseOptions(ret),
+					});
+				}
 				break;
 			default:
 				throw new Error('unhandled scenario');
@@ -106,7 +135,7 @@ const parsers: Parsers = {
 		}
 		return edits;
 	},
-	namedExports: (node: SgNode<JS, Kinds<JS>>): Edit[] => {
+	namedExports: (node: SgNode<JS, Kinds<JS>>) => {
 		const namedExport = node.find<'pair'>({
 			rule: {
 				kind: 'pair',
