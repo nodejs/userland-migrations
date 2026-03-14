@@ -34,3 +34,20 @@ mock.module('example3', {
 		bar: getBar(),
 	},
 });
+
+mock.module('example-no-named', {
+	exports: {
+		default: getDefault(),
+	},
+});
+
+mock.module('example-no-fault', {
+	exports: {
+		bar: 'bar',
+	},
+});
+
+mock.module('example-empty', {
+	exports: {
+	},
+});

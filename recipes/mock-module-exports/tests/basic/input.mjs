@@ -34,3 +34,22 @@ mock.module('example3', {
 		}
 	},
 });
+
+mock.module('example-no-named', {
+	exports: {
+		defaultExport: getDefault(),
+	},
+});
+
+mock.module('example-no-fault', {
+	exports: {
+		namedExports: {
+			bar: 'bar',
+		}
+	},
+});
+
+mock.module('example-empty', {
+	exports: {
+	},
+});

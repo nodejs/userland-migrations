@@ -155,6 +155,14 @@ const parsers: Parsers = {
 		});
 
 		if (spreadElements) {
+			if (!exportedValues.has(node.id())) {
+				exportedValues.set(node.id(), {
+					node,
+					default: undefined,
+					named: [],
+				});
+			}
+
 			const pairs = exportedValues.get(node.id()).named;
 
 			for (const spread of spreadElements) {
