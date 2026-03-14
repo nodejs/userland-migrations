@@ -16,7 +16,7 @@ type QueueEvent = {
 const queue: QueueEvent[] = [];
 
 type Pair = {
-	before: SgNode<JS, 'pair'>;
+	before: SgNode<JS, 'pair'> | SgNode<JS, 'spread_element'>;
 	after: string;
 };
 
@@ -32,6 +32,7 @@ type Parsers = {
 	defaultExport: (node: SgNode<JS, Kinds<JS>>) => Edit[];
 	resolveVariables: (node: SgNode<JS, Kinds<JS>>) => undefined;
 	namedExports: (optionsNode: SgNode<JS, Kinds<JS>>) => Edit[];
+	spreadElements: (node: SgNode<JS, Kinds<JS>>) => undefined;
 };
 
 const parsers: Parsers = {
@@ -45,6 +46,10 @@ const parsers: Parsers = {
 				queue.unshift({
 					event: 'namedExports',
 					handler: () => parsers.namedExports(optionsNode),
+				});
+				queue.unshift({
+					event: 'spreadElements',
+					handler: () => parsers.spreadElements(optionsNode),
 				});
 			case 'identifier':
 				queue.unshift({
@@ -135,6 +140,24 @@ const parsers: Parsers = {
 			}
 		}
 		return edits;
+	},
+	spreadElements: (node: SgNode<JS, Kinds<JS>>): undefined => {
+		const spreadElements = node.findAll<'spread_element'>({
+			rule: {
+				kind: 'spread_element',
+			},
+		});
+
+		if (spreadElements) {
+			const pairs = exportedValues.get(node.id()).named;
+
+			for (const spread of spreadElements) {
+				pairs.push({
+					before: spread,
+					after: spread.text(),
+				});
+			}
+		}
 	},
 };
 

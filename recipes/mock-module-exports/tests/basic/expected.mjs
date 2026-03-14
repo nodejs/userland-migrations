@@ -4,5 +4,6 @@ mock.module('example', {
 	exports: {
 		default: 'bar',
 		foo: 'foo',
+		baz: 'baz',
 	},
 });

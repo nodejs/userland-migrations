@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests/",
-    "testu": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests/ --filter \"option-as-variable\""
+    "testu": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests/ --filter \"destru\""
   },
   "repository": {
     "type": "git",
