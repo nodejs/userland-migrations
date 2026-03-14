@@ -107,7 +107,6 @@ const parsers: Parsers = {
 		return edits;
 	},
 	namedExports: (node: SgNode<JS, Kinds<JS>>): Edit[] => {
-		const edits: Edit[] = [];
 		const namedExport = node.find<'pair'>({
 			rule: {
 				kind: 'pair',
@@ -130,7 +129,15 @@ const parsers: Parsers = {
 
 			const pairs = exportedValues.get(node.id()).named;
 
-			for (const namedPair of namedExport.field('value').children()) {
+			const fieldValueNode = namedExport.field('value');
+
+			if (fieldValueNode.is('identifier')) {
+				pairs.push({
+					before: namedExport,
+					after: `...(${fieldValueNode.text()} || {})`,
+				});
+			}
+			for (const namedPair of fieldValueNode.children()) {
 				if (!namedPair.is('pair')) continue;
 
 				pairs.push({
@@ -139,7 +146,6 @@ const parsers: Parsers = {
 				});
 			}
 		}
-		return edits;
 	},
 	spreadElements: (node: SgNode<JS, Kinds<JS>>): undefined => {
 		const spreadElements = node.findAll<'spread_element'>({

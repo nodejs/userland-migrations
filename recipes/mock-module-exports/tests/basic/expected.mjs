@@ -7,3 +7,30 @@ mock.module('example', {
 		baz: 'baz',
 	},
 });
+
+const namedExports = {
+	foo: 'foo',
+	baz: 'baz',
+}
+
+mock.module('example2', {
+	exports: {
+		default: 'bar',
+		...(namedExports || {}),
+	},
+});
+
+function getDefault() {
+	return 'bar'
+}
+
+function getBar() {
+	return 'bar'
+}
+
+mock.module('example3', {
+	exports: {
+		default: getDefault(),
+		bar: getBar(),
+	},
+});
