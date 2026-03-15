@@ -7,7 +7,7 @@ nodes:
     name: Apply AST Transformations
     type: automatic
     steps:
-      - name: Migrate `crypto.createCipher()`/`createDecipher()` to iv variants with secure key derivation.
+      - name: Migrate `crypto.createCipher()`/`createDecipher()` to IV variants with secure key derivation.
         js-ast-grep:
           js_file: src/workflow.ts
           base_path: .

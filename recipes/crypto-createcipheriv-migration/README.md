@@ -32,3 +32,5 @@ Node.js removed `crypto.createCipher()` and `crypto.createDecipher()` in v22.0.0
 - The codemod cannot guarantee algorithm-specific key/IV sizes. Review the generated `scryptSync` length and IV length defaults and adjust as needed.
 - Decryption snippets include placeholders (`Buffer.alloc(16)`) that must be replaced with the salt and IV stored during encryption.
 - If your project already wraps key derivation logic, you may prefer to adapt the generated scaffolding to call existing helpers.
+- The generated code is not backward-compatible and will be unable to decrypt data that was encrypted using `createCipher()`.
+- The use of scrypt is one possible choice for deriving a key from a password, but you may wish to use Argon2id or PBKDF2 instead.
