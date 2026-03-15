@@ -1,3 +1,4 @@
+import { EOL } from 'node:os';
 import dedent from 'dedent';
 import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
@@ -12,8 +13,7 @@ type CollectParams = {
 	binding: string;
 	kind: CallKind;
 	edits: Edit[];
-	seenCallRanges: Set<string>;
-	sourceLineEnding: string;
+	seenCallIds: Set<number>;
 };
 
 /**
@@ -23,8 +23,7 @@ type CollectParams = {
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
-	const seenCallRanges = new Set<string>();
-	const sourceLineEnding = getLineEnding(rootNode.text());
+	const seenCallIds = new Set<number>();
 
 	const importStatements = getModuleDependencies(root, 'crypto');
 
@@ -38,8 +37,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 			binding: cipherBinding,
 			kind: 'cipher',
 			edits,
-			seenCallRanges,
-			sourceLineEnding,
+			seenCallIds,
 		});
 
 		const decipherBinding = resolveBindingPath(statement, '$.createDecipher');
@@ -49,8 +47,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 			binding: decipherBinding,
 			kind: 'decipher',
 			edits,
-			seenCallRanges,
-			sourceLineEnding,
+			seenCallIds,
 		});
 	}
 
@@ -65,8 +62,7 @@ function collectCallEdits({
 	binding,
 	kind,
 	edits,
-	seenCallRanges,
-	sourceLineEnding,
+	seenCallIds,
 }: CollectParams) {
 	if (!binding || binding === '') return;
 
@@ -83,9 +79,8 @@ function collectCallEdits({
 	});
 
 	for (const call of calls) {
-		const rangeKey = getRangeKey(call);
-		if (seenCallRanges.has(rangeKey)) continue;
-		seenCallRanges.add(rangeKey);
+		if (seenCallIds.has(call.id())) continue;
+		seenCallIds.add(call.id());
 
 		const algorithmNode = call.getMatch('ALGORITHM');
 		const passwordNode = call.getMatch('PASSWORD');
@@ -104,7 +99,6 @@ function collectCallEdits({
 				algorithm,
 				password,
 				options: optionsText,
-				sourceLineEnding,
 			},
 			kind,
 		);
@@ -145,13 +139,11 @@ function buildDeCipherReplacement(
 		algorithm,
 		password,
 		options,
-		sourceLineEnding,
 	}: {
 		binding: string;
 		algorithm: string;
 		password: string;
 		options?: string;
-		sourceLineEnding: string;
 	},
 	kind: 'decipher' | 'cipher',
 ): string {
@@ -163,8 +155,7 @@ function buildDeCipherReplacement(
 
 	if (kind === 'cipher') {
 		const randomBytesCall = getMemberAccess(binding, 'randomBytes');
-		return normalizeLineEndings(
-			dedent(`
+		return toNativeEOL(dedent(`
 		(() => {
 			const __dep0106Salt = ${randomBytesCall}(16);
 			const __dep0106Key = ${scryptCall}(${password}, __dep0106Salt, 32);
@@ -173,13 +164,10 @@ function buildDeCipherReplacement(
 			// DEP0106: Adjust the derived key length (32 bytes) and IV length to match the chosen algorithm.
 			return ${method}(${algorithm}, __dep0106Key, __dep0106Iv${options ? `, ${options}` : ''});
 		})()
-	`),
-			sourceLineEnding,
-		);
+	`));
 	}
 
-	return normalizeLineEndings(
-		dedent(`
+	return toNativeEOL(dedent(`
 	(() => {
 		// DEP0106: Replace the placeholders below with the salt and IV that were stored with the ciphertext.
 		const __dep0106Salt = /* TODO: stored salt Buffer */ Buffer.alloc(16);
@@ -188,18 +176,11 @@ function buildDeCipherReplacement(
 		// DEP0106: Ensure __dep0106Salt and __dep0106Iv match the values used during encryption.
 		return ${method}(${algorithm}, __dep0106Key, __dep0106Iv${options ? `, ${options}` : ''});
 	})()
-`),
-		sourceLineEnding,
-	);
+`));
 }
 
-function getLineEnding(source: string): string {
-	return source.includes('\r\n') ? '\r\n' : '\n';
-}
-
-function normalizeLineEndings(text: string, lineEnding: string): string {
-	if (lineEnding === '\n') return text;
-	return text.replace(/\n/g, lineEnding);
+function toNativeEOL(text: string): string {
+	return EOL === '\n' ? text : text.replaceAll('\n', EOL);
 }
 
 function getCallableBinding(binding: string, target: string): string {
@@ -232,26 +213,20 @@ function updateDestructuredStatement(
 	}
 	if (namedImports) {
 		const isEsm = namedImports.parent()?.kind() === 'import_clause';
-
-		// Work on textual specifiers to preserve formatting and order.
-		const content = namedImports.text().replace(/^{\s*|\s*}$/g, '');
-		const parts = content
-			.split(',')
-			.map((p) => p.trim())
-			.filter(Boolean);
-		const entries: string[] = parts.map((p) => {
-			if (
-				new RegExp(`^${escapeRegExp(oldName)}(\\b|\\s|:|\\s+as\\b)`).test(p)
-			) {
+		const specifiers = namedImports.findAll({ rule: { kind: 'import_specifier' } });
+		const existingNames = new Set(
+			specifiers.map((s) => s.field?.('name')?.text()).filter(Boolean),
+		);
+		const entries: string[] = specifiers.map((s) => {
+			if (s.field?.('name')?.text() === oldName) {
 				const local = localName ?? oldName;
 				return isEsm ? `${targetName} as ${local}` : `${targetName}: ${local}`;
 			}
-			return p;
+			return s.text();
 		});
 
 		for (const a of additions) {
-			if (!entries.some((e) => new RegExp(`\\b${escapeRegExp(a)}\\b`).test(e)))
-				entries.push(a);
+			if (!existingNames.has(a)) entries.push(a);
 		}
 		return namedImports.replace(`{ ${entries.join(', ')} }`);
 	}
@@ -268,29 +243,33 @@ function updateDestructuredStatement(
 		});
 		if (pairs.length === 0) return undefined;
 
+		const existingNames = new Set<string>();
 		const entries: string[] = [];
 		for (const p of pairs) {
 			if (p.kind() === 'pair_pattern') {
 				const key = p.find({ rule: { kind: 'property_identifier' } });
-				const value = p.children().find((c) => c.kind() === 'identifier');
-				const prop = key.text();
-				const local = value.text() ?? prop;
-
-				const localToUse = localName ?? local;
-				entries.push(`${targetName}: ${localToUse}`);
+				const propName = key.text();
+				existingNames.add(propName);
+				if (propName === oldName) {
+					const value = p.children().find((c) => c.kind() === 'identifier');
+					const local = value?.text() ?? propName;
+					entries.push(`${targetName}: ${localName ?? local}`);
+				} else {
+					entries.push(p.text());
+				}
 			} else {
 				const text = p.text();
-
+				existingNames.add(text);
 				if (text === oldName) {
-					const local = text;
-					const localToUse = localName ?? local;
-					entries.push(`${targetName}: ${localToUse}`);
+					entries.push(`${targetName}: ${localName ?? text}`);
+				} else {
+					entries.push(text);
 				}
 			}
 		}
 
 		for (const a of additions) {
-			if (!entries.some((e) => e.includes(a))) entries.push(a);
+			if (!existingNames.has(a)) entries.push(a);
 		}
 
 		return objectPattern.replace(`{ ${entries.join(', ')} }`);
@@ -299,14 +278,6 @@ function updateDestructuredStatement(
 	return undefined;
 }
 
-function escapeRegExp(str: string): string {
-	return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function getRangeKey(node: SgNode<Js>): string {
-	const range = node.range();
-	return `${range.start.line}:${range.start.column}-${range.end.line}:${range.end.column}`;
-}
 
 function findLocalSpecifierName(
 	statement: SgNode<Js>,
