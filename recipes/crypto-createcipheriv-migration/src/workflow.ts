@@ -13,6 +13,7 @@ type CollectParams = {
 	kind: CallKind;
 	edits: Edit[];
 	seenCallRanges: Set<string>;
+	sourceLineEnding: string;
 };
 
 /**
@@ -23,6 +24,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 	const seenCallRanges = new Set<string>();
+	const sourceLineEnding = getLineEnding(rootNode.text());
 
 	const importStatements = getModuleDependencies(root, 'crypto');
 
@@ -37,6 +39,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 			kind: 'cipher',
 			edits,
 			seenCallRanges,
+			sourceLineEnding,
 		});
 
 		const decipherBinding = resolveBindingPath(statement, '$.createDecipher');
@@ -47,6 +50,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 			kind: 'decipher',
 			edits,
 			seenCallRanges,
+			sourceLineEnding,
 		});
 	}
 
@@ -62,6 +66,7 @@ function collectCallEdits({
 	kind,
 	edits,
 	seenCallRanges,
+	sourceLineEnding,
 }: CollectParams) {
 	if (!binding || binding === '') return;
 
@@ -99,6 +104,7 @@ function collectCallEdits({
 				algorithm,
 				password,
 				options: optionsText,
+				sourceLineEnding,
 			},
 			kind,
 		);
@@ -139,11 +145,13 @@ function buildDeCipherReplacement(
 		algorithm,
 		password,
 		options,
+		sourceLineEnding,
 	}: {
 		binding: string;
 		algorithm: string;
 		password: string;
 		options?: string;
+		sourceLineEnding: string;
 	},
 	kind: 'decipher' | 'cipher',
 ): string {
@@ -155,7 +163,8 @@ function buildDeCipherReplacement(
 
 	if (kind === 'cipher') {
 		const randomBytesCall = getMemberAccess(binding, 'randomBytes');
-		return dedent(`
+		return normalizeLineEndings(
+			dedent(`
 		(() => {
 			const __dep0106Salt = ${randomBytesCall}(16);
 			const __dep0106Key = ${scryptCall}(${password}, __dep0106Salt, 32);
@@ -164,10 +173,13 @@ function buildDeCipherReplacement(
 			// DEP0106: Adjust the derived key length (32 bytes) and IV length to match the chosen algorithm.
 			return ${method}(${algorithm}, __dep0106Key, __dep0106Iv${options ? `, ${options}` : ''});
 		})()
-	`);
+	`),
+			sourceLineEnding,
+		);
 	}
 
-	return dedent(`
+	return normalizeLineEndings(
+		dedent(`
 	(() => {
 		// DEP0106: Replace the placeholders below with the salt and IV that were stored with the ciphertext.
 		const __dep0106Salt = /* TODO: stored salt Buffer */ Buffer.alloc(16);
@@ -176,7 +188,18 @@ function buildDeCipherReplacement(
 		// DEP0106: Ensure __dep0106Salt and __dep0106Iv match the values used during encryption.
 		return ${method}(${algorithm}, __dep0106Key, __dep0106Iv${options ? `, ${options}` : ''});
 	})()
-`);
+`),
+		sourceLineEnding,
+	);
+}
+
+function getLineEnding(source: string): string {
+	return source.includes('\r\n') ? '\r\n' : '\n';
+}
+
+function normalizeLineEndings(text: string, lineEnding: string): string {
+	if (lineEnding === '\n') return text;
+	return text.replace(/\n/g, lineEnding);
 }
 
 function getCallableBinding(binding: string, target: string): string {
