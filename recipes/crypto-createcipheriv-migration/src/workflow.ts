@@ -155,7 +155,8 @@ function buildDeCipherReplacement(
 
 	if (kind === 'cipher') {
 		const randomBytesCall = getMemberAccess(binding, 'randomBytes');
-		return toNativeEOL(dedent(`
+		return toNativeEOL(
+			dedent(`
 		(() => {
 			const __dep0106Salt = ${randomBytesCall}(16);
 			const __dep0106Key = ${scryptCall}(${password}, __dep0106Salt, 32);
@@ -164,10 +165,12 @@ function buildDeCipherReplacement(
 			// DEP0106: Adjust the derived key length (32 bytes) and IV length to match the chosen algorithm.
 			return ${method}(${algorithm}, __dep0106Key, __dep0106Iv${options ? `, ${options}` : ''});
 		})()
-	`));
+	`),
+		);
 	}
 
-	return toNativeEOL(dedent(`
+	return toNativeEOL(
+		dedent(`
 	(() => {
 		// DEP0106: Replace the placeholders below with the salt and IV that were stored with the ciphertext.
 		const __dep0106Salt = /* TODO: stored salt Buffer */ Buffer.alloc(16);
@@ -176,7 +179,8 @@ function buildDeCipherReplacement(
 		// DEP0106: Ensure __dep0106Salt and __dep0106Iv match the values used during encryption.
 		return ${method}(${algorithm}, __dep0106Key, __dep0106Iv${options ? `, ${options}` : ''});
 	})()
-`));
+`),
+	);
 }
 
 function toNativeEOL(text: string): string {
@@ -213,7 +217,9 @@ function updateDestructuredStatement(
 	}
 	if (namedImports) {
 		const isEsm = namedImports.parent()?.kind() === 'import_clause';
-		const specifiers = namedImports.findAll({ rule: { kind: 'import_specifier' } });
+		const specifiers = namedImports.findAll({
+			rule: { kind: 'import_specifier' },
+		});
 		const existingNames = new Set(
 			specifiers.map((s) => s.field?.('name')?.text()).filter(Boolean),
 		);
@@ -277,7 +283,6 @@ function updateDestructuredStatement(
 
 	return undefined;
 }
-
 
 function findLocalSpecifierName(
 	statement: SgNode<Js>,
