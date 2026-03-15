@@ -27,30 +27,24 @@ type ExportedValue = {
 };
 const exportedValues: Map<number, ExportedValue> = new Map();
 
-type Parsers = {
-	parseOptions: (optionsNode: SgNode<JS, Kinds<JS>>) => void;
-	defaultExport: (node: SgNode<JS, Kinds<JS>>) => void;
-	resolveVariables: (node: SgNode<JS, Kinds<JS>>) => void;
-	namedExports: (optionsNode: SgNode<JS, Kinds<JS>>) => void;
-	spreadElements: (node: SgNode<JS, Kinds<JS>>) => void;
-};
-
-const parsers: Parsers = {
+const parsers = {
 	parseOptions: (optionsNode: SgNode<JS, Kinds<JS>>) => {
 		switch (optionsNode.kind()) {
 			case 'object':
-				queue.unshift({
-					event: 'defaultExport',
-					handler: () => parsers.defaultExport(optionsNode),
-				});
-				queue.unshift({
-					event: 'namedExports',
-					handler: () => parsers.namedExports(optionsNode),
-				});
-				queue.unshift({
-					event: 'spreadElements',
-					handler: () => parsers.spreadElements(optionsNode),
-				});
+				queue.unshift(
+					{
+						event: 'defaultExport',
+						handler: () => parsers.defaultExport(optionsNode),
+					},
+					{
+						event: 'namedExports',
+						handler: () => parsers.namedExports(optionsNode),
+					},
+					{
+						event: 'spreadElements',
+						handler: () => parsers.spreadElements(optionsNode),
+					},
+				);
 				break;
 			case 'identifier':
 				queue.unshift({
@@ -92,13 +86,14 @@ const parsers: Parsers = {
 					.map((n) => n.child(1));
 
 				for (const ret of returns) {
-					if (!ret) continue;
-
-					queue.unshift({
-						event: 'parseOptions',
-						handler: () => parsers.parseOptions(ret),
-					});
+					if (ret) {
+						queue.unshift({
+							event: 'parseOptions',
+							handler: () => parsers.parseOptions(ret),
+						});
+					}
 				}
+
 				break;
 			}
 			default:
@@ -169,12 +164,12 @@ const parsers: Parsers = {
 				});
 			}
 			for (const namedPair of fieldValueNode.children()) {
-				if (!namedPair.is('pair')) continue;
-
-				pairs.push({
-					before: namedPair,
-					after: namedPair.text(),
-				});
+				if (namedPair.is('pair')) {
+					pairs.push({
+						before: namedPair,
+						after: namedPair.text(),
+					});
+				}
 			}
 		}
 	},
@@ -204,7 +199,7 @@ const parsers: Parsers = {
 			}
 		}
 	},
-};
+} as const satisfies Record<string, (node: SgNode<JS, Kinds<JS>>) => void>;
 
 export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
