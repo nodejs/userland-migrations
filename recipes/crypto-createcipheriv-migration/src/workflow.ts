@@ -113,17 +113,12 @@ function collectCallEdits({
 		const additions: string[] =
 			kind === 'cipher' ? ['randomBytes', 'scryptSync'] : ['scryptSync'];
 
-		// Preserve any local alias (e.g. `createCipher: makeCipher`) by
-		// constructing a property:local string for the renamed binding.
-		const local = findLocalSpecifierName(statement, sourceName);
-
 		// Prefer an explicit update for destructured/named imports when
 		// present so we can preserve aliasing and ordering exactly.
 		const explicit = updateDestructuredStatement(
 			statement,
 			sourceName,
 			targetName,
-			local,
 			additions,
 		);
 
@@ -207,25 +202,18 @@ function updateDestructuredStatement(
 	statement: SgNode<Js>,
 	oldName: string,
 	targetName: string,
-	localName: string | undefined,
 	additions: string[],
 ): Edit | undefined {
-	let namedImports = statement.find({ rule: { kind: 'named_imports' } });
-	if (!namedImports) {
-		const clause = statement.find({ rule: { kind: 'import_clause' } });
-		if (clause) namedImports = clause.find({ rule: { kind: 'named_imports' } });
-	}
+	const namedImports = statement.find({ rule: { kind: 'named_imports' } });
 	if (namedImports) {
 		const isEsm = namedImports.parent()?.kind() === 'import_clause';
-		const specifiers = namedImports.findAll({
-			rule: { kind: 'import_specifier' },
-		});
+		const specifiers = namedImports.findAll({ rule: { kind: 'import_specifier' } });
 		const existingNames = new Set(
 			specifiers.map((s) => s.field?.('name')?.text()).filter(Boolean),
 		);
-		const entries: string[] = specifiers.map((s) => {
+		const entries = specifiers.map((s) => {
 			if (s.field?.('name')?.text() === oldName) {
-				const local = localName ?? oldName;
+				const local = s.field?.('alias')?.text() ?? oldName;
 				return isEsm ? `${targetName} as ${local}` : `${targetName}: ${local}`;
 			}
 			return s.text();
@@ -257,20 +245,15 @@ function updateDestructuredStatement(
 				const propName = key.text();
 				existingNames.add(propName);
 				if (propName === oldName) {
-					const value = p.children().find((c) => c.kind() === 'identifier');
-					const local = value?.text() ?? propName;
-					entries.push(`${targetName}: ${localName ?? local}`);
+					const local = p.children().find((c) => c.kind() === 'identifier')?.text() ?? propName;
+					entries.push(`${targetName}: ${local}`);
 				} else {
 					entries.push(p.text());
 				}
 			} else {
 				const text = p.text();
 				existingNames.add(text);
-				if (text === oldName) {
-					entries.push(`${targetName}: ${localName ?? text}`);
-				} else {
-					entries.push(text);
-				}
+				entries.push(text === oldName ? `${targetName}: ${text}` : text);
 			}
 		}
 
@@ -284,40 +267,4 @@ function updateDestructuredStatement(
 	return undefined;
 }
 
-function findLocalSpecifierName(
-	statement: SgNode<Js>,
-	propertyName: string,
-): string | undefined {
-	// pair_pattern: { prop: local }
-	const pairs = statement.findAll({ rule: { kind: 'pair_pattern' } });
-	for (const pair of pairs) {
-		const key = pair.find({ rule: { kind: 'property_identifier' } });
 
-		if (key && key.text() === propertyName) {
-			const value = pair.children().find((c) => c.kind() === 'identifier');
-			if (value) return value.text();
-		}
-	}
-
-	// import_specifier: { name, alias }
-	const specs = statement.findAll({ rule: { kind: 'import_specifier' } });
-	for (const s of specs) {
-		const nameNode = s.field?.('name');
-		const aliasNode = s.field?.('alias');
-		const idNode = s.find({ rule: { kind: 'identifier' } });
-		const prop = nameNode?.text() || idNode?.text();
-
-		if (prop && prop === propertyName) {
-			if (aliasNode) return aliasNode.text();
-			return prop;
-		}
-	}
-
-	// shorthand destructure
-	const sh = statement.find({
-		rule: { kind: 'shorthand_property_identifier_pattern' },
-	});
-	if (sh && sh.text() === propertyName) return propertyName;
-
-	return undefined;
-}
