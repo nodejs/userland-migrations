@@ -208,6 +208,8 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const deps = getModuleDependencies(root, 'test');
 	let moduleFnCalls: SgNode<JS, 'call_expression'>[] = [];
 
+	if (!deps.length) return null;
+
 	for (const dep of deps) {
 		const moduleFn = resolveBindingPath(dep, '$.mock.module');
 
@@ -271,7 +273,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 		edits.push(change.node.replace(newValue));
 	}
 
-	const sourceCode = rootNode.commitEdits(edits);
+	if (!edits.length) return null;
 
-	return sourceCode;
+	return rootNode.commitEdits(edits);
 }
