@@ -3,10 +3,13 @@ import type { RegisterHooksOptions } from 'node:module';
 
 import { type Api, api } from '@codemod.com/workflow';
 import type { Helpers } from '@codemod.com/workflow/dist/jsFam.d.ts';
+import { setCodemodName } from '@nodejs/codemod-utils/logger';
 
 import { mapImports } from './map-imports.ts';
 import type { FSAbsolutePath } from './index.d.ts';
 import * as aliasLoader from '@nodejs-loaders/alias/alias.loader.mjs';
+
+setCodemodName('correct-ts-specifiers');
 
 module.registerHooks(aliasLoader as RegisterHooksOptions);
 
