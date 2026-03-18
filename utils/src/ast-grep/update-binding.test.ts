@@ -985,7 +985,7 @@ describe('update-binding', () => {
 		assert.notEqual(change, undefined);
 		assert.strictEqual(change?.lineToRemove, undefined);
 
-		const sourceCode = node.commitEdits([change!.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.strictEqual(
 			sourceCode,
