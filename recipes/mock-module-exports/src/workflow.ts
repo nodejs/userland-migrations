@@ -31,7 +31,7 @@ const parsers = {
 	parseOptions: (optionsNode: SgNode<JS, Kinds<JS>>) => {
 		switch (optionsNode.kind()) {
 			case 'object':
-				queue.unshift(
+				queue.push(
 					{
 						event: 'defaultExport',
 						handler: () => parsers.defaultExport(optionsNode),
@@ -47,13 +47,13 @@ const parsers = {
 				);
 				break;
 			case 'identifier':
-				queue.unshift({
+				queue.push({
 					event: 'resolveVariables',
 					handler: () => parsers.resolveVariables(optionsNode),
 				});
 				break;
 			case 'call_expression':
-				queue.unshift({
+				queue.push({
 					event: 'resolveVariables',
 					handler: () =>
 						parsers.resolveVariables(optionsNode.field('function')),
@@ -68,7 +68,7 @@ const parsers = {
 		switch (definition.node.parent().kind()) {
 			case 'variable_declarator': {
 				const parent = definition.node.parent<'variable_declarator'>();
-				queue.unshift({
+				queue.push({
 					event: 'parseOptions',
 					handler: () => parsers.parseOptions(parent.field('value')),
 				});
@@ -87,7 +87,7 @@ const parsers = {
 
 				for (const ret of returns) {
 					if (ret) {
-						queue.unshift({
+						queue.push({
 							event: 'parseOptions',
 							handler: () => parsers.parseOptions(ret),
 						});
@@ -236,17 +236,19 @@ export default function transform(root: SgRoot<JS>): string | null {
 
 		if (args.length < 2) continue;
 		const optionsArg = args[1];
-		queue.unshift({
+		queue.push({
 			event: 'parseOptions',
 			handler: () => parsers.parseOptions(optionsArg),
 		});
 	}
 
 	const indentUnit = detectIndentUnit(rootNode.text());
-	while (queue.length) {
-		const event = queue.at(-1);
+
+	let i = 0;
+	while (queue.length > i) {
+		const event = queue.at(i);
 		event.handler();
-		queue.pop();
+		i += 1;
 	}
 
 	for (const [_nodeId, change] of Array.from(exportedValues)) {
