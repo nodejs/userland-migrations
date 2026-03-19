@@ -248,7 +248,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 	while (queue.length > i) {
 		const event = queue.at(i);
 		event.handler();
-		i += 1;
+		i++;
 	}
 
 	for (const [_nodeId, change] of Array.from(exportedValues)) {
