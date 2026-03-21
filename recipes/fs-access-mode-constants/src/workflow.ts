@@ -4,7 +4,7 @@ import { updateBinding } from '@nodejs/codemod-utils/ast-grep/update-binding';
 import type { Edit, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 
-const PATTERN_SET = new Set(['F_OK', 'R_OK', 'W_OK', 'X_OK']);
+const PATTERN_SET = ['F_OK', 'R_OK', 'W_OK', 'X_OK'];
 
 type BindingMapping = {
 	local: string;
@@ -22,11 +22,11 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const localBindings = new Map<string, string>();
 	const namespaceBindings = new Map<string, string>();
 
-	const importStatements = getModuleDependencies(root, 'fs');
+	const depStatements = getModuleDependencies(root, 'fs');
 
-	if (!importStatements) return null;
+	if (!depStatements) return null;
 
-	for (const statement of importStatements) {
+	for (const statement of depStatements) {
 		const promisesBinding = resolveBindingPath(statement, '$.promises');
 		const rewritten = rewriteBindings(statement, promisesBinding);
 		edits.push(...rewritten.edits);
@@ -51,7 +51,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	applyNamespaceReplacements(rootNode, edits, namespaceBindings);
 	applyLocalReplacements(rootNode, edits, localBindings);
 
-	if (edits.length === 0) return null;
+	if (!edits.length) return null;
 
 	return rootNode.commitEdits(edits);
 }
@@ -64,15 +64,17 @@ function rewriteBindings(
 		rule: { kind: 'object_pattern' },
 	});
 
-	if (objectPattern)
+	if (objectPattern) {
 		return rewriteObjectPattern(statement, objectPattern, promisesBinding);
+	}
 
 	const namedImports = statement.find({
 		rule: { kind: 'named_imports' },
 	});
 
-	if (namedImports)
+	if (namedImports) {
 		return rewriteNamedImports(statement, namedImports, promisesBinding);
+	}
 
 	return { edits: [], mappings: [] };
 }
@@ -82,12 +84,14 @@ function rewriteObjectPattern(
 	pattern: SgNode<Js>,
 	promisesBinding: string,
 ): { edits: Edit[]; mappings: BindingMapping[] } {
+	const kept: string[] = [];
+	const removed: RemovedBinding[] = [];
+
 	const shorthandBindings = pattern
 		.findAll({
 			rule: { kind: 'shorthand_property_identifier_pattern' },
 		})
 		.map((node) => node.text());
-
 	const aliasedBindings = pattern
 		.findAll({
 			rule: {
@@ -109,35 +113,26 @@ function rewriteObjectPattern(
 			};
 		});
 
-	const kept: string[] = [];
-	const removed: RemovedBinding[] = [];
-	let removedShorthandCount = 0;
-	let removedAliasedCount = 0;
-
 	for (const name of shorthandBindings) {
-		if (PATTERN_SET.has(name)) {
-			removedShorthandCount += 1;
+		if (PATTERN_SET.includes(name)) {
 			removed.push({
 				imported: name,
 				local: name,
 			});
-			continue;
+		} else {
+			kept.push(name);
 		}
-
-		kept.push(name);
 	}
 
 	for (const binding of aliasedBindings) {
-		if (PATTERN_SET.has(binding.imported)) {
-			removedAliasedCount += 1;
+		if (PATTERN_SET.includes(binding.imported)) {
 			removed.push({
 				imported: binding.imported,
 				local: binding.local,
 			});
-			continue;
+		} else {
+			kept.push(binding.text);
 		}
-
-		kept.push(binding.text);
 	}
 
 	return rewriteCollectedBindings({
@@ -146,8 +141,6 @@ function rewriteObjectPattern(
 		promisesBinding,
 		kept,
 		removed,
-		allowSingleBindingOptimization:
-			removedShorthandCount === 1 && removedAliasedCount === 0,
 	});
 }
 
@@ -156,27 +149,25 @@ function rewriteNamedImports(
 	pattern: SgNode<Js>,
 	promisesBinding: string,
 ): { edits: Edit[]; mappings: BindingMapping[] } {
+	const kept: string[] = [];
+	const removed: RemovedBinding[] = [];
+
 	const specifiers = pattern.findAll({
 		rule: { kind: 'import_specifier' },
 	});
-
-	const kept: string[] = [];
-	const removed: RemovedBinding[] = [];
 
 	for (const specifier of specifiers) {
 		const imported = specifier.field('name')?.text() ?? '';
 		const local = specifier.field('alias')?.text() ?? imported;
 
-		if (PATTERN_SET.has(imported)) {
+		if (PATTERN_SET.includes(imported)) {
 			removed.push({
 				imported,
 				local,
 			});
-
-			continue;
+		} else {
+			kept.push(specifier.text());
 		}
-
-		kept.push(specifier.text());
 	}
 
 	return rewriteCollectedBindings({
@@ -185,8 +176,6 @@ function rewriteNamedImports(
 		promisesBinding,
 		kept,
 		removed,
-		allowSingleBindingOptimization:
-			removed.length === 1 && removed[0].local === removed[0].imported,
 	});
 }
 
@@ -234,14 +223,12 @@ function rewriteCollectedBindings({
 	promisesBinding,
 	kept,
 	removed,
-	allowSingleBindingOptimization,
 }: {
 	statement: SgNode<Js>;
 	pattern: SgNode<Js>;
 	promisesBinding: string;
 	kept: string[];
 	removed: RemovedBinding[];
-	allowSingleBindingOptimization: boolean;
 }): { edits: Edit[]; mappings: BindingMapping[] } {
 	if (!removed.length) return { edits: [], mappings: [] };
 
@@ -255,7 +242,7 @@ function rewriteCollectedBindings({
 
 	const shouldAddConstants = !promisesBinding && !kept.includes('constants');
 
-	if (allowSingleBindingOptimization && removed.length === 1) {
+	if (removed.length === 1) {
 		const singleBindingEdit = updateBinding(statement, {
 			old: removed[0].imported,
 			new: shouldAddConstants ? 'constants' : undefined,
