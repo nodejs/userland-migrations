@@ -2,6 +2,7 @@ import type { SgRoot, SgNode, Edit } from '@codemod.com/jssg-types/main';
 import type JS from '@codemod.com/jssg-types/langs/javascript';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
+import { updateBinding } from '@nodejs/codemod-utils/ast-grep/update-binding';
 
 export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
@@ -29,9 +30,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 		const args = call.field('arguments');
 		if (!args) continue;
 
-		const argNodes = args
-			.children()
-			.filter((n) => n.kind() !== '(' && n.kind() !== ')' && n.kind() !== ',');
+		const argNodes = args.children().filter((n) => n.isNamed());
 
 		const options = buildOptions(
 			argNodes[0]?.text() || null,
@@ -51,13 +50,21 @@ export default function transform(root: SgRoot<JS>): string | null {
 	edits.push(...renamePairVariables(rootNode, cspBindings));
 
 	// Update imports
-	edits.push(
-		...rewriteTlsImports(
-			tlsStmts.filter(
-				(s) => s.is('import_statement') || s.is('variable_declarator'),
-			),
-		),
+	const importStmts = tlsStmts.filter(
+		(s) => s.is('import_statement') || s.is('variable_declarator'),
 	);
+
+	for (const importStmt of importStmts) {
+		const result = updateBinding(importStmt, {
+			old: 'createSecurePair',
+			new: 'TLSSocket',
+			removeAlias: true,
+		});
+
+		if (result?.edit) {
+			edits.push(result.edit);
+		}
+	}
 
 	if (!edits.length) return null;
 
@@ -125,111 +132,6 @@ function renamePairVariables(rootNode: SgNode<JS>, bindings: string[]): Edit[] {
 	}
 
 	return edits;
-}
-
-function rewriteTlsImports(nodeImportStatements: SgNode<JS>[]): Edit[] {
-	const edits: Edit[] = [];
-
-	for (const stmt of nodeImportStatements) {
-		if (stmt.is('import_statement')) {
-			const edit = rewriteEsmImport(stmt);
-			if (edit) edits.push(edit);
-		} else if (stmt.is('variable_declarator')) {
-			const edit = rewriteCjsRequire(stmt);
-			if (edit) edits.push(edit);
-		}
-	}
-
-	return edits;
-}
-
-function rewriteEsmImport(stmt: SgNode<JS>): Edit | null {
-	const named = stmt.find({ rule: { kind: 'named_imports' } });
-	const namespace = stmt.find({ rule: { kind: 'namespace_import' } });
-	if (!named || namespace) return null;
-
-	const srcText = stmt.field('source')?.text()?.replace(/['"]/g, '') || '';
-	if (srcText !== 'tls' && srcText !== 'node:tls') return null;
-
-	const specs = named.findAll({ rule: { kind: 'import_specifier' } });
-	if (!specs.some((s) => s.field('name')?.text() === 'createSecurePair'))
-		return null;
-
-	const kept = specs
-		.filter((s) => s.field('name')?.text() !== 'createSecurePair')
-		.map((s) => {
-			const imported = s.field('name')?.text();
-			const alias = s.field('alias')?.text();
-			return alias ? `${imported} as ${alias}` : imported;
-		});
-
-	if (!kept.includes('TLSSocket')) kept.push('TLSSocket');
-
-	const defaultImport = stmt
-		.find({
-			rule: {
-				kind: 'import_clause',
-				has: { field: 'name', kind: 'identifier' },
-			},
-		})
-		?.field('name')
-		?.text();
-
-	const rebuilt = defaultImport
-		? `import ${defaultImport}, { ${kept.join(', ')} } from '${srcText}';`
-		: `import { ${kept.join(', ')} } from '${srcText}';`;
-
-	return stmt.replace(rebuilt);
-}
-
-function rewriteCjsRequire(stmt: SgNode<JS>): Edit | null {
-	const name = stmt.field('name');
-	if (!name || !name.is('object_pattern')) return null;
-
-	const props = name.findAll({
-		rule: {
-			any: [
-				{ kind: 'pair_pattern' },
-				{ kind: 'shorthand_property_identifier_pattern' },
-			],
-		},
-	});
-
-	const hasCSP = props.some((p) =>
-		p.is('pair_pattern')
-			? p.field('key')?.text() === 'createSecurePair' ||
-				p.field('value')?.text() === 'createSecurePair'
-			: p.text() === 'createSecurePair',
-	);
-	if (!hasCSP) return null;
-
-	const kept = props
-		.filter((p) => {
-			const key = p.is('pair_pattern') ? p.field('key')?.text() : p.text();
-			return key !== 'createSecurePair';
-		})
-		.map((p) => {
-			if (p.is('pair_pattern')) {
-				const key = p.field('key')?.text();
-				const val = p.field('value')?.text();
-				return val && val !== key ? `${key}: ${val}` : key;
-			}
-			return p.text();
-		});
-
-	if (!kept.includes('TLSSocket')) kept.push('TLSSocket');
-
-	let decl: SgNode<JS> = stmt;
-	let cur = stmt.parent?.();
-	while (cur) {
-		if (cur.is('lexical_declaration') || cur.is('variable_declaration')) {
-			decl = cur;
-			break;
-		}
-		cur = cur.parent?.();
-	}
-
-	return decl.replace(`const { ${kept.join(', ')} } = require('node:tls');`);
 }
 
 function collectAllBindings(tlsStmts: SgNode<JS>[]): string[] {
