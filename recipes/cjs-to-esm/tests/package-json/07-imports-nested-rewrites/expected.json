@@ -1,0 +1,20 @@
+{
+  "name": "fixture-7",
+  "imports": {
+    "#internal": {
+      "default": "./lib/internal.mjs",
+      "types": "./types/internal.d.mts",
+      "nested": [
+        {
+          "dev": "./dev.mts"
+        },
+        true,
+        "./already.mjs"
+      ]
+    }
+  },
+  "type": "module",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "fixture-16",
+  "type": "module",
+  "engines": {
+    "node": ">=25",
+    "npm": ">=10"
+  }
+}

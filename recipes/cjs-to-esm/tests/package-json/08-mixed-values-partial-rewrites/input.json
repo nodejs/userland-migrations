@@ -1,0 +1,32 @@
+{
+  "name": "fixture-8",
+  "type": "commonjs",
+  "main": "./entry.cts",
+  "types": "./index.d.mts",
+  "exports": {
+    ".": "./index.mjs",
+    "./feature": [
+      "./feature.cjs",
+      {
+        "default": "./feature.mjs",
+        "metadata": {
+          "note": "do-not-change.cts.map"
+        }
+      },
+      42,
+      null
+    ]
+  },
+  "imports": {
+    "#tooling": {
+      "node": "./tool.cjs",
+      "meta": [
+        "./keep.js",
+        {
+          "flag": false
+        }
+      ]
+    }
+  },
+  "engines": "legacy"
+}
