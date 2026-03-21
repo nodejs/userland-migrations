@@ -103,10 +103,6 @@ function buildOptions(
 	return kv.length > 0 ? `{ ${kv.join(', ')} }` : '{}';
 }
 
-function unique<T>(arr: T[]): T[] {
-	return Array.from(new Set(arr));
-}
-
 function renamePairVariables(rootNode: SgNode<JS>, bindings: string[]): Edit[] {
 	const edits: Edit[] = [];
 
