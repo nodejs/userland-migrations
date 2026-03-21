@@ -4,7 +4,6 @@ import astGrep from '@ast-grep/napi';
 import dedent from 'dedent';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 import type { SgNode } from '@codemod.com/jssg-types/main';
-import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { resolveBindingPath } from './resolve-binding-path.ts';
 
 describe('resolve-binding-path', () => {

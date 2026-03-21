@@ -1,4 +1,4 @@
-import type { SgNode, Kinds } from '@codemod.com/jssg-types/main';
+import type { SgNode } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 const requireKinds = ['lexical_declaration', 'variable_declarator'];
