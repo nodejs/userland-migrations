@@ -1,0 +1,16 @@
+{
+  "name": "fixture-7",
+  "imports": {
+    "#internal": {
+      "default": "./lib/internal.cjs",
+      "types": "./types/internal.d.cts",
+      "nested": [
+        {
+          "dev": "./dev.cts"
+        },
+        true,
+        "./already.mjs"
+      ]
+    }
+  }
+}

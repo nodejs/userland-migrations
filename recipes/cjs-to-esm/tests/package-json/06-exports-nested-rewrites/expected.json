@@ -1,0 +1,22 @@
+{
+  "name": "fixture-6",
+  "exports": {
+    ".": {
+      "require": "./index.mjs",
+      "types": "./index.d.mts",
+      "nested": {
+        "array": [
+          "./feature.mts",
+          {
+            "deep": "./deep.mjs"
+          },
+          1
+        ]
+      }
+    }
+  },
+  "type": "module",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  }
+}
