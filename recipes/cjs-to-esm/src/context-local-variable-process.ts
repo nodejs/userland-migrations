@@ -1,6 +1,21 @@
 import type { SgRoot, Edit, SgNode } from '@codemod.com/jssg-types/main';
 import type JS from '@codemod.com/jssg-types/langs/javascript';
 
+/**
+ * Returns true when the node is `require.main`.
+ *
+ * @example
+ * // true for `require.main`
+ * isRequireMainMemberExpression(node)
+ *
+ * @example
+ * // false for `require.resolve`
+ * isRequireMainMemberExpression(node)
+ *
+ * @example
+ * // false for `module.main`
+ * isRequireMainMemberExpression(node)
+ */
 const isRequireMainMemberExpression = (node: SgNode<JS>): boolean => {
 	if (!node.is('member_expression')) return false;
 
@@ -17,11 +32,43 @@ const isRequireMainMemberExpression = (node: SgNode<JS>): boolean => {
 	);
 };
 
-const isModuleIdentifier = (node: SgNode<JS>): boolean => (
-	   node.is('identifier')
-	&& node.text() === 'module'
-);
+/**
+ * Returns true when the node is the `module` identifier.
+ *
+ * @example
+ * // true for `module`
+ * isModuleIdentifier(node)
+ *
+ * @example
+ * // false for `require`
+ * isModuleIdentifier(node)
+ *
+ * @example
+ * // false for member expressions like `module.exports`
+ * isModuleIdentifier(node)
+ */
+const isModuleIdentifier = (node: SgNode<JS>): boolean =>
+	node.is('identifier') && node.text() === 'module';
 
+/**
+ * Returns true when the node is `require.main === module` or `module === require.main`.
+ *
+ * @example
+ * // true for `if (require.main === module) { ... }`
+ * isRequireMainComparison(node)
+ *
+ * @example
+ * // true for `if (module === require.main) { ... }`
+ * isRequireMainComparison(node)
+ *
+ * @example
+ * // false for loose equality: `require.main == module`
+ * isRequireMainComparison(node)
+ *
+ * @example
+ * // false for unrelated comparisons: `foo === module`
+ * isRequireMainComparison(node)
+ */
 const isRequireMainComparison = (node: SgNode<JS>): boolean => {
 	if (!node.is('binary_expression')) return false;
 
@@ -39,7 +86,26 @@ const isRequireMainComparison = (node: SgNode<JS>): boolean => {
 	);
 };
 
-const isShadowedContextLocal = (node: SgNode<JS>, root: SgRoot<JS>): boolean => {
+/**
+ * Returns true when `__dirname` or `__filename` resolves to a local definition
+ * in the current file and should not be transformed.
+ *
+ * @example
+ * // true for: const __dirname = '/tmp';
+ * isShadowedContextLocal(identifier, root)
+ *
+ * @example
+ * // true for: function fn(__filename) { return __filename; }
+ * isShadowedContextLocal(identifier, root)
+ *
+ * @example
+ * // false when using Node.js global `__dirname` with no local binding
+ * isShadowedContextLocal(identifier, root)
+ */
+const isShadowedContextLocal = (
+	node: SgNode<JS>,
+	root: SgRoot<JS>,
+): boolean => {
 	const definition = node.definition();
 
 	if (!definition || definition.kind !== 'local') return false;
@@ -62,7 +128,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 
 	for (const comparison of requireMainComparisons) {
 		if (isRequireMainComparison(comparison)) {
-				edits.push(comparison.replace('import.meta.main'));
+			edits.push(comparison.replace('import.meta.main'));
 		}
 	}
 
@@ -87,7 +153,9 @@ export default function transform(root: SgRoot<JS>): string | null {
 	});
 
 	for (const node of requireMainNodes) {
-		if (!node.ancestors().some((ancestor) => isRequireMainComparison(ancestor))) {
+		if (
+			!node.ancestors().some((ancestor) => isRequireMainComparison(ancestor))
+		) {
 			edits.push(node.replace('import.meta.main'));
 		}
 	}
