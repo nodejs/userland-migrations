@@ -1,0 +1,8 @@
+{
+  "name": "fixture-4",
+  "main": "./cli.mjs",
+  "type": "module",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  }
+}
