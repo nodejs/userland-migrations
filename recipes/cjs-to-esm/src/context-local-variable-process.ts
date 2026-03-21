@@ -4,7 +4,6 @@ import type JS from '@codemod.com/jssg-types/langs/javascript';
 const isRequireMainMemberExpression = (node: SgNode<JS>): boolean => {
 	if (!node.is('member_expression')) return false;
 
-
 	const object = node.field('object');
 	const property = node.field('property');
 
@@ -18,12 +17,13 @@ const isRequireMainMemberExpression = (node: SgNode<JS>): boolean => {
 	);
 };
 
-const isModuleIdentifier = (node: SgNode<JS>): boolean =>
-	node.is('identifier') && node.text() === 'module';
+const isModuleIdentifier = (node: SgNode<JS>): boolean => (
+	   node.is('identifier')
+	&& node.text() === 'module'
+);
 
 const isRequireMainComparison = (node: SgNode<JS>): boolean => {
 	if (!node.is('binary_expression')) return false;
-
 
 	const left = node.child(0);
 	const operator = node.child(1);
@@ -61,9 +61,9 @@ export default function transform(root: SgRoot<JS>): string | null {
 	});
 
 	for (const comparison of requireMainComparisons) {
-		if (!isRequireMainComparison(comparison)) continue;
-
-		edits.push(comparison.replace('import.meta.main'));
+		if (isRequireMainComparison(comparison)) {
+				edits.push(comparison.replace('import.meta.main'));
+		}
 	}
 
 	const requireMainNodes = rootNode.findAll({
@@ -87,11 +87,9 @@ export default function transform(root: SgRoot<JS>): string | null {
 	});
 
 	for (const node of requireMainNodes) {
-		if (node.ancestors().some((ancestor) => isRequireMainComparison(ancestor))) {
-			continue;
+		if (!node.ancestors().some((ancestor) => isRequireMainComparison(ancestor))) {
+			edits.push(node.replace('import.meta.main'));
 		}
-
-		edits.push(node.replace('import.meta.main'));
 	}
 
 	const requireResolveNodes = rootNode.findAll({
@@ -122,9 +120,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 
 	for (const node of requireResolveNodes) {
 		const args = node.field('arguments');
-		if (!args) continue;
-
-		edits.push(node.replace(`import.meta.resolve${args.text()}`));
+		if (args) edits.push(node.replace(`import.meta.resolve${args.text()}`));
 	}
 
 	const contextLocalIdentifiers = rootNode.findAll({
@@ -139,11 +135,11 @@ export default function transform(root: SgRoot<JS>): string | null {
 		const name = identifier.text();
 
 		switch (name) {
-			case '__filename':
-				edits.push(identifier.replace('import.meta.filename'));
-				break;
 			case '__dirname':
 				edits.push(identifier.replace('import.meta.dirname'));
+				break;
+			case '__filename':
+				edits.push(identifier.replace('import.meta.filename'));
 				break;
 		}
 	}
