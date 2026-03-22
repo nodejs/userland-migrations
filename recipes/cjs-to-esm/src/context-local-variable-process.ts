@@ -2,91 +2,6 @@ import type { SgRoot, Edit, SgNode } from '@codemod.com/jssg-types/main';
 import type JS from '@codemod.com/jssg-types/langs/javascript';
 
 /**
- * Returns true when the node is `require.main`.
- *
- * @example
- * // true for `require.main`
- * isRequireMainMemberExpression(node)
- *
- * @example
- * // false for `require.resolve`
- * isRequireMainMemberExpression(node)
- *
- * @example
- * // false for `module.main`
- * isRequireMainMemberExpression(node)
- */
-const isRequireMainMemberExpression = (node: SgNode<JS>): boolean => {
-	if (!node.is('member_expression')) return false;
-
-	const object = node.field('object');
-	const property = node.field('property');
-
-	if (!object || !property) return false;
-
-	return (
-		object.is('identifier') &&
-		object.text() === 'require' &&
-		property.is('property_identifier') &&
-		property.text() === 'main'
-	);
-};
-
-/**
- * Returns true when the node is the `module` identifier.
- *
- * @example
- * // true for `module`
- * isModuleIdentifier(node)
- *
- * @example
- * // false for `require`
- * isModuleIdentifier(node)
- *
- * @example
- * // false for member expressions like `module.exports`
- * isModuleIdentifier(node)
- */
-const isModuleIdentifier = (node: SgNode<JS>): boolean =>
-	node.is('identifier') && node.text() === 'module';
-
-/**
- * Returns true when the node is `require.main === module` or `module === require.main`.
- *
- * @example
- * // true for `if (require.main === module) { ... }`
- * isRequireMainComparison(node)
- *
- * @example
- * // true for `if (module === require.main) { ... }`
- * isRequireMainComparison(node)
- *
- * @example
- * // false for loose equality: `require.main == module`
- * isRequireMainComparison(node)
- *
- * @example
- * // false for unrelated comparisons: `foo === module`
- * isRequireMainComparison(node)
- */
-const isRequireMainComparison = (node: SgNode<JS>): boolean => {
-	if (!node.is('binary_expression')) return false;
-
-	const left = node.child(0);
-	const operator = node.child(1);
-	const right = node.child(2);
-
-	if (!left || !operator || !right || operator.text() !== '===') {
-		return false;
-	}
-
-	return (
-		(isRequireMainMemberExpression(left) && isModuleIdentifier(right)) ||
-		(isModuleIdentifier(left) && isRequireMainMemberExpression(right))
-	);
-};
-
-/**
  * Returns true when `__dirname` or `__filename` resolves to a local definition
  * in the current file and should not be transformed.
  *
@@ -120,18 +35,6 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 
-	const requireMainComparisons = rootNode.findAll({
-		rule: {
-			kind: 'binary_expression',
-		},
-	});
-
-	for (const comparison of requireMainComparisons) {
-		if (isRequireMainComparison(comparison)) {
-			edits.push(comparison.replace('import.meta.main'));
-		}
-	}
-
 	const requireMainNodes = rootNode.findAll({
 		rule: {
 			kind: 'member_expression',
@@ -153,9 +56,21 @@ export default function transform(root: SgRoot<JS>): string | null {
 	});
 
 	for (const node of requireMainNodes) {
-		if (
-			!node.ancestors().some((ancestor) => isRequireMainComparison(ancestor))
-		) {
+		const result = node.find({
+			rule: {
+				inside: {
+					kind: 'binary_expression',
+					has: {
+						kind: 'identifier',
+						regex: 'module',
+					},
+				},
+			},
+		});
+
+		if (result) {
+			edits.push(result.replace('import.meta.main'));
+		} else {
 			edits.push(node.replace('import.meta.main'));
 		}
 	}
