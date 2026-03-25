@@ -68,11 +68,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 			},
 		});
 
-		if (result) {
-			edits.push(result.replace('import.meta.main'));
-		} else {
-			edits.push(node.replace('import.meta.main'));
-		}
+		edits.push((result ?? node).replace('import.meta.main'));
 	}
 
 	const requireResolveNodes = rootNode.findAll({
