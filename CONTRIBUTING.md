@@ -41,13 +41,44 @@ Each codemod resides in its own directory under `recipes/` and should include:
 > [!NOTE]
 > The `workflow.ts` naming is conventional but can be changed as needed. Ensure to update the `workflow.yml` accordingly. We use `workflow` when there are one step codemods; for multi-step codemods, consider using `what-to-change.ts` or similar descriptive names.
 
+#### Naming
+
+For migrations that handle a from-to, please follow that pattern. For example `import-assertions-to-attributes`.
+
+#### Tests
+
+Codemod leverages a `before` ("input") + `after` ("expected") snapshot comparison. Codemod supports 2 options:
+
+* 👍 [**Single-file fixtures**](https://docs.codemod.com/jssg/testing#single-file-fixtures)
+  ```
+  tests/
+    some-test-case-description/
+      input.ts
+      expected.ts
+    another-test-case-description/
+      input.ts
+      expected.ts
+  ```
+* 👎 [Directory snapshot fixtures](https://docs.codemod.com/jssg/testing#directory-snapshot-fixtures)
+  ```
+  tests/
+    input/
+      some-test-case-description.ts
+      another-test-case-description.ts
+    expected
+      some-test-case-description.ts
+      another-test-case-description.ts
+  ```
+
+Use the _Single-file fixtures_ option.
+
 ### Example Files
 
 **`src/workflow.ts` example:**
 ```ts
 import {
-	getNodeImportCalls,
-	getNodeImportStatements,
+  getNodeImportCalls,
+  getNodeImportStatements,
 } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
@@ -64,37 +95,37 @@ import type JS from "@codemod.com/jssg-types/langs/javascript";
  * ...
  */
 export default function transform(root: SgRoot<JS>): string | null {
-	const rootNode = root.root();
-	const edits: Edit[] = [];
+  const rootNode = root.root();
+  const edits: Edit[] = [];
 
-	const allStatementNodes = [
-		...getNodeImportStatements(root, 'api'),
-		...getNodeRequireCalls(root, 'api')
-		...getNodeImportCalls(root, 'api'),
-	];
+  const allStatementNodes = [
+    ...getNodeImportStatements(root, 'api'),
+    ...getNodeRequireCalls(root, 'api')
+    ...getNodeImportCalls(root, 'api'),
+  ];
 
-	// No imports or requires for 'api', skip transformation
-	if (!allStatementNodes.length) return null;
+  // No imports or requires for 'api', skip transformation
+  if (!allStatementNodes.length) return null;
 
-	for (const statementNode of allStatementNodes) {
-		const bindingPath = resolveBindingPath(statementNode, 'api.fn');
+  for (const statementNode of allStatementNodes) {
+    const bindingPath = resolveBindingPath(statementNode, 'api.fn');
 
-		// Find all calls to the resolved bindingPath
-		const callNodes = rootNode.findDescendants((node) => {
-			return node.isCallExpression() &&
-				node.getChild('callee')?.getText() === bindingPath;
-		});
+    // Find all calls to the resolved bindingPath
+    const callNodes = rootNode.findDescendants((node) => {
+      return node.isCallExpression() &&
+        node.getChild('callee')?.getText() === bindingPath;
+    });
 
-		for (const callNode of callNodes) {
-			// Perform transformation on callNode
-			// e.g., replace 'api.fn' with 'api.newFn'
-			edits.push(...);
-		}
-	}
+    for (const callNode of callNodes) {
+      // Perform transformation on callNode
+      // e.g., replace 'api.fn' with 'api.newFn'
+      edits.push(...);
+    }
+  }
 
-	if (!edits.length) return null;
+  if (!edits.length) return null;
 
-	return rootNode.commitEdits(edits);
+  return rootNode.commitEdits(edits);
 }
 ```
 
