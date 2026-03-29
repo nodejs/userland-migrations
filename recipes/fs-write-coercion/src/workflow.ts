@@ -29,17 +29,14 @@ const TARGET_FUNCTIONS = [
 function isSafeType(text: string): boolean {
 	const trimmed = text.trim();
 
-	// String literals
+	// String literals and template literals (', ", `)
 	if (/^['"`]/.test(trimmed)) return true;
-
-	// Template literals
-	if (trimmed.startsWith('`')) return true;
 
 	// Already has .toString()
 	if (trimmed.endsWith('.toString()')) return true;
 
-	// Already wrapped in String()
-	if (trimmed.startsWith('String(')) return true;
+	// Already wrapped in String() — exact match to avoid false positives like Stringify()
+	if (/^String\(/.test(trimmed) && trimmed.endsWith(')')) return true;
 
 	// Buffer.from(), Buffer.alloc(), etc.
 	if (/^Buffer\.\w+\(/.test(trimmed)) return true;
@@ -52,13 +49,28 @@ function isSafeType(text: string): boolean {
 	)
 		return true;
 
-	// Numeric literal (not an object)
-	if (/^\d+$/.test(trimmed)) return true;
+	// Numeric literal (integers and floats)
+	if (/^\d+(\.\d+)?$/.test(trimmed)) return true;
 
 	// null or undefined
 	if (trimmed === 'null' || trimmed === 'undefined') return true;
 
 	return false;
+}
+
+/**
+ * fs.write() has two overloaded signatures:
+ * 1. fs.write(fd, buffer, offset, length, position, callback) — buffer overload (>=4 args typically)
+ * 2. fs.write(fd, string, position, encoding, callback) — string overload
+ *
+ * When called with >= 4 args where the 3rd arg looks like a numeric offset,
+ * it's likely the buffer overload — skip wrapping to avoid corrupting Buffer data.
+ */
+function isLikelyBufferOverload(args: readonly { text: () => string }[]): boolean {
+	if (args.length < 4) return false;
+	const thirdArg = args[2]!.text().trim();
+	// If the 3rd argument is a numeric literal (offset), it's likely the buffer overload
+	return /^\d+$/.test(thirdArg);
 }
 
 /**
@@ -135,6 +147,11 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 				// Data is the 2nd argument (index 1)
 				if (args.length < 2) continue;
+
+				// For fs.write(), skip the buffer overload:
+				// fs.write(fd, buffer, offset, length, ...) — wrapping buffer with String() is wrong
+				if (target.prop === 'write' && isLikelyBufferOverload(args)) continue;
+
 				const dataArg = args[1]!;
 				const dataText = dataArg.text();
 
