@@ -1,0 +1,24 @@
+{
+  "name": "@nodejs/fs-write-coercion",
+  "version": "1.0.0",
+  "description": "Handle DEP0162 by adding explicit String() conversion for objects passed to fs write functions.",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/fs-write-coercion",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "Stanley Shen",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/fs-write-coercion/README.md",
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.5.0"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
+  }
+}
