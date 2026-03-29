@@ -42,5 +42,13 @@ describe('workflow', () => {
 		});
 
 		t.assert.snapshot(result);
+
+		// restore the original file for the next test run using git
+		const git = await spawnPromisified('git', ['checkout', '--', 'test.ts'], {
+			cwd: e2eFixtPath,
+			stdio: 'inherit',
+		});
+
+		t.assert.equal(git.code, 0, 'git command should exit with code 0');
 	});
 });

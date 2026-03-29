@@ -1,6 +1,4 @@
-// biome-ignore lint/style/useNodejsImportProtocol: JSSG runtime resolves 'fs' for this codemod.
-import { constants, promises as fs } from 'fs';
-
+import { constants, promises as fs } from 'node:fs';
 import type {
 	FSAbsolutePath,
 	ResolvedSpecifier,

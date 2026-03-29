@@ -1,13 +1,12 @@
 import { isBuiltin } from 'node:module';
-import { extname, sep } from 'node:path';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import { extname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { readFileSync } from 'node:fs';
 import { resolve as resolvePath } from 'node:path';
-
 import { jsExts, tsExts } from './exts.ts';
-import type { FSAbsolutePath, ResolvedSpecifier } from './index.d.ts';
-import { resolvesToNodeModule } from './resolves-to-node-module.ts';
-import { getNotFoundUrl } from './get-not-found-url.ts';
+import type { FSAbsolutePath } from './index.d.ts';
 
 /**
  * Whether the specifier can be completely ignored.
@@ -19,6 +18,7 @@ export function isIgnorableSpecifier(
 	specifier: string,
 ) {
 	if (isBuiltin(specifier)) return true;
+	if (specifier.startsWith('node:')) return true;
 	if (specifier.startsWith('data:')) return true;
 
 	const ext = extname(specifier);
@@ -30,47 +30,15 @@ export function isIgnorableSpecifier(
 
 	if (specifier[0] === '@') return true; // namespaced node module
 
-	if (specifier[0] === sep /* '/' */) return false;
-	if (specifier.startsWith(`.${sep}`) /* './' */) return false;
+	if (specifier.startsWith('/')) return false;
+	if (specifier.startsWith('./')) return false;
 	if (specifier.startsWith('..')) return false;
 	if (specifier.startsWith('file://')) return false;
 	if (isMatchInTsConfigPaths(specifier)) return false;
 	if (specifier.startsWith('#')) return true;
 
-	const importMetaResolve = (
-		import.meta as { resolve?: (specifier: string, parent?: string) => string }
-	).resolve;
-	if (typeof importMetaResolve !== 'function') return true;
-
-	let resolvedSpecifier: ResolvedSpecifier | undefined;
-	try {
-		resolvedSpecifier = importMetaResolve(
-			specifier,
-			pathToFileURL(parentPath).href,
-		) as ResolvedSpecifier; // This requires `--experimental-import-meta-resolve`
-	} catch (err) {
-		if (
-			!(err instanceof Error) ||
-			!IGNORABLE_RESOLVE_ERRORS.has((err as NodeJS.ErrnoException).code!)
-		)
-			throw err;
-
-		resolvedSpecifier = getNotFoundUrl(err);
-	}
-
-	if (
-		resolvedSpecifier &&
-		resolvesToNodeModule(resolvedSpecifier, parentPath, specifier)
-	)
-		return true;
-
-	return false;
+	return resolvesAsNodeModule(parentPath, specifier);
 }
-
-const IGNORABLE_RESOLVE_ERRORS = new Set([
-	'ERR_MODULE_NOT_FOUND',
-	'ERR_PACKAGE_PATH_NOT_EXPORTED', // This is a problem with the node_module itself
-]);
 
 let cachedTsConfigPathKeys: string[] | null | undefined;
 
@@ -79,6 +47,8 @@ function isMatchInTsConfigPaths(specifier: string): boolean {
 	if (!keys?.length) return false;
 
 	for (const key of keys) {
+		if (key === '*') continue;
+
 		const star = key.indexOf('*');
 		if (star === -1) {
 			if (specifier === key) return true;
@@ -119,5 +89,58 @@ function getTsConfigPathKeys(): string[] | null {
 	} catch {
 		cachedTsConfigPathKeys = null;
 		return cachedTsConfigPathKeys;
+	}
+}
+
+function resolvesAsNodeModule(parentPath: FSAbsolutePath, specifier: string): boolean {
+	try {
+		const require = createRequire(pathToFileURL(parentPath));
+		require.resolve(specifier);
+		return true;
+	} catch {
+		return hasNodeModulePackage(parentPath, specifier);
+	}
+}
+
+function hasNodeModulePackage(parentPath: FSAbsolutePath, specifier: string): boolean {
+	const packageName = extractPackageName(specifier);
+	if (!packageName) return false;
+
+	let current = dirname(parentPath);
+	let previous = '';
+
+	while (current !== previous) {
+		if (fileExists(join(current, 'node_modules', packageName, 'package.json')))
+			return true;
+
+		previous = current;
+		current = dirname(current);
+	}
+
+	return false;
+}
+
+function extractPackageName(specifier: string): string | null {
+	if (specifier.startsWith('.') || specifier.startsWith('/') || specifier.startsWith('#')) {
+		return null;
+	}
+
+	const segments = specifier.split('/');
+	if (!segments[0]) return null;
+
+	if (segments[0].startsWith('@')) {
+		if (segments.length < 2 || !segments[1]) return null;
+		return `${segments[0]}/${segments[1]}`;
+	}
+
+	return segments[0];
+}
+
+function fileExists(path: string): boolean {
+	try {
+		readFileSync(path);
+		return true;
+	} catch {
+		return false;
 	}
 }

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { type Mock, before, describe, it, mock, afterEach } from 'node:test';
+import { before, describe, it, mock, afterEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
-
+import type { Mock } from 'node:test';
 import { dExts } from './exts.ts';
 import type { FSAbsolutePath } from './index.d.ts';
 

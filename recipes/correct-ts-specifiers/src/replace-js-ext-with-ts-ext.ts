@@ -1,7 +1,5 @@
 import { extname } from 'node:path';
-
 import { logger } from './logger.ts';
-
 import type {
 	FSAbsolutePath,
 	NodeModSpecifier,
@@ -16,7 +14,6 @@ import {
 	suspectExts,
 } from './exts.ts';
 import { fexists } from './fexists.ts';
-
 import { isDir } from './is-dir.ts';
 
 /**
