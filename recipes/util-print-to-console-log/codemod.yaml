@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: "@nodejs/util-print-to-console-log"
-version: "1.0.1"
+version: "1.0.2"
 description: Handle DEP0026, DEP0027, DEP0028, DEP0029 via transforming `util.print|puts|debug|error()` to `console.log|error()`
 author: Bruno Rodrigues
 license: MIT

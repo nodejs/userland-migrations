@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: "@nodejs/dirent-path-to-parent-path"
-version: 1.0.0
+version: 1.0.1
 description: Handle DEP0178 via transforming `dirent.path` to `dirent.parentPath`.
 author: Bruno Rodrigues
 license: MIT
