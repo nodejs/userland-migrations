@@ -1,5 +1,5 @@
-import type { SgRoot, Edit } from '@codemod.com/jssg-types/main';
-import type Js from '@codemod.com/jssg-types/langs/javascript';
+import type { Edit, SgRoot } from '@codemod.com/jssg-types/main';
+import type JS from '@codemod.com/jssg-types/langs/javascript';
 
 const OLD_CODE = 'ERR_INVALID_CALLBACK';
 const NEW_CODE = 'ERR_INVALID_ARG_TYPE';
@@ -15,7 +15,7 @@ const NEW_CODE = 'ERR_INVALID_ARG_TYPE';
  * - Both single and double quoted strings
  * - Deduplicates redundant checks after replacement (e.g., a === "X" || a === "X")
  */
-export default function transform(root: SgRoot<Js>): string | null {
+export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 
@@ -52,11 +52,18 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 /**
  * Remove duplicate operands in || expressions that arise from the replacement.
+ *
+ * After replacing ERR_INVALID_CALLBACK → ERR_INVALID_ARG_TYPE, code that previously
+ * checked for both codes (e.g., `a === "ERR_INVALID_CALLBACK" || a === "ERR_INVALID_ARG_TYPE"`)
+ * will have two identical conditions that should be collapsed into one.
+ *
+ * The regex captures a `<lhs> === <quote>ERR_INVALID_ARG_TYPE<quote>` expression,
+ * then matches `|| <same expression>`. The lhs is captured with [\w.[\]"']+ to
+ * support property access patterns like `err.code`, `err["code"]`, and simple identifiers.
  */
 function deduplicateBinaryExpressions(code: string): string {
-	// Match patterns like: <expr> || <same_expr> where both sides reference ERR_INVALID_ARG_TYPE
 	return code.replace(
-		/(\S+\s*===\s*["']ERR_INVALID_ARG_TYPE["'])\s*\|\|\s*\n?\s*\1/g,
+		/([\w.[\]"']+\s*===\s*["']ERR_INVALID_ARG_TYPE["'])\s*\|\|\s*\n?\s*\1/g,
 		'$1',
 	);
 }
