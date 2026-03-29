@@ -8,7 +8,6 @@
     "lint": "biome lint ./",
     "pre-commit": "node --run lint:fix; node --run type-check; node --run test",
     "test": "npm run test --workspaces --if-present",
-    "test-legacy": "npm run test-legacy --workspaces --if-present",
     "type-check": "tsgo --noEmit"
   },
   "repository": {
