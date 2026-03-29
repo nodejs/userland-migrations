@@ -8,18 +8,26 @@ export function resolvesToNodeModule(
 	parentLocus: FSAbsolutePath | ResolvedSpecifier,
 	ogSpecifier: string,
 ) {
-	if (!resolvedUrl) throw new TypeError('Specifier resolved to nothing.', {
-		cause: `'${ogSpecifier}' in ${parentLocus}`,
-	});
+	if (!resolvedUrl)
+		throw new TypeError('Specifier resolved to nothing.', {
+			cause: `'${ogSpecifier}' in ${parentLocus}`,
+		});
 
-	if (!URL.canParse(resolvedUrl)) throw new TypeError(`resolvedUrl from '${parentLocus}' must be a file url string: ${resolvedUrl}`, {
-		cause: `'${ogSpecifier}' in ${parentLocus}`,
-	});
+	if (!URL.canParse(resolvedUrl))
+		throw new TypeError(
+			`resolvedUrl from '${parentLocus}' must be a file url string: ${resolvedUrl}`,
+			{
+				cause: `'${ogSpecifier}' in ${parentLocus}`,
+			},
+		);
 
-	const parentUrl = isAbsolute(parentLocus) ? pathToFileURL(parentLocus).href : parentLocus;
+	const parentUrl = isAbsolute(parentLocus)
+		? pathToFileURL(parentLocus).href
+		: parentLocus;
 
 	let i = 0; // Track the last common character to determine where to check for a node module.
-	for (let n = resolvedUrl.length; i < n; i++) if (resolvedUrl[i] !== parentUrl[i]) break;
+	for (let n = resolvedUrl.length; i < n; i++)
+		if (resolvedUrl[i] !== parentUrl[i]) break;
 
 	// The first segment of rest of the resolved url needs to exactly match 'node_module' (it could be
 	// something like 'fake_node_modules') to be a real node module dependency.

@@ -1,68 +1,70 @@
-import module from 'node:module';
-import type { RegisterHooksOptions } from 'node:module';
-
-import { type Api, api } from '@codemod.com/workflow';
-import type { Helpers } from '@codemod.com/workflow/dist/jsFam.d.ts';
+import type { Edit, SgRoot, SgNode } from '@codemod.com/jssg-types/main';
+import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 import { mapImports } from './map-imports.ts';
 import type { FSAbsolutePath } from './index.d.ts';
-import * as aliasLoader from '@nodejs-loaders/alias/alias.loader.mjs';
 
-module.registerHooks(aliasLoader as RegisterHooksOptions);
+export default async function transform(
+	root: SgRoot<Js>,
+): Promise<string | null> {
+	const rootNode = root.root();
+	const filepath = root.filename() as FSAbsolutePath;
+	const edits: Edit[] = [];
 
-export async function workflow({ contexts, files }: Api) {
-	await files(globPattern).jsFam(processModule);
+	const statements = rootNode.findAll({
+		rule: {
+			any: [
+				{ kind: 'import_statement' },
+				{ kind: 'export_statement', has: { kind: 'string' } },
+				{ pattern: 'import("$$$_")' },
+				{ pattern: "import('$$$_')" },
+			],
+		},
+	});
 
-	async function processModule({ astGrep }: Helpers) {
-		const filepath = contexts.getFileContext().file as FSAbsolutePath;
-
-		await astGrep({
-			rule: {
-				any: [
-					{ kind: 'import_statement' },
-					{ kind: 'export_statement', has: { kind: 'string' } },
-					{ pattern: 'import("$$$_")' },
-					{ pattern: "import('$$$_')" },
-				],
-			},
-		}).replace(async ({ getNode }) => {
-			const statement = getNode();
-			const importSpecifier = statement.find({
-				rule: {
-					kind: 'string_fragment',
-					inside: { kind: 'string' },
-				},
-			});
-
-			if (!importSpecifier) return;
-
-			const { isType, replacement } = await mapImports(
-				filepath,
-				importSpecifier.text(),
-			);
-
-			if (!replacement) return;
-
-			const edits = [importSpecifier.replace(replacement)];
-
-			if (
-				isType &&
-				!statement.children().some((node) => node.kind() === 'type')
-			) {
-				const clause = statement.find({
-					rule: {
-						any: [{ kind: 'import_clause' }, { kind: 'export_clause' }],
-					},
-				});
-
-				if (clause) edits[1] = clause.replace(`type ${clause.text()}`);
-			}
-
-			return statement.commitEdits(edits);
-		});
+	for (const statement of statements) {
+		const statementEdit = await maybeUpdateStatement(statement, filepath);
+		if (statementEdit) edits.push(statementEdit);
 	}
+
+	if (!edits.length) return null;
+
+	return rootNode.commitEdits(edits);
 }
 
-const globPattern = '**/*.{cjs,mjs,js,jsx,?(d.)cts,?(d.)mts,?(d.)ts,tsx}';
+async function maybeUpdateStatement(
+	statement: SgNode<Js>,
+	filepath: FSAbsolutePath,
+): Promise<Edit | null> {
+	const importSpecifier = statement.find({
+		rule: {
+			kind: 'string_fragment',
+			inside: { kind: 'string' },
+		},
+	});
 
-workflow(api);
+	if (!importSpecifier) return null;
+
+	const original = importSpecifier.text();
+	const { isType, replacement } = await mapImports(filepath, original);
+
+	if (!replacement) return null;
+
+	const statementEdits: Edit[] = [];
+	if (replacement !== original)
+		statementEdits.push(importSpecifier.replace(replacement));
+
+	if (isType && !statement.children().some((node) => node.kind() === 'type')) {
+		const clause = statement.find({
+			rule: {
+				any: [{ kind: 'import_clause' }, { kind: 'export_clause' }],
+			},
+		});
+
+		if (clause) statementEdits.push(clause.replace(`type ${clause.text()}`));
+	}
+
+	if (!statementEdits.length) return null;
+
+	return statement.replace(statement.commitEdits(statementEdits));
+}
