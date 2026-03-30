@@ -20,68 +20,53 @@ type InferredIdentifierKind =
 
 type InferredIdentifier = {
 	kind: InferredIdentifierKind;
-	initializerText: string;
+	initializerNode: SgNode<JS>;
 };
 
-const TRUE_LITERAL = 'true';
-const FALSE_LITERAL = 'false';
-
-function isIntegerNumberLiteral(text: string): boolean {
-	return /^-?\d+$/.test(text);
+function isIntegerNumber(text: string): boolean {
+	const numeric = Number(text);
+	return Number.isFinite(numeric) && Number.isInteger(numeric);
 }
 
-function isFloatNumberLiteral(text: string): boolean {
-	return /^-?(?:\d+\.\d+|\d+\.\d*|\d*\.\d+)(?:e[+-]?\d+)?$/i.test(text);
+function isIntegerStringValue(value: string): boolean {
+	return /^-?\d+$/.test(value);
 }
 
-function isQuotedStringLiteral(text: string): boolean {
-	return /^(['"])(?:[^\\]|\\.)*\1$/.test(text);
-}
-
-function isIntegerStringLiteral(text: string): boolean {
-	const match = text.match(/^(['"])((?:[^\\]|\\.)*)\1$/);
-	if (!match) return false;
-	return /^-?\d+$/.test(match[2]);
-}
-
-function stripOuterParens(text: string): string {
-	let trimmed = text.trim();
-	while (trimmed.startsWith('(') && trimmed.endsWith(')')) {
-		trimmed = trimmed.slice(1, -1).trim();
+function getStringLiteralValue(node: SgNode<JS>): string | null {
+	if (node.kind() !== 'string') return null;
+	const text = node.text();
+	if (text.length < 2) return null;
+	const quote = text[0];
+	if ((quote !== '"' && quote !== "'") || text[text.length - 1] !== quote) {
+		return null;
 	}
-	return trimmed;
-}
-
-function isBooleanExpression(text: string): boolean {
-	return /(===|!==|==|!=|>=|<=|>|<|&&|\|\||!)/.test(text);
-}
-
-function isNumericExpressionKind(kind: string): boolean {
-	return (
-		kind === 'binary_expression' ||
-		kind === 'unary_expression' ||
-		kind === 'update_expression'
-	);
-}
-
-function extractCodePropertyFromObjectLiteral(text: string): string | null {
-	const match = text.match(/\bcode\s*:\s*([^,}\n]+)/);
-	if (!match) return null;
-	return match[1].trim();
+	return text.slice(1, -1);
 }
 
 function inferIdentifierKind(valueNode: SgNode<JS>): InferredIdentifierKind {
 	const kind = valueNode.kind();
-	const valueText = stripOuterParens(valueNode.text());
+	if (kind === 'true') return 'boolean_true';
+	if (kind === 'false') return 'boolean_false';
+	if (kind === 'null') return 'null';
 
-	if (valueText === TRUE_LITERAL) return 'boolean_true';
-	if (valueText === FALSE_LITERAL) return 'boolean_false';
-	if (valueText === 'undefined') return 'undefined';
-	if (valueText === 'null') return 'null';
-	if (isIntegerNumberLiteral(valueText)) return 'integer_number';
-	if (isFloatNumberLiteral(valueText)) return 'float_number';
-	if (isIntegerStringLiteral(valueText)) return 'integer_string';
-	if (isQuotedStringLiteral(valueText)) return 'non_integer_string';
+	if (kind === 'identifier' && valueNode.text() === 'undefined') {
+		return 'undefined';
+	}
+
+	if (kind === 'number') {
+		return isIntegerNumber(valueNode.text())
+			? 'integer_number'
+			: 'float_number';
+	}
+
+	if (kind === 'string') {
+		const value = getStringLiteralValue(valueNode);
+		if (value === null) return 'unknown';
+		return isIntegerStringValue(value)
+			? 'integer_string'
+			: 'non_integer_string';
+	}
+
 	if (kind === 'object') return 'object';
 
 	return 'unknown';
@@ -91,86 +76,112 @@ function floorWrap(expressionText: string): string {
 	return `Math.floor(${expressionText})`;
 }
 
-function coerceBoolean(identifierOrLiteral: string, mode: ExitMode): string {
-	if (mode === 'exit') return `${identifierOrLiteral} ? 1 : 0`;
-	return `${identifierOrLiteral} ? 0 : 1`;
+function coerceBoolean(expressionText: string, mode: ExitMode): string {
+	if (mode === 'exit') return `${expressionText} ? 1 : 0`;
+	return `${expressionText} ? 0 : 1`;
 }
 
-function coerceFromObjectLiteral(valueText: string, mode: ExitMode): string {
-	if (mode !== 'exitCode') return '1';
+function getObjectCodeValue(objectNode: SgNode<JS>): SgNode<JS> | null {
+	const pairs = objectNode.findAll({
+		rule: {
+			kind: 'pair',
+		},
+	});
 
-	const extracted = extractCodePropertyFromObjectLiteral(valueText);
-	if (!extracted) return '1';
-
-	const normalized = stripOuterParens(extracted);
-
-	if (
-		normalized === 'undefined' ||
-		normalized === 'null' ||
-		isIntegerNumberLiteral(normalized) ||
-		isIntegerStringLiteral(normalized)
-	) {
-		return extracted;
+	for (const pair of pairs) {
+		const key = pair.field('key');
+		const value = pair.field('value');
+		if (!key || !value) continue;
+		if (key.text() === 'code') return value;
 	}
 
-	if (normalized === TRUE_LITERAL) return '0';
-	if (normalized === FALSE_LITERAL) return '1';
-	if (isFloatNumberLiteral(normalized)) return floorWrap(extracted);
-	if (isBooleanExpression(normalized)) return coerceBoolean(extracted, mode);
+	return null;
+}
+
+function coerceFromObjectLiteral(
+	objectNode: SgNode<JS>,
+	mode: ExitMode,
+): string {
+	if (mode !== 'exitCode') return '1';
+
+	const codeValue = getObjectCodeValue(objectNode);
+	if (!codeValue) return '1';
+
+	const kind = inferIdentifierKind(codeValue);
+	if (kind === 'integer_number' || kind === 'integer_string') {
+		return codeValue.text();
+	}
+	if (kind === 'null' || kind === 'undefined') {
+		return codeValue.text();
+	}
+	if (kind === 'boolean_true' || kind === 'boolean_false') {
+		return coerceBoolean(codeValue.text(), mode);
+	}
+	if (kind === 'float_number') {
+		return floorWrap(codeValue.text());
+	}
 
 	return '1';
 }
 
-function coerceValueText(
-	rawValueText: string,
-	valueKind: string,
+function shouldFloorExpression(node: SgNode<JS>): boolean {
+	const kind = node.kind();
+	return (
+		kind === 'binary_expression' ||
+		kind === 'unary_expression' ||
+		kind === 'update_expression'
+	);
+}
+
+function coerceValueNode(
+	node: SgNode<JS>,
 	mode: ExitMode,
 	inferredIdentifiers: Map<string, InferredIdentifier>,
 ): string | null {
-	const normalized = stripOuterParens(rawValueText);
+	const kind = inferIdentifierKind(node);
 
-	if (normalized === 'undefined' || normalized === 'null') return null;
-	if (isIntegerNumberLiteral(normalized)) return null;
-	if (isIntegerStringLiteral(normalized)) return null;
-
-	if (normalized === TRUE_LITERAL || normalized === FALSE_LITERAL) {
-		if (mode === 'exit') return normalized === TRUE_LITERAL ? '1' : '0';
-		return normalized === TRUE_LITERAL ? '0' : '1';
+	if (
+		kind === 'undefined' ||
+		kind === 'null' ||
+		kind === 'integer_number' ||
+		kind === 'integer_string'
+	) {
+		return null;
 	}
 
-	if (isQuotedStringLiteral(normalized)) return '1';
-
-	if (valueKind === 'object' || normalized.startsWith('{')) {
-		return coerceFromObjectLiteral(rawValueText, mode);
+	if (kind === 'boolean_true' || kind === 'boolean_false') {
+		return mode === 'exit'
+			? kind === 'boolean_true'
+				? '1'
+				: '0'
+			: kind === 'boolean_true'
+				? '0'
+				: '1';
 	}
 
-	if (valueKind === 'identifier') {
-		const inferred = inferredIdentifiers.get(normalized);
+	if (kind === 'non_integer_string') return '1';
+
+	if (kind === 'float_number') return floorWrap(node.text());
+
+	if (kind === 'object') return coerceFromObjectLiteral(node, mode);
+
+	if (node.kind() === 'identifier') {
+		const inferred = inferredIdentifiers.get(node.text());
 		if (!inferred) return null;
 
-		switch (inferred.kind) {
-			case 'boolean_true':
-			case 'boolean_false':
-				return coerceBoolean(normalized, mode);
-			case 'float_number':
-				return floorWrap(normalized);
-			case 'non_integer_string':
-				return '1';
-			case 'object':
-				return coerceFromObjectLiteral(inferred.initializerText, mode);
-			default:
-				return null;
+		if (inferred.kind === 'boolean_true' || inferred.kind === 'boolean_false') {
+			return coerceBoolean(node.text(), mode);
 		}
+		if (inferred.kind === 'float_number') return floorWrap(node.text());
+		if (inferred.kind === 'non_integer_string') return '1';
+		if (inferred.kind === 'object') {
+			return coerceFromObjectLiteral(inferred.initializerNode, mode);
+		}
+		return null;
 	}
 
-	if (isFloatNumberLiteral(normalized)) return floorWrap(rawValueText);
-
-	if (isNumericExpressionKind(valueKind) && !isBooleanExpression(normalized)) {
-		return floorWrap(rawValueText);
-	}
-
-	if (isBooleanExpression(normalized)) {
-		return coerceBoolean(rawValueText, mode);
+	if (shouldFloorExpression(node)) {
+		return floorWrap(node.text());
 	}
 
 	return null;
@@ -193,7 +204,7 @@ function collectInferredIdentifiers(
 
 		inferred.set(name.text(), {
 			kind: inferIdentifierKind(value),
-			initializerText: value.text(),
+			initializerNode: value,
 		});
 	}
 
@@ -232,12 +243,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 			const argNode = callNode.getMatch('ARG');
 			if (!argNode) continue;
 
-			const replacement = coerceValueText(
-				argNode.text(),
-				argNode.kind(),
-				'exit',
-				inferredIdentifiers,
-			);
+			const replacement = coerceValueNode(argNode, 'exit', inferredIdentifiers);
 
 			if (!replacement || replacement === argNode.text()) continue;
 			edits.push(argNode.replace(replacement));
@@ -255,9 +261,8 @@ export default function transform(root: SgRoot<JS>): string | null {
 			const valueNode = assignmentNode.getMatch('VALUE');
 			if (!valueNode) continue;
 
-			const replacement = coerceValueText(
-				valueNode.text(),
-				valueNode.kind(),
+			const replacement = coerceValueNode(
+				valueNode,
 				'exitCode',
 				inferredIdentifiers,
 			);
