@@ -1,8 +1,4 @@
-import {
-	getNodeImportStatements,
-	getNodeImportCalls,
-} from '@nodejs/codemod-utils/ast-grep/import-statement';
-import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import type { SgRoot, Edit, SgNode } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
@@ -94,12 +90,8 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	// Gather fs import/require statements (both 'fs' and 'fs/promises')
 	const stmtNodes = [
-		...getNodeRequireCalls(root, 'fs'),
-		...getNodeImportStatements(root, 'fs'),
-		...getNodeImportCalls(root, 'fs'),
-		...getNodeRequireCalls(root, 'fs/promises'),
-		...getNodeImportStatements(root, 'fs/promises'),
-		...getNodeImportCalls(root, 'fs/promises'),
+		...getModuleDependencies(root, 'fs'),
+		...getModuleDependencies(root, 'fs/promises'),
 	];
 
 	if (!stmtNodes.length) return null;
@@ -116,7 +108,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 					has: {
 						field: 'function',
 						any: [
-							{ kind: 'identifier', regex: `^${escapeRegex(local)}$` },
+							{ kind: 'identifier', regex: `^${local}$` },
 							{
 								kind: 'member_expression',
 								has: {
