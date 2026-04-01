@@ -170,9 +170,7 @@ function transformThisSkip(root: SgRoot<JS>): Edit[] {
 			if (thisKeyword) edits.push(thisKeyword.replace('t'));
 
 			const fn = findEnclosingFunction(call);
-			if (!fn) {
-				return edits;
-			}
+			if (!fn) return edits;
 
 			const params = getParameters(fn);
 			if (!params) return edits;
