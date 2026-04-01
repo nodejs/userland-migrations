@@ -167,9 +167,7 @@ function transformThisSkip(root: SgRoot<JS>): Edit[] {
 				rule: { kind: 'member_expression', has: { kind: 'this' } },
 			});
 			const thisKeyword = memberExpr?.field('object');
-			if (thisKeyword) {
-				edits.push(thisKeyword.replace('t'));
-			}
+			if (thisKeyword) edits.push(thisKeyword.replace('t'));
 
 			const fn = findEnclosingFunction(call);
 			if (!fn) {
