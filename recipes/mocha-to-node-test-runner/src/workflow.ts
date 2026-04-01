@@ -5,15 +5,16 @@ import type { Edit, Kinds, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type JS from '@codemod.com/jssg-types/langs/javascript';
 import { EOL } from 'node:os';
 
+const GLOBAL_IDENTIFIERS = ['describe'];
+const USED_GLOBAL_IDENTIFIERS = ['', '.skip', '.only'];
+
 export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
 
-	const globalIdentifiers = ['describe'];
-
-	const usedGlobalIdentifiers = globalIdentifiers.filter((globalIdentifier) =>
-		['', '.skip', '.only']
-			.map((suffix) => `${globalIdentifier}${suffix}($$$)`)
-			.some((pattern) => rootNode.findAll({ rule: { pattern } }).length > 0),
+	const usedGlobalIdentifiers = GLOBAL_IDENTIFIERS.filter((globalIdentifier) =>
+		USED_GLOBAL_IDENTIFIERS.map(
+			(suffix) => `${globalIdentifier}${suffix}($$$)`,
+		).some((pattern) => rootNode.findAll({ rule: { pattern } }).length > 0),
 	);
 
 	if (usedGlobalIdentifiers.length === 0) return null;
