@@ -1,7 +1,7 @@
 {
   "name": "@nodejs/mocha-to-node-test-runner",
   "version": "1.0.0",
-  "description": "Migrate Mocha v8 tests to Node.js test runner (v22, v24+)",
+  "description": "Migrate Mocha 8.x tests to Node.js (22.x, 24.x) test runner",
   "type": "module",
   "scripts": {
     "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"

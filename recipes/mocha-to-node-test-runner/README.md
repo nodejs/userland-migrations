@@ -1,6 +1,6 @@
 # Mocha to Node.js Test Runner
 
-This recipe migrate Mocha v8 tests to Node.js test runner (v22, v24+)
+This migrates Mocha 8.x tests to Node.js (22.x, 24.x) test runner
 
 ## Features
 

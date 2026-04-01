@@ -74,7 +74,7 @@ describe('isESM', () => {
 		});
 	});
 
-	describe('Import/require detection', () => {
+	describe('`import` & `require` detection', () => {
 		it('should return true when file has import statements', async () => {
 			const mockRoot = createMockRoot('test.js', true, false);
 			const result = isESM(mockRoot);
