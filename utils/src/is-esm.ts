@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import type JS from '@codemod.com/jssg-types/langs/javascript';
 import type { SgRoot } from '@codemod.com/jssg-types/main';
 
@@ -32,6 +32,11 @@ export default function isESM(root: SgRoot<JS>): boolean {
 	if (usingRequire) return false;
 
 	const packageJsonPath = join(process.cwd(), 'package.json');
-	const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
-	return packageJson.type === 'module';
+	if (!existsSync(packageJsonPath)) return false;
+	try {
+		const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+		return packageJson.type === 'module';
+	} catch {
+		return false;
+	}
 }

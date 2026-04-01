@@ -151,7 +151,7 @@ describe('isESM', () => {
 			assert.strictEqual(result, false);
 		});
 
-		it('should throw error when package.json does not exist', async () => {
+		it('should default to CommonJS when package.json does not exist', async () => {
 			const packageJsonPath = join(tempDir, 'package.json');
 			if (existsSync(packageJsonPath)) {
 				unlinkSync(packageJsonPath);
@@ -159,10 +159,9 @@ describe('isESM', () => {
 
 			const mockRoot = createMockRoot('test.js', false, false);
 
-			assert.throws(() => isESM(mockRoot), {
-				name: 'Error',
-				message: /ENOENT|no such file or directory/,
-			});
+			const result = isESM(mockRoot);
+
+			assert.strictEqual(result, false);
 		});
 	});
 });
