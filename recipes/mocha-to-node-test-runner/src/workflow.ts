@@ -54,17 +54,15 @@ function transformImport(root: SgRoot<JS>): Edit[] {
 		},
 	});
 
-	const usedMochaGlobals = [
-		...new Set(
-			mochaGlobalsNodes.map(
-				(mochaGlobalsNode) =>
-					mochaGlobalsNode.getMatch('MOCHA_GLOBAL_FN').text().split('.')[0],
-			),
+	const usedMochaGlobals = new Set(
+		mochaGlobalsNodes.map(
+			(mochaGlobalsNode) =>
+				mochaGlobalsNode.getMatch('MOCHA_GLOBAL_FN').text().split('.')[0],
 		),
-	];
+	);
 
 	// if mocha isn't found, don't try to apply changes
-	if (usedMochaGlobals.length === 0) return [];
+	if (usedMochaGlobals.size === 0) return [];
 
 	const esm = isESM(root);
 
@@ -73,7 +71,7 @@ function transformImport(root: SgRoot<JS>): Edit[] {
 		: getNodeRequireCalls(rootNode.getRoot(), 'test');
 	if (existingNodeTestImports.length > 0) return [];
 
-	const imports = usedMochaGlobals.join(', ');
+	const imports = [...usedMochaGlobals].join(', ');
 
 	const insertedText = esm
 		? `${EOL}import { ${imports} } from 'node:test';`
