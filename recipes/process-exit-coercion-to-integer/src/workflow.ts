@@ -1,5 +1,4 @@
-import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
-import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import type { Edit, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type JS from '@codemod.com/jssg-types/langs/javascript';
@@ -34,32 +33,31 @@ function isIntegerStringValue(value: string): boolean {
 
 function getStringLiteralValue(node: SgNode<JS>): string | null {
 	if (node.kind() !== 'string') return null;
-	const text = node.text();
-	if (text.length < 2) return null;
-	const quote = text[0];
-	if ((quote !== '"' && quote !== "'") || text[text.length - 1] !== quote) {
-		return null;
-	}
-	return text.slice(1, -1);
+	const stringFragment = node.find({
+		rule: {
+			kind: 'string_fragment',
+		},
+	});
+	return stringFragment?.text() ?? '';
 }
 
 function inferIdentifierKind(valueNode: SgNode<JS>): InferredIdentifierKind {
-	const kind = valueNode.kind();
-	if (kind === 'true') return 'boolean_true';
-	if (kind === 'false') return 'boolean_false';
-	if (kind === 'null') return 'null';
+	const nodeKind = valueNode.kind();
+	if (nodeKind === 'true') return 'boolean_true';
+	if (nodeKind === 'false') return 'boolean_false';
+	if (nodeKind === 'null') return 'null';
 
-	if (kind === 'identifier' && valueNode.text() === 'undefined') {
+	if (nodeKind === 'identifier' && valueNode.text() === 'undefined') {
 		return 'undefined';
 	}
 
-	if (kind === 'number') {
+	if (nodeKind === 'number') {
 		return isIntegerNumber(valueNode.text())
 			? 'integer_number'
 			: 'float_number';
 	}
 
-	if (kind === 'string') {
+	if (nodeKind === 'string') {
 		const value = getStringLiteralValue(valueNode);
 		if (value === null) return 'unknown';
 		return isIntegerStringValue(value)
@@ -67,7 +65,7 @@ function inferIdentifierKind(valueNode: SgNode<JS>): InferredIdentifierKind {
 			: 'non_integer_string';
 	}
 
-	if (kind === 'object') return 'object';
+	if (nodeKind === 'object') return 'object';
 
 	return 'unknown';
 }
@@ -125,11 +123,11 @@ function coerceFromObjectLiteral(
 }
 
 function shouldFloorExpression(node: SgNode<JS>): boolean {
-	const kind = node.kind();
+	const nodeKind = node.kind();
 	return (
-		kind === 'binary_expression' ||
-		kind === 'unary_expression' ||
-		kind === 'update_expression'
+		nodeKind === 'binary_expression' ||
+		nodeKind === 'unary_expression' ||
+		nodeKind === 'update_expression'
 	);
 }
 
@@ -138,32 +136,32 @@ function coerceValueNode(
 	mode: ExitMode,
 	inferredIdentifiers: Map<string, InferredIdentifier>,
 ): string | null {
-	const kind = inferIdentifierKind(node);
+	const inferredKind = inferIdentifierKind(node);
 
 	if (
-		kind === 'undefined' ||
-		kind === 'null' ||
-		kind === 'integer_number' ||
-		kind === 'integer_string'
+		inferredKind === 'undefined' ||
+		inferredKind === 'null' ||
+		inferredKind === 'integer_number' ||
+		inferredKind === 'integer_string'
 	) {
 		return null;
 	}
 
-	if (kind === 'boolean_true' || kind === 'boolean_false') {
+	if (inferredKind === 'boolean_true' || inferredKind === 'boolean_false') {
 		return mode === 'exit'
-			? kind === 'boolean_true'
+			? inferredKind === 'boolean_true'
 				? '1'
 				: '0'
-			: kind === 'boolean_true'
+			: inferredKind === 'boolean_true'
 				? '0'
 				: '1';
 	}
 
-	if (kind === 'non_integer_string') return '1';
+	if (inferredKind === 'non_integer_string') return '1';
 
-	if (kind === 'float_number') return floorWrap(node.text());
+	if (inferredKind === 'float_number') return floorWrap(node.text());
 
-	if (kind === 'object') return coerceFromObjectLiteral(node, mode);
+	if (inferredKind === 'object') return coerceFromObjectLiteral(node, mode);
 
 	if (node.kind() === 'identifier') {
 		const inferred = inferredIdentifiers.get(node.text());
@@ -220,10 +218,8 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const exitBindings = new Set<string>(['process.exit']);
 	const exitCodeBindings = new Set<string>(['process.exitCode']);
 
-	const processDependencies = [
-		...getNodeImportStatements(root, 'process'),
-		...getNodeRequireCalls(root, 'process'),
-	];
+	const processDependencies = getModuleDependencies(root, 'process');
+
 	for (const dependency of processDependencies) {
 		const exitBinding = resolveBindingPath(dependency, '$.exit');
 		if (exitBinding) exitBindings.add(exitBinding);
@@ -273,5 +269,6 @@ export default function transform(root: SgRoot<JS>): string | null {
 	}
 
 	if (!edits.length) return null;
+
 	return rootNode.commitEdits(edits);
 }
