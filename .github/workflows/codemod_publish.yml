@@ -134,23 +134,8 @@ jobs:
           EOF
 
   refresh-learn:
-    name: Trigger nodejs/learn Refresh
-    runs-on: ubuntu-latest
+    name: Sync nodejs/learn
     needs: validate-and-publish
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@fe104658747b27e96e4f7e80cd0a94068e53901d # v2.16.1
-        with:
-          egress-policy: audit
-
-      - name: Trigger refresh.userland-migrations.yml on nodejs/learn
-        env:
-          GH_TOKEN: ${{ secrets.LEARN_REPO_TOKEN }}
-        run: |
-          gh workflow run refresh.userland-migrations.yml \
-            --repo nodejs/learn \
-            --ref main
+    uses: ./.github/workflows/refresh-learn.yml
+    secrets:
+      LEARN_REPO_TOKEN: ${{ secrets.LEARN_REPO_TOKEN }}
