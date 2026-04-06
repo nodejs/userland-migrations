@@ -10,7 +10,7 @@ import type Js from '@codemod.com/jssg-types/langs/javascript';
 /**
  * Mapping of Tape assertions to Node.js assert module methods
  */
-const ASSERTION_MAPPING: Record<string, string> = {
+const ASSERTION_MAPPING = {
 	equal: 'strictEqual',
 	notEqual: 'notStrictEqual',
 	strictEqual: 'strictEqual',
@@ -243,7 +243,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 			if (body) {
 				// Apply assertion transformations first and determine whether they introduced
 				// async requirements (e.g., awaiting a subtest).
-				const assertionsRequireAsync = transformAssertions(
+				const assertionsRequireAsync = transformMethods(
 					body,
 					tName,
 					edits,
@@ -310,7 +310,7 @@ export default function transform(root: SgRoot<Js>): string | null {
  * @param testCall the AST node of the test function call
  * @param useDone whether to use the done callback for ending tests
  */
-function transformAssertions(
+function transformMethods(
 	node: SgNode<Js>,
 	tName: string,
 	edits: Edit[],
@@ -349,6 +349,8 @@ function transformAssertions(
 
 		switch (method.toLowerCase()) {
 			case 'notok':
+			case 'false':
+				// t.false(val, msg) -> assert.ok(!val, msg)
 				// t.notOk(val, msg) -> assert.ok(!val, msg)
 				if (args) {
 					const val = args.child(1); // child(0) is '('
@@ -369,19 +371,6 @@ function transformAssertions(
 			case 'true':
 				if (func) edits.push(func.replace('assert.ok'));
 				break;
-			case 'false':
-				if (args) {
-					const val = args.child(1);
-					if (val) {
-						edits.push({
-							startPos: val.range().start.index,
-							endPos: val.range().start.index,
-							insertedText: '!',
-						});
-						if (func) edits.push(func.replace('assert.ok'));
-					}
-				}
-				break;
 			case 'pass':
 				if (args) {
 					// Insert 'true' as first arg
@@ -396,8 +385,6 @@ function transformAssertions(
 						if (func) edits.push(func.replace('assert.ok'));
 					}
 				}
-				break;
-			case 'plan':
 				break;
 			case 'end':
 				if (useDone) {
@@ -424,7 +411,7 @@ function transformAssertions(
 
 					const b = cb.field('body');
 					const nestedRequiresAsync = b
-						? transformAssertions(b, stName, edits, call)
+						? transformMethods(b, stName, edits, call)
 						: false;
 					const subtestHasAwait = Boolean(
 						b?.find({ rule: { kind: 'await_expression' } }),
@@ -570,7 +557,7 @@ function transformAssertions(
 				break;
 			}
 			default:
-				console.log(`Warning: Unhandled Tape assertion method: ${method}`);
+				console.log(`Warning: Unhandled Tape method: ${method}`);
 		}
 	}
 
