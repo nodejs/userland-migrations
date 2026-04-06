@@ -3,13 +3,8 @@
   "version": "1.0.0",
   "description": "Replace erroneous 'js' or omitted file extensions of import specifiers in TypeScript files.",
   "type": "module",
-  "main": "./src/workflow.ts",
-  "engines": {
-    "node": ">=22.15.0"
-  },
   "scripts": {
-    "start": "node --no-warnings --experimental-import-meta-resolve --experimental-strip-types ./src/workflow.ts",
-    "test-legacy": "node --no-warnings --experimental-import-meta-resolve --experimental-test-module-mocks --experimental-test-snapshots --experimental-strip-types --import='@nodejs/codemod-utils/snapshots' --test --experimental-test-coverage --test-coverage-include='src/**/*' --test-coverage-exclude='**/*.test.ts' './**/*.test.ts'"
+    "test": "node --no-warnings --experimental-import-meta-resolve --experimental-test-module-mocks --experimental-test-snapshots --experimental-strip-types --import='@nodejs/codemod-utils/snapshots' --test --experimental-test-coverage --test-coverage-include='src/**/*' --test-coverage-exclude='**/*.test.ts' './**/*.test.ts'"
   },
   "repository": {
     "type": "git",
@@ -17,11 +12,6 @@
     "directory": "recipes/correct-ts-specifiers",
     "bugs": "https://github.com/nodejs/userland-migrations/issues"
   },
-  "files": [
-    "README.md",
-    ".codemodrc.json",
-    "bundle.js"
-  ],
   "keywords": [
     "codemod",
     "esm",
@@ -31,11 +21,10 @@
   "license": "MIT",
   "homepage": "https://github.com/nodejs/userland-migrations/tree/main/correct-ts-specifiers#readme",
   "dependencies": {
-    "@codemod.com/workflow": "^0.0.31",
-    "@nodejs-loaders/alias": "^2.1.2"
+    "@nodejs/codemod-utils": "*"
   },
   "devDependencies": {
-    "@nodejs/codemod-utils": "*",
+    "@codemod.com/jssg-types": "^1.5.0",
     "@types/node": "^25.5.0"
   }
 }

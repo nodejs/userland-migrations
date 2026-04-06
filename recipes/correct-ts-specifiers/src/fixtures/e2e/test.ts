@@ -1,3 +1,4 @@
+// git restore --source main -- recipes/correct-ts-specifiers/src/fixtures/e2e/test.ts
 import { URL } from 'node:url';
 
 import { bar } from '@dep/bar';

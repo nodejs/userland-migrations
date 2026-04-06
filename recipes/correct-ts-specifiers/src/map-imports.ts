@@ -1,4 +1,4 @@
-import { logger } from '@nodejs/codemod-utils/logger';
+import { logger } from './logger.ts';
 import type { FSAbsolutePath, Specifier } from './index.d.ts';
 import { fexists } from './fexists.ts';
 import { isDir } from './is-dir.ts';
@@ -19,10 +19,16 @@ export const mapImports = async (
 }> => {
 	if (isIgnorableSpecifier(parentPath, specifier)) return {};
 
-	const { isType, replacement } = await replaceJSExtWithTSExt(parentPath, specifier);
+	const { isType, replacement } = await replaceJSExtWithTSExt(
+		parentPath,
+		specifier,
+	);
 
 	if (replacement) {
-		if ((await fexists(parentPath, specifier)) && !(await isDir(parentPath, specifier))) {
+		if (
+			(await fexists(parentPath, specifier)) &&
+			!(await isDir(parentPath, specifier))
+		) {
 			logger(
 				parentPath,
 				'warn',
