@@ -65,6 +65,25 @@ const warnWithLocation = (
 	console.warn(`[Codemod] ${message} (at ${location})`);
 };
 
+const UNSUPPORTED_CONFIG_OPTIONS = [
+	'transformRequest',
+	'transformResponse',
+	'paramsSerializer',
+	'withCredentials',
+	'timeout',
+	'httpAgent',
+	'httpsAgent',
+	'validateStatus',
+	'maxRedirects',
+	'socketPath',
+	'decompress',
+	'maxContentLength',
+	'maxBodyLength',
+	'beforeRedirect',
+	'cancelToken',
+	'signal',
+];
+
 const getObjectPropertyValue = (
 	objectNode: SgNode<Js>,
 	propertyName: string,
@@ -82,6 +101,23 @@ const getObjectPropertyValue = (
 	});
 
 	return pair?.field('value');
+};
+
+const hasUnsupportedOptions = (
+	configNode: SgNode<Js> | undefined,
+): { unsupported: boolean; optionName?: string } => {
+	if (!configNode || configNode.kind() !== 'object') {
+		return { unsupported: false };
+	}
+
+	for (const optionName of UNSUPPORTED_CONFIG_OPTIONS) {
+		const option = getObjectPropertyValue(configNode, optionName);
+		if (option) {
+			return { unsupported: true, optionName };
+		}
+	}
+
+	return { unsupported: false };
 };
 
 const getBodyExpression = (
@@ -358,6 +394,68 @@ const createOptions = ({
 };
 
 /**
+ * Checks if any axios calls in the file use unsupported configuration options.
+ * If found, logs a warning and returns true to indicate the file should be skipped.
+ */
+const checkForUnsupportedOptions = (
+	rootNode: SgNode<Js>,
+	bindsToReplace: BindingToReplace[],
+	root: SgRoot<Js>,
+): boolean => {
+	for (const bind of bindsToReplace) {
+		const matches = rootNode.findAll({
+			rule: bind.rule,
+		});
+
+		for (const match of matches) {
+			const argsAndCommaas = match.getMultipleMatches('ARG');
+			const args = argsAndCommaas.filter((arg) => arg.text() !== ',');
+
+			// Check axios.request() - first arg should be config object
+			if (bind.binding.endsWith('.request')) {
+				const config = args[0];
+				const unsupported = hasUnsupportedOptions(config);
+				if (unsupported.unsupported) {
+					warnWithLocation(
+						{ root, match },
+						`Unsupported axios configuration option '${unsupported.optionName}' detected in axios.request. Skipping migration to preserve functionality.`,
+						config,
+					);
+					return true;
+				}
+			} else {
+				// For other methods (get, post, put, patch, delete, head, options)
+				// Determine option index based on method
+				let optionIndex = 1;
+				if (
+					bind.binding.endsWith('.post') ||
+					bind.binding.endsWith('.put') ||
+					bind.binding.endsWith('.patch') ||
+					bind.binding.endsWith('.postForm') ||
+					bind.binding.endsWith('.putForm') ||
+					bind.binding.endsWith('.patchForm')
+				) {
+					optionIndex = 2;
+				}
+
+				const config = args[optionIndex];
+				const unsupported = hasUnsupportedOptions(config);
+				if (unsupported.unsupported) {
+					const methodName = bind.binding.split('.').pop();
+					warnWithLocation(
+						{ root, match },
+						`Unsupported axios configuration option '${unsupported.optionName}' detected in axios.${methodName}. Skipping migration to preserve functionality.`,
+						config,
+					);
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+};
+
+/**
  * Transforms the AST root by replacing axios bindings with Fetch API calls.
  *
  * @param {SgRoot<Js>} root - The root of the AST to transform.
@@ -388,6 +486,11 @@ export default function transform(root: SgRoot<Js>): string | null {
 				replaceFn: update.replaceFn,
 			});
 		}
+	}
+
+	// Check for unsupported options before making any changes
+	if (checkForUnsupportedOptions(rootNode, bindsToReplace, root)) {
+		return null;
 	}
 
 	for (const bind of bindsToReplace) {
