@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "node --run test:workflow && node --run test:remove-dependencies",
-    "test:workflow": "npx codemod jssg test -l tsx ./src/workflow.ts ./",
+    "test:workflow": "npx codemod jssg test -l tsx ./src/workflow.ts ./tests",
     "test:remove-dependencies": "npx codemod jssg test -l json ./src/remove-dependencies.ts ./tests/remove-dependencies --allow-child-process --allow-fs --strictness cst"
   },
   "repository": {
