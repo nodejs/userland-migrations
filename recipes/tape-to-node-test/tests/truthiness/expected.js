@@ -7,5 +7,6 @@ test("truthiness", (t) => {
     assert.ok(!false, "false is not ok");
     assert.ok(true, "explicitly true");
     assert.ok(!false, "explicitly false");
-    assert.ok(true, "this passed");
+    // TODO: t.pass("this passed")
+// TODO: Manual migration: consider t.diagnostic(message) for informational output, or remove this call.;
 });

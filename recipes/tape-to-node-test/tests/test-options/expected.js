@@ -6,5 +6,6 @@ test.skip('skipped test', (t) => {
 });
 
 test.only('only test', (t) => {
-	assert.ok(true, 'should run');
+	// TODO: t.pass('should run')
+// TODO: Manual migration: consider t.diagnostic(message) for informational output, or remove this call.;
 });

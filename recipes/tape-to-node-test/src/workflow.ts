@@ -372,18 +372,21 @@ function transformMethods(
 				if (func) edits.push(func.replace('assert.ok'));
 				break;
 			case 'pass':
-				if (args) {
-					// Insert 'true' as first arg
-					// args text is like "('msg')" or "()"
-					const openParen = args.child(0);
-					if (openParen) {
-						edits.push({
-							startPos: openParen.range().end.index,
-							endPos: openParen.range().end.index,
-							insertedText: args.children().length > 2 ? 'true, ' : 'true',
-						});
-						if (func) edits.push(func.replace('assert.ok'));
-					}
+				{
+					const { line, column } = call.range().start;
+					console.warn(
+						`[Codemod] Warning: t.pass at ${line}:${column} has no exact equivalent in node:assert/node:test.
+						Please migrate manually (e.g. t.diagnostic(message) for informational output, or remove the call).`,
+					);
+
+					const lines = call.text().split(/\r?\n/);
+					const newText = lines
+						.map((line, i) => (i === 0 ? `// TODO: ${line}` : `// ${line}`))
+						.concat(
+							'// TODO: Manual migration: consider t.diagnostic(message) for informational output, or remove this call.',
+						)
+						.join(EOL);
+					edits.push(call.replace(newText));
 				}
 				break;
 			case 'end':

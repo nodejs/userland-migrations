@@ -135,6 +135,11 @@ This codemod migrates tests written using [`tape`](https://github.com/tape-testi
 ## Known Limitations
 
 - `test.onFinish()` and `test.onFailure()` have no direct equivalent in `node:test` and will be commented out with a TODO.
+- `t.pass(message)` has no exact equivalent in `node:assert`/`node:test` assertion APIs. The codemod comments it out with a TODO and logs a warning with possible manual migrations.
+- Possible manual migration for `t.pass(message)`:
+  - Use `t.diagnostic(message)` when the call is informational/logging only.
+  - Remove the call when it is not needed.
+  - If you need a real assertion, replace it with an explicit assertion that matches the intended behavior.
 - When `t.timeoutAfter()` is used with a variable options object (not inline), the codemod will add a TODO comment instead of automatically migrating it.
 - `t.plan()` is preserved as-is since `node:test` TestContext supports it, but be aware of behavioral differences between Tape and Node.js test runner regarding plan validation.
 - CLI migration, we don't touch to your `package.json` or test scripts. You will need to update them manually to use `node --test` command instead of `tape`.
