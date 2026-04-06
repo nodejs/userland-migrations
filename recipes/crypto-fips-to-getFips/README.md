@@ -1,31 +1,69 @@
-# `crypto.fips` DEP0093
+---
+authors: max-programming
+---
 
-This recipe transforms the usage from the deprecated `crypto.fips` to `crypto.getFips()` and `crypto.setFips()`.
+# DEP0093: crypto.fips crypto.getFips() / crypto.setFips()
 
-See [DEP0093](https://nodejs.org/api/deprecations.html#DEP0093).
+Replaces the deprecated `crypto.fips` property with the `crypto.getFips()` and `crypto.setFips()` functions. Reading `crypto.fips` becomes a call to `crypto.getFips()`, and assigning to `crypto.fips` becomes a call to `crypto.setFips(value)`. Both namespace imports (`const crypto = require('crypto')`) and destructured imports (`const { fips } = require('crypto')`) are handled, including ESM `import` syntax.
+
+## Usage
+
+Run this codemod with:
+
+```sh
+npx codemod @nodejs/crypto-fips-to-getFips
+```
 
 ## Examples
 
+### Example 1
+
+Reading `crypto.fips` becomes `crypto.getFips()`.
+
 ```diff
-  import crypto from "node:crypto";
-- import { fips } from "node:crypto";
-+ import { getFips, setFips } from "node:crypto";
+ const crypto = require("node:crypto");
 
-  // Using crypto.fips
-- crypto.fips;
-+ crypto.getFips();
-- fips;
-+ getFips();
+-if (crypto.fips) {
++if (crypto.getFips()) {
+   console.log("FIPS mode is enabled");
+ }
+```
 
-  // Using crypto.fips = true
-- crypto.fips = true;
-+ crypto.setFips(true);
-- fips = true;
-+ setFips(true);
+### Example 2
 
-  // Using crypto.fips = false
-- crypto.fips = false;
-+ crypto.setFips(false);
-- fips = false;
-+ setFips(false);
-`````
+Assigning to `crypto.fips` becomes `crypto.setFips(value)`.
+
+```diff
+ const crypto = require("node:crypto");
+
+-crypto.fips = true;
++crypto.setFips(true);
+```
+
+### Example 3
+
+Both read and write usages are handled in the same file.
+
+```diff
+ const crypto = require("node:crypto");
+
+ if (process.env.ENABLE_FIPS === "true") {
+-  crypto.fips = true;
++  crypto.setFips(true);
+ }
+-console.log("FIPS enabled:", crypto.fips);
++console.log("FIPS enabled:", crypto.getFips());
+```
+
+### Example 4
+
+Works with ESM default imports.
+
+```diff
+ import crypto from "node:crypto";
+
+-const fipsStatus = crypto.fips;
+-crypto.fips = !fipsStatus;
++const fipsStatus = crypto.getFips();
++crypto.setFips(!fipsStatus);
+```

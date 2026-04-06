@@ -1,26 +1,63 @@
-# Import Assertions to Attributes
+---
+authors: AugustinMauroy
+---
 
-This recipe converts import assertions (`assert` syntax) to the standardized import attributes (`with` syntax). It modifies code like:
+# import assert import with
 
-```ts
-// Before
-import data from './data.json' assert { type: 'json' };
-
-// After
-import data from './data.json' with { type: 'json' };
-```
+Converts the deprecated import assertion syntax (`assert { type: 'json' }`) to the standardized import attribute syntax (`with { type: 'json' }`) for both static and dynamic imports.
 
 ## Usage
 
 Run this codemod with:
 
 ```sh
-npx codemod nodejs/import-assertions-to-attributes
+npx codemod @nodejs/import-assertions-to-attributes
 ```
 
-## When is it useful?
+## Examples
 
-The import assertions syntax is being deprecated in favor of the standardized import attributes syntax. This codemod helps transition existing codebases to the new syntax, ensuring compatibility with future versions of Node.js.
+### Example 1
 
-Node.js drop support of import assertions in favor of import attributes in version [`22.0.0`](https://nodejs.org/fr/blog/release/v22.0.0#other-notable-changes)
-But the support for import attributes was added in Node.js version [`18.20.0`](https://nodejs.org/fr/blog/release/v18.20.0#added-support-for-import-attributes)
+Static and dynamic imports:
+
+```diff
+-import data from './data.json' assert { type: 'json' };
++import data from './data.json' with { type: 'json' };
+
+ const data2 = await import('./data2.json', {
+-  assert: { type: 'json' },
++  with: { type: 'json' },
+ });
+
+ await import('./data3.json', {
+-  assert: { type: 'json' },
++  with: { type: 'json' },
+ });
+
+ function getData4() {
+   return import('./data4.json', {
+-    assert: { type: 'json' },
++    with: { type: 'json' },
+   });
+ }
+```
+
+### Example 2
+
+Edge cases including compact syntax and semicolons in paths:
+
+```diff
+-import data from './data.json' assert { type: 'json' };
++import data from './data.json' with { type: 'json' };
+-import systemOfADown from './system;of;a;down.json' assert { type: 'json' };
++import systemOfADown from './system;of;a;down.json' with { type: 'json' };
+-import { default as config } from './config.json'assert{type: 'json'};
++import { default as config } from './config.json'with{type: 'json'};
+-import { thing } from "./data.json"assert{type: 'json'};
++import { thing } from "./data.json"with{type: 'json'};
+
+ const data2 = await import('./data2.json', {
+-  assert: { type: 'json' },
++  with: { type: 'json' },
+ });
+```

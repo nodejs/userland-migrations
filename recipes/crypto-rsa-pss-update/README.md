@@ -1,72 +1,71 @@
-# crypto-rsa-pss-update
+---
+authors: nievasdev
+---
 
-Codemod to handle Node.js crypto deprecation [DEP0154](https://nodejs.org/docs/latest/api/deprecations.html#DEP0154) by transforming deprecated RSA-PSS key generation options.
+# DEP0154: RSA-PSS hash / mgf1Hash hashAlgorithm / mgf1HashAlgorithm
 
-## What it does
+Renames the deprecated `hash` and `mgf1Hash` options in RSA-PSS key generation calls to `hashAlgorithm` and `mgf1HashAlgorithm` respectively. Applies to both `crypto.generateKeyPair()` and `crypto.generateKeyPairSync()`, as well as promisified wrappers created with `util.promisify()`.
 
-This codemod transforms deprecated RSA-PSS crypto options in `crypto.generateKeyPair()` and `crypto.generateKeyPairSync()` calls:
+## Usage
 
-- `hash` → `hashAlgorithm`
-- `mgf1Hash` → `mgf1HashAlgorithm`
+Run this codemod with:
 
-The transformation only applies to calls with `'rsa-pss'` as the key type.
-
-## Supports
-
-- Both `crypto.generateKeyPair()` and `crypto.generateKeyPairSync()`
-- Destructured imports: `const { generateKeyPair } = require('crypto')`
-- Variable references: `const options = { hash: 'sha256' }`
-- Function calls: `getKeyOptions()` returning crypto options
-- This property patterns: `this.options = { hash: 'sha256' }`
-- Only transforms `'rsa-pss'` key type calls
-- Preserves all other options and call structure
+```sh
+npx codemod @nodejs/crypto-rsa-pss-update
+```
 
 ## Examples
 
-**Before**
+### Example 1
 
-```js
-const crypto = require("node:crypto");
+Transforms `hash` and `mgf1Hash` in inline options objects.
 
-crypto.generateKeyPair(
-	"rsa-pss",
-	{
-		modulusLength: 2048,
-		hash: "sha256",
-		mgf1Hash: "sha1",
-		saltLength: 32,
-	},
-	(err, publicKey, privateKey) => {
-		// callback
-	},
-);
+```diff
+ const crypto = require('crypto');
 
-crypto.generateKeyPairSync("rsa-pss", {
-	modulusLength: 2048,
-	hash: "sha256",
-});
+ crypto.generateKeyPair('rsa-pss', {
+   modulusLength: 2048,
+-  hash: 'sha256',
++  hashAlgorithm: 'sha256',
+   saltLength: 32
+ }, (err, publicKey, privateKey) => {
+   console.log('Generated keys');
+ });
+
+ crypto.generateKeyPairSync('rsa-pss', {
+   modulusLength: 2048,
+-  hash: 'sha256',
+-  mgf1Hash: 'sha1'
++  hashAlgorithm: 'sha256',
++  mgf1HashAlgorithm: 'sha1'
+ });
 ```
 
-**After**
+### Example 2
 
-```js
-const crypto = require("node:crypto");
+Works with ESM namespace imports.
 
-crypto.generateKeyPair(
-	"rsa-pss",
-	{
-		modulusLength: 2048,
-		hashAlgorithm: "sha256",
-		mgf1HashAlgorithm: "sha1",
-		saltLength: 32,
-	},
-	(err, publicKey, privateKey) => {
-		// callback
-	},
-);
+```diff
+ import * as crypto from 'node:crypto';
 
-crypto.generateKeyPairSync("rsa-pss", {
-	modulusLength: 2048,
-	hashAlgorithm: "sha256",
-});
+ crypto.generateKeyPair('rsa-pss', {
+   modulusLength: 2048,
+-  hash: 'sha256',
++  hashAlgorithm: 'sha256',
+   saltLength: 32
+ }, (err, publicKey, privateKey) => {
+   console.log('Generated keys');
+ });
+
+ crypto.generateKeyPairSync('rsa-pss', {
+   modulusLength: 2048,
+-  mgf1Hash: 'sha256'
++  mgf1HashAlgorithm: 'sha256'
+ });
 ```
+
+## Notes
+
+### Limitations
+
+Only transforms calls where the key type argument is the literal string `'rsa-pss'`. Calls using other key types such as `'rsa'` or `'ed25519'` are left untouched, even if they happen to contain a `hash` property.

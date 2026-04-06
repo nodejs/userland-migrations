@@ -1,19 +1,54 @@
-# `createRequireFromPath` DEP0130
+---
+authors: AugustinMauroy
+---
 
-This recipe transforms the usage of `createRequireFromPath` to use the `createRequire` function from the `node:module` module.
+# DEP0130: module.createRequireFromPath() module.createRequire()
 
-See [DEP0130](https://nodejs.org/api/deprecations.html#DEP0130).
+Replaces the deprecated `createRequireFromPath` function with `createRequire` from the `module` package. Updates both the import/require declaration and all call sites, including aliased imports.
 
-## Example
+## Usage
+
+Run this codemod with:
+
+```sh
+npx codemod @nodejs/create-require-from-path
+```
+
+## Examples
+
+### Example 1
+
+CommonJS require
 
 ```diff
-- const { createRequireFromPath } = require('node:module');
-+ const { createRequire } = require('node:module');
+-const { createRequireFromPath } = require('module');
++const { createRequire } = require('module');
 
-  // Using createRequireFromPath
-- const requireFromPath = createRequireFromPath('/path/to/module');
-+ // Using createRequire with a specific path
-+ const require = createRequire('/path/to/module');
-- const myModule = requireFromPath('./myModule.cjs');
-+ const myModule = require('./myModule.cjs');
-`````
+-const require = createRequireFromPath('/path/to/module')
++const require = createRequire('/path/to/module')
+ const myModule = require('./myModule.cjs');
+```
+
+### Example 2
+
+ESM named import
+
+```diff
+-import { createRequireFromPath } from 'module';
++import { createRequire } from 'module';
+
+-const require = createRequireFromPath(import.meta.url);
++const require = createRequire(import.meta.url);
+ const data = require('./data.json');
+```
+
+### Example 3
+
+Aliased import — the alias is preserved; only the imported name changes.
+
+```diff
+-import { other as bar, createRequireFromPath as foo } from "../index.mjs";
++import { other as bar, createRequire as foo } from "../index.mjs";
+
+ const r3 = foo("/path/to/module");
+```

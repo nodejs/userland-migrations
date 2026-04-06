@@ -1,27 +1,66 @@
-# `repl` classes DEP0185
+---
+authors: AugustinMauroy
+---
+# DEP0185: Instantiating node:repl Classes Without new
 
-This recipe provides a guide for migrating from the deprecated instantiation of `node:repl` classes without `new` to proper class instantiation in Node.js.
+Adds the missing `new` keyword to calls to `repl.REPLServer()` and `repl.Recoverable()` that are invoked as plain functions. Works with CommonJS `require`, ESM named imports, ESM namespace imports, and dynamic imports.
 
-See [DEP0185](https://nodejs.org/api/deprecations.html#DEP0185).
+## Usage
 
-## Example
+Run this codemod with:
+
+```sh
+npx codemod @nodejs/repl-classes-with-new
+```
+
+## Examples
+
+### Example 1
+
+CommonJS namespace import — every class call without `new` is fixed:
 
 ```diff
-  const repl = require("node:repl");
-  const { REPLServer, Recoverable } = require("node:repl");
-  import { REPLServer } from "node:repl";
-  const { REPLServer: REPL } = await import("node:repl");
+const repl = require("node:repl");
 
-  // Missing 'new' keyword
-- const server1 = repl.REPLServer();
-+ // With 'new' keyword
-+ const server1 = new repl.REPLServer();
-- const server2 = REPLServer({ prompt: ">>> " });
-+ const server2 = new REPLServer({ prompt: ">>> " });
-- const server3 = repl.Recoverable();
-+ const server3 = new repl.Recoverable();
-- const error = Recoverable(new SyntaxError());
-+ const error = new Recoverable(new SyntaxError());
-- const server4 = REPL({ prompt: ">>> " });
-+ const server4 = new REPL({ prompt: ">>> " });
-`````
+-const server = repl.REPLServer();
++const server = new repl.REPLServer();
+
+-const server2 = repl.REPLServer({
++const server2 = new repl.REPLServer({
+  prompt: "custom> ",
+  input: process.stdin,
+  output: process.stdout
+});
+
+-const error = repl.Recoverable(new SyntaxError());
++const error = new repl.Recoverable(new SyntaxError());
+
+function createREPL(options) {
+-  return repl.REPLServer(options);
++  return new repl.REPLServer(options);
+}
+```
+
+### Example 2
+
+ESM named import — destructured class identifiers are handled the same way:
+
+```diff
+import { REPLServer } from "node:repl";
+
+-const server = REPLServer();
++const server = new REPLServer();
+
+-const server2 = REPLServer({
++const server2 = new REPLServer({
+  prompt: ">>> ",
+  useColors: true
+});
+
+function createCustomREPL() {
+-  return REPLServer({
++  return new REPLServer({
+    prompt: "custom> "
+  });
+}
+```
