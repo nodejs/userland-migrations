@@ -41,10 +41,9 @@ function extractTitle(content, fallback) {
         if (!inFrontmatter) {
           inFrontmatter = true;
           continue;
-        } else {
+        }
           frontmatterDone = true;
           continue;
-        }
       }
       if (inFrontmatter) continue;
     }
