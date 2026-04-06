@@ -1,15 +1,19 @@
 {
-    "editor.formatOnSave": true,
-    "javascript.updateImportsOnFileMove.enabled": "always",
-    "typescript.updateImportsOnFileMove.enabled": "always",
-    "editor.formatOnPaste": true,
-    "editor.wordWrap": "wordWrapColumn",
-    "editor.wordWrapColumn": 100,
-    "[markdown]": {
-        "editor.wordWrap": "off"
-    },
-    "[typescript][javascript]": {
-        "editor.defaultFormatter": "biomejs.biome"
-    },
-    "typescript.experimental.useTsgo": true
+  "chat.mcp.gallery.enabled": true,
+  "chat.mcp.access": "all",
+  // we don't want the chat to start automatically
+  "chat.mcp.autostart": "never",
+  "editor.formatOnSave": true,
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "editor.formatOnPaste": true,
+  "editor.wordWrap": "wordWrapColumn",
+  "editor.wordWrapColumn": 100,
+  "[markdown]": {
+    "editor.wordWrap": "off"
+  },
+  "[typescript][javascript]": {
+    "editor.defaultFormatter": "biomejs.biome"
+  },
+  "typescript.experimental.useTsgo": true
 }

@@ -29,7 +29,7 @@ This codemod replaces the following deprecated `util.is*()` methods with their m
 | `util.isError(value)`             | `Error.isError(value)`                     |
 | `util.isFunction(value)`          | `typeof value === 'function'`              |
 | `util.isNull(value)`              | `value === null`                           |
-| `util.isNullOrUndefined(value)`   | `value === null || value === undefined`    |
+| `util.isNullOrUndefined(value)`   | `value === null \|\| value === undefined`    |
 | `util.isNumber(value)`            | `typeof value === 'number'`                |
 | `util.isObject(value)`            | `value && typeof value === 'object'`       |
 | `util.isPrimitive(value)`         | `Object(value) !== value`                  |

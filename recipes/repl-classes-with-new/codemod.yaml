@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: "@nodejs/repl-classes-with-new"
-version: 1.0.0
+version: "1.0.2"
 description: "Handle DEP0185: Instantiating node:repl classes without new"
 author: GitHub Copilot
 license: MIT

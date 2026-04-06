@@ -1,5 +1,5 @@
 import { updateBinding } from './update-binding.ts';
-import type { SgNode, Kinds } from '@codemod.com/jssg-types/main';
+import type { SgNode, Kinds, Range } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 /**
@@ -11,6 +11,8 @@ import type Js from '@codemod.com/jssg-types/langs/javascript';
  *
  * @param node - The AST node representing the import or require statement
  * @param binding - The name of the binding to remove (e.g., "isNativeError")
+ * @param options - Optional configuration object
+ * @param options.usageCheck - Optional configuration for usage checking. If provided, the binding will only be removed if it is unused.
  * @returns An object containing either an edit operation or a line range to remove, or undefined if no binding found
  *
  * @example
@@ -37,9 +39,12 @@ import type Js from '@codemod.com/jssg-types/langs/javascript';
 export function removeBinding(
 	node: SgNode<Js> | SgNode<Js, Kinds<Js>>,
 	binding: string,
+	options?: { usageCheck?: { ignoredRanges?: Range[] }; root?: SgNode<Js> },
 ) {
 	return updateBinding(node, {
 		old: binding,
 		new: undefined,
+		usageCheck: options?.usageCheck,
+		root: options?.root,
 	});
 }

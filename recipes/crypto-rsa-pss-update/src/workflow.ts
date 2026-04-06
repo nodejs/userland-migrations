@@ -1,8 +1,7 @@
 import type { SgRoot, SgNode, Edit } from '@codemod.com/jssg-types/main';
 import type JS from '@codemod.com/jssg-types/langs/javascript';
-import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
-import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 
 const RSA_PSS_REGEX = /^['"]rsa-pss['"]$/;
 const IDENTIFIER_REGEX = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
@@ -61,7 +60,7 @@ function transformRsaPssCalls(
 }
 
 function getCryptoBindings(root: SgRoot<JS>): string[] {
-	const bindings = resolveBindings(getModuleStatements(root, 'crypto'), [
+	const bindings = resolveBindings(getModuleDependencies(root, 'crypto'), [
 		'$.generateKeyPair',
 		'$.generateKeyPairSync',
 	]);
@@ -72,7 +71,7 @@ function getPromisifiedBindings(
 	root: SgRoot<JS>,
 	existingBindings: string[],
 ): string[] {
-	const utilStatements = getModuleStatements(root, 'util');
+	const utilStatements = getModuleDependencies(root, 'util');
 	const promisifyBindings = resolveBindings(utilStatements, '$.promisify');
 
 	if (promisifyBindings.length === 0 && utilStatements.length > 0) {
@@ -107,15 +106,6 @@ function findCryptoCalls(
 function getText(node: SgNode<JS> | undefined): string | null {
 	const text = node?.text()?.trim();
 	return text || null;
-}
-
-function getModuleStatements(
-	root: SgRoot<JS>,
-	moduleName: string,
-): SgNode<JS>[] {
-	const importStatements = getNodeImportStatements(root, moduleName);
-	const requireCalls = getNodeRequireCalls(root, moduleName);
-	return [...importStatements, ...requireCalls];
 }
 
 function resolveBindings(
@@ -374,4 +364,3 @@ function findAndTransformVariableDeclarations(
 			.map((decl) => decl.replace(decl.text().replace(from, to))),
 	);
 }
-
