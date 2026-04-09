@@ -3,9 +3,7 @@
   "version": "0.0.0",
   "description": "Utilities for Node.js userland migrations.",
   "exports": {
-    "./*": [
-      "./src/*.ts"
-    ]
+    "./*":"./src/*.ts"
   },
   "scripts": {
     "test": "node --no-warnings --import=./src/codemod-jssg-context.ts --experimental-test-snapshots --experimental-strip-types --import='./src/snapshots.ts' --test --experimental-test-coverage --test-coverage-include='src/**/*' --test-coverage-exclude='**/*.test.ts' './**/*.test.ts'"
@@ -14,10 +12,10 @@
   "license": "MIT",
   "type": "module",
   "devDependencies": {
-    "@ast-grep/lang-bash": "^0.0.7",
-    "@ast-grep/lang-json": "^0.0.6",
-    "@ast-grep/napi": "^0.41.0",
-    "@codemod.com/jssg-types": "^1.4.1",
-    "dedent": "^1.7.1"
+    "@ast-grep/lang-bash": "^0.0.8",
+    "@ast-grep/lang-json": "^0.0.7",
+    "@ast-grep/napi": "^0.42.1",
+    "@codemod.com/jssg-types": "^1.5.1",
+    "dedent": "^1.7.2"
   }
 }

@@ -22,6 +22,6 @@
   },
   "devDependencies": {
     "@ast-grep/napi": "^0.41.0",
-    "@codemod.com/jssg-types": "^1.4.1"
+    "@codemod.com/jssg-types": "^1.5.1"
   }
 }
