@@ -270,33 +270,13 @@ export default function transform(root: SgRoot<Js>): string | null {
 		}
 	}
 
-	// 3. Handle test.onFinish and test.onFailure
-	const lifecycleCalls = rootNode.findAll({
-		rule: {
-			kind: 'call_expression',
-			has: {
-				field: 'function',
-				regex: `^${testVarName}\\.(onFinish|onFailure)$`,
-			},
-		},
+	// 3. Handle unsupported tape lifecycle methods using the same switch-based method transform.
+	transformMethods(rootNode, testVarName, edits, undefined, false, {
+		allowedMethods: new Set(['onfinish', 'onfailure']),
+		sourceFileName: root.filename(),
 	});
 
-	for (const call of lifecycleCalls) {
-		const { line, column } = call.range().start;
-		const fileName = root.filename();
-		const methodName =
-			call.field('function')?.field('property')?.text() || 'lifecycle method';
-
-		console.warn(
-			`[Codemod] Warning: ${methodName} at ${fileName}:${line}:${column} has no direct equivalent in node:test. Please migrate manually.`,
-		);
-
-		const lines = call.text().split(/\r?\n/);
-		const newText = lines
-			.map((line, i) => (i === 0 ? `// TODO: ${line}` : `// ${line}`))
-			.join(EOL);
-		edits.push(call.replace(newText));
-	}
+	if (!edits.length) return null;
 
 	return rootNode.commitEdits(edits);
 }
@@ -309,13 +289,18 @@ export default function transform(root: SgRoot<Js>): string | null {
  * @param edits the list of edits to apply
  * @param testCall the AST node of the test function call
  * @param useDone whether to use the done callback for ending tests
+ * @param options optional transform controls
  */
 function transformMethods(
 	node: SgNode<Js>,
 	tName: string,
 	edits: Edit[],
-	testCall: SgNode<Js>,
+	testCall?: SgNode<Js>,
 	useDone = false,
+	options?: {
+		allowedMethods?: Set<string>;
+		sourceFileName?: string;
+	},
 ): boolean {
 	let requiresAsync = false;
 	const calls = node.findAll({
@@ -335,19 +320,44 @@ function transformMethods(
 	for (const call of calls) {
 		const method = call.field('function')?.field('property')?.text();
 		if (!method) continue;
+		const normalizedMethod = method.toLowerCase();
+
+		if (
+			options?.allowedMethods &&
+			!options.allowedMethods.has(normalizedMethod)
+		) {
+			continue;
+		}
 
 		const args = call.field('arguments');
 		const func = call.field('function');
 
-		if (ASSERTION_MAPPING[method]) {
-			const newMethod = ASSERTION_MAPPING[method];
+		const newMethod =
+			ASSERTION_MAPPING[method as keyof typeof ASSERTION_MAPPING];
+		if (newMethod) {
 			if (func) {
 				edits.push(func.replace(`assert.${newMethod}`));
 			}
 			continue;
 		}
 
-		switch (method.toLowerCase()) {
+		switch (normalizedMethod) {
+			case 'onfinish':
+			case 'onfailure': {
+				const { line, column } = call.range().start;
+				const fileName = options?.sourceFileName || node.getRoot().filename();
+
+				console.warn(
+					`[Codemod] Warning: ${method} at ${fileName}:${line}:${column} has no direct equivalent in node:test. Please migrate manually.`,
+				);
+
+				const lines = call.text().split(/\r?\n/);
+				const newText = lines
+					.map((line, i) => (i === 0 ? `// TODO: ${line}` : `// ${line}`))
+					.join(EOL);
+				edits.push(call.replace(newText));
+				break;
+			}
 			case 'notok':
 			case 'false':
 				// t.false(val, msg) -> assert.ok(!val, msg)
@@ -454,7 +464,7 @@ function transformMethods(
 					const timeoutVal = timeoutArg.text();
 
 					// Add to test options
-					const testArgs = testCall.field('arguments');
+					const testArgs = testCall?.field('arguments');
 					if (testArgs) {
 						const children = testArgs.children();
 						// children[0] is '(', children[last] is ')'
