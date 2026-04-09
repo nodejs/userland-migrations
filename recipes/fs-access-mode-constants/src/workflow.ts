@@ -6,6 +6,10 @@ import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 const PATTERN_SET = ['F_OK', 'R_OK', 'W_OK', 'X_OK'];
 
+export function isAccessModeConstant(name: string): boolean {
+	return PATTERN_SET.includes(name);
+}
+
 type BindingMapping = {
 	local: string;
 	replacement: string;
@@ -114,7 +118,7 @@ function rewriteObjectPattern(
 		});
 
 	for (const name of shorthandBindings) {
-		if (PATTERN_SET.includes(name)) {
+		if (isAccessModeConstant(name)) {
 			removed.push({
 				imported: name,
 				local: name,
@@ -125,7 +129,7 @@ function rewriteObjectPattern(
 	}
 
 	for (const binding of aliasedBindings) {
-		if (PATTERN_SET.includes(binding.imported)) {
+		if (isAccessModeConstant(binding.imported)) {
 			removed.push({
 				imported: binding.imported,
 				local: binding.local,
@@ -144,7 +148,7 @@ function rewriteObjectPattern(
 	});
 }
 
-function rewriteNamedImports(
+export function rewriteNamedImports(
 	statement: SgNode<Js>,
 	pattern: SgNode<Js>,
 	promisesBinding: string,
@@ -160,7 +164,7 @@ function rewriteNamedImports(
 		const imported = specifier.field('name')?.text() ?? '';
 		const local = specifier.field('alias')?.text() ?? imported;
 
-		if (PATTERN_SET.includes(imported)) {
+		if (isAccessModeConstant(imported)) {
 			removed.push({
 				imported,
 				local,
@@ -179,7 +183,7 @@ function rewriteNamedImports(
 	});
 }
 
-function applyNamespaceReplacements(
+export function applyNamespaceReplacements(
 	rootNode: SgNode<Js>,
 	edits: Edit[],
 	replacements: Map<string, string>,
@@ -193,7 +197,7 @@ function applyNamespaceReplacements(
 	}
 }
 
-function applyLocalReplacements(
+export function applyLocalReplacements(
 	rootNode: SgNode<Js>,
 	edits: Edit[],
 	replacements: Map<string, string>,
@@ -208,16 +212,18 @@ function applyLocalReplacements(
 
 		for (const identifier of identifiers) {
 			if (
-				!identifier.inside({ rule: { kind: 'named_imports' } }) ||
-				!identifier.inside({ rule: { kind: 'object_pattern' } })
+				identifier.inside({ rule: { kind: 'named_imports' } }) ||
+				identifier.inside({ rule: { kind: 'object_pattern' } })
 			) {
-				edits.push(identifier.replace(replacement));
+				continue;
 			}
+
+			edits.push(identifier.replace(replacement));
 		}
 	}
 }
 
-function rewriteCollectedBindings({
+export function rewriteCollectedBindings({
 	statement,
 	pattern,
 	promisesBinding,
@@ -259,6 +265,6 @@ function rewriteCollectedBindings({
 	};
 }
 
-function escapeRegExp(text: string): string {
+export function escapeRegExp(text: string): string {
 	return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
