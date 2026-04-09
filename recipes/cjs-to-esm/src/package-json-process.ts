@@ -1,4 +1,4 @@
-import type { Edit, SgRoot } from '@codemod.com/jssg-types/main';
+import type { SgRoot } from '@codemod.com/jssg-types/main';
 import type Json from '@codemod.com/jssg-types/langs/json';
 import { intersects, satisfies, validRange } from '@vltpkg/semver';
 
@@ -33,176 +33,97 @@ function chooseBestNodeEngine(current: unknown): string {
 	return coversRequiredAnchors ? REQUIRED_NODE_ENGINE : current;
 }
 
-function appendPairToObject(
-	objectText: string,
-	pairSnippet: string,
-	pairIndent: string,
-	closingIndent: string,
-): string {
-	if (objectText.trim() === '{}') {
-		return `{\n${pairIndent}${pairSnippet}\n${closingIndent}}`;
+function replaceModulePathSuffixes(value: string): string {
+	return value.replace(/\.cjs$/g, '.mjs').replace(/\.cts$/g, '.mts');
+}
+
+function rewriteStringValues(value: unknown): boolean {
+	if (!value || typeof value !== 'object') {
+		return false;
 	}
 
-	return objectText.replace(
-		/\n([ \t]*)}$/,
-		`,\n${pairIndent}${pairSnippet}\n$1}`,
-	);
+	let hasChanges = false;
+
+	if (Array.isArray(value)) {
+		for (let i = 0; i < value.length; i += 1) {
+			const item = value[i];
+			if (typeof item === 'string') {
+				const nextItem = replaceModulePathSuffixes(item);
+				if (item !== nextItem) {
+					value[i] = nextItem;
+					hasChanges = true;
+				}
+				continue;
+			}
+
+			if (rewriteStringValues(item)) {
+				hasChanges = true;
+			}
+		}
+
+		return hasChanges;
+	}
+
+	const objectValue = value as Record<string, unknown>;
+	for (const [key, item] of Object.entries(objectValue)) {
+		if (typeof item === 'string') {
+			const nextItem = replaceModulePathSuffixes(item);
+			if (item !== nextItem) {
+				objectValue[key] = nextItem;
+				hasChanges = true;
+			}
+			continue;
+		}
+
+		if (rewriteStringValues(item)) {
+			hasChanges = true;
+		}
+	}
+
+	return hasChanges;
 }
 
 /**
  * @see https://github.com/nodejs/package-examples/tree/main/guide/05-cjs-esm-migration/migrating-package-json
  */
 export default function transform(root: SgRoot<Json>): string | null {
-	const rootNode = root.root();
-	const edits: Edit[] = [];
-	const topLevelObject = rootNode.find({
-		rule: {
-			kind: 'object',
-		},
-	});
+	const text = root.source();
+	const pckgJson = JSON.parse(text) as Record<string, unknown>;
 
-	const typePariFeld = rootNode
-		.find({
-			rule: {
-				kind: 'pair',
-				has: {
-					kind: 'string',
-					field: 'key',
-					has: {
-						kind: 'string_content',
-						regex: '^type$',
-					},
-				},
-				inside: {
-					kind: 'object',
-				},
-			},
-		})
-		?.field('value');
-	const topLevelInsertions: string[] = [];
+	let hasChanges = false;
 
-	if (typePariFeld && typePariFeld.text() !== '"module"') {
-		edits.push(typePariFeld.replace('"module"'));
-	} else if (!typePariFeld) {
-		topLevelInsertions.push('"type": "module"');
+	if (pckgJson.type !== 'module') {
+		pckgJson.type = 'module';
+		hasChanges = true;
 	}
 
-	const enginesValueField = rootNode
-		.find({
-			rule: {
-				kind: 'pair',
-				has: {
-					kind: 'string',
-					field: 'key',
-					has: {
-						kind: 'string_content',
-						regex: '^engines$',
-					},
-				},
-				inside: {
-					kind: 'object',
-				},
-			},
-		})
-		?.field('value');
-
-	if (!enginesValueField) {
-		topLevelInsertions.push(
-			`"engines": {\n    "node": ${JSON.stringify(REQUIRED_NODE_ENGINE)}\n  }`,
-		);
-	} else if (enginesValueField.kind() !== 'object') {
-		edits.push(
-			enginesValueField.replace(
-				`{\n    "node": ${JSON.stringify(REQUIRED_NODE_ENGINE)}\n  }`,
-			),
-		);
+	if (
+		typeof pckgJson.engines !== 'object' ||
+		pckgJson.engines === null ||
+		Array.isArray(pckgJson.engines)
+	) {
+		pckgJson.engines = {
+			node: REQUIRED_NODE_ENGINE,
+		};
+		hasChanges = true;
 	} else {
-		const nodeEngineValueField = enginesValueField
-			.find({
-				rule: {
-					kind: 'pair',
-					has: {
-						kind: 'string',
-						field: 'key',
-						has: {
-							kind: 'string_content',
-							regex: '^node$',
-						},
-					},
-					inside: {
-						kind: 'object',
-					},
-				},
-			})
-			?.field('value');
+		const engines = pckgJson.engines as Record<string, unknown>;
+		const currentNodeEngine = engines.node;
+		const nextNodeEngine = chooseBestNodeEngine(currentNodeEngine);
 
-		if (!nodeEngineValueField) {
-			edits.push(
-				enginesValueField.replace(
-					appendPairToObject(
-						enginesValueField.text(),
-						`"node": ${JSON.stringify(REQUIRED_NODE_ENGINE)}`,
-						'    ',
-						'  ',
-					),
-				),
-			);
-		} else {
-			const currentLiteral = nodeEngineValueField
-				.find({
-					rule: {
-						kind: 'string_content',
-					},
-				})
-				?.text();
-			const nextRange = chooseBestNodeEngine(currentLiteral);
-
-			if (currentLiteral !== nextRange) {
-				edits.push(nodeEngineValueField.replace(JSON.stringify(nextRange)));
-			}
+		if (currentNodeEngine !== nextNodeEngine) {
+			engines.node = nextNodeEngine;
+			hasChanges = true;
 		}
 	}
 
-	if (topLevelObject && topLevelInsertions.length > 0) {
-		let nextTopLevelText = topLevelObject
-			.text()
-			.replace(/\.cjs(?=")/g, '.mjs')
-			.replace(/\.cts(?=")/g, '.mts');
-
-		for (const insertion of topLevelInsertions) {
-			nextTopLevelText = appendPairToObject(
-				nextTopLevelText,
-				insertion,
-				'  ',
-				'',
-			);
-		}
-		edits.push(topLevelObject.replace(nextTopLevelText));
-	} else {
-		const cjsStrings = rootNode.findAll({
-			rule: {
-				kind: 'string_content',
-				regex: '\\.cjs$',
-			},
-		});
-
-		for (const cjsString of cjsStrings) {
-			edits.push(cjsString.replace(cjsString.text().replace(/\.cjs$/, '.mjs')));
-		}
-
-		const ctsStrings = rootNode.findAll({
-			rule: {
-				kind: 'string_content',
-				regex: '\\.cts$',
-			},
-		});
-
-		for (const ctsString of ctsStrings) {
-			edits.push(ctsString.replace(ctsString.text().replace(/\.cts$/, '.mts')));
-		}
+	if (rewriteStringValues(pckgJson)) {
+		hasChanges = true;
 	}
 
-	if (!edits.length) return null;
+	if (!hasChanges) {
+		return null;
+	}
 
-	return rootNode.commitEdits(edits);
+	return `${JSON.stringify(pckgJson, null, 2)}\n`;
 }
