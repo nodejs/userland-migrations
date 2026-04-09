@@ -249,6 +249,32 @@ describe('update-binding', () => {
 		);
 	});
 
+	it('should remove alias when renaming with removeAlias options is true', () => {
+		const code = dedent`
+			import { types as utilTypes } from 'node:util';
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const node = rootNode.root() as SgNode<Js>;
+
+		const importStatement = node.find({
+			rule: {
+				kind: 'import_statement',
+			},
+		});
+
+		const change = updateBinding(importStatement!, {
+			old: 'utilTypes',
+			new: 'newTypes',
+			removeAlias: true,
+		});
+		const sourceCode = node.commitEdits([change.edit!]);
+
+		assert.notEqual(change, null);
+		assert.strictEqual(change?.lineToRemove, undefined);
+		assert.strictEqual(sourceCode, "import { newTypes } from 'node:util';");
+	});
+
 	it('should remove only the aliased import binding when it matches the provided alias', () => {
 		const code = dedent`
 			import { types as utilTypes, diff } from 'node:util';
@@ -985,7 +1011,7 @@ describe('update-binding', () => {
 		assert.notEqual(change, undefined);
 		assert.strictEqual(change?.lineToRemove, undefined);
 
-		const sourceCode = node.commitEdits([change!.edit!]);
+		const sourceCode = node.commitEdits([change.edit!]);
 
 		assert.strictEqual(
 			sourceCode,
