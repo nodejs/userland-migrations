@@ -3,8 +3,7 @@ import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 const requireKinds = ['lexical_declaration', 'variable_declarator'];
 const importKinds = ['import_statement', 'import_clause'];
-const importCallback = ['expression_statement'];
-const supportedKinds = [...requireKinds, ...importKinds, ...importCallback];
+const supportedKinds = [...requireKinds, ...importKinds];
 
 /**
  * Resolves a global function path to its local binding path based on the import structure in the AST.
@@ -53,10 +52,6 @@ export function resolveBindingPath(node: SgNode<Js>, path: string) {
 
 	if (requireKinds.includes(rootKind)) {
 		return resolveBindingPathRequire(activeNode, path);
-	}
-
-	if (importCallback.includes(rootKind)) {
-		return resolveBindingPathImportCallback(activeNode, path);
 	}
 }
 
@@ -249,47 +244,4 @@ function resolveBindingPathImport(node: SgNode<Js>, path: string) {
 			}
 		}
 	}
-}
-
-function resolveBindingPathImportCallback(node: SgNode<Js>, path: string) {
-	const imp = node.find({
-		rule: {
-			kind: 'call_expression',
-			has: {
-				field: 'function',
-				kind: 'import',
-			},
-		},
-	});
-
-	if (!imp) return;
-
-	const fn = imp.find<'call_expression'>({
-		rule: {
-			inside: {
-				kind: 'call_expression',
-				stopBy: 'end',
-			},
-		},
-	});
-
-	const callbackArgs = fn?.field('arguments')?.child(1) as SgNode<
-		Js,
-		'arrow_function'
-	>;
-
-	if (!callbackArgs) return;
-
-	let args =
-		callbackArgs.field('parameter') || callbackArgs.field('parameters');
-
-	if (args.is('formal_parameters')) {
-		args = args.child(1) as SgNode<Js, 'identifier'>;
-	}
-
-	if (args.is('identifier') || args.is('required_parameter')) {
-		return path.replace('$', args.text());
-	}
-
-	return undefined;
 }

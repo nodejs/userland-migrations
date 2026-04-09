@@ -21,7 +21,7 @@
   "license": "MIT",
   "homepage": "https://github.com/nodejs/userland-migrations/tree/main/recipes/timers-deprecations#readme",
   "devDependencies": {
-    "@codemod.com/jssg-types": "^1.5.1"
+    "@codemod.com/jssg-types": "^1.5.0"
   },
   "dependencies": {
     "@nodejs/codemod-utils": "*"

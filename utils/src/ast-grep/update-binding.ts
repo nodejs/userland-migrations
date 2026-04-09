@@ -16,7 +16,6 @@ type UpdateBindingOptions = {
 		ignoredRanges?: Range[];
 	};
 	root?: SgNode<Js>;
-	removeAlias?: boolean;
 };
 
 function isRangeWithin(inner: Range, outer: Range): boolean {
@@ -293,11 +292,6 @@ function handleNamedImportBindings(
 				}
 
 				if ((matchesName || matchesAlias) && nameNode) {
-					if (options.removeAlias) {
-						return {
-							edit: renamedImport.replace(options.new),
-						};
-					}
 					return {
 						edit: nameNode.replace(options.new),
 					};
