@@ -77,10 +77,8 @@ Use the _Single-file fixtures_ option.
 **`src/workflow.ts` example:**
 ```ts
 import {
-  getNodeImportCalls,
-  getNodeImportStatements,
-} from '@nodejs/codemod-utils/ast-grep/import-statement';
-import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
+  getModuleDependencies
+} from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
 import type JS from "@codemod.com/jssg-types/langs/javascript";
@@ -98,17 +96,13 @@ export default function transform(root: SgRoot<JS>): string | null {
   const rootNode = root.root();
   const edits: Edit[] = [];
 
-  const allStatementNodes = [
-    ...getNodeImportStatements(root, 'api'),
-    ...getNodeRequireCalls(root, 'api')
-    ...getNodeImportCalls(root, 'api'),
-  ];
+  const allStatementNodes = getModuleDependencies(root, 'api'),
 
   // No imports or requires for 'api', skip transformation
   if (!allStatementNodes.length) return null;
 
   for (const statementNode of allStatementNodes) {
-    const bindingPath = resolveBindingPath(statementNode, 'api.fn');
+    const bindingPath = resolveBindingPath(statementNode, '$.api.fn');
 
     // Find all calls to the resolved bindingPath
     const callNodes = rootNode.findDescendants((node) => {
