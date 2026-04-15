@@ -16,14 +16,6 @@ function parseRoot(source: string): SgRoot<Js> {
 	return astGrep.js.parse(source) as SgRoot<Js>;
 }
 
-function commitSingleEdit(
-	source: string,
-	edit: ReturnType<SgRoot<Js>['root']>['replace'],
-): string {
-	const root = parseRoot(source);
-	return root.root().commitEdits([edit]);
-}
-
 /**
  * NOTE: we don't test the main transform function here since it already tested
  * with jssg test runner. we only test the utility functions that are not directly tested by jss
