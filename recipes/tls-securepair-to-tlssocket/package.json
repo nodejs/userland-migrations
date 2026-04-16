@@ -4,7 +4,7 @@
   "description": "Migrate usages of tls.SecurePair to tls.TLSSocket.",
   "type": "module",
   "scripts": {
-    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
+    "test": "npx codemod@1.7.10 jssg test -l typescript ./src/workflow.ts ./tests/"
   },
   "repository": {
     "type": "git",
