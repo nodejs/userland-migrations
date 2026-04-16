@@ -1,45 +1,16 @@
-import {
-	getNodeImportStatements,
-	getNodeImportCalls,
-} from '@nodejs/codemod-utils/ast-grep/import-statement';
-import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import { updateBinding } from '@nodejs/codemod-utils/ast-grep/update-binding';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
 import { getScope } from '@nodejs/codemod-utils/ast-grep/get-scope';
 import type { Edit, SgRoot, Range, SgNode } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
-
-// Codemod: migrate SecurePair -> TLSSocket
-
-function getClosest(node: SgNode<Js>, kinds: string[]): SgNode<Js> | null {
-	// Prefer shared `getScope` helper when a single kind is requested.
-	if (kinds.length === 1) return getScope(node, kinds[0]) ?? null;
-
-	// Walk up the ancestor chain and return the first matching kind.
-	let current = node.parent();
-	while (current) {
-		if (kinds.includes(current.kind())) return current;
-		current = current.parent();
-	}
-
-	return null;
-}
-
-// Utility: find the closest ancestor whose kind is one of `kinds`.
-// Returns the first matching ancestor or `null` when none is found.
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
 
-	// Collect all import/require nodes that reference the `tls` module.
-	// This includes static imports, require() calls and dynamic imports.
-	const importNodes = [
-		...getNodeImportStatements(root, 'tls'),
-		...getNodeRequireCalls(root, 'tls'),
-		...getNodeImportCalls(root, 'tls'),
-	];
+	const importNodes = getModuleDependencies(root, 'tls');
 
 	for (const node of importNodes) {
 		// Update any binding that imports SecurePair -> TLSSocket (e.g. import { SecurePair })
@@ -48,8 +19,6 @@ export default function transform(root: SgRoot<Js>): string | null {
 		if (change?.lineToRemove) linesToRemove.push(change.lineToRemove);
 	}
 
-	// Find `new` expressions that construct a SecurePair either via namespace
-	// (e.g. `tls.SecurePair`) or via a direct identifier (`SecurePair`).
 	const newExpressions = rootNode.findAll({
 		rule: {
 			kind: 'new_expression',
@@ -79,7 +48,15 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 		// Replace the constructor call with `new TLSSocket(socket)`.
 		edits.push(node.replace(`new ${newConstructorName}(socket)`));
-		const declarator = getClosest(node, ['variable_declarator']);
+		const declarator = node.find({
+			rule: {
+				inside: {
+					kind: 'variable_declarator',
+					stopBy: 'end',
+				},
+			},
+		});
+
 		if (declarator) {
 			const idNode = declarator.field('name');
 			if (idNode) {
@@ -104,37 +81,36 @@ export default function transform(root: SgRoot<Js>): string | null {
 					},
 				});
 				for (const usage of obsoleteUsages) {
-					const statement = getClosest(usage, [
-						'lexical_declaration',
-						'expression_statement',
-					]);
+					const statement = usage.find({
+						rule: {
+							any: [
+								{
+									inside: {
+										kind: 'lexical_declaration',
+										stopBy: 'end',
+									},
+								},
+								{
+									inside: {
+										kind: 'expression_statement',
+										stopBy: 'end',
+									},
+								},
+							],
+						},
+					});
 					if (statement) linesToRemove.push(statement.range());
 				}
 
 				// Rename the variable (e.g. `pair` -> `socket`) and update references.
 				edits.push(idNode.replace(newName));
-				const references = rootNode.findAll({
-					rule: { kind: 'identifier', regex: `^${oldName}$` },
-				});
+				const references = idNode.references();
 
 				// Update all references, skipping property accesses and imports.
-				for (const ref of references) {
-					const parent = ref.parent();
-					if (!parent) continue;
-
-					const parentKind = parent.kind();
-					if (parentKind === 'member_expression') {
-						const property = parent.field('property');
-						if (property && property.id() === ref.id()) continue;
+				for (const refs of references) {
+					for (const node of refs.nodes) {
+						edits.push(node.replace(newName));
 					}
-					if (
-						parentKind === 'import_specifier' ||
-						parentKind === 'shorthand_property_identifier_pattern'
-					)
-						continue;
-					if (ref.id() === idNode.id()) continue;
-
-					edits.push(ref.replace(newName));
 				}
 			}
 		}
