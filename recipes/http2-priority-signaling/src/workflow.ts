@@ -1,6 +1,7 @@
 import type { Edit, Range, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import {
 	getNodeImportStatements,
 	getNodeImportCalls,
@@ -25,14 +26,8 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
 
-	// Gather all http2 import/require statements/calls
-	const http2Statements = [
-		...getNodeImportStatements(root, 'http2'),
-		...getNodeRequireCalls(root, 'http2'),
-		...getNodeImportCalls(root, 'http2'),
-	];
+	const http2Statements = getModuleDependencies(root, 'http2');
 
-	// If any import do nothing
 	if (!http2Statements.length) return null;
 
 	// Resolve all local callee names for http2.connect (handles namespace, default, named, alias, require/import)
@@ -69,17 +64,20 @@ export default function transform(root: SgRoot<Js>): string | null {
 	];
 
 	for (const call of connectCalls) {
-		let n: SgNode<Js> | undefined = call;
-		while (n && n.kind() !== 'variable_declarator') {
-			n = n.parent();
-		}
-		if (!n) continue;
-		const nameNode = (n as SgNode<Js, 'variable_declarator'>).field('name');
-		if (!nameNode) continue;
+		const variableDeclarator = call.find<'variable_declarator'>({
+			rule: {
+				inside: {
+					kind: 'variable_declarator',
+					stopBy: 'end',
+				},
+			},
+		});
+		const variable = variableDeclarator?.field('name');
+		if (!variable) continue;
 		sessionVars.push({
-			name: nameNode.text(),
-			decl: n,
-			scope: getScope(n),
+			name: variable.text(),
+			decl: variableDeclarator,
+			scope: getScope(variableDeclarator),
 		});
 	}
 
