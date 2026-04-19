@@ -4,7 +4,7 @@
   "description": "Handle DEP0159 by replacing ERR_INVALID_CALLBACK with ERR_INVALID_ARG_TYPE.",
   "type": "module",
   "scripts": {
-    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests/"
   },
   "repository": {
     "type": "git",
