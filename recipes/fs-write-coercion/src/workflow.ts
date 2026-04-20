@@ -130,7 +130,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 				// Get all direct child nodes that are arguments (skip commas, parens)
 				const args = argsNode
 					.children()
-				.filter((child) => child.isNamed());
+				.filter((child) => child.isNamed() && !child.is('comment');
 
 				// Data is the 2nd argument (index 1)
 				if (args.length < 2) continue;
