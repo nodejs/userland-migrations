@@ -4,7 +4,7 @@
   "description": "Handle DEP0100 via transforming `process.assert` to `node:assert`.",
   "type": "module",
   "scripts": {
-    "test": "npx codemod jssg test -l typescript --ignore-whitespace ./src/workflow.ts ./"
+    "test": "npx codemod jssg test -l typescript --ignore-whitespace ./src/workflow.ts ./tests"
   },
   "repository": {
     "type": "git",
