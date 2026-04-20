@@ -4,7 +4,7 @@
   "description": "Handle DEP0147 via transforming `fs.rmdir` to `fs.rm` with the appropriate options.",
   "type": "module",
   "scripts": {
-    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests"
   },
   "repository": {
     "type": "git",
