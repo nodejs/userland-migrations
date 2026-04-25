@@ -110,12 +110,40 @@ export default function transform(root: SgRoot<Js>): string | null {
 	}
 
 	const testCalls = rootNode.findAll({
+		constraints: {
+			METHOD: {
+				regex: '^(skip|only)$',
+			},
+		},
 		rule: {
 			kind: 'call_expression',
-			has: {
-				field: 'function',
-				regex: `^${testVarName}(\\.(skip|only))?$`,
-			},
+			any: [
+				{
+					has: {
+						field: 'function',
+						pattern: testVarName,
+					},
+				},
+				{
+					has: {
+						field: 'function',
+						all: [
+							{
+								has: {
+									field: 'object',
+									pattern: testVarName,
+								},
+							},
+							{
+								has: {
+									field: 'property',
+									pattern: '$METHOD',
+								},
+							},
+						],
+					},
+				},
+			],
 		},
 	});
 
@@ -475,11 +503,7 @@ function transformMethods(
 
 						// Filter out punctuation to get actual args
 						const actualArgs = children.filter(
-							(c) =>
-								c.kind() !== '(' &&
-								c.kind() !== ')' &&
-								c.kind() !== ',' &&
-								c.kind() !== 'comment',
+							(c) => c.isNamed() && !c.is('comment'),
 						);
 
 						if (actualArgs.length === 2) {
