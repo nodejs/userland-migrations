@@ -13,6 +13,7 @@ nodes:
         js-ast-grep:
           js_file: src/workflow.ts
           base_path: .
+          semantic_analysis: workspace
           include:
             - "**/*.cjs"
             - "**/*.js"

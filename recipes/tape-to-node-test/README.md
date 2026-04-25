@@ -15,7 +15,7 @@ This codemod migrates tests written using [`tape`](https://github.com/tape-testi
 - Handles `t.test` subtests (adds `await` and converts to `test()`).
 - Converts `t.teardown` to `t.after`.
 - Converts `t.comment` to `t.diagnostic`.
-- Migrates `t.timeoutAfter(ms)` to `{ timeout: ms }` test option.
+- Migrates `t.timeoutAfter(ms)` to `{ signal: AbortSignal.timeout(ms) }` test option.
 - Supports `test.skip` and `test.only`.
 - Handles `test.onFinish` and `test.onFailure` (comments them out with TODO and warning).
 - Supports loose equality assertions (e.g., `t.looseEqual` -> `assert.equal`).
@@ -108,7 +108,7 @@ This codemod migrates tests written using [`tape`](https://github.com/tape-testi
 
 - test("timeout test", (t) => {
 -   t.timeoutAfter(100);
-+ test("timeout test", { timeout: 100 }, async (t) => {
++ test("timeout test", { signal: AbortSignal.timeout(100) }, async (t) => {
 -   t.ok(true);
 +   assert.ok(true);
   });
@@ -140,7 +140,7 @@ This codemod migrates tests written using [`tape`](https://github.com/tape-testi
   - Use `t.diagnostic(message)` when the call is informational/logging only.
   - Remove the call when it is not needed.
   - If you need a real assertion, replace it with an explicit assertion that matches the intended behavior.
-- When `t.timeoutAfter()` is used with a variable options object (not inline), the codemod will add a TODO comment instead of automatically migrating it.
+- For `t.timeoutAfter()`, the codemod can migrate inline object options and identifier-bound object literals. When options are dynamic/unresolved (for example, function return values or non-object expressions), it will add a TODO comment for manual migration.
 - `t.plan()` is preserved as-is since `node:test` TestContext supports it, but be aware of behavioral differences between Tape and Node.js test runner regarding plan validation.
 - CLI migration, we don't touch to your `package.json` or test scripts. You will need to update them manually to use `node --test` command instead of `tape`.
 

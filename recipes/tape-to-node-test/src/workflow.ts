@@ -513,7 +513,7 @@ function transformMethods(
 							edits.push({
 								startPos: cbArg.range().start.index,
 								endPos: cbArg.range().start.index,
-								insertedText: `{ timeout: ${timeoutVal} }, `,
+								insertedText: `{ signal: AbortSignal.timeout(${timeoutVal}) }, `,
 							});
 							// remove the original timeout call
 							const parent = call.parent();
@@ -525,57 +525,39 @@ function transformMethods(
 						} else if (actualArgs.length === 3) {
 							// test('name', opts, cb)
 							const optsArg = actualArgs[1];
+							let timeoutApplied = false;
+
 							if (optsArg.kind() === 'object') {
-								// Add property to object
-								const props = optsArg
-									.children()
-									.filter((c) => c.kind() === 'pair');
-								if (props.length > 0) {
-									const lastProp = props[props.length - 1];
-									edits.push({
-										startPos: lastProp.range().end.index,
-										endPos: lastProp.range().end.index,
-										insertedText: `, timeout: ${timeoutVal}`,
-									});
-									// remove the original timeout call
-									const parent = call.parent();
-									if (parent && parent.kind() === 'expression_statement') {
-										edits.push(parent.replace(''));
-									} else {
-										edits.push(call.replace(''));
-									}
+								timeoutApplied = upsertSignalTimeoutOption(
+									optsArg,
+									timeoutVal,
+									edits,
+								);
+							} else if (optsArg.kind() === 'identifier') {
+								timeoutApplied = upsertSignalTimeoutFromIdentifier(
+									optsArg,
+									timeoutVal,
+									edits,
+								);
+							}
+
+							if (timeoutApplied) {
+								const parent = call.parent();
+								if (parent && parent.kind() === 'expression_statement') {
+									edits.push(parent.replace(''));
 								} else {
-									// Empty object {}
-									// We need to find where to insert.
-									// It's safer to replace the whole object if it's empty, or find the closing brace.
-									const closingBrace = optsArg
-										.children()
-										.find((c) => c.text() === '}');
-									if (closingBrace) {
-										edits.push({
-											startPos: closingBrace.range().start.index,
-											endPos: closingBrace.range().start.index,
-											insertedText: ` timeout: ${timeoutVal} `,
-										});
-										// remove the original timeout call
-										const parent = call.parent();
-										if (parent && parent.kind() === 'expression_statement') {
-											edits.push(parent.replace(''));
-										} else {
-											edits.push(call.replace(''));
-										}
-									}
+									edits.push(call.replace(''));
 								}
 							} else {
 								// Options is a variable or expression — replace the timeout call with a TODO comment and warning
 								const { line, column } = call.range().start;
 								const fileName = node.getRoot().filename();
 								console.warn(
-									`[Codemod] Warning: Unable to automatically add timeout option at ${fileName}:${line}:${column}. Please add it manually.`,
+									`[Codemod] Warning: Unable to automatically add signal option at ${fileName}:${line}:${column}. Please add it manually.`,
 								);
 								edits.push(
 									call.replace(
-										`// TODO(codemod@nodejs/tape-to-node-test): Add timeout: \`${timeoutVal}\` to test options manually`,
+										`// TODO(codemod@nodejs/tape-to-node-test): Add signal: AbortSignal.timeout(${timeoutVal}) to test options manually`,
 									),
 								);
 							}
@@ -599,4 +581,65 @@ function transformMethods(
 	}
 
 	return requiresAsync;
+}
+
+function upsertSignalTimeoutOption(
+	optionsObject: SgNode<Js>,
+	timeoutVal: string,
+	edits: Edit[],
+): boolean {
+	const props = optionsObject.children().filter((c) => c.kind() === 'pair');
+	const signalProp = props.find((p) => p.field('key')?.text() === 'signal');
+
+	if (signalProp) {
+		const signalVal = signalProp.field('value');
+		if (!signalVal) return false;
+		edits.push(signalVal.replace(`AbortSignal.timeout(${timeoutVal})`));
+		return true;
+	}
+
+	if (props.length > 0) {
+		const lastProp = props[props.length - 1];
+		edits.push({
+			startPos: lastProp.range().end.index,
+			endPos: lastProp.range().end.index,
+			insertedText: `, signal: AbortSignal.timeout(${timeoutVal})`,
+		});
+		return true;
+	}
+
+	const closingBrace = optionsObject.children().find((c) => c.text() === '}');
+	if (!closingBrace) return false;
+
+	edits.push({
+		startPos: closingBrace.range().start.index,
+		endPos: closingBrace.range().start.index,
+		insertedText: ` signal: AbortSignal.timeout(${timeoutVal}) `,
+	});
+
+	return true;
+}
+
+function upsertSignalTimeoutFromIdentifier(
+	optionsIdentifier: SgNode<Js>,
+	timeoutVal: string,
+	edits: Edit[],
+): boolean {
+	const definition = optionsIdentifier.definition();
+	if (!definition) return false;
+
+	const definitionNode = definition.node;
+	const declarator =
+		definitionNode.kind() === 'variable_declarator'
+			? definitionNode
+			: definitionNode
+					.ancestors()
+					.find((ancestor) => ancestor.kind() === 'variable_declarator');
+
+	if (!declarator) return false;
+
+	const valueNode = declarator.field('value');
+	if (!valueNode || valueNode.kind() !== 'object') return false;
+
+	return upsertSignalTimeoutOption(valueNode, timeoutVal, edits);
 }
