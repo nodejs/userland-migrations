@@ -39,7 +39,7 @@ jobs:
           show-progress: false
 
       - run: >
-          junkdrawer=$(git diff --name-only main HEAD -- **/test/input/** **/test/expected/**)
+          junkdrawer=$(git diff --name-only origin/HEAD HEAD -- **/test/input/** **/test/expected/**)
 
           if [[ -n "$junkdrawer" ]]; then
             echo "❌ do not use junk-drawer tests directories; create a folder per test-case with an 'input' and an 'expected' file. Errant files:\n"
