@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: "@nodejs/process-main-module"
-version: 1.0.1
+version: "1.0.2"
 description: Handle DEP0138 via transforming `process.mainModule` to `require.main`.
 author: Bruno Rodrigues
 license: MIT

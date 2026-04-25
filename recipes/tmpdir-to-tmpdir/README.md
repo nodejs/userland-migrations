@@ -6,14 +6,9 @@ See [DEP0022](https://nodejs.org/docs/latest/api/deprecations.html#dep0022-ostmp
 
 ## Examples
 
-**Before:**
-```js
-import { tmpDir } from 'node:os';
-const foo = tmpDir()
-```
-
-**After:**
-```js
-import { tmpdir } from 'node:os';
-const foo = tmpdir()
-```
+```diff
+- import { tmpDir } from 'node:os';
++ import { tmpdir } from 'node:os';
+- const foo = tmpDir()
++ const foo = tmpdir()
+`````

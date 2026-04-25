@@ -1,7 +1,6 @@
 import {
 	getNodeImportStatements,
 	getDefaultImportIdentifier,
-	getNodeImportCalls,
 } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import {
 	getNodeRequireCalls,
@@ -12,6 +11,7 @@ import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-bindi
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
 import type { SgRoot, SgNode, Edit, Range } from '@codemod.com/jssg-types/main';
 import type JS from '@codemod.com/jssg-types/langs/javascript';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 
 // Clean up unused imports using removeBinding
 const allIsMethods = [
@@ -91,11 +91,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const nonIsMethodsUsed = new Set<string>();
 
 	// Collect util import/require nodes once
-	const importOrRequireNodes = [
-		...getNodeRequireCalls(root, 'util'),
-		...getNodeImportStatements(root, 'util'),
-		...getNodeImportCalls(root, 'util'),
-	];
+	const importOrRequireNodes = getModuleDependencies(root, 'util');
 
 	// If no import is found that means we can skip transformation on this file
 	if (!importOrRequireNodes.length) return null;

@@ -6,6 +6,9 @@
     "lib": [
       "ESNext"
     ],
+    "types": [
+      "node"
+    ],
     /* Modules */
     "module": "NodeNext",
     "moduleResolution": "nodenext",
@@ -43,6 +46,7 @@
     "./utils"
   ],
   "exclude": [
+    "recipes/correct-ts-specifiers/**",
     "**/tests/**",
     // For correct-ts-specifiers
     "**/*.test.ts",

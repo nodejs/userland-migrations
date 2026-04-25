@@ -6,28 +6,19 @@ See [DEP0147](https://nodejs.org/api/deprecations.html#DEP0147).
 
 ## Examples
 
-**Before:**
+```diff
+  // Using fs.rmdir with the recursive option
+- fs.rmdir(path, { recursive: true }, callback);
++ // Using fs.rm with recursive and force options
++ fs.rm(path, { recursive: true, force: true }, callback);
 
-```js
-// Using fs.rmdir with the recursive option
-fs.rmdir(path, { recursive: true }, callback);
+  // Using fs.rmdirSync with the recursive option
+- fs.rmdirSync(path, { recursive: true });
++ // Using fs.rmSync with recursive and force options
++ fs.rmSync(path, { recursive: true, force: true });
 
-// Using fs.rmdirSync with the recursive option
-fs.rmdirSync(path, { recursive: true });
-
-// Using fs.promises.rmdir with the recursive option
-fs.promises.rmdir(path, { recursive: true });
-```
-
-**After:**
-
-```js
-// Using fs.rm with recursive and force options
-fs.rm(path, { recursive: true, force: true }, callback);
-
-// Using fs.rmSync with recursive and force options
-fs.rmSync(path, { recursive: true, force: true });
-
-// Using fs.promises.rm with recursive and force options
-fs.promises.rm(path, { recursive: true, force: true });
-```
+  // Using fs.promises.rmdir with the recursive option
+- fs.promises.rmdir(path, { recursive: true });
++ // Using fs.promises.rm with recursive and force options
++ fs.promises.rm(path, { recursive: true, force: true });
+`````
