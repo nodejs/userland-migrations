@@ -1,0 +1,23 @@
+schema_version: "1.0"
+name: "@nodejs/err-invalid-callback"
+version: "1.0.0"
+description: Handle DEP0159 by replacing ERR_INVALID_CALLBACK with ERR_INVALID_ARG_TYPE.
+author: Stanley Shen
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - errors
+  - DEP0159
+
+registry:
+  access: public
+  visibility: public
