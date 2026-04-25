@@ -12,7 +12,7 @@ on:
       - "utils/**"
       - "package.json"
       - "package-lock.json"
-      - ".github/workflows/*.yml"
+      - ".github/workflows/ci.yml"
   pull_request:
     branches: ["*"]
     paths:
@@ -20,7 +20,7 @@ on:
       - "utils/**"
       - "package.json"
       - "package-lock.json"
-      - ".github/workflows/*.yml"
+      - ".github/workflows/ci.yml"
     types:
       - opened
       - ready_for_review
@@ -33,7 +33,7 @@ permissions:
 jobs:
   get-matrix:
     name: Configure Node environment matrix
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
 
     outputs:
       latest: ${{ steps.set-matrix.outputs.requireds }}
@@ -55,7 +55,7 @@ jobs:
 
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
 
     steps:
       - name: Harden the runner (Audit all outbound calls)
@@ -67,12 +67,7 @@ jobs:
         with:
           persist-credentials: false
           show-progress: false
-      - name: Set up Node.js
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
-        with:
-          cache: "npm"
-          check-latest: true
-          node-version-file: ".nvmrc"
+
       - run: npm ci
       - run: node --run lint
       - run: node --run type-check
@@ -102,11 +97,6 @@ jobs:
         with:
           persist-credentials: false
           show-progress: false
-      - name: Set up Node.js
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
-        with:
-          cache: "npm"
-          check-latest: true
-          node-version-file: ".nvmrc"
+
       - run: npm ci
       - run: node --run test
