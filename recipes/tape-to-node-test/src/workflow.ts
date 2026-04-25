@@ -305,7 +305,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	}
 
 	// 3. Handle unsupported tape lifecycle methods using the same switch-based method transform.
-	transformMethods(rootNode, testVarName, edits, undefined, false, {
+	transformMethods(rootNode, testVarName, edits, undefined, false, [], 0, {
 		allowedMethods: new Set(['onfinish', 'onfailure']),
 		sourceFileName: root.filename(),
 	});
