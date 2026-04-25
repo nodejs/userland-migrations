@@ -37,6 +37,7 @@ jobs:
         with:
           persist-credentials: false
           show-progress: false
+          fetch-depth: 0
 
       - run: >
           junkdrawer=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} -- **/test/input/** **/test/expected/**)
