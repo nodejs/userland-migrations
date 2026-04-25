@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Directory organisation
+
+on:
+  pull_request:
+    branches: [ "*" ]
+    paths:
+      - ".github/workflows/dir-organisation.yml"
+      - "recipes/**"
+    types:
+      - edited
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  pull-requests: read
+
+jobs:
+
+  forbid-junkdrawer-tests:
+    name: Test structure
+
+    runs-on: ubuntu-slim
+
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+
+    steps:
+      - run: >
+          junkdrawer=$(git diff --name-only main HEAD -- **/test/input **/test/expected)
+
+          if [[ -n "$junkdrawer" ]]; then
+            echo "❌ do not use junk-drawer tests directories; create a folder per test-case with an 'input' and an 'expected' file. Errant files:\n"
+            echo "$junkdrawer"
+            exit 1
+          fi
