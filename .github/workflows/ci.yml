@@ -33,7 +33,7 @@ permissions:
 jobs:
   get-matrix:
     name: Configure Node environment matrix
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
 
     outputs:
       latest: ${{ steps.set-matrix.outputs.requireds }}
