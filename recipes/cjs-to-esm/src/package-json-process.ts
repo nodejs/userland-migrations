@@ -1,7 +1,18 @@
 import type { SgRoot } from '@codemod.com/jssg-types/main';
 import type Json from '@codemod.com/jssg-types/langs/json';
+import type { PackageJson } from 'type-fest';
 import { intersects, satisfies, validRange } from '@vltpkg/semver';
 
+/**
+ *
+ * Why these versions:
+ * - `20.19.0` is the first Node 20 release in which `require(esm)` is available without the warning.
+ * - `22.12.0` is the equivalent baseline in the Node 22 line.
+ * - `24.0.0` represents the first Node 24 release (future/current line) and keeps the rule forward-compatible.
+ *
+ * The anchor list is used as a safety check: a user-provided semver range must include these
+ * representative versions across supported majors, not just technically intersect the baseline.
+ */
 const REQUIRED_NODE_ENGINE = '^20.19.0 || >=22.12.0';
 const REQUIRED_NODE_ANCHORS = ['20.19.0', '20.20.0', '22.12.0', '24.0.0'];
 
@@ -34,7 +45,7 @@ function chooseBestNodeEngine(current: unknown): string {
 }
 
 function replaceModulePathSuffixes(value: string): string {
-	return value.replace(/\.cjs$/g, '.mjs').replace(/\.cts$/g, '.mts');
+	return value.replace(/\.cjs$/, '.mjs').replace(/\.cts$/, '.mts');
 }
 
 function rewriteStringValues(value: unknown): boolean {
@@ -88,7 +99,7 @@ function rewriteStringValues(value: unknown): boolean {
  */
 export default function transform(root: SgRoot<Json>): string | null {
 	const text = root.source();
-	const pckgJson = JSON.parse(text) as Record<string, unknown>;
+	const pckgJson = JSON.parse(text) as PackageJson;
 
 	let hasChanges = false;
 
@@ -98,8 +109,8 @@ export default function transform(root: SgRoot<Json>): string | null {
 	}
 
 	if (
+		pckgJson.engines == null ||
 		typeof pckgJson.engines !== 'object' ||
-		pckgJson.engines === null ||
 		Array.isArray(pckgJson.engines)
 	) {
 		pckgJson.engines = {
@@ -107,7 +118,7 @@ export default function transform(root: SgRoot<Json>): string | null {
 		};
 		hasChanges = true;
 	} else {
-		const engines = pckgJson.engines as Record<string, unknown>;
+		const { engines } = pckgJson;
 		const currentNodeEngine = engines.node;
 		const nextNodeEngine = chooseBestNodeEngine(currentNodeEngine);
 
@@ -125,5 +136,8 @@ export default function transform(root: SgRoot<Json>): string | null {
 		return null;
 	}
 
-	return `${JSON.stringify(pckgJson, null, 2)}\n`;
+	const indentMatch = text.match(/^[ \t]+(?=")/m);
+	const indent = indentMatch?.[0] ?? 2;
+
+	return `${JSON.stringify(pckgJson, null, indent)}\n`;
 }
