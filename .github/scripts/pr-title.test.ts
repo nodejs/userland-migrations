@@ -13,7 +13,7 @@ describe('Pull Request checks', { concurrency: true }, async () => {
 
 	for (const prefix of SUPPORTED_PREFIXES) {
 		describe(prefix, () => {
-			it(`should pass when valid`, async () => {
+			it('should pass when valid', async () => {
 				const { code, stderr } = await spawnPromisified(
 					execPath,
 					[prTestPath],
@@ -27,7 +27,7 @@ describe('Pull Request checks', { concurrency: true }, async () => {
 				equal(code, 0);
 			});
 
-			it(`should fail when missing scope`, async () => {
+			it('should fail when missing scope', async () => {
 				const { code, stderr } = await spawnPromisified(
 					execPath,
 					[prTestPath],
@@ -43,7 +43,7 @@ describe('Pull Request checks', { concurrency: true }, async () => {
 				equal(code, 1);
 			});
 
-			it(`should fail scope is misformatted`, async () => {
+			it('should fail scope is misformatted', async () => {
 				const { code, stderr } = await spawnPromisified(
 					execPath,
 					[prTestPath],
