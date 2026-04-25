@@ -4,7 +4,8 @@ import {
 	getNodeImportCalls,
 } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
-import type { SgRoot, SgNode, Edit } from '@codemod.com/jssg-types/main';
+import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
+import type { SgRoot, SgNode, Edit, Range } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 /**
@@ -62,6 +63,8 @@ const ASSERTION_MAPPING = {
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
+	const linesToRemove: Range[] = [];
+	let lineOffset = 0;
 
 	const tapeImports = getNodeImportStatements(root, 'tape');
 	const tapeRequires = getNodeRequireCalls(root, 'tape');
@@ -107,6 +110,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 		if (binding) testVarName = binding.text();
 
 		edits.push(mod.node.replace(mod.import));
+		lineOffset += mod.import.split(EOL).length - 1;
 	}
 
 	const testCalls = rootNode.findAll({
@@ -277,6 +281,8 @@ export default function transform(root: SgRoot<Js>): string | null {
 					edits,
 					call,
 					shouldUseDone,
+					linesToRemove,
+					lineOffset,
 				);
 
 				// Determine if the callback needs to be async.
@@ -306,7 +312,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	if (!edits.length) return null;
 
-	return rootNode.commitEdits(edits);
+	return removeLines(rootNode.commitEdits(edits), linesToRemove);
 }
 
 /**
@@ -325,6 +331,8 @@ function transformMethods(
 	edits: Edit[],
 	testCall?: SgNode<Js>,
 	useDone = false,
+	linesToRemove: Range[] = [],
+	lineOffset = 0,
 	options?: {
 		allowedMethods?: Set<string>;
 		sourceFileName?: string;
@@ -344,6 +352,10 @@ function transformMethods(
 			},
 		},
 	});
+	const timeoutAfterCalls = calls.filter(
+		(call) =>
+			call.field('function')?.field('property')?.text() === 'timeoutAfter',
+	);
 
 	for (const call of calls) {
 		const method = call.field('function')?.field('property')?.text();
@@ -452,7 +464,15 @@ function transformMethods(
 
 					const b = cb.field('body');
 					const nestedRequiresAsync = b
-						? transformMethods(b, stName, edits, call)
+						? transformMethods(
+								b,
+								stName,
+								edits,
+								call,
+								false,
+								linesToRemove,
+								lineOffset,
+							)
 						: false;
 					const subtestHasAwait = Boolean(
 						b?.find({ rule: { kind: 'await_expression' } }),
@@ -487,9 +507,22 @@ function transformMethods(
 				if (func) edits.push(func.replace(`${tName}.after`));
 				break;
 			case 'timeoutafter': {
+				const isLastTimeoutAfter = timeoutAfterCalls.at(-1)?.id() === call.id();
+
 				const timeoutArg = args?.child(1); // child(0) is '('
 				if (timeoutArg) {
 					const timeoutVal = timeoutArg.text();
+					if (!isLastTimeoutAfter) {
+						const parent = call.parent();
+						if (parent && parent.kind() === 'expression_statement') {
+							edits.push(parent.replace(''));
+							linesToRemove.push(shiftRange(parent.range(), lineOffset));
+						} else {
+							edits.push(call.replace(''));
+							linesToRemove.push(shiftRange(call.range(), lineOffset));
+						}
+						break;
+					}
 
 					// Add to test options
 					const testArgs = testCall?.field('arguments');
@@ -519,8 +552,10 @@ function transformMethods(
 							const parent = call.parent();
 							if (parent && parent.kind() === 'expression_statement') {
 								edits.push(parent.replace(''));
+								linesToRemove.push(shiftRange(parent.range(), lineOffset));
 							} else {
 								edits.push(call.replace(''));
+								linesToRemove.push(shiftRange(call.range(), lineOffset));
 							}
 						} else if (actualArgs.length === 3) {
 							// test('name', opts, cb)
@@ -545,8 +580,10 @@ function transformMethods(
 								const parent = call.parent();
 								if (parent && parent.kind() === 'expression_statement') {
 									edits.push(parent.replace(''));
+									linesToRemove.push(shiftRange(parent.range(), lineOffset));
 								} else {
 									edits.push(call.replace(''));
+									linesToRemove.push(shiftRange(call.range(), lineOffset));
 								}
 							} else {
 								// Options is a variable or expression — replace the timeout call with a TODO comment and warning
@@ -581,6 +618,19 @@ function transformMethods(
 	}
 
 	return requiresAsync;
+}
+
+function shiftRange(range: Range, lineOffset: number): Range {
+	return {
+		start: {
+			...range.start,
+			line: range.start.line + lineOffset,
+		},
+		end: {
+			...range.end,
+			line: range.end.line + lineOffset,
+		},
+	};
 }
 
 function upsertSignalTimeoutOption(
