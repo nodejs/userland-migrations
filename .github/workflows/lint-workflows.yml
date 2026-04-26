@@ -9,10 +9,12 @@ on:
     branches: ["*"]
     paths:
       - ".github/workflows/*.yml"
+      - "recipes/*/*.yml"
   pull_request:
     branches: ["*"]
     paths:
       - ".github/workflows/*.yml"
+      - "recipes/*/*.yml"
     types:
       - opened
       - ready_for_review
