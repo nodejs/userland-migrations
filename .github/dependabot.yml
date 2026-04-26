@@ -8,18 +8,23 @@
 version: 2
 
 updates:
+
   - package-ecosystem: github-actions
-    directory: /
-    schedule:
-      interval: monthly
     commit-message:
       prefix: ci
+    directory: /
+    labels:
+      - "gh actions"
+    schedule:
+      interval: monthly
 
   - package-ecosystem: npm # See documentation for possible values
+    commit-message:
+      prefix: deps
     directories:
       - / # Location of package manifests
       - /recipies/*
-    commit-message:
-      prefix: deps
+    labels:
+      - "npm"
     schedule:
       interval: weekly
