@@ -1,10 +1,10 @@
 {
     "name": "@nodejs/tls-create-secure-pair-to-tls-socket",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Handle DEP0064 replacing `tls.createSecurePair()` with `tls.TLSSocket()`",
     "type": "module",
     "scripts": {
-        "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
+        "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests"
     },
     "repository": {
         "type": "git",

@@ -12,7 +12,7 @@ on:
       - "utils/**"
       - "package.json"
       - "package-lock.json"
-      - ".github/workflows/*.yml"
+      - ".github/workflows/ci.yml"
   pull_request:
     branches: ["*"]
     paths:
@@ -20,7 +20,7 @@ on:
       - "utils/**"
       - "package.json"
       - "package-lock.json"
-      - ".github/workflows/*.yml"
+      - ".github/workflows/ci.yml"
     types:
       - opened
       - ready_for_review
@@ -55,44 +55,23 @@ jobs:
 
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
 
     steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@fe104658747b27e96e4f7e80cd0a94068e53901d # v2.16.1
-        with:
-          egress-policy: audit
+      # FIXME https://github.com/step-security/harden-runner/issues/627
+      # - name: Harden the runner (Audit all outbound calls)
+      #   uses: step-security/harden-runner@fe104658747b27e96e4f7e80cd0a94068e53901d # v2.16.1
+      #   with:
+      #     egress-policy: audit
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
           show-progress: false
-      - name: Set up Node.js
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
-        with:
-          cache: "npm"
-          check-latest: true
-          node-version-file: ".nvmrc"
+
       - run: npm ci
       - run: node --run lint
       - run: node --run type-check
-
-  validate-yaml:
-    name: Validate YAML files
-
-    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
-
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@fe104658747b27e96e4f7e80cd0a94068e53901d # v2.16.1
-        with:
-          egress-policy: audit
-
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Validate YAML files
-        run: yamllint -c .yamllint.yaml -f github ./
 
   test:
     name: Codemod JSSG tests
@@ -119,51 +98,13 @@ jobs:
         with:
           persist-credentials: false
           show-progress: false
+
       - name: Set up Node.js
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           cache: "npm"
           check-latest: true
           node-version-file: ".nvmrc"
+
       - run: npm ci
       - run: node --run test
-
-  legacy-tests:
-    name: Run legacy tests
-
-    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
-
-    needs: [get-matrix]
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: ${{ fromJson(needs.get-matrix.outputs.latest) }}
-        os:
-          - macos-latest
-          - ubuntu-latest
-          - windows-latest
-
-    steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@fe104658747b27e96e4f7e80cd0a94068e53901d # v2.16.1
-        with:
-          egress-policy: audit
-
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-          show-progress: false
-      - name: Set up Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
-        with:
-          cache: "npm"
-          check-latest: true
-          node-version: ${{ matrix.node-version }}
-      - run: npm ci
-      # Codemod has changed its paradigm, but there is still a recipe that uses the old one, which is why we run it alongside it.
-      # The old paradigm used node to run codemod, which is why we run it on several versions.
-      # REF: https://codemod.com/blog/new-codemod-cli
-      - name: Run legacy recipe tests
-        run: node --run test-legacy

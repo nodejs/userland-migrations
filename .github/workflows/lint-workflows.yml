@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# For more information see: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow
+
+name: Workflow checks
+
+on:
+  push:
+    branches: ["*"]
+    paths:
+      - ".github/workflows/*.yml"
+      - "recipes/*/*.yml"
+  pull_request:
+    branches: ["*"]
+    paths:
+      - ".github/workflows/*.yml"
+      - "recipes/*/*.yml"
+    types:
+      - opened
+      - ready_for_review
+      - reopened
+      - synchronize
+
+permissions:
+  contents: read
+
+jobs:
+
+  validate-yaml:
+    name: Validate YAML files
+
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@fe104658747b27e96e4f7e80cd0a94068e53901d # v2.16.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Validate YAML files
+        run: yamllint -c .yamllint.yaml -f github ./
