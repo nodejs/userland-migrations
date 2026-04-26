@@ -62,10 +62,9 @@ jobs:
 
   lint-and-types:
     name: Lint & types
+    runs-on: ubuntu-slim
 
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
-
-    runs-on: ubuntu-slim
 
     steps:
       # FIXME https://github.com/step-security/harden-runner/issues/627
@@ -85,10 +84,9 @@ jobs:
 
   test:
     name: Codemod JSSG tests
+    runs-on: ${{ matrix.os }}
 
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
-
-    runs-on: ${{ matrix.os }}
 
     strategy:
       fail-fast: false
@@ -117,4 +115,12 @@ jobs:
           node-version-file: ".nvmrc"
 
       - run: npm ci
-      - run: node --run test
+
+      - run: >
+          npm run test $(
+            git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }}
+            | grep '^recipes/'
+            | cut -d/ -f1,2
+            | sort -u
+            | sed 's/^/--workspace=/'
+          )
