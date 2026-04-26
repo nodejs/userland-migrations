@@ -1,0 +1,8 @@
+{
+  "name": "fixture-11",
+  "type": "module",
+  "engines": {
+    "node": "banana",
+    "npm": ">=10"
+  }
+}

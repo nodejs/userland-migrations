@@ -1,0 +1,34 @@
+{
+  "name": "fixture-8",
+  "type": "module",
+  "main": "./entry.mts",
+  "types": "./index.d.mts",
+  "exports": {
+    ".": "./index.mjs",
+    "./feature": [
+      "./feature.mjs",
+      {
+        "default": "./feature.mjs",
+        "metadata": {
+          "note": "do-not-change.cts.map"
+        }
+      },
+      42,
+      null
+    ]
+  },
+  "imports": {
+    "#tooling": {
+      "node": "./tool.mjs",
+      "meta": [
+        "./keep.js",
+        {
+          "flag": false
+        }
+      ]
+    }
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  }
+}
