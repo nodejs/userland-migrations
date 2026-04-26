@@ -39,6 +39,8 @@ jobs:
     name: Configure Node environment matrix
     runs-on: ubuntu-latest
 
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+
     outputs:
       latest: ${{ steps.set-matrix.outputs.requireds }}
     steps:
