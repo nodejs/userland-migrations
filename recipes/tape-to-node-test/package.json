@@ -1,0 +1,20 @@
+{
+  "name": "@nodejs/tape-to-node-test",
+  "version": "1.0.0",
+  "description": "Migrates Tape tests to Node.js native test runner",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/tape-to-node-test",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "Node.js",
+  "license": "MIT",
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
+  }
+}
