@@ -11,7 +11,7 @@ on:
       - "recipes/**/*.ts"
       - "recipes/**/package.json"
       - "utils/**/*.ts"
-      - "utils/**/package.json"
+      - "utils/package.json"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/ci.yml"
