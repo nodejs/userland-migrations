@@ -6,7 +6,6 @@ export const SUPPORTED_PREFIXES = [
 	'dep',
 	'fix',
 	'feat',
-	'release',
 	'setup',
 	'test',
 ] as const;
