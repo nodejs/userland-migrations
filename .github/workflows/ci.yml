@@ -8,16 +8,20 @@ on:
   push:
     branches: ["*"]
     paths:
-      - "recipes/**"
-      - "utils/**"
+      - "recipes/**/*.ts"
+      - "recipes/**/package.json"
+      - "utils/**/*.ts"
+      - "utils/**/package.json"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/ci.yml"
   pull_request:
     branches: ["*"]
     paths:
-      - "recipes/**"
-      - "utils/**"
+      - "recipes/**/*.ts"
+      - "recipes/**/package.json"
+      - "utils/**/*.ts"
+      - "utils/**/package.json"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/ci.yml"
