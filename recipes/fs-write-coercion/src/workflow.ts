@@ -1,6 +1,6 @@
 import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
-import type { SgRoot } from '@codemod.com/jssg-types/main';
+import type { SgRoot, Edit } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 /**
