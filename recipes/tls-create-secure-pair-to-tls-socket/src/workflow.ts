@@ -1,12 +1,117 @@
-import type { SgRoot, SgNode, Edit } from '@codemod.com/jssg-types/main';
-import type JS from '@codemod.com/jssg-types/langs/javascript';
+import type { SgNode, Edit, Codemod } from 'codemod:ast-grep';
+import type JS from '@codemod.com/jssg-types/langs/tsx';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { updateBinding } from '@nodejs/codemod-utils/ast-grep/update-binding';
+import {
+	getAllImports,
+	addImport,
+	removeImport,
+} from '@jssg/utils/javascript/imports';
 
-export default function transform(root: SgRoot<JS>): string | null {
+type GetImportOptions = {
+	from: string[];
+	name: string;
+};
+
+type ImportNode = ReturnType<typeof getAllImports<JS>>[number];
+
+function getImports(
+	rootNode: SgNode<JS, 'program'>,
+	options: GetImportOptions,
+): {
+	default: ImportNode[];
+	named: ImportNode[];
+} {
+	let defaultImports: ImportNode[] = [];
+	let namedImports: ImportNode[] = [];
+	for (const from of options.from) {
+		const _defaultImports = getAllImports(rootNode, {
+			from: from,
+			type: 'default',
+		});
+
+		const _namedImports = getAllImports(rootNode, {
+			from: from,
+			type: 'named',
+			name: options.name,
+		});
+
+		defaultImports = defaultImports.concat(_defaultImports);
+		namedImports = namedImports.concat(_namedImports);
+	}
+
+	return {
+		default: defaultImports,
+		named: namedImports,
+	};
+}
+
+const transform: Codemod<JS> = async (root) => {
 	const rootNode = root.root();
 	const tlsStmts = getModuleDependencies(root, 'tls');
+	const imp = getImports(rootNode, {
+		name: 'createSecurePair',
+		from: ['tls', 'node:tls'],
+	});
+
+	const calls = [];
+	const edits: Edit[] = [];
+
+	for (const importNode of imp.named) {
+		const removeEdit = removeImport(rootNode, {
+			type: 'named',
+			from: 'node:tls',
+			specifiers: [importNode.node.text()],
+		});
+		if (removeEdit) edits.push(removeEdit);
+
+		const addEdit = addImport(rootNode, {
+			specifiers: [{ name: 'TLSSocket' }],
+			from: 'node:tls',
+			type: 'named',
+		});
+
+		if (addEdit) edits.push(addEdit);
+
+		const fileReferences = importNode.node.references()[0];
+		for (const ref of fileReferences.nodes) {
+			const node = ref.find({
+				rule: {
+					inside: {
+						kind: 'call_expression',
+						stopBy: 'end',
+					},
+				},
+			});
+
+			if (node) calls.push(node);
+		}
+	}
+
+	for (const importNode of imp.default) {
+		const fileReferences = importNode.node.references()[0];
+		for (const ref of fileReferences.nodes) {
+			const node = ref.find({
+				rule: {
+					inside: {
+						kind: 'call_expression',
+						stopBy: 'end',
+						has: {
+							field: 'function',
+							kind: 'member_expression',
+							has: {
+								field: 'property',
+								regex: '^createSecurePair$',
+							},
+						},
+					},
+				},
+			});
+
+			if (node) calls.push(node);
+		}
+	}
 
 	if (!tlsStmts.length) return null;
 
@@ -19,10 +124,8 @@ export default function transform(root: SgRoot<JS>): string | null {
 
 	if (!cspBindings.length) return null;
 
-	const edits: Edit[] = [];
-
 	// Transform all createSecurePair calls
-	const calls = rootNode.findAll({ rule: { kind: 'call_expression' } });
+	// const calls = rootNode.findAll({ rule: { kind: 'call_expression' } });
 
 	for (const call of calls) {
 		const callee = call.field('function');
@@ -56,27 +159,10 @@ export default function transform(root: SgRoot<JS>): string | null {
 	// Rename variables named 'pair' to 'socket'
 	edits.push(...renamePairVariables(rootNode, cspBindings));
 
-	// Update imports
-	const importStmts = tlsStmts.filter(
-		(s) => s.is('import_statement') || s.is('variable_declarator'),
-	);
-
-	for (const importStmt of importStmts) {
-		const result = updateBinding(importStmt, {
-			old: 'createSecurePair',
-			new: 'TLSSocket',
-			removeAlias: true,
-		});
-
-		if (result?.edit) {
-			edits.push(result.edit);
-		}
-	}
-
 	if (!edits.length) return null;
 
 	return rootNode.commitEdits(edits);
-}
+};
 
 function getCallBinding(callee: SgNode<JS>): string | null {
 	if (callee.is('member_expression')) {
@@ -136,3 +222,5 @@ function renamePairVariables(rootNode: SgNode<JS>, bindings: string[]): Edit[] {
 
 	return edits;
 }
+
+export default transform;
