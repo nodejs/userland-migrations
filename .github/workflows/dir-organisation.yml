@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Directory organisation
+
+on:
+  pull_request:
+    branches: ["*"]
+    paths:
+      - ".github/workflows/dir-organisation.yml"
+      - "recipes/**/tests/**"
+    types:
+      - edited
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  pull-requests: read
+
+jobs:
+
+  forbid-junkdrawer-tests:
+    name: Test structure
+
+    runs-on: ubuntu-slim
+
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+
+    steps:
+      # FIXME https://github.com/step-security/harden-runner/issues/627
+      # - name: Harden the runner (Audit all outbound calls)
+      #   uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
+      #   with:
+      #     egress-policy: audit
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          show-progress: false
+          fetch-depth: 0
+
+      - run: >
+          junkdrawer=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} -- **/test/input/** **/test/expected/**)
+
+          if [[ -n "$junkdrawer" ]]; then
+            echo "❌ do not use junk-drawer tests directories; create a folder per test-case with an 'input' and an 'expected' file. Errant files:\n"
+            echo "$junkdrawer"
+            exit 1
+          fi
