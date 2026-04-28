@@ -115,7 +115,9 @@ jobs:
 
       - run: npm ci
 
-      - run: >
+      - name: Run tests (determined by changeset)
+        shell: bash
+        run: >
           changed_paths=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
 
           # run everything?
