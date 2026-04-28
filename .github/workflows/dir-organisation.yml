@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: Directory organisation
+name: Code Quality
 
 on:
   pull_request:
@@ -20,7 +20,7 @@ permissions:
 jobs:
 
   forbid-junkdrawer-tests:
-    name: Test structure
+    name: Test organisation
 
     runs-on: ubuntu-slim
 
@@ -35,11 +35,12 @@ jobs:
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          fetch-depth: 0
           persist-credentials: false
           show-progress: false
-          fetch-depth: 0
 
-      - run: >
+      - name: Check for junkdrawer
+        run: >
           junkdrawer=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} -- **/test/input/** **/test/expected/**)
 
           if [[ -n "$junkdrawer" ]]; then
