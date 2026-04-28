@@ -27,7 +27,7 @@ permissions:
 jobs:
 
   run-workflow-script-tests:
-    name: test scripts
+    name: Test scripts
     runs-on: ubuntu-slim
 
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
