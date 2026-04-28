@@ -1,0 +1,23 @@
+schema_version: "1.0"
+name: "@nodejs/http2-priority-signaling"
+version: 1.0.0
+description: Handle DEP0194 via removing HTTP/2 priority-related options and methods.
+author: Augustin Mauroy
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - http2
+  - deprecation
+
+registry:
+  access: public
+  visibility: public
