@@ -38,7 +38,7 @@ permissions:
 
 jobs:
   get-matrix:
-    name: Get Node environment matrix
+    name: Get Node + OS matrix
     runs-on: ubuntu-latest
 
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
