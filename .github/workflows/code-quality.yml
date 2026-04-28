@@ -2,7 +2,7 @@
 
 # For more information see: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow
 
-name: Quality Assurance
+name: Code Quality
 
 on:
   push:
@@ -15,7 +15,6 @@ on:
       - "utils/**/*.ts"
       - "utils/package.json"
       - "package.json"
-      - "package-lock.json"
       - ".github/workflows/ci.yml"
   pull_request:
     branches: ["*"]
@@ -27,7 +26,6 @@ on:
       - "utils/**/*.ts"
       - "utils/**/package.json"
       - "package.json"
-      - "package-lock.json"
       - ".github/workflows/ci.yml"
     types:
       - opened
@@ -40,7 +38,7 @@ permissions:
 
 jobs:
   get-matrix:
-    name: Configure Node environment matrix
+    name: Get Node + OS matrix
     runs-on: ubuntu-latest
 
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
@@ -62,10 +60,9 @@ jobs:
 
   lint-and-types:
     name: Lint & types
+    runs-on: ubuntu-slim
 
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
-
-    runs-on: ubuntu-slim
 
     steps:
       # FIXME https://github.com/step-security/harden-runner/issues/627
@@ -84,11 +81,10 @@ jobs:
       - run: node --run type-check
 
   test:
-    name: Codemod JSSG tests
+    name: Before/After tests
+    runs-on: ${{ matrix.os }}
 
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
-
-    runs-on: ${{ matrix.os }}
 
     strategy:
       fail-fast: false
@@ -106,6 +102,7 @@ jobs:
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          fetch-depth: 0
           persist-credentials: false
           show-progress: false
 
@@ -117,4 +114,23 @@ jobs:
           node-version-file: ".nvmrc"
 
       - run: npm ci
-      - run: node --run test
+
+      - name: Run tests related to changes
+        shell: bash
+        run: >
+          changed_paths=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
+
+          # run everything?
+          if echo "$changed_paths" | grep -qE '^(package\.json|\.github/workflows/ci\.yml|utils/)$'; then
+            npm run test --workspaces
+            exit 0
+          fi
+
+          # run for specific workspace(s)
+          npm run test $(
+            echo "$changed_paths" \
+            | grep '^recipes/'
+            | cut -d/ -f1,2
+            | sort -u
+            | sed 's/^/--workspace=/'
+          )
