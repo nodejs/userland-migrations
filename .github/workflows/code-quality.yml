@@ -2,7 +2,7 @@
 
 # For more information see: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow
 
-name: Quality Assurance
+name: Code Quality
 
 on:
   push:
@@ -38,7 +38,7 @@ permissions:
 
 jobs:
   get-matrix:
-    name: Configure Node environment matrix
+    name: Get Node environment matrix
     runs-on: ubuntu-latest
 
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
@@ -81,7 +81,7 @@ jobs:
       - run: node --run type-check
 
   test:
-    name: Codemod JSSG tests
+    name: Before/After tests
     runs-on: ${{ matrix.os }}
 
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
@@ -115,7 +115,7 @@ jobs:
 
       - run: npm ci
 
-      - name: Run tests (determined by changeset)
+      - name: Run tests related to changes
         shell: bash
         run: >
           changed_paths=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
