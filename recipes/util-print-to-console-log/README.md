@@ -1,39 +1,68 @@
-# `util.print, util.puts, util.debug, util.error` DEP0026,DEP0027,DEP0028,DEP0029
+---
+authors: brunocroh
+---
 
-This recipe transforms the usage of log functions from util, `print`, `puts`, `debug`, `error` to use `console.log()` or `console.error()`.
+# DEP0026/DEP0027/DEP0028/DEP0029: util Print Functions console
 
-See [DEP0026](https://nodejs.org/api/deprecations.html#DEP0026).
-See [DEP0027](https://nodejs.org/api/deprecations.html#DEP0027).
-See [DEP0028](https://nodejs.org/api/deprecations.html#DEP0028).
-See [DEP0029](https://nodejs.org/api/deprecations.html#DEP0029).
+Replaces four deprecated `util` output functions with their `console` equivalents:
 
-## Example
+- `util.print(...)` (DEP0026) `console.log(...)`
+- `util.puts(...)` (DEP0027) `console.log(...)`
+- `util.debug(...)` (DEP0028) `console.error(...)`
+- `util.error(...)` (DEP0029) `console.error(...)`
 
-```diff
-- const util = require("node:util");
+The `util` import is removed when it becomes unused after the transformation.
 
-- util.print("Hello world");
-+ console.log("Hello world");
-- util.puts("Hello world");
-+ console.log("Hello world");
-- util.debug("Hello world");
-+ console.error("Hello world");
-- util.error("Hello world");
-+ console.error("Hello world");
-`````
+## Usage
 
-**Before:**
+Run this codemod with:
 
-```js
-const { print, error } = require("node:util");
-
-print("Application started");
-error("Processing request");
+```sh
+npx codemod @nodejs/util-print-to-console-log
 ```
 
-After:
+## Examples
 
-```js
-console.log("Application started");
-console.error("Processing request");
+### Example 1
+
+`util.print` `console.log`:
+
+```diff
+-const util = require("node:util");
+-
+-util.print("Hello world");
++console.log("Hello world");
+```
+
+### Example 2
+
+`util.puts` `console.log`:
+
+```diff
+-const util = require("node:util");
+-
+-util.puts("Hello world");
++console.log("Hello world");
+```
+
+### Example 3
+
+`util.debug` `console.error`:
+
+```diff
+-const util = require("node:util");
+-
+-util.debug("Hello world");
++console.error("Hello world");
+```
+
+### Example 4
+
+`util.error` `console.error`:
+
+```diff
+-const util = require("node:util");
+-
+-util.error("Hello world");
++console.error("Hello world");
 ```

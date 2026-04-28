@@ -1,39 +1,113 @@
-# Node.js Timers Deprecations
+---
+authors: AugustinMauroy
+---
+# DEP0095/DEP0096/DEP0126/DEP0127: Deprecated node:timers APIs
 
-This recipe migrates deprecated internals from `node:timers` to the supported public timers API. It replaces usages of `timers.enroll()`, `timers.unenroll()`, `timers.active()`, and `timers._unrefActive()` with standard constructs built on top of `setTimeout()`, `clearTimeout()`, and `Timer#unref()`.
+Migrates the four deprecated `node:timers` internal APIs — `timers.enroll()`, `timers.unenroll()`, `timers.active()`, and `timers._unrefActive()` — to their modern equivalents built on `setTimeout` and `clearTimeout`.
 
-See the upstream notices: [DEP0095](https://nodejs.org/api/deprecations.html#DEP0095), [DEP0096](https://nodejs.org/api/deprecations.html#DEP0096), [DEP0126](https://nodejs.org/api/deprecations.html#DEP0126), and [DEP0127](https://nodejs.org/api/deprecations.html#DEP0127).
+## Usage
 
-## Example
+Run this codemod with:
 
-### Replace `timers.enroll()`
-
-```diff
-- const timers = require('node:timers');
-- const resource = { _idleTimeout: 1500 };
-- timers.enroll(resource, 1500);
-+ const resource = { timeout: setTimeout(() => {
-+   // timeout handler
-+ }, 1500) };
+```sh
+npx codemod @nodejs/timers-deprecations
 ```
 
-### Replace `timers.unenroll()`
+## Examples
+
+### Example 1
+
+`timers.enroll(resource, delay)` — replaced with an inline `setTimeout` that calls `resource._onTimeout` and stores the handle on `resource.timeout`:
 
 ```diff
-- timers.unenroll(resource);
-+ clearTimeout(resource.timeout);
+const timers = require("node:timers");
+
+const resource = {
+  _onTimeout() {
+    console.log("done");
+  },
+};
+
+-timers.enroll(resource, 1000);
++resource._idleTimeout = 1000;
++resource.timeout = setTimeout(() => {
++  if (typeof resource._onTimeout === "function") {
++    resource._onTimeout();
++  }
++}, 1000);
 ```
 
-### Replace `timers.active()` and `timers._unrefActive()`
+### Example 2
+
+`timers.unenroll(resource)` — replaced with a `clearTimeout` followed by deleting the handle:
 
 ```diff
-- const timers = require('node:timers');
-- timers.active(resource);
-- timers._unrefActive(resource);
-+ const handle = setTimeout(onTimeout, delay);
-+ handle.unref();
+const timers = require("node:timers");
+
+const resource = {
+  timeout: setTimeout(() => { }, 1000),
+};
+
+-timers.unenroll(resource);
++clearTimeout(resource.timeout);
++delete resource.timeout;
 ```
 
-## Caveats
+### Example 3
 
-The legacy APIs exposed internal timer bookkeeping fields such as `_idleStart` or `_idleTimeout`. Those internals have no public equivalent. The codemod focuses on migrating the control flow to modern timers and leaves application specific bookkeeping to the developer. Carefully review the transformed code to ensure that any custom metadata is still updated as expected.
+`timers.active(resource)` — replaced with a conditional `clearTimeout` and a fresh `setTimeout` that re-uses `resource._idleTimeout` and `resource._onTimeout`:
+
+```diff
+const timers = require("node:timers");
+
+const resource = {
+  _idleTimeout: 500,
+  timeout: setTimeout(() => { }, 500),
+  _onTimeout() {
+    console.log("again");
+  },
+};
+
+-timers.active(resource);
++if (resource.timeout != null) {
++  clearTimeout(resource.timeout);
++}
++
++resource.timeout = setTimeout(() => {
++  if (typeof resource._onTimeout === "function") {
++    resource._onTimeout();
++  }
++}, resource._idleTimeout);
+```
+
+### Example 4
+
+`timers._unrefActive(resource)` — same expansion as `timers.active()` plus a call to `.unref()` on the new handle:
+
+```diff
+const timers = require("node:timers");
+
+const resource = {
+  _idleTimeout: 60,
+  timeout: setTimeout(() => { }, 60),
+  _onTimeout() {
+    console.log("cleanup");
+  },
+};
+
+-timers._unrefActive(resource);
++if (resource.timeout != null) {
++  clearTimeout(resource.timeout);
++}
++
++resource.timeout = setTimeout(() => {
++  if (typeof resource._onTimeout === "function") {
++    resource._onTimeout();
++  }
++}, resource._idleTimeout);
++resource.timeout.unref?.();
+```
+
+## Notes
+
+`timers.active(resource)` and `timers._unrefActive(resource)` expand into a multi-statement block that reads `resource._idleTimeout` for the delay and `resource._onTimeout` for the callback. These are internal bookkeeping fields that the deprecated API relied on. If the resource object in your code uses different field names, review the output and adjust accordingly.

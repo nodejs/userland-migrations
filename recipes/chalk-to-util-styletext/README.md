@@ -1,56 +1,73 @@
-# Chalk to util.styleText
+---
+authors: richiemccoll
+---
 
-This recipe migrates from the external `chalk` package to Node.js built-in `util.styleText` API. It transforms chalk method calls to use the native Node.js styling functionality.
+# chalk util.styleText
 
-## Examples
-
-```diff
-- import chalk from 'chalk';
-+ import { styleText } from 'node:util';
-- console.log(chalk.red('Error message'));
-+ console.log(styleText('red', 'Error message'));
-- console.log(chalk.green('Success message'));
-+ console.log(styleText('green', 'Success message'));
-- console.log(chalk.blue('Info message'));
-+ console.log(styleText('blue', 'Info message'));
-```
-
-```diff
-- import chalk from 'chalk';
-+ import { styleText } from 'node:util';
-- console.log(chalk.red.bold('Important error'));
-+ console.log(styleText(['red', 'bold'], 'Important error'));
-- console.log(chalk.green.underline('Success with emphasis'));
-+ console.log(styleText(['green', 'underline'], 'Success with emphasis'));
-```
-
-```diff
-- const chalk = require('chalk');
-+ const { styleText } = require('node:util');
-- const red = chalk.red;
-+ const red = (text) => styleText('red', text);
-- const boldBlue = chalk.blue.bold;
-+ const boldBlue = (text) => styleText(['blue', 'bold'], text);
-- console.log(red('Error'));
-+ console.log(red('Error'));
-- console.log(boldBlue('Info'));
-+ console.log(boldBlue('Info'));
-```
+Migrates usage of the `chalk` npm package to the Node.js built-in `util.styleText()` API. Replaces the `chalk` import with `{ styleText }` from `node:util` and rewrites all chalk method calls accordingly. Chained chalk styles are converted to an array of style strings.
 
 ## Usage
 
 Run this codemod with:
 
 ```sh
-npx codemod nodejs/chalk-to-util-styletext
+npx codemod @nodejs/chalk-to-util-styletext
 ```
 
-## Compatibility
+## Examples
 
-- **Removes chalk dependency** from package.json automatically
-- **Supports most chalk methods**: colors, background colors, and text modifiers
-- **Unsupported methods**: `hex()`, `rgb()`, `ansi256()`, `bgAnsi256()`, `visible()` (warnings will be shown)
+### Example 1
 
-## Limitations
+Basic color methods (ESM default import)
 
-- **Complex conditional expressions** in some contexts may need manual review
+```diff
+-import chalk from "chalk";
++import { styleText } from "node:util";
+
+-console.log(chalk.red("Error message"));
+-console.log(chalk.green("Success message"));
+-console.log(chalk.blue("Info message"));
++console.log(styleText("red", "Error message"));
++console.log(styleText("green", "Success message"));
++console.log(styleText("blue", "Info message"));
+```
+
+### Example 2
+
+Chained styles
+
+```diff
+-import chalk from "chalk";
++import { styleText } from "node:util";
+
+-console.log(chalk.red.bold("Error: Operation failed"));
+-console.log(chalk.green.underline("Success: All tests passed"));
+-console.log(chalk.yellow.bgBlack("Warning: Deprecated API usage"));
++console.log(styleText(["red", "bold"], "Error: Operation failed"));
++console.log(styleText(["green", "underline"], "Success: All tests passed"));
++console.log(styleText(["yellow", "bgBlack"], "Warning: Deprecated API usage"));
+```
+
+### Example 3
+
+CommonJS `require`
+
+```diff
+-const chalk = require("chalk");
++const { styleText } = require("node:util");
+
+-const error = chalk.red("Error");
+-const warning = chalk.yellow("Warning");
+-const info = chalk.blue("Info");
++const error = styleText("red", "Error");
++const warning = styleText("yellow", "Warning");
++const info = styleText("blue", "Info");
+
+ console.log(error, warning, info);
+```
+
+## Notes
+
+### Limitations
+
+Chalk methods that have no direct `util.styleText` equivalent — including `hex()`, `rgb()`, `ansi256()`, `bgAnsi256()`, `visible()`, and `new chalk.Chalk()` — are skipped. A warning is printed for each unsupported call, and those call sites are left unchanged for manual review.

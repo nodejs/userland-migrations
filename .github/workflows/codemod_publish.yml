@@ -132,3 +132,10 @@ jobs:
 
           ✅ Codemod has been successfully published to the registry!
           EOF
+
+  refresh-learn:
+    name: Sync nodejs/learn
+    needs: validate-and-publish
+    uses: ./.github/workflows/refresh-learn.yml
+    secrets:
+      LEARN_REPO_TOKEN: ${{ secrets.LEARN_REPO_TOKEN }}

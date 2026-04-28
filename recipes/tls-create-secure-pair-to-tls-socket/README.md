@@ -1,104 +1,53 @@
-# `tls.createSecurePair` deprecation DEP0064
+---
+authors: technologic-technologic
+---
 
-This recipe transforms the usage from the deprecated `createSecurePair()` to `TLSSocket()`.
+# DEP0064: tls.createSecurePair() new tls.TLSSocket()
 
-See [DEP0064](https://nodejs.org/api/deprecations.html#dep0064-tlscreatesecurepair).
+Replaces deprecated `tls.createSecurePair(...)` calls with `new tls.TLSSocket(underlyingSocket, options)`. The four positional arguments (`secureContext`, `isServer`, `requestCert`, `rejectUnauthorized`) are converted into named properties of an options object. The result variable is renamed from `pair` to `socket`, and the import/require declaration is updated from `createSecurePair` to `TLSSocket`.
+
+## Usage
+
+Run this codemod with:
+
+```sh
+npx codemod @nodejs/tls-create-secure-pair-to-tls-socket
+```
 
 ## Examples
 
-### 1) Basic `createSecurePair` usage
-```diff
--const { createSecurePair } = require('node:tls');
--const pair = createSecurePair(credentials);
-+const { TLSSocket } = require('node:tls');
-+const socket = new TLSSocket(underlyingSocket, { secureContext: credentials });
-```
+### Example 1
 
----
+Namespace `require` — the call is replaced with `new tls.TLSSocket(...)` and the result variable renamed:
 
-### 2) Namespace import (CJS)
 ```diff
--const tls = require('node:tls');
+const tls = require('node:tls');
 -const pair = tls.createSecurePair(credentials);
-+const tls = require('node:tls');
 +const socket = new tls.TLSSocket(underlyingSocket, { secureContext: credentials });
 ```
 
----
+### Example 2
 
-### 3) With server context
+Destructured `require` with all four positional arguments — each argument becomes a named option:
+
 ```diff
 -const { createSecurePair } = require('node:tls');
--const pair = createSecurePair(credentials, true, true, false);
 +const { TLSSocket } = require('node:tls');
-+const socket = new TLSSocket(underlyingSocket, {
-+  secureContext: credentials,
-+  isServer: true,
-+  requestCert: true,
-+  rejectUnauthorized: false
-+});
+-const pair = createSecurePair(credentials, true, true, false);
++const socket = new TLSSocket(underlyingSocket, { secureContext: credentials, isServer: true, requestCert: true, rejectUnauthorized: false });
 ```
 
----
+### Example 3
 
-### 4) ESM named import
+ESM named import:
+
 ```diff
 -import { createSecurePair } from 'node:tls';
--const pair = createSecurePair(credentials);
 +import { TLSSocket } from 'node:tls';
-+const socket = new TLSSocket(underlyingSocket, { secureContext: credentials });
-```
-
----
-
-### 5) ESM namespace import
-```diff
--import * as tls from 'node:tls';
--const pair = tls.createSecurePair(credentials);
-+import * as tls from 'node:tls';
-+const socket = new tls.TLSSocket(underlyingSocket, { secureContext: credentials });
-```
-
----
-
-### 6) Mixed usage with other TLS functions
-```diff
--const { createSecurePair, createServer } = require('node:tls');
 -const pair = createSecurePair(credentials);
--const server = createServer(options);
-+const { TLSSocket, createServer } = require('node:tls');
 +const socket = new TLSSocket(underlyingSocket, { secureContext: credentials });
-+const server = createServer(options);
 ```
 
----
+## Notes
 
-### 7) ESM default import
-```diff
--import tls from 'node:tls';
--const pair = tls.createSecurePair(credentials);
-+import tls, { TLSSocket } from 'node:tls';
-+const socket = new tls.TLSSocket(underlyingSocket, { secureContext: credentials });
-```
-
----
-
-### 8) ESM dynamic import (assignment)
-```diff
--const tls = await import('node:tls');
--const pair = tls.createSecurePair(credentials);
-+const tls = await import('node:tls');
-+const socket = new tls.TLSSocket(underlyingSocket, { secureContext: credentials });
-```
-
----
-
-### 9) ESM dynamic import (thenable)
-```diff
--import('node:tls').then(tls => {
--  const pair = tls.createSecurePair(credentials);
--});
-+import('node:tls').then(tls => {
-+  const socket = new tls.TLSSocket(underlyingSocket, { secureContext: credentials });
-+});
-```
+The first argument to `createSecurePair` (the secure context) maps to `secureContext` in the `TLSSocket` options object. The underlying stream that `TLSSocket` requires as its first positional argument is inserted as `underlyingSocket` — review each call site to supply the correct stream reference for your application.
