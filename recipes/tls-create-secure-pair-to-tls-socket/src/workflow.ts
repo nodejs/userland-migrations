@@ -70,6 +70,7 @@ const transform: Codemod<JS> = async (root) => {
 			specifiers: [{ name: 'TLSSocket' }],
 			from: 'node:tls',
 			type: 'named',
+			moduleType: importNode.moduleType,
 		});
 
 		if (addEdit) edits.push(addEdit);
