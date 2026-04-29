@@ -108,7 +108,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 					has: {
 						field: 'function',
 						any: [
-							{ kind: 'identifier', regex: `^${local}$` },
+							{ kind: 'identifier', pattern: local },
 							{
 								kind: 'member_expression',
 								has: {
