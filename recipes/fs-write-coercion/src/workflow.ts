@@ -120,7 +120,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 			for (const call of calls) {
 				// Get the arguments node
-				const argsNode = call.find({ rule: { kind: 'arguments' } });
+				const argsNode = call.field('arguments');
 				if (!argsNode) continue;
 
 				// Get all direct child nodes that are arguments (skip commas, parens)
