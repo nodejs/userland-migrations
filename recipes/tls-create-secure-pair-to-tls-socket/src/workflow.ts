@@ -35,7 +35,9 @@ export default function transform(root: SgRoot<JS>): string | null {
 		const args = call.field('arguments');
 		if (!args) continue;
 
-		const argNodes = args.children().filter((n) => n.isNamed());
+		const argNodes = args
+			.children()
+			.filter((n) => n.isNamed() && !n.is('comment'));
 
 		const options = buildOptions(
 			argNodes[0]?.text() || null,

@@ -4,9 +4,7 @@
   "description": "Handle DEP0176 via transforming imports of `fs.F_OK`, `fs.R_OK`, `fs.W_OK`, `fs.X_OK` from the root `fs` module to `fs.constants`.",
   "type": "module",
   "scripts": {
-    "test": "node --run test:jssg && node --run test:node",
-    "test:jssg": "npx codemod jssg test -l typescript ./src/workflow.ts ./",
-    "test:node": "node --test src/**.test.ts"
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests"
   },
   "repository": {
     "type": "git",
@@ -22,6 +20,6 @@
   },
   "devDependencies": {
     "@ast-grep/napi": "^0.41.0",
-    "@codemod.com/jssg-types": "^1.5.1"
+    "@codemod.com/jssg-types": "^1.6.0"
   }
 }
