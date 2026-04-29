@@ -66,23 +66,23 @@ const warnWithLocation = (
 };
 
 const UNSUPPORTED_CONFIG_OPTIONS = [
-	'transformRequest',
-	'transformResponse',
-	'paramsSerializer',
-	'withCredentials',
-	'timeout',
-	'httpAgent',
-	'httpsAgent',
-	'validateStatus',
-	'maxRedirects',
-	'socketPath',
-	'decompress',
-	'maxContentLength',
-	'maxBodyLength',
 	'beforeRedirect',
 	'cancelToken',
+	'decompress',
+	'httpAgent',
+	'httpsAgent',
+	'maxBodyLength',
+	'maxContentLength',
+	'maxRedirects',
+	'paramsSerializer',
 	'signal',
-];
+	'socketPath',
+	'timeout',
+	'transformRequest',
+	'transformResponse',
+	'validateStatus',
+	'withCredentials',
+] as const;
 
 const getObjectPropertyValue = (
 	objectNode: SgNode<Js>,
@@ -144,8 +144,8 @@ const getFormBodyExpression = (
 		return `new URLSearchParams(${source})`;
 	}
 
-	// if it's already a FormData or URLSearchParams instance, return as is
-	// we only check for common instantiation patterns here maybe add complex ones later
+	// if it's already a FormData or URLSearchParams instance, return as-is
+	// we only check for common instantiation patterns here—maybe add complex ones later?
 	if (
 		trimmed.startsWith('new URLSearchParams') ||
 		trimmed.startsWith('URLSearchParams(')
@@ -158,11 +158,11 @@ const getFormBodyExpression = (
 	}
 
 	return dedent`
-	(() => {
-		const value = ${source};
-		if (value instanceof FormData || value instanceof URLSearchParams) return value;
-		return new URLSearchParams(value);
-	})()
+		(() => {
+			const value = ${source};
+			if (value instanceof FormData || value instanceof URLSearchParams) return value;
+			return new URLSearchParams(value);
+		})()
 	`;
 };
 
@@ -195,14 +195,14 @@ const createAxiosMethodUpdate = ({
 			: `fetch(${url.text()}, ${options})`;
 
 		return dedent.withOptions({ alignValues: true })`
-		${fetchCall}
-			.then(async (${responseAlias}) => Object.assign(${responseAlias}, { data: await ${responseAlias}.json() }))
-			.catch(() => null)
+			${fetchCall}
+				.then(async (${responseAlias}) => Object.assign(${responseAlias}, { data: await ${responseAlias}.json() }))
+				.catch(() => null)
 		`;
 	},
 });
 
-const axiosMethodUpdates: AxiosMethodUpdateConfig[] = [
+const axiosMethodUpdates = [
 	{ name: 'post', method: 'POST', oldOptionsIndex: 2, bodyIndex: 1 },
 	{ name: 'put', method: 'PUT', oldOptionsIndex: 2, bodyIndex: 1 },
 	{ name: 'patch', method: 'PATCH', oldOptionsIndex: 2, bodyIndex: 1 },
@@ -245,13 +245,9 @@ const axiosMethodUpdates: AxiosMethodUpdateConfig[] = [
 		oldOptionsIndex: 1,
 		optionalOptionsArg: false,
 	},
-];
+] satisfies AxiosMethodUpdateConfig[];
 
-const baseUpdates: {
-	oldBind: string;
-	replaceFn: BindingToReplace['replaceFn'];
-	supportDefaultAccess?: boolean;
-}[] = [
+const baseUpdates = [
 	createAxiosMethodUpdate({
 		name: 'get',
 		oldOptionsIndex: 1,
@@ -302,18 +298,24 @@ const baseUpdates: {
 			});
 
 			return dedent.withOptions({ alignValues: true })`
-	fetch(${url}${options ? `, ${options}` : ''})
-		.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
-		.catch(() => null)
+				fetch(${url}${options ? `, ${options}` : ''})
+					.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
+					.catch(() => null)
 	`;
 		},
 	},
-];
+] satisfies {
+	oldBind: string;
+	replaceFn: BindingToReplace['replaceFn'];
+	supportDefaultAccess?: boolean;
+}[];
 
 const updates = baseUpdates.flatMap((update) => {
 	const bindings = [update.oldBind];
 	if (
-		update.supportDefaultAccess !== false &&
+		// supportDefaultAccess is optional on some update items, so guard access
+		(!('supportDefaultAccess' in update) ||
+			update.supportDefaultAccess !== false) &&
 		!update.oldBind.includes('.default.')
 	) {
 		bindings.push(update.oldBind.replace('$.', '$.default.'));
@@ -490,6 +492,10 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	// Check for unsupported options before making any changes
 	if (checkForUnsupportedOptions(rootNode, bindsToReplace, root)) {
+		warnWithLocation(
+			{ root, match: rootNode },
+			'One or more axios calls in this file use unsupported configuration options. Skipping migration to preserve functionality.',
+		);
 		return null;
 	}
 
