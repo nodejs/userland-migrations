@@ -1,11 +1,6 @@
 import type { Edit, Range, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
-import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
-import {
-	getNodeImportStatements,
-	getNodeImportCalls,
-} from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
 import { getScope } from '@nodejs/codemod-utils/ast-grep/get-scope';
@@ -28,6 +23,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	const http2Statements = getModuleDependencies(root, 'http2');
 
+	// If no imports, nothing to do
 	if (!http2Statements.length) return null;
 
 	// Resolve all local callee names for http2.connect (handles namespace, default, named, alias, require/import)
@@ -57,7 +53,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 		...rootNode.findAll({ rule: { pattern: '$HTTP2.connect($$$_ARGS)' } }),
 		// Also include direct calls when `connect` is imported as a named binding or alias (e.g., `connect(...)` or `bar(...)`).
 		...Array.from(connectCallees).flatMap((callee) => {
-			// If callee already includes a dot (e.g., http2.connect), the pattern above already matches it.
+			// If callee already includes a dot (e.g., http2.connect), the pattern above already matched it.
 			if (callee.includes('.')) return [] as SgNode<Js>[];
 			return rootNode.findAll({ rule: { pattern: `${callee}($$$_ARGS)` } });
 		}),
@@ -74,6 +70,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 		});
 		const variable = variableDeclarator?.field('name');
 		if (!variable) continue;
+
 		sessionVars.push({
 			name: variable.text(),
 			decl: variableDeclarator,
