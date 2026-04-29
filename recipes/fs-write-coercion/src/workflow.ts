@@ -17,42 +17,38 @@ const TARGET_FUNCTIONS = [
 	{ path: '$.promises.appendFile', prop: 'appendFile' },
 ];
 
+const TypedArrayRegex = `^(Uint8Array|Int8Array|Uint16Array|Int16Array|Uint32Array|Int32Array|Float32Array|Float64Array|DataView)$`;
+
 /**
  * Check if a text expression is already a safe type that doesn't need String() wrapping.
  * Safe types: string literals, template literals, Buffer/TypedArray expressions,
  * already-wrapped String() or .toString() calls.
  */
-function isSafeType(text: string): boolean {
-	const trimmed = text.trim();
+function isSafeType(node: SgNode<Js, Kinds<Js>>): boolean {
+	const safe = node.find({
+		constraints: {
+			METHOD: {
+				regex: TypedArrayRegex,
+			},
+		},
+		rule: {
+			any: [
+				{ kind: 'number' },
+				{ kind: 'string' },
+				{ kind: 'string_fragment' },
+				{ pattern: '$ANY.toString()' },
+				{ pattern: '$METHOD' },
+				{ pattern: 'Buffer.from($ANY)' },
+				{ pattern: 'String($ANY)' },
+				{ pattern: 'null' },
+				{ pattern: 'undefined' },
+			],
+		},
+	});
 
-	// String literals and template literals (', ", `)
-	if (/^['"`]/.test(trimmed)) return true;
-
-	// Already has .toString()
-	if (trimmed.endsWith('.toString()')) return true;
-
-	// Already wrapped in String() — exact match to avoid false positives like Stringify()
-	if (/^String\(/.test(trimmed) && trimmed.endsWith(')')) return true;
-
-	// Buffer.from(), Buffer.alloc(), etc.
-	if (/^Buffer\.\w+\(/.test(trimmed)) return true;
-
-	// new Uint8Array, new Int8Array, etc.
-	if (
-		/^new\s+(Uint8Array|Int8Array|Uint16Array|Int16Array|Uint32Array|Int32Array|Float32Array|Float64Array|DataView)\b/.test(
-			trimmed,
-		)
-	)
-		return true;
-
-	// Numeric literal (integers and floats)
-	if (/^\d+(\.\d+)?$/.test(trimmed)) return true;
-
-	// null or undefined
-	if (trimmed === 'null' || trimmed === 'undefined') return true;
-
-	return false;
+	return Boolean(safe);
 }
+
 
 /**
  * fs.write() has two overloaded signatures:
