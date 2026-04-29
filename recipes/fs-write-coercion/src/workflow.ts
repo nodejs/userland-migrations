@@ -98,7 +98,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 			if (!local) continue;
 
 			// Find all call expressions for this binding
-			const calls = rootNode.findAll({
+			const calls = rootNode.findAll<'call_expression'>({
 				rule: {
 					kind: 'call_expression',
 					has: {
