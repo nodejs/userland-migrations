@@ -11,7 +11,7 @@ updates:
 
   - package-ecosystem: github-actions
     commit-message:
-      prefix: dep
+      prefix: dep(GHA)
     directory: /
     labels:
       - "dependencies"
@@ -21,7 +21,8 @@ updates:
 
   - package-ecosystem: npm # See documentation for possible values
     commit-message:
-      prefix: dep
+      prefix: dep(prod)
+      prefix-development: dep(dev)
     directories:
       - / # Location of package manifests
       - /recipies/*
