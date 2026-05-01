@@ -75,19 +75,5 @@ describe('Pull Request checks', { concurrency: true }, async () => {
 			for (const p of SUPPORTED_PREFIXES) match(stderr, new RegExp(p));
 			equal(code, 1);
 		});
-	});
-
-	describe('dependabot pr title', () => {
-		it('should pass', async () => {
-			const { code, stderr } = await spawnPromisified(execPath, [prTestPath], {
-				encoding,
-				env: {
-					PR_TITLE: `dep: bump @typescript ...`,
-				},
-			});
-
-			equal(stderr, '');
-			equal(code, 0);
-		});
-	});
+	})
 });
