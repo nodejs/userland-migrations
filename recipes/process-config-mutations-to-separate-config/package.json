@@ -17,5 +17,8 @@
   "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/process-config-mutations-to-separate-config/README.md",
   "devDependencies": {
     "@codemod.com/jssg-types": "^1.6.0"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
   }
 }

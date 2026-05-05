@@ -1,5 +1,6 @@
 import type { Edit, SgNode, SgRoot } from "@codemod.com/jssg-types/main";
 import type JS from "@codemod.com/jssg-types/langs/javascript";
+import { getLineIndent } from "@nodejs/codemod-utils/ast-grep/indent";
 
 const IMMUTABLE_COMMENT = "// process.config is now immutable and cannot be modified (DEP0150)";
 const DELETE_COMMENT =
@@ -13,12 +14,14 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const sourceCode = rootNode.text();
 	const edits: Edit[] = [];
 
-	const commentedStmts = new Set<string>();
-
-	for (const { node, headerComments } of [
+	const writeCandidates = [
 		...findProcessConfigAssignments(rootNode),
 		...findProcessConfigDeletes(rootNode),
-	]) {
+	];
+	const objectAssign = findProcessConfigObjectAssign(rootNode);
+	if (!writeCandidates.length && !objectAssign) return null;
+	const commentedStmts = new Set<string>();
+	for (const { node, headerComments } of writeCandidates) {
 		const stmt = climbToStatement(node);
 		if (!stmt) continue;
 		const key = stmtKey(stmt);
@@ -26,34 +29,30 @@ export default function transform(root: SgRoot<JS>): string | null {
 		commentedStmts.add(key);
 		edits.push(stmt.replace(buildCommentBlock(sourceCode, stmt, headerComments)));
 	}
-
-	for (const { node } of findProcessConfigObjectAssigns(rootNode)) {
-		const parentKind = node.parent()?.kind();
-
+	if (objectAssign) {
+		const parentKind = objectAssign.parent()?.kind();
 		if (parentKind === "variable_declarator" || parentKind === "assignment_expression") {
-			const swapped = node
+			const swapped = objectAssign
 				.text()
 				.replace(/Object\.assign\(\s*process\.config\s*,/, "Object.assign({}, process.config,");
-			edits.push(node.replace(swapped));
-			continue;
+			edits.push(objectAssign.replace(swapped));
 		}
-
 		if (parentKind === "expression_statement") {
-			const stmt = node.parent()!;
+			const stmt = objectAssign.parent()!;
 			const key = stmtKey(stmt);
-			if (commentedStmts.has(key)) continue;
-			commentedStmts.add(key);
-			edits.push(
-				stmt.replace(
-					buildCommentBlock(sourceCode, stmt, [
-						IMMUTABLE_COMMENT,
-						CONFIG_COPY_COMMENT,
-					]),
-				),
-			);
+			if (!commentedStmts.has(key)) {
+				commentedStmts.add(key);
+				edits.push(
+					stmt.replace(
+						buildCommentBlock(sourceCode, stmt, [IMMUTABLE_COMMENT, CONFIG_COPY_COMMENT]),
+					),
+				);
+			}
 		}
 	}
+
 	if (!edits.length) return null;
+
 	return rootNode.commitEdits(edits);
 }
 
@@ -69,19 +68,21 @@ function findProcessConfigAssignments(rootNode: SgNode<JS>): WriteCandidate[] {
 			},
 		},
 	});
+
 	return nodes.map((node) => ({
 		node,
 		headerComments: [IMMUTABLE_COMMENT, CONFIG_COPY_COMMENT],
 	}));
 }
 
-function findProcessConfigObjectAssigns(rootNode: SgNode<JS>): { node: SgNode<JS> }[] {
-	const nodes = rootNode.findAll({
+function findProcessConfigObjectAssign(rootNode: SgNode<JS>): SgNode<JS> {
+	const node = rootNode.find({
 		rule: {
 			pattern: "Object.assign(process.config, $$$ARGS)",
 		},
 	});
-	return nodes.map((node) => ({ node }));
+
+	return node;
 }
 
 function findProcessConfigDeletes(rootNode: SgNode<JS>): WriteCandidate[] {
@@ -91,21 +92,26 @@ function findProcessConfigDeletes(rootNode: SgNode<JS>): WriteCandidate[] {
 			regex: "^delete\\s+process\\.config(\\.|\\[|$)",
 		},
 	});
+
 	return nodes.map((node) => ({
 		node,
 		headerComments: [DELETE_COMMENT, DELETE_HINT_COMMENT],
 	}));
 }
 function climbToStatement(node: SgNode<JS>): SgNode<JS> | null {
-	let cur: SgNode<JS> | null = node;
-	for (let i = 0; i < 3 && cur; i++) {
-		if (cur.kind() === "expression_statement") return cur;
+	let cur: SgNode<JS> | null = node.parent();
+	while (cur) {
+		const kind = cur.kind();
+		if (kind === "arguments") return null;
+		if (kind === "expression_statement") return cur;
 		cur = cur.parent() ?? null;
 	}
+
 	return null;
 }
 function stmtKey(stmt: SgNode<JS>): string {
 	const r = stmt.range().start;
+
 	return `${r.line}:${r.column}`;
 }
 function buildCommentBlock(sourceCode: string, stmt: SgNode<JS>, header: string[]): string {
@@ -116,10 +122,6 @@ function buildCommentBlock(sourceCode: string, stmt: SgNode<JS>, header: string[
 		.split(/\r\n|\n|\r/)
 		.map((line) => `// ${line}`);
 	const lines = [...header, ...bodyLines];
+
 	return lines.map((l, i) => (i === 0 ? l : `${indent}${l}`)).join(lineEnding);
-}
-function getLineIndent(sourceCode: string, index: number): string {
-	const lineStart = sourceCode.lastIndexOf("\n", index - 1) + 1;
-	const linePrefix = sourceCode.slice(lineStart, index);
-	return linePrefix.match(/^[\t ]*/)?.[0] ?? "";
 }
