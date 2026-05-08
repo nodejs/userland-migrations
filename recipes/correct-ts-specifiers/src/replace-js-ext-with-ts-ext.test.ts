@@ -17,8 +17,7 @@ import type { FSAbsolutePath } from './index.d.ts';
 type MockModuleContext = ReturnType<typeof mock.module>;
 
 type Logger = typeof import('./logger.ts').logger;
-type ReplaceJSExtWithTSExt =
-	typeof import('./replace-js-ext-with-ts-ext.ts').replaceJSExtWithTSExt;
+type ReplaceJSExtWithTSExt = typeof import('./replace-js-ext-with-ts-ext.ts').replaceJSExtWithTSExt;
 
 describe('Correcting ts file extensions', { concurrency: true }, () => {
 	const originatingFilePath = fileURLToPath(

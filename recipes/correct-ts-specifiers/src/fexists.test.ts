@@ -6,8 +6,7 @@ import type { FSAbsolutePath } from './index.d.ts';
 
 type FSAccess = typeof import('fs').promises.access;
 type FExists = typeof import('./fexists.ts').fexists;
-type ResolveSpecifier =
-	typeof import('./resolve-specifier.ts').resolveSpecifier;
+type ResolveSpecifier = typeof import('./resolve-specifier.ts').resolveSpecifier;
 
 const RESOLVED_SPECIFIER_ERR = 'Resolved specifier did not match expected';
 
@@ -20,29 +19,27 @@ describe('fexists', {
 	let mock__access: Mock<FSAccess>['mock'];
 	let mock__resolveSpecifier: Mock<ResolveSpecifier>['mock'];
 
-	before(() => {
-		const access = mock.fn<FSAccess>();
-		({ mock: mock__access } = access);
-		mock.module('fs', {
-			namedExports: {
-				constants,
-				promises: { access },
-			},
-		});
-
-		const resolveSpecifier = mock.fn<ResolveSpecifier>();
-		({ mock: mock__resolveSpecifier } = resolveSpecifier);
-		mock.module('./resolve-specifier.ts', {
-			namedExports: {
-				resolveSpecifier,
-			},
-		});
-		mock__resolveSpecifier.mockImplementation(
-			function MOCK__resolveSpecifier(_pp, specifier) {
-				return specifier;
-			},
-		);
+	const access = mock.fn<FSAccess>();
+	({ mock: mock__access } = access);
+	mock.module('fs', {
+		namedExports: {
+			constants,
+			promises: { access },
+		},
 	});
+
+	const resolveSpecifier = mock.fn<ResolveSpecifier>();
+	({ mock: mock__resolveSpecifier } = resolveSpecifier);
+	mock.module('./resolve-specifier.ts', {
+		namedExports: {
+			resolveSpecifier,
+		},
+	});
+	mock__resolveSpecifier.mockImplementation(
+		function MOCK__resolveSpecifier(_pp, specifier) {
+			return specifier;
+		},
+	);
 
 	describe('when the file exists', () => {
 		let fexists: FExists;
