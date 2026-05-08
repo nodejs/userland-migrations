@@ -69,6 +69,7 @@ let cachedPackageImports: Record<string, string> | null | undefined;
 
 function resolveViaTsConfigPaths(
 	specifier: Specifier,
+	parentPath?: FSAbsolutePath | ResolvedSpecifier,
 ): ResolvedSpecifier | null {
 	if (
 		specifier.startsWith('.') ||
@@ -78,7 +79,7 @@ function resolveViaTsConfigPaths(
 		return null;
 	}
 
-	const tsConfigPaths = getTsConfigPaths();
+	const tsConfigPaths = getTsConfigPaths(parentPath);
 	if (!tsConfigPaths) return null;
 
 	for (const entry of tsConfigPaths.entries) {
@@ -102,49 +103,62 @@ function resolveViaTsConfigPaths(
 	return null;
 }
 
-function getTsConfigPaths(): TsConfigPaths | null {
+function getTsConfigPaths(parentPath?: FSAbsolutePath | ResolvedSpecifier): TsConfigPaths | null {
+	if (cachedTsConfigPaths !== undefined && !parentPath) return cachedTsConfigPaths;
+
+	const tryRead = (baseDir: string) => {
+		try {
+			const raw = readFileSync(resolvePath(baseDir, 'tsconfig.json'), 'utf8');
+			const json = parseJsonc(raw) as {
+				compilerOptions?: {
+					baseUrl?: string;
+					paths?: Record<string, string[]>;
+				};
+			};
+
+			const paths = json.compilerOptions?.paths;
+			if (!paths) return null;
+
+			const baseDirResolved = resolvePath(baseDir, json.compilerOptions?.baseUrl ?? '.');
+			const entries: TsConfigPathMap[] = [];
+
+			for (const [pattern, targets] of Object.entries(paths)) {
+				if (!targets.length) continue;
+
+				const firstTarget = targets[0];
+				const [keyPrefix, keySuffix] = splitStarPattern(pattern);
+				const [targetPrefix, targetSuffix] = splitStarPattern(firstTarget);
+
+				entries.push({ keyPrefix, keySuffix, targetPrefix, targetSuffix });
+			}
+
+			return { baseDir: baseDirResolved, entries };
+		} catch {
+			return null;
+		}
+	};
+
+	// If parentPath is provided, prefer tsconfig relative to that file's directory.
+	if (parentPath) {
+		try {
+			const startingDir = isAbsolute(parentPath)
+				? dirname(parentPath as string)
+				: dirname(fileURLToPath(parentPath as string));
+			const result = tryRead(startingDir);
+			if (result) {
+				// cache only when not using parentPath (we might be in multiple files)
+				return result;
+			}
+		} catch {
+			// ignore and fall back
+		}
+	}
+
 	if (cachedTsConfigPaths !== undefined) return cachedTsConfigPaths;
 
-	try {
-		const raw = readFileSync(
-			resolvePath(process.cwd(), 'tsconfig.json'),
-			'utf8',
-		);
-		const json = parseJsonc(raw) as {
-			compilerOptions?: {
-				baseUrl?: string;
-				paths?: Record<string, string[]>;
-			};
-		};
-
-		const paths = json.compilerOptions?.paths;
-		if (!paths) {
-			cachedTsConfigPaths = null;
-			return cachedTsConfigPaths;
-		}
-
-		const baseDir = resolvePath(
-			process.cwd(),
-			json.compilerOptions?.baseUrl ?? '.',
-		);
-		const entries: TsConfigPathMap[] = [];
-
-		for (const [pattern, targets] of Object.entries(paths)) {
-			if (!targets.length) continue;
-
-			const firstTarget = targets[0];
-			const [keyPrefix, keySuffix] = splitStarPattern(pattern);
-			const [targetPrefix, targetSuffix] = splitStarPattern(firstTarget);
-
-			entries.push({ keyPrefix, keySuffix, targetPrefix, targetSuffix });
-		}
-
-		cachedTsConfigPaths = { baseDir, entries };
-		return cachedTsConfigPaths;
-	} catch {
-		cachedTsConfigPaths = null;
-		return cachedTsConfigPaths;
-	}
+	const fallback = tryRead(process.cwd());
+	cachedTsConfigPaths = fallback;
+	return cachedTsConfigPaths;
 }
 
 function resolveViaPackageImports(
