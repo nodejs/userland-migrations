@@ -10,24 +10,24 @@ See [DEP0150](https://nodejs.org/api/deprecations.html#DEP0150).
 
 Direct assignment is commented out with guidance:
 
-\`\`\`diff
+```diff
 
 - process.config.target_defaults = { cflags: [] };
 
 * // process.config is now immutable and cannot be modified (DEP0150)
 * // Use a separate configuration object for custom values
 * // process.config.target_defaults = { cflags: [] };
-  \`\`\`
+```
 
 `Object.assign` whose result is captured is rewritten in place, copying into a
 fresh object instead of mutating `process.config`:
 
-\`\`\`diff
+```diff
 
 - const config = Object.assign(process.config, { custom: "settings" });
 
 * const config = Object.assign({}, process.config, { custom: "settings" });
-  \`\`\`
+```
 
 Reading `process.config` is preserved unchanged.
 
