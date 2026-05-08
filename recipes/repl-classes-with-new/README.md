@@ -24,4 +24,4 @@ See [DEP0185](https://nodejs.org/api/deprecations.html#DEP0185).
 + const error = new Recoverable(new SyntaxError());
 - const server4 = REPL({ prompt: ">>> " });
 + const server4 = new REPL({ prompt: ">>> " });
-`````
+```
