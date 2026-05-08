@@ -32,7 +32,6 @@
   },
   "workspaces": [
     "./recipes/*",
-    "utils",
-    "!./recipes/correct-ts-specifiers"
+    "utils"
   ]
 }
