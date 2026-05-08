@@ -42,6 +42,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 		commentedStmts.add(key);
 		edits.push(stmt.replace(buildCommentBlock(sourceCode, stmt, headerComments)));
 	}
+
 	if (objectAssign) {
 		const parent = objectAssign.parent();
 		if (parent?.is("variable_declarator") || parent?.is("assignment_expression")) {
