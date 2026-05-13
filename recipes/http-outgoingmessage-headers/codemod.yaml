@@ -19,6 +19,7 @@ keywords:
   - transformation
   - migration
   - http
+  - nodejs
 
 registry:
   access: public

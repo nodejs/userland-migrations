@@ -17,6 +17,7 @@ keywords:
   - transformation
   - migration
   - deprecation
+  - nodejs
 
 registry:
   access: public

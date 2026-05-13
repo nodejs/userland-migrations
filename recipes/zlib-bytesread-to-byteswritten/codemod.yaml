@@ -19,6 +19,7 @@ keywords:
   - zlib
   - bytesRead
   - bytesWritten
+  - nodejs
 
 registry:
   access: public

@@ -18,6 +18,7 @@ keywords:
   - migration
   - errors
   - DEP0159
+  - nodejs
 
 registry:
   access: public

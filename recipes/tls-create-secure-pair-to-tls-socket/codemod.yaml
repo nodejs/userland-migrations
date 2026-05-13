@@ -19,6 +19,7 @@ keywords:
   - tls
   - createSecurePair
   - TLSSocket
+  - nodejs
 
 registry:
   access: public

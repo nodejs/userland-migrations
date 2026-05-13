@@ -16,6 +16,7 @@ targets:
 keywords:
   - transformation
   - migration
+  - nodejs
 
 registry:
   access: public

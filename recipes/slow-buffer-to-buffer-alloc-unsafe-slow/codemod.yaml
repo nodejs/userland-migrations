@@ -18,6 +18,7 @@ keywords:
   - migration
   - buffer
   - slowbuffer
+  - nodejs
 
 registry:
   access: public

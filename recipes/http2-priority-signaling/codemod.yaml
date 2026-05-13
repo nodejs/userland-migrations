@@ -18,6 +18,7 @@ keywords:
   - migration
   - http2
   - deprecation
+  - nodejs
 
 registry:
   access: public

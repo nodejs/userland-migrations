@@ -17,6 +17,7 @@ keywords:
   - transformation
   - migration
   - buffers
+  - nodejs
 
 registry:
   access: public

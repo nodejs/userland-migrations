@@ -20,6 +20,7 @@ keywords:
   - migration
   - crypto
   - rsa-pss
+  - nodejs
 
 registry:
   access: public

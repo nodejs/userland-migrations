@@ -16,6 +16,7 @@ targets:
 keywords:
   - migration
   - timers
+  - nodejs
 
 registry:
   access: public
