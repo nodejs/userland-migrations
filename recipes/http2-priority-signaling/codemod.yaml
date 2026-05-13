@@ -6,6 +6,7 @@ author: Augustin Mauroy
 license: MIT
 workflow: workflow.yaml
 category: migration
+repository: https://github.com/nodejs/userland-migrations
 
 targets:
   languages:
@@ -17,6 +18,7 @@ keywords:
   - migration
   - http2
   - deprecation
+  - nodejs
 
 registry:
   access: public
