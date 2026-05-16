@@ -6,6 +6,7 @@ author: lluisemper(Lluis Semper Lloret)
 license: MIT
 workflow: workflow.yaml
 category: migration
+repository: https://github.com/nodejs/userland-migrations
 
 targets:
   languages:
@@ -17,6 +18,7 @@ keywords:
   - migration
   - buffer
   - slowbuffer
+  - nodejs
 
 registry:
   access: public
