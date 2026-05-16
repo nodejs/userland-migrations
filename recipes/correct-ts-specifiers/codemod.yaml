@@ -1,0 +1,23 @@
+schema_version: "1.0"
+name: "@nodejs/correct-ts-specifiers"
+version: "1.0.0"
+description: "Replace erroneous 'js' or omitted file extensions of import specifiers in TypeScript files."
+author: "Jacob Smith"
+license: "MIT"
+workflow: "workflow.yaml"
+category: "migration"
+
+targets:
+  languages:
+    - "javascript"
+    - "typescript"
+
+keywords:
+  - "transformation"
+  - "migration"
+  - "esm"
+  - "typescript"
+
+registry:
+  access: "public"
+  visibility: "public"

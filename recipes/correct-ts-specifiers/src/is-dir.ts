@@ -1,5 +1,4 @@
-import { lstat } from 'node:fs/promises';
-
+import { promises as fs } from 'node:fs';
 import type {
 	FSAbsolutePath,
 	NodeModSpecifier,
@@ -8,16 +7,20 @@ import type {
 } from './index.d.ts';
 import { resolveSpecifier } from './resolve-specifier.ts';
 
-export async function isDir(parentPath: FSAbsolutePath | ResolvedSpecifier, specifier: Specifier) {
+export async function isDir(
+	parentPath: FSAbsolutePath | ResolvedSpecifier,
+	specifier: Specifier,
+) {
 	let resolvedSpecifier: ResolvedSpecifier | NodeModSpecifier;
 	try {
 		resolvedSpecifier = resolveSpecifier(parentPath, specifier);
 	} catch (err) {
-		if ((err as NodeJS.ErrnoException).code === 'ERR_MODULE_NOT_FOUND') return null;
+		if ((err as NodeJS.ErrnoException).code === 'ERR_MODULE_NOT_FOUND')
+			return null;
 	}
 
 	try {
-		const stat = await lstat(resolvedSpecifier!);
+		const stat = await fs.lstat(resolvedSpecifier!);
 		return stat.isDirectory();
 	} catch {
 		return null;

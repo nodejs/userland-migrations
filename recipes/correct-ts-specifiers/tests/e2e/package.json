@@ -1,0 +1,7 @@
+{
+	"name": "e2e",
+	"type": "module",
+	"imports": {
+		"#*": "./*"
+	}
+}

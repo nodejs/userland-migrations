@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { type Mock, before, describe, it, mock } from 'node:test';
 
-type LStat = typeof import('node:fs/promises').lstat;
+type LStat = typeof import('fs').promises.lstat;
 type ResolveSpecifier = typeof import('./is-dir.ts').isDir;
 type IsDir = typeof import('./resolve-specifier.ts').resolveSpecifier;
 
@@ -21,7 +21,7 @@ describe('Is a directory', { concurrency: true }, () => {
 		mock_lstat = lstat.mock;
 		mock_resolveSpecifier = resolveSpecifier.mock;
 
-		mock.module('node:fs/promises', { namedExports: { lstat } });
+		mock.module('fs', { namedExports: { promises: { lstat } } });
 		mock.module('./resolve-specifier.ts', {
 			namedExports: { resolveSpecifier },
 		});
