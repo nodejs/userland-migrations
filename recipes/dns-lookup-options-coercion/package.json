@@ -1,0 +1,24 @@
+{
+	"name": "@nodejs/dns-lookup-options-coercion",
+	"version": "1.0.0",
+	"description": "Handle DEP0153 by converting literal dns.lookup option values to their proper types",
+	"type": "module",
+	"scripts": {
+		"test": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/nodejs/userland-migrations.git",
+		"directory": "recipes/dns-lookup-options-coercion",
+		"bugs": "https://github.com/nodejs/userland-migrations/issues"
+	},
+	"author": "Herrtian",
+	"license": "MIT",
+	"homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/dns-lookup-options-coercion/README.md",
+	"devDependencies": {
+		"@codemod.com/jssg-types": "^1.6.0"
+	},
+	"dependencies": {
+		"@nodejs/codemod-utils": "*"
+	}
+}
