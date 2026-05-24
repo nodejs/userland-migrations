@@ -56,6 +56,12 @@ function addResolvedBinding(
 	}
 }
 
+/**
+ * Rewrites the second argument only when it is an inline options object.
+ *
+ * DEP0153 affects option values, so calls without options or with a shared
+ * options variable are intentionally left unchanged for manual review.
+ */
 function transformLookupCall(call: SgNode<Js>): Edit[] {
 	const args = call.field('arguments');
 	if (!args) return [];
@@ -69,6 +75,11 @@ function transformLookupCall(call: SgNode<Js>): Edit[] {
 	return transformOptionsObject(optionArg);
 }
 
+/**
+ * Converts known dns.lookup option keys when the value can be replaced without
+ * changing surrounding code. Other keys are ignored so this recipe stays scoped
+ * to the DEP0153 runtime coercions.
+ */
 function transformOptionsObject(options: SgNode<Js>): Edit[] {
 	const edits: Edit[] = [];
 	const pairs = options.children().filter((child) => child.kind() === 'pair');
@@ -104,6 +115,13 @@ function getOptionKey(pair: SgNode<Js>): string | null {
 	return null;
 }
 
+/**
+ * Returns a replacement for deprecated literal coercions only.
+ *
+ * Semantic propagation for identifiers is deliberately avoided here: options
+ * objects can be reused, mutated, or passed through helpers, and an unsafe
+ * rewrite would be harder to review than leaving those cases for the user.
+ */
 function getValueReplacement(key: string, value: SgNode<Js>): string | null {
 	if (NUMERIC_OPTIONS.has(key)) {
 		return getNumericReplacement(value);
