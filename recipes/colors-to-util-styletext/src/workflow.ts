@@ -66,6 +66,7 @@ const UNSUPPORTED_EXTRAS = new Set([
 	'zebra',
 ]);
 
+/** Converts supported colors imports and usages to util.styleText. */
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
@@ -88,6 +89,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	return rootNode.commitEdits(edits);
 }
 
+/** Rewrites one colors dependency statement and its related usages. */
 function processStatement(
 	rootNode: SgNode<Js>,
 	statement: SgNode<Js>,
@@ -122,9 +124,10 @@ function processStatement(
 	}
 }
 
+/** Returns the local binding for namespace imports/requires when one exists. */
 function resolveOptionalBinding(statement: SgNode<Js>): string | undefined {
 	if (
-		statement.kind() === 'import_statement' &&
+		statement.is('import_statement') &&
 		!statement.find({ rule: { kind: 'import_clause' } })
 	) {
 		return undefined;
@@ -133,12 +136,14 @@ function resolveOptionalBinding(statement: SgNode<Js>): string | undefined {
 	return resolveBindingPath(statement, '$');
 }
 
+/** Collects imported colors names from destructured imports and requires. */
 function getDestructuredNames(
 	statement: SgNode<Js>,
 ): Array<{ imported: string; local: string }> {
 	const names: Array<{ imported: string; local: string }> = [];
+	const statementKind = statement.kind();
 
-	if (statement.kind() === 'import_statement') {
+	if (statementKind === 'import_statement') {
 		const namedImports = statement.find({
 			rule: { kind: 'named_imports' },
 		});
@@ -158,7 +163,7 @@ function getDestructuredNames(
 				names.push({ imported, local: alias ? alias.text() : imported });
 			}
 		}
-	} else if (statement.kind() === 'variable_declarator') {
+	} else if (statementKind === 'variable_declarator') {
 		const nameField = statement.field('name');
 
 		if (nameField?.kind() !== 'object_pattern') return names;
@@ -191,6 +196,7 @@ function getDestructuredNames(
 	return names;
 }
 
+/** Rewrites calls that use destructured colors/safe helpers. */
 function processDestructuredSafeCalls(
 	rootNode: SgNode<Js>,
 	destructuredNames: Array<{ imported: string; local: string }>,
@@ -233,13 +239,18 @@ function processDestructuredSafeCalls(
 			const styles =
 				functionExpr.kind() === 'identifier'
 					? [normalizeStyle(imported)]
-					: extractNamespaceStyles(functionExpr, local, normalizeStyle(imported));
+					: extractNamespaceStyles(
+							functionExpr,
+							local,
+							normalizeStyle(imported),
+						);
 
 			replaceSafeCall(rootNode, call, styles, edits);
 		}
 	}
 }
 
+/** Rewrites calls accessed through a colors/safe namespace binding. */
 function processSafeNamespaceCalls(
 	rootNode: SgNode<Js>,
 	binding: string,
@@ -259,13 +270,14 @@ function processSafeNamespaceCalls(
 	}
 }
 
+/** Replaces a safe colors call with util.styleText when it can be mapped. */
 function replaceSafeCall(
 	rootNode: SgNode<Js>,
 	call: SgNode<Js>,
 	styles: string[],
 	edits: Edit[],
 ): void {
-	if (styles.length === 0) return;
+	if (!styles.length) return;
 
 	if (hasUnsupportedStyles(styles)) {
 		warnOnUnsupportedStyle(styles, rootNode, call);
@@ -279,6 +291,7 @@ function replaceSafeCall(
 	edits.push(call.replace(createStyleTextReplacement(styles, textArg)));
 }
 
+/** Rewrites colors prototype style chains such as "text".green. */
 function processPrototypeStyles(
 	rootNode: SgNode<Js>,
 	edits: Edit[],
@@ -289,13 +302,18 @@ function processPrototypeStyles(
 	});
 
 	for (const memberExpression of memberExpressions) {
-		if (isNestedStyleChain(memberExpression)) continue;
-		if (isCallFunction(memberExpression)) continue;
+		if (
+			isNestedStyleChain(memberExpression) ||
+			isCallFunction(memberExpression)
+		) {
+			continue;
+		}
 
 		const prototypeStyle = extractPrototypeStyles(memberExpression);
 
-		if (!prototypeStyle) continue;
-		if (blockedPrototypeBases.has(prototypeStyle.text)) continue;
+		if (!prototypeStyle || blockedPrototypeBases.has(prototypeStyle.text)) {
+			continue;
+		}
 
 		if (hasUnsupportedStyles(prototypeStyle.styles)) {
 			warnOnUnsupportedStyle(prototypeStyle.styles, rootNode, memberExpression);
@@ -310,6 +328,7 @@ function processPrototypeStyles(
 	}
 }
 
+/** Reads the style chain from a safe namespace call. */
 function extractNamespaceStyles(
 	node: SgNode<Js>,
 	binding: string,
@@ -317,6 +336,7 @@ function extractNamespaceStyles(
 ): string[] {
 	const styles = initialStyle ? [initialStyle] : [];
 
+	/** Walks a member chain until it reaches the expected namespace binding. */
 	function traverse(current: SgNode<Js>): boolean {
 		const object = current.field('object');
 		const property = current.field('property');
@@ -343,6 +363,7 @@ function extractNamespaceStyles(
 	return styles;
 }
 
+/** Reads the style chain from a prototype access expression. */
 function extractPrototypeStyles(
 	node: SgNode<Js>,
 ): { text: string; styles: string[] } | null {
@@ -368,6 +389,7 @@ function extractPrototypeStyles(
 	return { text: object.text(), styles: [style] };
 }
 
+/** Checks whether a node can safely be used as the text argument. */
 function isSupportedPrototypeBase(node: SgNode<Js>): boolean {
 	return [
 		'identifier',
@@ -377,18 +399,22 @@ function isSupportedPrototypeBase(node: SgNode<Js>): boolean {
 	].includes(node.kind());
 }
 
+/** Normalizes colors aliases to util.styleText names. */
 function normalizeStyle(style: string): string {
 	return COMPAT_MAP[style] || style;
 }
 
+/** Keeps traversal limited to colors styles that are known to the recipe. */
 function isSupportedOrKnownUnsupported(style: string): boolean {
 	return SUPPORTED_STYLES.has(style) || UNSUPPORTED_EXTRAS.has(style);
 }
 
+/** Detects styles that colors supports but util.styleText does not. */
 function hasUnsupportedStyles(styles: string[]): boolean {
 	return styles.some((style) => !SUPPORTED_STYLES.has(style));
 }
 
+/** Returns the first real argument for a colors/safe call. */
 function getFirstCallArgument(call: SgNode<Js>): string | null {
 	const args = call.field('arguments');
 
@@ -404,6 +430,7 @@ function getFirstCallArgument(call: SgNode<Js>): string | null {
 	return argsList[0].text();
 }
 
+/** Builds a util.styleText call for one or more styles. */
 function createStyleTextReplacement(styles: string[], textArg: string): string {
 	if (styles.length === 1) {
 		return `styleText("${styles[0]}", ${textArg})`;
@@ -412,6 +439,7 @@ function createStyleTextReplacement(styles: string[], textArg: string): string {
 	return `styleText([${styles.map((style) => `"${style}"`).join(', ')}], ${textArg})`;
 }
 
+/** Builds the matching util.styleText import or require replacement. */
 function createImportReplacement(statement: SgNode<Js>): string {
 	if (statement.kind() === 'import_statement') {
 		return 'import { styleText } from "node:util";';
@@ -428,6 +456,7 @@ function createImportReplacement(statement: SgNode<Js>): string {
 	return '';
 }
 
+/** Skips intermediate members so only the full style chain is replaced. */
 function isNestedStyleChain(node: SgNode<Js>): boolean {
 	const parent = node.parent();
 
@@ -443,6 +472,7 @@ function isNestedStyleChain(node: SgNode<Js>): boolean {
 	);
 }
 
+/** Skips member expressions that are already part of a call expression. */
 function isCallFunction(node: SgNode<Js>): boolean {
 	const parent = node.parent();
 
@@ -451,6 +481,7 @@ function isCallFunction(node: SgNode<Js>): boolean {
 	return parent.field('function')?.text() === node.text();
 }
 
+/** Emits a review warning for colors styles that cannot be mapped. */
 function warnOnUnsupportedStyle(
 	styles: string[],
 	rootNode: SgNode<Js>,
