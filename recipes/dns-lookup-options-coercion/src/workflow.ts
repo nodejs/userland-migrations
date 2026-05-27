@@ -12,19 +12,26 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const edits: Edit[] = [];
 	const lookupCallees = collectLookupCallees(root);
 
-	if (lookupCallees.size === 0) return null;
+	if (!lookupCallees.size) return null;
 
 	for (const callee of lookupCallees) {
-		const calls = rootNode.findAll({
-			rule: { pattern: `${callee}($$$_ARGS)` },
+		const calls = rootNode.findAll<'call_expression'>({
+			rule: {
+				kind: 'call_expression',
+				has: {
+					field: 'function',
+					kind: callee.includes('.') ? 'member_expression' : 'identifier',
+					pattern: callee,
+				},
+			},
 		});
 
 		for (const call of calls) {
-			edits.push(...transformLookupCall(call));
+			processLookupCall(call, edits);
 		}
 	}
 
-	if (edits.length === 0) return null;
+	if (!edits.length) return null;
 
 	return rootNode.commitEdits(edits);
 }
@@ -62,17 +69,17 @@ function addResolvedBinding(
  * DEP0153 affects option values, so calls without options or with a shared
  * options variable are intentionally left unchanged for manual review.
  */
-function transformLookupCall(call: SgNode<Js>): Edit[] {
+function processLookupCall(call: SgNode<Js>, edits: Edit[]): void {
 	const args = call.field('arguments');
-	if (!args) return [];
+	if (!args) return;
 
 	const optionArg = args
 		.children()
 		.filter((child) => !IGNORED_ARGUMENT_KINDS.has(child.kind()))[1];
 
-	if (!optionArg || optionArg.kind() !== 'object') return [];
+	if (!optionArg || optionArg.kind() !== 'object') return;
 
-	return transformOptionsObject(optionArg);
+	edits.push(...transformOptionsObject(optionArg));
 }
 
 /**
@@ -82,7 +89,7 @@ function transformLookupCall(call: SgNode<Js>): Edit[] {
  */
 function transformOptionsObject(options: SgNode<Js>): Edit[] {
 	const edits: Edit[] = [];
-	const pairs = options.children().filter((child) => child.kind() === 'pair');
+	const pairs = options.findAll<'pair'>({ rule: { kind: 'pair' } });
 
 	for (const pair of pairs) {
 		const key = getOptionKey(pair);
@@ -100,7 +107,7 @@ function transformOptionsObject(options: SgNode<Js>): Edit[] {
 	return edits;
 }
 
-function getOptionKey(pair: SgNode<Js>): string | null {
+function getOptionKey(pair: SgNode<Js, 'pair'>): string | null {
 	const key = pair.field('key');
 	if (!key) return null;
 
@@ -135,27 +142,37 @@ function getValueReplacement(key: string, value: SgNode<Js>): string | null {
 }
 
 function getNumericReplacement(value: SgNode<Js>): string | null {
-	if (value.kind() !== 'string') return null;
+	const valueKind = value.kind();
 
-	const stringValue = getStringLiteralValue(value);
-	if (!stringValue || !/^\d+$/.test(stringValue)) return null;
+	switch (valueKind) {
+		case 'string': {
+			const stringValue = getStringLiteralValue(value);
+			if (!stringValue || !/^\d+$/.test(stringValue)) return null;
 
-	return String(Number.parseInt(stringValue, 10));
+			return String(Number.parseInt(stringValue, 10));
+		}
+		default:
+			return null;
+	}
 }
 
 function getBooleanReplacement(value: SgNode<Js>): string | null {
-	if (value.kind() === 'number') {
-		if (value.text() === '0') return 'false';
-		if (value.text() === '1') return 'true';
+	const valueKind = value.kind();
+
+	switch (valueKind) {
+		case 'number':
+			if (value.text() === '0') return 'false';
+			if (value.text() === '1') return 'true';
+			return null;
+		case 'string': {
+			const stringValue = getStringLiteralValue(value);
+			return stringValue === 'true' || stringValue === 'false'
+				? stringValue
+				: null;
+		}
+		default:
+			return null;
 	}
-
-	if (value.kind() !== 'string') return null;
-
-	const stringValue = getStringLiteralValue(value);
-	if (stringValue === 'true') return 'true';
-	if (stringValue === 'false') return 'false';
-
-	return null;
 }
 
 function getStringLiteralValue(node: SgNode<Js>): string | null {
