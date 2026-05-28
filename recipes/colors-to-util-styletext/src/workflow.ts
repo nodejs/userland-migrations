@@ -178,16 +178,23 @@ function getDestructuredNames(
 		});
 
 		for (const prop of properties) {
-			if (prop.kind() === 'shorthand_property_identifier_pattern') {
-				const name = prop.text();
+			const propKind = prop.kind();
 
-				names.push({ imported: name, local: name });
-			} else if (prop.kind() === 'pair_pattern') {
-				const key = prop.field('key');
-				const value = prop.field('value');
+			switch (propKind) {
+				case 'shorthand_property_identifier_pattern': {
+					const name = prop.text();
 
-				if (key && value) {
-					names.push({ imported: key.text(), local: value.text() });
+					names.push({ imported: name, local: name });
+					break;
+				}
+				case 'pair_pattern': {
+					const key = prop.field('key');
+					const value = prop.field('value');
+
+					if (key && value) {
+						names.push({ imported: key.text(), local: value.text() });
+					}
+					break;
 				}
 			}
 		}
@@ -344,13 +351,14 @@ function extractNamespaceStyles(
 		if (!object || property?.kind() !== 'property_identifier') return false;
 
 		const propertyName = normalizeStyle(property.text());
+		const objectKind = object.kind();
 
-		if (object.kind() === 'identifier' && object.text() === binding) {
+		if (objectKind === 'identifier' && object.text() === binding) {
 			styles.push(propertyName);
 			return true;
 		}
 
-		if (object.kind() === 'member_expression' && traverse(object)) {
+		if (objectKind === 'member_expression' && traverse(object)) {
 			styles.push(propertyName);
 			return true;
 		}
@@ -376,7 +384,7 @@ function extractPrototypeStyles(
 
 	if (!isSupportedOrKnownUnsupported(style)) return null;
 
-	if (object.kind() === 'member_expression') {
+	if (object.is('member_expression')) {
 		const nested = extractPrototypeStyles(object);
 
 		if (!nested) return null;
@@ -420,10 +428,7 @@ function getFirstCallArgument(call: SgNode<Js>): string | null {
 
 	if (!args) return null;
 
-	const argsList = args.children().filter((child) => {
-		const excluded = [',', '(', ')'];
-		return !excluded.includes(child.kind());
-	});
+	const argsList = args.children().filter((child) => child.isNamed());
 
 	if (argsList.length === 0) return null;
 
@@ -441,16 +446,18 @@ function createStyleTextReplacement(styles: string[], textArg: string): string {
 
 /** Builds the matching util.styleText import or require replacement. */
 function createImportReplacement(statement: SgNode<Js>): string {
-	if (statement.kind() === 'import_statement') {
-		return 'import { styleText } from "node:util";';
-	}
+	const statementKind = statement.kind();
 
-	if (statement.kind() === 'variable_declarator') {
-		if (statement.field('value')?.kind() === 'await_expression') {
-			return '{ styleText } = await import("node:util")';
+	switch (statementKind) {
+		case 'import_statement':
+			return 'import { styleText } from "node:util";';
+		case 'variable_declarator': {
+			if (statement.field('value')?.kind() === 'await_expression') {
+				return '{ styleText } = await import("node:util")';
+			}
+
+			return '{ styleText } = require("node:util")';
 		}
-
-		return '{ styleText } = require("node:util")';
 	}
 
 	return '';
