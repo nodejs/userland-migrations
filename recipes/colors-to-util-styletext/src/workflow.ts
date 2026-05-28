@@ -96,7 +96,7 @@ function processStatement(
 	edits: Edit[],
 	isSafeImport: boolean,
 ): void {
-	const initialEditCount = edits.length;
+	const editCountBeforeStatement = edits.length;
 	const destructuredNames = getDestructuredNames(statement);
 	const blockedPrototypeBases = new Set<string>();
 
@@ -115,7 +115,7 @@ function processStatement(
 		processPrototypeStyles(rootNode, edits, blockedPrototypeBases);
 	}
 
-	if (edits.length > initialEditCount) {
+	if (edits.length > editCountBeforeStatement) {
 		const importReplacement = createImportReplacement(statement);
 
 		if (importReplacement) {
@@ -143,60 +143,65 @@ function getDestructuredNames(
 	const names: Array<{ imported: string; local: string }> = [];
 	const statementKind = statement.kind();
 
-	if (statementKind === 'import_statement') {
-		const namedImports = statement.find({
-			rule: { kind: 'named_imports' },
-		});
+	switch (statementKind) {
+		case 'import_statement': {
+			const namedImports = statement.find({
+				rule: { kind: 'named_imports' },
+			});
 
-		if (!namedImports) return names;
+			if (!namedImports) break;
 
-		const importSpecifiers = namedImports.findAll({
-			rule: { kind: 'import_specifier' },
-		});
+			const importSpecifiers = namedImports.findAll({
+				rule: { kind: 'import_specifier' },
+			});
 
-		for (const specifier of importSpecifiers) {
-			const importedName = specifier.field('name');
-			const alias = specifier.field('alias');
+			for (const specifier of importSpecifiers) {
+				const importedName = specifier.field('name');
+				const alias = specifier.field('alias');
 
-			if (importedName) {
-				const imported = importedName.text();
-				names.push({ imported, local: alias ? alias.text() : imported });
+				if (importedName) {
+					const imported = importedName.text();
+					names.push({ imported, local: alias ? alias.text() : imported });
+				}
 			}
+			break;
 		}
-	} else if (statementKind === 'variable_declarator') {
-		const nameField = statement.field('name');
+		case 'variable_declarator': {
+			const nameField = statement.field('name');
 
-		if (nameField?.kind() !== 'object_pattern') return names;
+			if (nameField?.kind() !== 'object_pattern') break;
 
-		const properties = nameField.findAll({
-			rule: {
-				any: [
-					{ kind: 'shorthand_property_identifier_pattern' },
-					{ kind: 'pair_pattern' },
-				],
-			},
-		});
+			const properties = nameField.findAll({
+				rule: {
+					any: [
+						{ kind: 'shorthand_property_identifier_pattern' },
+						{ kind: 'pair_pattern' },
+					],
+				},
+			});
 
-		for (const prop of properties) {
-			const propKind = prop.kind();
+			for (const prop of properties) {
+				const propKind = prop.kind();
 
-			switch (propKind) {
-				case 'shorthand_property_identifier_pattern': {
-					const name = prop.text();
+				switch (propKind) {
+					case 'shorthand_property_identifier_pattern': {
+						const name = prop.text();
 
-					names.push({ imported: name, local: name });
-					break;
-				}
-				case 'pair_pattern': {
-					const key = prop.field('key');
-					const value = prop.field('value');
-
-					if (key && value) {
-						names.push({ imported: key.text(), local: value.text() });
+						names.push({ imported: name, local: name });
+						break;
 					}
-					break;
+					case 'pair_pattern': {
+						const key = prop.field('key');
+						const value = prop.field('value');
+
+						if (key && value) {
+							names.push({ imported: key.text(), local: value.text() });
+						}
+						break;
+					}
 				}
 			}
+			break;
 		}
 	}
 
