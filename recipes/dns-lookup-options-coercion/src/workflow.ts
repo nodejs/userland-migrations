@@ -5,7 +5,6 @@ import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 const NUMERIC_OPTIONS = new Set(['family', 'hints']);
 const BOOLEAN_OPTIONS = new Set(['all', 'verbatim']);
-const IGNORED_ARGUMENT_KINDS = new Set([',', '(', ')']);
 
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
@@ -73,9 +72,7 @@ function processLookupCall(call: SgNode<Js>, edits: Edit[]): void {
 	const args = call.field('arguments');
 	if (!args) return;
 
-	const optionArg = args
-		.children()
-		.filter((child) => !IGNORED_ARGUMENT_KINDS.has(child.kind()))[1];
+	const optionArg = args.children().filter((child) => child.isNamed())[1];
 
 	if (!optionArg || optionArg.kind() !== 'object') return;
 
@@ -111,11 +108,12 @@ function getOptionKey(pair: SgNode<Js, 'pair'>): string | null {
 	const key = pair.field('key');
 	if (!key) return null;
 
-	if (key.kind() === 'property_identifier') {
+	const keyKind = key.kind();
+	if (keyKind === 'property_identifier') {
 		return key.text();
 	}
 
-	if (key.kind() === 'string') {
+	if (keyKind === 'string') {
 		return getStringLiteralValue(key);
 	}
 
