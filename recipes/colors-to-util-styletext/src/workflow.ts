@@ -73,11 +73,22 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	const colorsStatements = getModuleDependencies(root, colorsModule);
 	const safeColorsStatements = getModuleDependencies(root, safeColorsModule);
+	const safeThenCalls = getSafeDynamicImportThenCalls(rootNode);
 
-	if (!colorsStatements.length && !safeColorsStatements.length) return null;
+	if (
+		!colorsStatements.length &&
+		!safeColorsStatements.length &&
+		!safeThenCalls.length
+	) {
+		return null;
+	}
 
 	for (const statement of safeColorsStatements) {
 		processStatement(rootNode, statement, edits, true);
+	}
+
+	for (const thenCall of safeThenCalls) {
+		processDynamicImportThenCall(thenCall, edits);
 	}
 
 	for (const statement of colorsStatements) {
@@ -121,6 +132,11 @@ function processStatement(
 		if (importReplacement) {
 			edits.push(statement.replace(importReplacement));
 		}
+	} else if (
+		isSafeImport &&
+		['import_statement', 'variable_declarator'].includes(statement.kind())
+	) {
+		edits.push(removeUnusedSafeImport(statement));
 	}
 }
 
@@ -259,6 +275,36 @@ function processDestructuredSafeCalls(
 
 			replaceSafeCall(rootNode, call, styles, edits);
 		}
+	}
+}
+
+/** Rewrites colors/safe usages inside dynamic import .then callbacks. */
+function processDynamicImportThenCall(
+	thenCall: SgNode<Js>,
+	edits: Edit[],
+): void {
+	const callback = getCallArguments(thenCall)[0];
+
+	if (!callback) return;
+
+	const destructuredParam = callback.find({
+		rule: { kind: 'object_pattern' },
+	});
+
+	if (!destructuredParam) return;
+
+	const destructuredNames = getNamesFromObjectPattern(destructuredParam);
+	const editCountBeforeCall = edits.length;
+
+	processDestructuredSafeCalls(callback, destructuredNames, edits);
+
+	if (edits.length > editCountBeforeCall) {
+		const dynamicImport = thenCall.field('function')?.field('object');
+
+		if (dynamicImport) {
+			edits.push(dynamicImport.replace('import("node:util")'));
+		}
+		edits.push(destructuredParam.replace('{ styleText }'));
 	}
 }
 
@@ -429,15 +475,16 @@ function hasUnsupportedStyles(styles: string[]): boolean {
 
 /** Returns the first real argument for a colors/safe call. */
 function getFirstCallArgument(call: SgNode<Js>): string | null {
+	return getCallArguments(call)[0]?.text() ?? null;
+}
+
+/** Returns named call arguments. */
+function getCallArguments(call: SgNode<Js>): Array<SgNode<Js>> {
 	const args = call.field('arguments');
 
-	if (!args) return null;
+	if (!args) return [];
 
-	const argsList = args.children().filter((child) => child.isNamed());
-
-	if (argsList.length === 0) return null;
-
-	return argsList[0].text();
+	return args.children().filter((child) => child.isNamed());
 }
 
 /** Builds a util.styleText call for one or more styles. */
@@ -466,6 +513,90 @@ function createImportReplacement(statement: SgNode<Js>): string {
 	}
 
 	return '';
+}
+
+/** Finds `import("colors/safe").then(...)` calls. */
+function getSafeDynamicImportThenCalls(rootNode: SgNode<Js>): Array<SgNode<Js>> {
+	return rootNode
+		.findAll({
+			rule: { kind: 'call_expression' },
+		})
+		.filter((call) => {
+			const functionExpr = call.field('function');
+
+			if (functionExpr?.kind() !== 'member_expression') return false;
+
+			const object = functionExpr.field('object');
+			const property = functionExpr.field('property');
+
+			return property?.text() === 'then' && isSafeDynamicImport(object);
+		});
+}
+
+/** Checks for `import("colors/safe")`. */
+function isSafeDynamicImport(node: SgNode<Js> | null): boolean {
+	if (node?.kind() !== 'call_expression') return false;
+
+	const functionExpr = node.field('function');
+	const moduleName = getFirstCallArgument(node);
+
+	return (
+		functionExpr?.text() === 'import' &&
+		(moduleName === '"colors/safe"' || moduleName === "'colors/safe'")
+	);
+}
+
+/** Removes an unused colors/safe dependency statement. */
+function removeUnusedSafeImport(statement: SgNode<Js>): Edit {
+	const parent = statement.parent();
+
+	if (
+		parent &&
+		['lexical_declaration', 'variable_declaration'].includes(parent.kind())
+	) {
+		return parent.replace('');
+	}
+
+	return statement.replace('');
+}
+
+/** Returns destructured names from an object pattern node. */
+function getNamesFromObjectPattern(
+	objectPattern: SgNode<Js>,
+): Array<{ imported: string; local: string }> {
+	const names: Array<{ imported: string; local: string }> = [];
+	const properties = objectPattern.findAll({
+		rule: {
+			any: [
+				{ kind: 'shorthand_property_identifier_pattern' },
+				{ kind: 'pair_pattern' },
+			],
+		},
+	});
+
+	for (const prop of properties) {
+		const propKind = prop.kind();
+
+		switch (propKind) {
+			case 'shorthand_property_identifier_pattern': {
+				const name = prop.text();
+
+				names.push({ imported: name, local: name });
+				break;
+			}
+			case 'pair_pattern': {
+				const key = prop.field('key');
+				const value = prop.field('value');
+
+				if (key && value) {
+					names.push({ imported: key.text(), local: value.text() });
+				}
+				break;
+			}
+		}
+	}
+
+	return names;
 }
 
 /** Skips intermediate members so only the full style chain is replaced. */

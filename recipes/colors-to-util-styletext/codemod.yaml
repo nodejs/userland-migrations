@@ -17,9 +17,9 @@ targets:
     - typescript
 
 keywords:
-  - transformation
-  - migration
   - nodejs
+  - colors
+  - styleText
 
 registry:
   access: public

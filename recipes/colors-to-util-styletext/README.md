@@ -25,14 +25,6 @@ This recipe migrates compatible `colors` package usage to Node.js built-in `util
 + console.log(styleText('green', 'Success message'));
 ```
 
-## Usage
-
-Run this codemod with:
-
-```sh
-npx codemod nodejs/colors-to-util-styletext
-```
-
 ## Compatibility
 
 - Removes the `colors` dependency from package.json automatically.
