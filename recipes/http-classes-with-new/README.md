@@ -1,22 +1,65 @@
-# `http.request` DEP0195
+---
+authors: max-programming
+---
+# DEP0195: Instantiating node:http Classes Without new
 
-This recipe provides a guide for migrating from the deprecated `http.request` and its synchronous and promise-based counterparts to the new `http.request` method in Node.js.
+Adds the `new` keyword to calls that instantiate `http.Agent`, `http.ClientRequest`, `http.IncomingMessage`, `http.OutgoingMessage`, `http.Server`, and `http.ServerResponse` without it. Works with both `require` and `import` syntax, including named and namespace imports.
 
-See [DEP0195](https://nodejs.org/api/deprecations.html#DEP0195).
+## Usage
+
+Run this codemod with:
+
+```sh
+npx codemod @nodejs/http-classes-with-new
+```
 
 ## Examples
 
+### Example 1
+
+`require` — all six classes gain the `new` keyword.
+
 ```diff
-  // import { IncomingMessage, ClientRequest } from "node:http";
-  // const http = require("node:http");
+ const http = require("node:http");
 
-- const message = http.OutgoingMessage();
-+ const message = new http.OutgoingMessage();
-- const response = http.ServerResponse(socket);
-+ const response = new http.ServerResponse(socket);
+-const agent = http.Agent();
+-const request = http.ClientRequest(options);
+-const incoming = http.IncomingMessage(socket);
+-const message = http.OutgoingMessage();
+-const server = http.Server();
+-const response = http.ServerResponse(socket);
++const agent = new http.Agent();
++const request = new http.ClientRequest(options);
++const incoming = new http.IncomingMessage(socket);
++const message = new http.OutgoingMessage();
++const server = new http.Server();
++const response = new http.ServerResponse(socket);
+```
 
-- const incoming = IncomingMessage(socket);
-+ const incoming = new IncomingMessage(socket);
-- const request = ClientRequest(options);
-+ const request = new ClientRequest(options);
-`````
+### Example 2
+
+Named `import` — destructured class names are handled the same way.
+
+```diff
+ import {
+   Agent,
+   ClientRequest,
+   IncomingMessage,
+   OutgoingMessage,
+   Server,
+   ServerResponse,
+ } from "node:http";
+
+-const agent = Agent();
+-const request = ClientRequest(options);
+-const incoming = IncomingMessage(socket);
+-const message = OutgoingMessage();
+-const server = Server();
+-const response = ServerResponse(socket);
++const agent = new Agent();
++const request = new ClientRequest(options);
++const incoming = new IncomingMessage(socket);
++const message = new OutgoingMessage();
++const server = new Server();
++const response = new ServerResponse(socket);
+```

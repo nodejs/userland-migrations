@@ -1,17 +1,59 @@
-# `repl.builtinModules` DEP0191
+---
+authors: AugustinMauroy
+---
 
-This recipe provides a guide for migrating from the deprecated `repl.builtinModules` & `repl._builtinLibs` to the new `module.builtinModules` property in Node.js.
+# DEP0191: repl.builtinModules / repl.\_builtinLibs module.builtinModules
 
-See [DEP0191](https://nodejs.org/api/deprecations.html#DEP0191) and [DEP0142](https://nodejs.org/api/deprecations.html#DEP0142)
+Replaces deprecated access to `repl.builtinModules` and `repl._builtinLibs` with `module.builtinModules` from `node:module`. Handles namespace requires, destructured requires (including aliased), ESM named imports, and dynamic imports. Both property names are normalized to `builtinModules` in all cases.
+
+## Usage
+
+Run this codemod with:
+
+```sh
+npx codemod @nodejs/repl-builtin-modules
+```
 
 ## Examples
 
-```diff
-- import repl from 'node:repl';
-+ import module from 'node:module';
+### Example 1
 
-- console.log(repl.builtinModules);
-+ console.log(module.builtinModules);
-- console.log(repl._builtinLibs);
-+ console.log(module.builtinModules);
-`````
+Namespace `require` — the variable is renamed to `module` and all accesses (including `_builtinLibs`) are updated:
+
+```diff
+-const repl = require('node:repl');
++const module = require('node:module');
+
+-console.log(repl.builtinModules);
+-console.log(repl._builtinLibs);
++console.log(module.builtinModules);
++console.log(module.builtinModules);
+```
+
+### Example 2
+
+Destructured `require` with an aliased builtin property — only the module specifier changes:
+
+```diff
+-const { builtinModules: nodeBuiltinModules } = require('node:repl');
++const { builtinModules: nodeBuiltinModules } = require('node:module');
+
+console.log(nodeBuiltinModules);
+```
+
+### Example 3
+
+Mixed named ESM import — the builtin specifier is split into a new import from `node:module`, and `_builtinLibs` references are renamed to `builtinModules`:
+
+```diff
+-import { builtinModules, _builtinLibs, foo } from 'node:repl';
++import { foo } from 'node:repl';
++import { builtinModules } from 'node:module';
+
+-console.log(builtinModules);
+-console.log(_builtinLibs);
++console.log(builtinModules);
++console.log(builtinModules);
+
+foo(); // does something else
+```
