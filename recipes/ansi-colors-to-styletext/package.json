@@ -1,0 +1,24 @@
+{
+  "name": "@nodejs/ansi-colors-to-styletext",
+  "version": "1.0.0",
+  "description": "Migrate from ansi-colors package to Node.js util.styleText API",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/ansi-colors-to-styletext",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "Shamya Haria",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/ansi-colors-to-styletext/README.md",
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.6.1"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
+  }
+}
