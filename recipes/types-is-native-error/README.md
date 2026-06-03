@@ -13,4 +13,4 @@ See [DEP0197](https://nodejs.org/api/deprecations.html#DEP0197).
 + if (Error.isError(err)) {
   	// handle the error
   }
-`````
+```

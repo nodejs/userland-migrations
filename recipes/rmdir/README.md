@@ -21,4 +21,4 @@ See [DEP0147](https://nodejs.org/api/deprecations.html#DEP0147).
 - fs.promises.rmdir(path, { recursive: true });
 + // Using fs.promises.rm with recursive and force options
 + fs.promises.rm(path, { recursive: true, force: true });
-`````
+```
