@@ -4,7 +4,9 @@
   "description": "Migrate from ansi-colors package to Node.js util.styleText API",
   "type": "module",
   "scripts": {
-    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests"
+      "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests && npx codemod jssg test -l json ./src/remove-dependencies.ts ./tests/remove-dependencies --allow-child-process --allow-fs --strictness cst",
+      "test:workflow": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests",
+      "test:remove-dependencies": "npx codemod jssg test -l json ./src/remove-dependencies.ts ./tests/remove-dependencies --allow-child-process --allow-fs --strictness cst"
   },
   "repository": {
     "type": "git",
