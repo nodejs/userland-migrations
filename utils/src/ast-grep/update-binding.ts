@@ -185,7 +185,7 @@ function handleNamedImportBindings(
 		},
 	});
 
-	if (Boolean(namespaceImport) && namespaceImport.text() === options.old) {
+	if (namespaceImport && namespaceImport.text() === options.old) {
 		if (options?.new) {
 			// Namespace imports can only be replaced with a single binding
 			const newName = Array.isArray(options.new) ? options.new[0] : options.new;
