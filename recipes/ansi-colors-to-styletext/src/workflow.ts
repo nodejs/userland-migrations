@@ -1,20 +1,8 @@
-import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import type { Edit, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 
 const ANSI_COLORS_BINDING = 'ansi-colors';
-
-const SUPPORTED_METHODS = new Set([
-	'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white',
-	'gray', 'grey', 'blackBright', 'redBright', 'greenBright', 'yellowBright',
-	'blueBright', 'magentaBright', 'cyanBright', 'whiteBright',
-	'bgBlack', 'bgRed', 'bgGreen', 'bgYellow', 'bgBlue', 'bgMagenta', 'bgCyan', 'bgWhite',
-	'bgGray', 'bgGrey', 'bgBlackBright', 'bgRedBright', 'bgGreenBright', 'bgYellowBright',
-	'bgBlueBright', 'bgMagentaBright', 'bgCyanBright', 'bgWhiteBright',
-	'reset', 'bold', 'dim', 'italic', 'underline', 'inverse', 'hidden',
-	'strikethrough', 'overline', 'blink', 'doubleunderline', 'framed',
-]);
 
 const COMPATIBILITY_MAP: Record<string, string> = {
 	gray: 'blackBright',
@@ -50,7 +38,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 		if (destructuredNames.length > 0) {
 			processDestructuredImports(rootNode, destructuredNames, edits);
 		} else {
-			const binding = resolveBindingPath(statement, '$');
+			const binding = getDefaultBinding(statement);
 			if (binding) {
 				checkUnsupportedApis(rootNode, binding, root);
 				processDefaultImports(rootNode, binding, edits);
@@ -70,10 +58,18 @@ export default function transform(root: SgRoot<Js>): string | null {
 	return rootNode.commitEdits(edits);
 }
 
+/**
+ * Normalizes a style name using the compatibility map.
+ * e.g. gray -> blackBright
+ */
 function normalizeStyle(style: string): string {
 	return COMPATIBILITY_MAP[style] ?? style;
 }
 
+/**
+ * Creates the replacement import statement for util.styleText
+ * based on the kind of the original import statement.
+ */
 function createImportReplacement(statement: SgNode<Js>): string {
 	if (statement.kind() === 'import_statement') {
 		return `import { styleText } from 'node:util';`;
@@ -89,6 +85,50 @@ function createImportReplacement(statement: SgNode<Js>): string {
 	return '';
 }
 
+/**
+ * Extracts the default or namespace binding name from an import statement.
+ * e.g. import ac from 'ansi-colors' -> 'ac'
+ * e.g. const ac = require('ansi-colors') -> 'ac'
+ */
+function getDefaultBinding(statement: SgNode<Js>): string | null {
+	if (statement.kind() === 'import_statement') {
+		const defaultImport = statement.find({
+			rule: {
+				kind: 'identifier',
+				inside: {
+					kind: 'import_clause',
+					not: {
+						any: [
+							{ has: { kind: 'named_imports' } },
+							{ has: { kind: 'namespace_import' } },
+						],
+					},
+				},
+			},
+		});
+		if (defaultImport) return defaultImport.text();
+
+		const namespaceImport = statement.find({
+			rule: {
+				kind: 'identifier',
+				inside: { kind: 'namespace_import' },
+			},
+		});
+		return namespaceImport?.text() ?? null;
+	}
+
+	if (statement.kind() === 'variable_declarator') {
+		const nameField = statement.field('name');
+		if (nameField?.kind() === 'identifier') return nameField.text();
+	}
+
+	return null;
+}
+
+/**
+ * Extracts destructured import names from a statement.
+ * Handles both ESM named imports and CommonJS destructured requires.
+ */
 function getDestructuredNames(
 	statement: SgNode<Js>,
 ): Array<{ imported: string; local: string }> {
@@ -105,16 +145,14 @@ function getDestructuredNames(
 				if (importedName) {
 					const imported = importedName.text();
 					const local = alias ? alias.text() : imported;
-					if (SUPPORTED_METHODS.has(imported)) {
-						names.push({ imported: normalizeStyle(imported), local });
-					}
+					names.push({ imported: normalizeStyle(imported), local });
 				}
 			}
 		}
 	} else if (statement.kind() === 'variable_declarator') {
 		const nameField = statement.field('name');
 
-		if (nameField && nameField.kind() === 'object_pattern') {
+		if (nameField?.kind() === 'object_pattern') {
 			const properties = nameField.findAll({
 				rule: {
 					any: [
@@ -127,18 +165,12 @@ function getDestructuredNames(
 			for (const prop of properties) {
 				if (prop.kind() === 'shorthand_property_identifier_pattern') {
 					const name = prop.text();
-					if (SUPPORTED_METHODS.has(name)) {
-						names.push({ imported: normalizeStyle(name), local: name });
-					}
+					names.push({ imported: normalizeStyle(name), local: name });
 				} else if (prop.kind() === 'pair_pattern') {
 					const key = prop.field('key');
 					const value = prop.field('value');
 					if (key && value) {
-						const imported = key.text();
-						const local = value.text();
-						if (SUPPORTED_METHODS.has(imported)) {
-							names.push({ imported: normalizeStyle(imported), local });
-						}
+						names.push({ imported: normalizeStyle(key.text()), local: value.text() });
 					}
 				}
 			}
@@ -148,6 +180,11 @@ function getDestructuredNames(
 	return names;
 }
 
+/**
+ * Recursively extracts chained style names from a member expression.
+ * e.g. ac.bold.red -> ['bold', 'red']
+ * Returns null if the chain does not originate from the expected binding.
+ */
 function extractChainedStyles(node: SgNode<Js>, binding: string): string[] | null {
 	const objectNode = node.field('object');
 	const propertyNode = node.field('property');
@@ -156,24 +193,30 @@ function extractChainedStyles(node: SgNode<Js>, binding: string): string[] | nul
 		return null;
 	}
 
-	const propertyName = normalizeStyle(propertyNode.text());
+	const propertyName = propertyNode.text();
+
+	if (UNSUPPORTED_APIS.has(propertyName)) return null;
+
+	const normalizedName = normalizeStyle(propertyName);
 
 	if (objectNode.kind() === 'identifier') {
 		if (objectNode.text() !== binding) return null;
-		if (!SUPPORTED_METHODS.has(propertyNode.text()) && !COMPATIBILITY_MAP[propertyNode.text()]) return null;
-		return [propertyName];
+		return [normalizedName];
 	}
 
 	if (objectNode.kind() === 'member_expression') {
 		const nested = extractChainedStyles(objectNode, binding);
 		if (!nested) return null;
-		if (!SUPPORTED_METHODS.has(propertyNode.text()) && !COMPATIBILITY_MAP[propertyNode.text()]) return null;
-		return [...nested, propertyName];
+		return [...nested, normalizedName];
 	}
 
 	return null;
 }
 
+/**
+ * Checks for unsupported ansi-colors APIs and emits specific warnings
+ * with guidance on how to handle each case manually.
+ */
 function checkUnsupportedApis(rootNode: SgNode<Js>, binding: string, root: SgRoot<Js>): void {
 	const memberExpressions = rootNode.findAll({
 		rule: { kind: 'member_expression' },
@@ -197,6 +240,10 @@ function checkUnsupportedApis(rootNode: SgNode<Js>, binding: string, root: SgRoo
 	}
 }
 
+/**
+ * Processes destructured imports and replaces each call with styleText.
+ * e.g. const { red } = require('ansi-colors'); red('text') -> styleText('red', 'text')
+ */
 function processDestructuredImports(
 	rootNode: SgNode<Js>,
 	destructuredNames: Array<{ imported: string; local: string }>,
@@ -219,6 +266,10 @@ function processDestructuredImports(
 	}
 }
 
+/**
+ * Processes default/namespace imports and replaces chained member calls with styleText.
+ * e.g. ac.bold.red('text') -> styleText(['bold', 'red'], 'text')
+ */
 function processDefaultImports(
 	rootNode: SgNode<Js>,
 	binding: string,
@@ -236,10 +287,10 @@ function processDefaultImports(
 
 	for (const call of calls) {
 		const functionNode = call.field('function');
-		if (!functionNode || functionNode.kind() !== 'member_expression') continue;
+		if (functionNode?.kind() !== 'member_expression') continue;
 
 		const styles = extractChainedStyles(functionNode, binding);
-		if (!styles || !styles.length) continue;
+		if (!styles?.length) continue;
 
 		const args = call.field('arguments');
 		if (!args) continue;
