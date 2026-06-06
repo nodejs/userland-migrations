@@ -23,3 +23,20 @@ nodes:
           exclude:
             - "**/node_modules/**"
           language: typescript
+
+  - id: remove-dependencies
+    name: Remove rimraf dependency
+    type: automatic
+    steps:
+      - name: Remove rimraf dependencies when the CLI is not used
+        js-ast-grep:
+          js_file: src/remove-dependencies.ts
+          base_path: .
+          include:
+            - "**/package.json"
+          exclude:
+            - "**/node_modules/**"
+          language: typescript
+          capabilities:
+            - child_process
+            - fs

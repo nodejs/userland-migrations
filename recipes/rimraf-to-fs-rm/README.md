@@ -11,6 +11,7 @@ It covers the literal delete cases for `rimraf` v3, v4, and v5 style imports:
 - promise-based literal deletes
 - synchronous literal deletes
 - synchronous glob deletes by expanding with `fs.globSync()` before `fs.rmSync()`
+- package.json dependency removal when `rimraf` is not still used as a CLI in scripts
 
 ## Examples
 

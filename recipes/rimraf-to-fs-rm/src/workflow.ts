@@ -17,9 +17,15 @@ type ImportReplacement = {
 
 const RIMRAF_SOURCE_REGEX = '^rimraf(-v[345])?$';
 
+/**
+ * Escapes a binding name so it can be used safely in an ast-grep regex.
+ */
 const escapeRegex = (value: string) =>
 	value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+/**
+ * Splits a comma-separated argument list without splitting nested expressions.
+ */
 const splitTopLevelArguments = (source: string): string[] => {
 	const args: string[] = [];
 	let current = '';
@@ -71,6 +77,9 @@ const splitTopLevelArguments = (source: string): string[] => {
 	return args;
 };
 
+/**
+ * Parses a call expression text into its top-level arguments.
+ */
 const parseCallArguments = (text: string): string[] => {
 	const openParen = text.indexOf('(');
 	const closeParen = text.lastIndexOf(')');
@@ -81,9 +90,15 @@ const parseCallArguments = (text: string): string[] => {
 	return splitTopLevelArguments(text.slice(openParen + 1, closeParen));
 };
 
+/**
+ * Returns whether an argument is an object literal options bag.
+ */
 const isObjectLiteral = (value: string | undefined) =>
 	value?.trim().startsWith('{') ?? false;
 
+/**
+ * Returns whether a literal path contains glob syntax.
+ */
 const isGlobLiteral = (value: string | undefined) => {
 	if (!value) return false;
 	const trimmed = value.trim();
@@ -91,6 +106,9 @@ const isGlobLiteral = (value: string | undefined) => {
 	return /[*?{}[\]]/.test(trimmed.slice(1, -1));
 };
 
+/**
+ * Extracts rimraf and rimrafSync bindings from named imports.
+ */
 const parseNamedBindings = (source: string): Binding[] => {
 	const bindings: Binding[] = [];
 	const namedMatch = source.match(/{([^}]+)}/);
@@ -114,6 +132,9 @@ const parseNamedBindings = (source: string): Binding[] => {
 	return bindings;
 };
 
+/**
+ * Extracts default and named rimraf bindings from an import statement.
+ */
 const parseImportBindings = (source: string): Binding[] => {
 	const bindings = parseNamedBindings(source);
 	const defaultMatch = source.match(/^import\s+([^,{]+?)(?:\s*,|\s+from\s+)/);
@@ -126,6 +147,9 @@ const parseImportBindings = (source: string): Binding[] => {
 	return bindings;
 };
 
+/**
+ * Builds the node:fs imports required by the transformed calls.
+ */
 const buildImportReplacement = (replacement: ImportReplacement) => {
 	const fsImports: string[] = [];
 	if (replacement.usesGlobSync) fsImports.push('globSync');
@@ -143,8 +167,14 @@ const buildImportReplacement = (replacement: ImportReplacement) => {
 	return lines.join('\n');
 };
 
+/**
+ * Builds the recursive rm options that match rimraf's common force behavior.
+ */
 const buildRmOptions = () => '{ recursive: true, force: true }';
 
+/**
+ * Converts direct rimraf calls to native fs.rm APIs.
+ */
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];

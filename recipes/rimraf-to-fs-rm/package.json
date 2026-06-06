@@ -4,7 +4,9 @@
   "description": "Migrate literal rimraf deletes to Node.js fs.rm APIs.",
   "type": "module",
   "scripts": {
-    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests"
+    "test": "node --run test:workflow && node --run test:remove-dependencies",
+    "test:workflow": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests",
+    "test:remove-dependencies": "npx codemod jssg test -l json ./src/remove-dependencies.ts ./tests/remove-dependencies --allow-child-process --allow-fs --strictness cst"
   },
   "repository": {
     "type": "git",
@@ -17,5 +19,8 @@
   "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/rimraf-to-fs-rm/README.md",
   "devDependencies": {
     "@codemod.com/jssg-types": "^1.6.1"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
   }
 }
