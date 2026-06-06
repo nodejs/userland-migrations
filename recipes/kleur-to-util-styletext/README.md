@@ -27,14 +27,6 @@ This recipe migrates from the external `kleur` package to Node.js built-in `util
 + console.log(styleText(['bgRed', 'white'], 'FAIL'));
 ```
 
-## Usage
-
-Run this codemod with:
-
-```sh
-npx codemod nodejs/kleur-to-util-styletext
-```
-
 ## Compatibility
 
 - Removes the `kleur` dependency from package.json automatically
@@ -44,4 +36,4 @@ npx codemod nodejs/kleur-to-util-styletext
 
 ## Limitations
 
-- Unsupported `kleur` APIs that do not map to `util.styleText` require manual migration
+- Manual migration is required for `kleur.enabled`, `$` from `kleur/colors`, and other APIs that are not direct style functions

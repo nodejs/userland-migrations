@@ -11,6 +11,12 @@ type StyleCall = {
 	textArg: string;
 };
 
+/**
+ * Converts kleur and kleur/colors style calls to Node.js util.styleText calls.
+ *
+ * Handles default, namespace, CommonJS, awaited dynamic imports, and
+ * kleur/colors named style imports.
+ */
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
@@ -42,7 +48,15 @@ export default function transform(root: SgRoot<Js>): string | null {
 		}
 
 		if (edits.length > initialEditCount) {
-			edits.push(statement.replace(createImportReplacement(statement)));
+			if (statement.is('expression_statement')) {
+				edits.push(...createDynamicImportReplacementEdits(statement));
+				continue;
+			}
+
+			const importReplacement = createImportReplacement(statement);
+			if (importReplacement) {
+				edits.push(statement.replace(importReplacement));
+			}
 		}
 	}
 
@@ -55,6 +69,9 @@ const COMPAT_MAP: Record<string, string> = {
 	overline: 'overlined',
 };
 
+/**
+ * Kleur style methods that can be mapped to util.styleText.
+ */
 const SUPPORTED_METHODS = new Set([
 	'black',
 	'red',
@@ -106,24 +123,37 @@ const SUPPORTED_METHODS = new Set([
 	'framed',
 ]);
 
+/**
+ * Maps kleur method names that have a different util.styleText spelling.
+ */
 function mapStyle(style: string): string {
 	return COMPAT_MAP[style] || style;
 }
 
+/**
+ * Returns whether a kleur method maps to a util.styleText style.
+ */
 function isSupportedMethod(method: string): boolean {
 	return SUPPORTED_METHODS.has(mapStyle(method));
 }
 
-function hasUnsupportedMethods(styles: string[]): boolean {
-	return styles.some((style) => !SUPPORTED_METHODS.has(style));
+/**
+ * Returns the style methods that should be left for manual migration.
+ */
+function getUnsupportedMethods(styles: string[]): string[] {
+	return styles.filter((style) => !isSupportedMethod(style));
 }
 
+/**
+ * Extracts named imports from import statements and destructured requires.
+ */
 function getDestructuredNames(
 	statement: SgNode<Js>,
 ): Array<{ imported: string; local: string }> {
 	const names: Array<{ imported: string; local: string }> = [];
+	const statementKind = statement.kind();
 
-	if (statement.kind() === 'import_statement') {
+	if (statementKind === 'import_statement') {
 		const namedImports = statement.find({
 			rule: { kind: 'named_imports' },
 		});
@@ -145,7 +175,7 @@ function getDestructuredNames(
 				}
 			}
 		}
-	} else if (statement.kind() === 'variable_declarator') {
+	} else if (statementKind === 'variable_declarator') {
 		const nameField = statement.field('name');
 
 		if (nameField && nameField.kind() === 'object_pattern') {
@@ -178,6 +208,9 @@ function getDestructuredNames(
 	return names;
 }
 
+/**
+ * Transforms calls that use the default or namespace kleur binding.
+ */
 function processKleurImports(
 	rootNode: SgNode<Js>,
 	binding: string,
@@ -194,11 +227,11 @@ function processKleurImports(
 		const styles = extractKleurStyles(functionExpr, binding);
 		if (!styles || styles.length === 0) continue;
 
-		if (hasUnsupportedMethods(styles)) {
-			for (const style of styles) {
-				if (!SUPPORTED_METHODS.has(style)) {
-					warnOnUnsupportedMethod(style, rootNode, call);
-				}
+		const unsupportedMethods = getUnsupportedMethods(styles);
+
+		if (unsupportedMethods.length) {
+			for (const method of unsupportedMethods) {
+				warnOnUnsupportedMethod(method, rootNode, call);
 			}
 			continue;
 		}
@@ -210,6 +243,9 @@ function processKleurImports(
 	}
 }
 
+/**
+ * Transforms calls imported from kleur/colors named exports.
+ */
 function processKleurColorsImports(
 	rootNode: SgNode<Js>,
 	destructuredNames: Array<{ imported: string; local: string }>,
@@ -250,6 +286,9 @@ function processKleurColorsImports(
 	}
 }
 
+/**
+ * Extracts a kleur style chain from a member expression.
+ */
 function extractKleurStyles(
 	node: SgNode<Js>,
 	binding: string,
@@ -262,23 +301,24 @@ function extractKleurStyles(
 		const obj = activeNode.field('object');
 		const prop = activeNode.field('property');
 
-		if (!obj || !prop || prop.kind() !== 'property_identifier') {
+		if (!obj || !prop?.is('property_identifier')) {
 			return false;
 		}
 
+		const objKind = obj.kind();
 		const propName = mapStyle(prop.text());
 
-		if (obj.kind() === 'identifier' && obj.text() === binding) {
+		if (objKind === 'identifier' && obj.text() === binding) {
 			styles.push(propName);
 			return true;
 		}
 
-		if (obj.kind() === 'member_expression' && traverse(obj)) {
+		if (objKind === 'member_expression' && traverse(obj)) {
 			styles.push(propName);
 			return true;
 		}
 
-		if (obj.kind() === 'call_expression') {
+		if (objKind === 'call_expression') {
 			const chainedArgs = getCallArguments(obj);
 			const chainedFunction = obj.field('function');
 
@@ -298,6 +338,9 @@ function extractKleurStyles(
 	return traverse(node) ? styles : null;
 }
 
+/**
+ * Extracts a kleur/colors call and nested style calls.
+ */
 function extractKleurColorsCall(
 	call: SgNode<Js>,
 	styleImports: Map<string, string>,
@@ -331,6 +374,9 @@ function extractKleurColorsCall(
 	};
 }
 
+/**
+ * Skips nested kleur/colors calls so only the outer call is replaced.
+ */
 function hasKleurColorsCallAncestor(
 	call: SgNode<Js>,
 	styleImports: Map<string, string>,
@@ -339,7 +385,7 @@ function hasKleurColorsCallAncestor(
 
 	while (parentNode) {
 		if (
-			parentNode.kind() === 'call_expression' &&
+			parentNode.is('call_expression') &&
 			extractKleurColorsCall(parentNode, styleImports)
 		) {
 			return true;
@@ -351,6 +397,9 @@ function hasKleurColorsCallAncestor(
 	return false;
 }
 
+/**
+ * Detects kleur.enabled assignments that need manual migration.
+ */
 function hasUnsupportedEnabledUsage(
 	rootNode: SgNode<Js>,
 	binding: string,
@@ -385,10 +434,16 @@ function hasUnsupportedEnabledUsage(
 	return false;
 }
 
+/**
+ * Returns the first argument text from a call expression.
+ */
 function getFirstCallArgument(call: SgNode<Js>): string | null {
 	return getFirstCallArgumentNode(call)?.text() || null;
 }
 
+/**
+ * Returns the first argument node from a call expression.
+ */
 function getFirstCallArgumentNode(call: SgNode<Js>): SgNode<Js> | null {
 	const args = getCallArguments(call);
 
@@ -397,6 +452,9 @@ function getFirstCallArgumentNode(call: SgNode<Js>): SgNode<Js> | null {
 	return args[0] || null;
 }
 
+/**
+ * Returns the non-punctuation argument nodes from a call expression.
+ */
 function getCallArguments(call: SgNode<Js>): SgNode<Js>[] {
 	const args = call.field('arguments');
 
@@ -408,6 +466,9 @@ function getCallArguments(call: SgNode<Js>): SgNode<Js>[] {
 	});
 }
 
+/**
+ * Builds a util.styleText call for one or more styles.
+ */
 function createStyleTextReplacement(styles: string[], textArg: string): string {
 	if (styles.length === 1) {
 		return `styleText("${styles[0]}", ${textArg})`;
@@ -418,12 +479,17 @@ function createStyleTextReplacement(styles: string[], textArg: string): string {
 	return `styleText(${stylesArray}, ${textArg})`;
 }
 
-function createImportReplacement(statement: SgNode<Js>): string {
-	if (statement.kind() === 'import_statement') {
+/**
+ * Replaces kleur imports with node:util styleText imports.
+ */
+function createImportReplacement(statement: SgNode<Js>): string | null {
+	const statementKind = statement.kind();
+
+	if (statementKind === 'import_statement') {
 		return `import { styleText } from "node:util";`;
 	}
 
-	if (statement.kind() === 'variable_declarator') {
+	if (statementKind === 'variable_declarator') {
 		if (statement.field('value')?.kind() === 'await_expression') {
 			return `{ styleText } = await import("node:util")`;
 		}
@@ -431,9 +497,77 @@ function createImportReplacement(statement: SgNode<Js>): string {
 		return `{ styleText } = require("node:util")`;
 	}
 
-	return '';
+	return null;
 }
 
+/**
+ * Builds edits for import("kleur").then((kleur) => ...) callback imports.
+ */
+function createDynamicImportReplacementEdits(statement: SgNode<Js>): Edit[] {
+	const importCall = statement.find({
+		rule: {
+			kind: 'call_expression',
+			has: {
+				field: 'function',
+				kind: 'import',
+			},
+		},
+	});
+
+	const callback =
+		statement.find({
+			rule: { kind: 'arrow_function' },
+		}) ||
+		statement.find({
+			rule: { kind: 'function_expression' },
+		});
+
+	const edits: Edit[] = [];
+
+	if (importCall) {
+		edits.push(importCall.replace('import("node:util")'));
+	}
+
+	if (!callback) return edits;
+
+	const args = callback.field('parameter') || callback.field('parameters');
+
+	if (args) {
+		if (args.is('formal_parameters')) {
+			const firstArg = args.child(1);
+
+			if (firstArg) {
+				edits.push(firstArg.replace('{ styleText }'));
+			}
+
+			return edits;
+		}
+
+		edits.push(args.replace('({ styleText })'));
+
+		return edits;
+	}
+
+	const firstFormalArg = callback.find({
+		rule: {
+			kind: 'identifier',
+			inside: {
+				kind: 'formal_parameters',
+				stopBy: 'end',
+			},
+		},
+	});
+
+	if (firstFormalArg) {
+		edits.push(firstFormalArg.replace('{ styleText }'));
+	}
+
+	return edits;
+}
+
+/**
+ * Emits a location-aware warning for unsupported kleur methods.
+ */
 function warnOnUnsupportedMethod(
 	method: string,
 	rootNode: SgNode<Js>,
