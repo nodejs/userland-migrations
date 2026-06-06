@@ -1,0 +1,242 @@
+import type { Edit, SgRoot } from '@codemod.com/jssg-types/main';
+import type Js from '@codemod.com/jssg-types/langs/javascript';
+
+type BindingKind = 'async' | 'sync';
+
+type Binding = {
+	kind: BindingKind;
+	name: string;
+};
+
+type ImportReplacement = {
+	usesGlobSync: boolean;
+	usesRm: boolean;
+	usesRmPromise: boolean;
+	usesRmSync: boolean;
+};
+
+const RIMRAF_SOURCE_REGEX = '^rimraf(-v[345])?$';
+
+const escapeRegex = (value: string) =>
+	value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const splitTopLevelArguments = (source: string): string[] => {
+	const args: string[] = [];
+	let current = '';
+	let depth = 0;
+	let quote: string | null = null;
+	let escaped = false;
+
+	for (const char of source) {
+		if (escaped) {
+			current += char;
+			escaped = false;
+			continue;
+		}
+
+		if (char === '\\') {
+			current += char;
+			escaped = true;
+			continue;
+		}
+
+		if (quote) {
+			current += char;
+			if (char === quote) quote = null;
+			continue;
+		}
+
+		if (char === '"' || char === "'" || char === '`') {
+			current += char;
+			quote = char;
+			continue;
+		}
+
+		if (char === '(' || char === '[' || char === '{') {
+			depth++;
+		} else if (char === ')' || char === ']' || char === '}') {
+			depth--;
+		}
+
+		if (char === ',' && depth === 0) {
+			args.push(current.trim());
+			current = '';
+			continue;
+		}
+
+		current += char;
+	}
+
+	if (current.trim()) args.push(current.trim());
+	return args;
+};
+
+const parseCallArguments = (text: string): string[] => {
+	const openParen = text.indexOf('(');
+	const closeParen = text.lastIndexOf(')');
+	if (openParen === -1 || closeParen === -1 || closeParen <= openParen) {
+		return [];
+	}
+
+	return splitTopLevelArguments(text.slice(openParen + 1, closeParen));
+};
+
+const isObjectLiteral = (value: string | undefined) =>
+	value?.trim().startsWith('{') ?? false;
+
+const isGlobLiteral = (value: string | undefined) => {
+	if (!value) return false;
+	const trimmed = value.trim();
+	if (!/^["'`]/.test(trimmed)) return false;
+	return /[*?{}[\]]/.test(trimmed.slice(1, -1));
+};
+
+const parseNamedBindings = (source: string): Binding[] => {
+	const bindings: Binding[] = [];
+	const namedMatch = source.match(/{([^}]+)}/);
+	if (!namedMatch) return bindings;
+
+	for (const rawSpecifier of namedMatch[1].split(',')) {
+		const specifier = rawSpecifier.trim();
+		if (!specifier) continue;
+		const [importedName, alias] = specifier.split(/\s+as\s+/);
+		const localName = (alias || importedName).trim();
+
+		if (importedName.trim() === 'rimraf') {
+			bindings.push({ kind: 'async', name: localName });
+		}
+
+		if (importedName.trim() === 'rimrafSync') {
+			bindings.push({ kind: 'sync', name: localName });
+		}
+	}
+
+	return bindings;
+};
+
+const parseImportBindings = (source: string): Binding[] => {
+	const bindings = parseNamedBindings(source);
+	const defaultMatch = source.match(/^import\s+([^,{]+?)(?:\s*,|\s+from\s+)/);
+	const defaultName = defaultMatch?.[1]?.trim();
+
+	if (defaultName) {
+		bindings.push({ kind: 'async', name: defaultName });
+	}
+
+	return bindings;
+};
+
+const buildImportReplacement = (replacement: ImportReplacement) => {
+	const fsImports: string[] = [];
+	if (replacement.usesGlobSync) fsImports.push('globSync');
+	if (replacement.usesRm) fsImports.push('rm');
+	if (replacement.usesRmSync) fsImports.push('rmSync');
+
+	const lines: string[] = [];
+	if (fsImports.length) {
+		lines.push(`import { ${fsImports.join(', ')} } from "node:fs";`);
+	}
+	if (replacement.usesRmPromise) {
+		lines.push('import { rm as rmPromise } from "node:fs/promises";');
+	}
+
+	return lines.join('\n');
+};
+
+const buildRmOptions = () => '{ recursive: true, force: true }';
+
+export default function transform(root: SgRoot<Js>): string | null {
+	const rootNode = root.root();
+	const edits: Edit[] = [];
+
+	const rimrafImports = rootNode.findAll({
+		rule: {
+			kind: 'import_statement',
+			has: {
+				field: 'source',
+				kind: 'string',
+				has: {
+					kind: 'string_fragment',
+					regex: RIMRAF_SOURCE_REGEX,
+				},
+			},
+		},
+	});
+
+	const bindings: Binding[] = [];
+	for (const importNode of rimrafImports) {
+		bindings.push(...parseImportBindings(importNode.text()));
+	}
+
+	if (!bindings.length) return null;
+
+	const replacement: ImportReplacement = {
+		usesGlobSync: false,
+		usesRm: false,
+		usesRmPromise: false,
+		usesRmSync: false,
+	};
+
+	for (const binding of bindings) {
+		const calls = rootNode.findAll({
+			rule: {
+				kind: 'call_expression',
+				has: {
+					field: 'function',
+					kind: 'identifier',
+					regex: `^${escapeRegex(binding.name)}$`,
+				},
+			},
+		});
+
+		for (const call of calls) {
+			const args = parseCallArguments(call.text());
+			const pathArg = args[0];
+			if (!pathArg) continue;
+
+			if (binding.kind === 'sync') {
+				replacement.usesRmSync = true;
+
+				if (isGlobLiteral(pathArg)) {
+					replacement.usesGlobSync = true;
+					const loopText = `for (const filePath of globSync(${pathArg})) {\n\trmSync(filePath, ${buildRmOptions()});\n}`;
+					const parent = call.parent();
+					edits.push(
+						parent?.kind() === 'expression_statement'
+							? parent.replace(loopText)
+							: call.replace(loopText),
+					);
+					continue;
+				}
+
+				edits.push(call.replace(`rmSync(${pathArg}, ${buildRmOptions()})`));
+				continue;
+			}
+
+			const callbackArg =
+				args.length >= 2 && !isObjectLiteral(args.at(-1))
+					? args.at(-1)
+					: undefined;
+
+			if (callbackArg) {
+				replacement.usesRm = true;
+				edits.push(
+					call.replace(`rm(${pathArg}, ${buildRmOptions()}, ${callbackArg})`),
+				);
+				continue;
+			}
+
+			replacement.usesRmPromise = true;
+			edits.push(call.replace(`rmPromise(${pathArg}, ${buildRmOptions()})`));
+		}
+	}
+
+	if (!edits.length) return null;
+
+	const importReplacement = buildImportReplacement(replacement);
+	rimrafImports.forEach((importNode, index) => {
+		edits.push(importNode.replace(index === 0 ? importReplacement : ''));
+	});
+
+	return rootNode.commitEdits(edits);
+}
