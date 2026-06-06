@@ -29,14 +29,6 @@ This recipe migrates from the external `ansi-colors` package to Node.js's built-
 + console.log(styleText('blue', 'Info'));
 ```
 
-## Usage
-
-Run this codemod with:
-
-```sh
-npx codemod @nodejs/ansi-colors-to-styletext
-```
-
 ## Compatibility
 
 - **Removes ansi-colors dependency** from package.json automatically
