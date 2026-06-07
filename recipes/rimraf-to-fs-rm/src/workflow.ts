@@ -23,6 +23,9 @@ const RIMRAF_SOURCE_REGEX = '^rimraf(-v[345])?$';
 const escapeRegex = (value: string) =>
 	value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+const getLineEnding = (source: string) =>
+	source.includes('\r\n') ? '\r\n' : '\n';
+
 /**
  * Splits a comma-separated argument list without splitting nested expressions.
  */
@@ -150,7 +153,10 @@ const parseImportBindings = (source: string): Binding[] => {
 /**
  * Builds the node:fs imports required by the transformed calls.
  */
-const buildImportReplacement = (replacement: ImportReplacement) => {
+const buildImportReplacement = (
+	replacement: ImportReplacement,
+	lineEnding: string,
+) => {
 	const fsImports: string[] = [];
 	if (replacement.usesGlobSync) fsImports.push('globSync');
 	if (replacement.usesRm) fsImports.push('rm');
@@ -164,7 +170,7 @@ const buildImportReplacement = (replacement: ImportReplacement) => {
 		lines.push('import { rm as rmPromise } from "node:fs/promises";');
 	}
 
-	return lines.join('\n');
+	return lines.join(lineEnding);
 };
 
 /**
@@ -177,6 +183,7 @@ const buildRmOptions = () => '{ recursive: true, force: true }';
  */
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
+	const lineEnding = getLineEnding(rootNode.text());
 	const edits: Edit[] = [];
 
 	const rimrafImports = rootNode.findAll({
@@ -229,7 +236,11 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 				if (isGlobLiteral(pathArg)) {
 					replacement.usesGlobSync = true;
-					const loopText = `for (const filePath of globSync(${pathArg})) {\n\trmSync(filePath, ${buildRmOptions()});\n}`;
+					const loopText = [
+						`for (const filePath of globSync(${pathArg})) {`,
+						`\trmSync(filePath, ${buildRmOptions()});`,
+						'}',
+					].join(lineEnding);
 					const parent = call.parent();
 					edits.push(
 						parent?.kind() === 'expression_statement'
@@ -263,7 +274,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	if (!edits.length) return null;
 
-	const importReplacement = buildImportReplacement(replacement);
+	const importReplacement = buildImportReplacement(replacement, lineEnding);
 	rimrafImports.forEach((importNode, index) => {
 		edits.push(importNode.replace(index === 0 ? importReplacement : ''));
 	});
