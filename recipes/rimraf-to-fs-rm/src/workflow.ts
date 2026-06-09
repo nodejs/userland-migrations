@@ -218,7 +218,8 @@ export default function transform(root: SgRoot<Js>): string | null {
 		}
 	}
 
-	if (!edits.length) {
+	const hasCallEdits = edits.length > 0;
+	if (!hasCallEdits) {
 		return null;
 	}
 
