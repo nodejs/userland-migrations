@@ -1,7 +1,7 @@
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import type { Edit, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
-import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 
 const kleurBinding = 'kleur';
 const kleurColorsBinding = 'kleur/colors';
@@ -69,59 +69,7 @@ const COMPAT_MAP: Record<string, string> = {
 	overline: 'overlined',
 };
 
-/**
- * Kleur style methods that can be mapped to util.styleText.
- */
-const SUPPORTED_METHODS = new Set([
-	'black',
-	'red',
-	'green',
-	'yellow',
-	'blue',
-	'magenta',
-	'cyan',
-	'white',
-	'gray',
-	'grey',
-	'blackBright',
-	'redBright',
-	'greenBright',
-	'yellowBright',
-	'blueBright',
-	'magentaBright',
-	'cyanBright',
-	'whiteBright',
-	'bgBlack',
-	'bgRed',
-	'bgGreen',
-	'bgYellow',
-	'bgBlue',
-	'bgMagenta',
-	'bgCyan',
-	'bgWhite',
-	'bgGray',
-	'bgGrey',
-	'bgBlackBright',
-	'bgRedBright',
-	'bgGreenBright',
-	'bgYellowBright',
-	'bgBlueBright',
-	'bgMagentaBright',
-	'bgCyanBright',
-	'bgWhiteBright',
-	'reset',
-	'bold',
-	'italic',
-	'underline',
-	'strikethrough',
-	'hidden',
-	'dim',
-	'overlined',
-	'blink',
-	'inverse',
-	'doubleunderline',
-	'framed',
-]);
+const UNSUPPORTED_METHODS = new Set(['$', 'enabled']);
 
 /**
  * Maps kleur method names that have a different util.styleText spelling.
@@ -131,17 +79,17 @@ function mapStyle(style: string): string {
 }
 
 /**
- * Returns whether a kleur method maps to a util.styleText style.
+ * Returns whether a kleur method needs manual migration.
  */
-function isSupportedMethod(method: string): boolean {
-	return SUPPORTED_METHODS.has(mapStyle(method));
+function isUnsupportedMethod(method: string): boolean {
+	return UNSUPPORTED_METHODS.has(method);
 }
 
 /**
  * Returns the style methods that should be left for manual migration.
  */
 function getUnsupportedMethods(styles: string[]): string[] {
-	return styles.filter((style) => !isSupportedMethod(style));
+	return styles.filter((style) => isUnsupportedMethod(style));
 }
 
 /**
@@ -254,7 +202,7 @@ function processKleurColorsImports(
 	if (!destructuredNames.length) return;
 
 	const unsupportedNames = destructuredNames.filter(
-		(name) => !isSupportedMethod(name.imported),
+		(name) => isUnsupportedMethod(name.imported),
 	);
 
 	if (unsupportedNames.length) {
