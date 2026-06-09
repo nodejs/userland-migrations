@@ -4,22 +4,8 @@ import removeDependencies from '@nodejs/codemod-utils/remove-dependencies';
 
 const rimrafPackages = [
 	'rimraf',
-	'rimraf-v3',
-	'rimraf-v4',
-	'rimraf-v5',
 	'@types/rimraf',
 ];
-
-/**
- * Decodes a JSON string node text while keeping invalid values unchanged.
- */
-function parseJsonString(value: string): string {
-	try {
-		return JSON.parse(value) as string;
-	} catch {
-		return value;
-	}
-}
 
 /**
  * Returns whether package.json scripts still call the rimraf CLI.
@@ -49,16 +35,21 @@ function hasRimrafCliScript(rootNode: SgNode<Json>): boolean {
 	const scriptsObject = scriptsPair?.field('value');
 	if (!scriptsObject) return false;
 
-	const scriptPairs = scriptsObject.findAll({
-		rule: { kind: 'pair' },
-	});
-
-	return scriptPairs.some((pair) => {
-		const value = pair.field('value');
-		if (!value?.is('string')) return false;
-
-		return /\brimraf(?:\s|$)/.test(parseJsonString(value.text()));
-	});
+	return Boolean(
+		scriptsObject.find({
+			rule: {
+				kind: 'pair',
+				has: {
+					field: 'value',
+					kind: 'string',
+					has: {
+						kind: 'string_content',
+						regex: '\\brimraf(?:\\s|$)',
+					},
+				},
+			},
+		}),
+	);
 }
 
 /**

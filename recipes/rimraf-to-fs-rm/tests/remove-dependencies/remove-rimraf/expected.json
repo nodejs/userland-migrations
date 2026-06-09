@@ -2,6 +2,7 @@
   "name": "fixture",
   "version": "1.0.0",
   "dependencies": {
+    "rimraf-v4": "npm:rimraf@^4.4.1",
     "left-pad": "^1.3.0"
   },
   "devDependencies": {

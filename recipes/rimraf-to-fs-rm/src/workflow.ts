@@ -1,4 +1,4 @@
-import type { Edit, SgRoot } from '@codemod.com/jssg-types/main';
+import type { Edit, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 type BindingKind = 'async' | 'sync';
@@ -27,70 +27,16 @@ const getLineEnding = (source: string) =>
 	source.includes('\r\n') ? '\r\n' : '\n';
 
 /**
- * Splits a comma-separated argument list without splitting nested expressions.
+ * Returns the top-level call arguments.
  */
-const splitTopLevelArguments = (source: string): string[] => {
-	const args: string[] = [];
-	let current = '';
-	let depth = 0;
-	let quote: string | null = null;
-	let escaped = false;
+const getCallArguments = (call: SgNode<Js>): string[] => {
+	const args = call.field('arguments');
+	if (!args) return [];
 
-	for (const char of source) {
-		if (escaped) {
-			current += char;
-			escaped = false;
-			continue;
-		}
-
-		if (char === '\\') {
-			current += char;
-			escaped = true;
-			continue;
-		}
-
-		if (quote) {
-			current += char;
-			if (char === quote) quote = null;
-			continue;
-		}
-
-		if (char === '"' || char === "'" || char === '`') {
-			current += char;
-			quote = char;
-			continue;
-		}
-
-		if (char === '(' || char === '[' || char === '{') {
-			depth++;
-		} else if (char === ')' || char === ']' || char === '}') {
-			depth--;
-		}
-
-		if (char === ',' && depth === 0) {
-			args.push(current.trim());
-			current = '';
-			continue;
-		}
-
-		current += char;
-	}
-
-	if (current.trim()) args.push(current.trim());
-	return args;
-};
-
-/**
- * Parses a call expression text into its top-level arguments.
- */
-const parseCallArguments = (text: string): string[] => {
-	const openParen = text.indexOf('(');
-	const closeParen = text.lastIndexOf(')');
-	if (openParen === -1 || closeParen === -1 || closeParen <= openParen) {
-		return [];
-	}
-
-	return splitTopLevelArguments(text.slice(openParen + 1, closeParen));
+	return args
+		.children()
+		.filter((child) => ![',', '(', ')'].includes(child.kind()))
+		.map((child) => child.text());
 };
 
 /**
@@ -227,7 +173,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 		});
 
 		for (const call of calls) {
-			const args = parseCallArguments(call.text());
+			const args = getCallArguments(call);
 			const pathArg = args[0];
 			if (!pathArg) continue;
 
@@ -275,9 +221,13 @@ export default function transform(root: SgRoot<Js>): string | null {
 	if (!edits.length) return null;
 
 	const importReplacement = buildImportReplacement(replacement, lineEnding);
-	rimrafImports.forEach((importNode, index) => {
-		edits.push(importNode.replace(index === 0 ? importReplacement : ''));
-	});
+	for (const [index, importNode] of rimrafImports.entries()) {
+		if (index === 0) {
+			edits.push(importNode.replace(importReplacement));
+		} else {
+			edits.push(importNode.replace(''));
+		}
+	}
 
 	return rootNode.commitEdits(edits);
 }
