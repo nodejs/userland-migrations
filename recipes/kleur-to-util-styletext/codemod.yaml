@@ -1,0 +1,26 @@
+schema_version: "1.0"
+name: "@nodejs/kleur-to-util-styletext"
+version: 1.0.0
+capabilities:
+  - fs
+  - child_process
+description: Migrate from the kleur package to Node.js's built-in util.styleText API
+author: Herrtian
+license: MIT
+workflow: workflow.yaml
+category: migration
+repository: https://github.com/nodejs/userland-migrations
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - nodejs
+
+registry:
+  access: public
+  visibility: public

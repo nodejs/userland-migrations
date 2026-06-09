@@ -1,0 +1,26 @@
+{
+  "name": "@nodejs/kleur-to-util-styletext",
+  "version": "1.0.0",
+  "description": "Migrate from the kleur package to Node.js's built-in util.styleText API",
+  "type": "module",
+  "scripts": {
+    "test": "node --run test:workflow && node --run test:remove-dependencies",
+    "test:workflow": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests/workflow",
+    "test:remove-dependencies": "npx codemod jssg test -l json ./src/remove-dependencies.ts ./tests/remove-dependencies --allow-child-process --allow-fs --strictness cst"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/kleur-to-util-styletext",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "Herrtian",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/kleur-to-util-styletext/README.md",
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.6.1"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
+  }
+}
