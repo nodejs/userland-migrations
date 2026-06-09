@@ -52,7 +52,7 @@ semantics rather than only source syntax:
 - custom retry behavior
 - custom glob options
 - async glob deletes with callbacks
-- package-specific fallback behavior on Windows
+- Windows package-specific fallback behavior
 - CLI usage, which is left untouched and may need a different migration path
 
 When code depends on those behaviors, keep the behavior explicit instead of

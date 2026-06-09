@@ -218,7 +218,9 @@ export default function transform(root: SgRoot<Js>): string | null {
 		}
 	}
 
-	if (!edits.length) return null;
+	if (!edits.length) {
+		return null;
+	}
 
 	const importReplacement = buildImportReplacement(replacement, lineEnding);
 	for (const [index, importNode] of rimrafImports.entries()) {
