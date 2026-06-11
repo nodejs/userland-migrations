@@ -232,5 +232,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 		}
 	}
 
+	if (!edits.length) return null;
+
 	return rootNode.commitEdits(edits);
 }
