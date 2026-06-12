@@ -218,10 +218,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 		}
 	}
 
-	const hasCallEdits = edits.length > 0;
-	if (!hasCallEdits) {
-		return null;
-	}
+	if (!edits.length) return null;
 
 	const importReplacement = buildImportReplacement(replacement, lineEnding);
 	for (const [index, importNode] of rimrafImports.entries()) {
@@ -231,8 +228,6 @@ export default function transform(root: SgRoot<Js>): string | null {
 			edits.push(importNode.replace(''));
 		}
 	}
-
-	if (!edits.length) return null;
 
 	return rootNode.commitEdits(edits);
 }
