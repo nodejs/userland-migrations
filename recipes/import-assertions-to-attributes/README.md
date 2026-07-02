@@ -2,20 +2,9 @@
 
 This recipe converts import assertions (`assert` syntax) to the standardized import attributes (`with` syntax). It modifies code like:
 
-```ts
-// Before
-import data from './data.json' assert { type: 'json' };
-
-// After
-import data from './data.json' with { type: 'json' };
-```
-
-## Usage
-
-Run this codemod with:
-
-```sh
-npx codemod nodejs/import-assertions-to-attributes
+```diff
+- import data from './data.json' assert { type: 'json' };
++ import data from './data.json' with { type: 'json' };
 ```
 
 ## When is it useful?

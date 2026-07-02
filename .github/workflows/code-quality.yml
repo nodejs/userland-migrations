@@ -1,0 +1,136 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# For more information see: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow
+
+name: Code Quality
+
+on:
+  push:
+    branches: ["*"]
+    paths:
+      - "recipes/**/*.js"
+      - "recipes/**/*.ts"
+      - "recipes/**/package.json"
+      - "utils/**/*.js"
+      - "utils/**/*.ts"
+      - "utils/package.json"
+      - "package.json"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    branches: ["*"]
+    paths:
+      - "recipes/**/*.js"
+      - "recipes/**/*.ts"
+      - "recipes/**/package.json"
+      - "utils/**/*.js"
+      - "utils/**/*.ts"
+      - "utils/**/package.json"
+      - "package.json"
+      - ".github/workflows/ci.yml"
+    types:
+      - opened
+      - ready_for_review
+      - reopened
+      - synchronize
+
+permissions:
+  contents: read
+
+jobs:
+  get-matrix:
+    name: Get Node + OS matrix
+    runs-on: ubuntu-latest
+
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+
+    outputs:
+      latest: ${{ steps.set-matrix.outputs.requireds }}
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - uses: ljharb/actions/node/matrix@7f214d8efdbdcefc96ad9689663ef387a195deec # main
+        id: set-matrix
+        with:
+          versionsAsRoot: true
+          type: majors
+          preset: ">= 22" # glob is not backported below 22.x
+
+  lint-and-types:
+    name: Lint & types
+    runs-on: ubuntu-slim
+
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+
+    steps:
+      # FIXME https://github.com/step-security/harden-runner/issues/627
+      # - name: Harden the runner (Audit all outbound calls)
+      #   uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+      #   with:
+      #     egress-policy: audit
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          show-progress: false
+
+      - run: npm ci
+      - run: node --run lint
+      - run: node --run type-check
+
+  test:
+    name: Before/After tests
+    runs-on: ${{ matrix.os }}
+
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+          - windows-latest
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          show-progress: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          cache: "npm"
+          check-latest: true
+          node-version-file: ".nvmrc"
+
+      - run: npm ci
+
+      - name: Run tests related to changes
+        shell: bash
+        run: >
+          changed_paths=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
+
+          # run everything?
+          if echo "$changed_paths" | grep -qE '^(package\.json|\.github/workflows/ci\.yml|utils/)$'; then
+            npm run test --workspaces
+            exit 0
+          fi
+
+          # run for specific workspace(s)
+          npm run test $(
+            echo "$changed_paths" \
+            | grep '^recipes/'
+            | cut -d/ -f1,2
+            | sort -u
+            | sed 's/^/--workspace=/'
+          )

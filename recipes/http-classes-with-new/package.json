@@ -4,7 +4,7 @@
   "description": "Handle DEP0195: Instantiating node:http classes without new.",
   "type": "module",
   "scripts": {
-    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./"
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests"
   },
   "repository": {
     "type": "git",
@@ -16,7 +16,7 @@
   "license": "MIT",
   "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/http-classes-with-new/README.md",
   "devDependencies": {
-    "@codemod.com/jssg-types": "^1.5.0"
+    "@codemod.com/jssg-types": "^1.6.2"
   },
   "dependencies": {
     "@nodejs/codemod-utils": "*"

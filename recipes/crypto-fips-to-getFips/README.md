@@ -28,4 +28,4 @@ See [DEP0093](https://nodejs.org/api/deprecations.html#DEP0093).
 + crypto.setFips(false);
 - fips = false;
 + setFips(false);
-`````
+```

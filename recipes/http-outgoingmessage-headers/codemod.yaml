@@ -8,6 +8,7 @@ author: Elves Vieira
 license: MIT
 workflow: workflow.yaml
 category: migration
+repository: https://github.com/nodejs/userland-migrations
 
 targets:
   languages:
@@ -18,6 +19,7 @@ keywords:
   - transformation
   - migration
   - http
+  - nodejs
 
 registry:
   access: public

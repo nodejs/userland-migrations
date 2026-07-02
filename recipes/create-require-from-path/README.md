@@ -16,4 +16,4 @@ See [DEP0130](https://nodejs.org/api/deprecations.html#DEP0130).
 + const require = createRequire('/path/to/module');
 - const myModule = requireFromPath('./myModule.cjs');
 + const myModule = require('./myModule.cjs');
-`````
+```

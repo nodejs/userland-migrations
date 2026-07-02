@@ -41,15 +41,44 @@ Each codemod resides in its own directory under `recipes/` and should include:
 > [!NOTE]
 > The `workflow.ts` naming is conventional but can be changed as needed. Ensure to update the `workflow.yml` accordingly. We use `workflow` when there are one step codemods; for multi-step codemods, consider using `what-to-change.ts` or similar descriptive names.
 
+#### Naming
+
+For migrations that handle a from-to, please follow that pattern. For example `import-assertions-to-attributes`.
+
+#### Tests
+
+Codemod leverages a `before` ("input") + `after` ("expected") snapshot comparison. Codemod supports 2 options:
+
+* 👍 [**Single-file fixtures**](https://docs.codemod.com/jssg/testing#single-file-fixtures)
+  ```
+  tests/
+    some-test-case-description/
+      input.ts
+      expected.ts
+    another-test-case-description/
+      input.ts
+      expected.ts
+  ```
+* 👎 [Directory snapshot fixtures](https://docs.codemod.com/jssg/testing#directory-snapshot-fixtures)
+  ```
+  tests/
+    input/
+      some-test-case-description.ts
+      another-test-case-description.ts
+    expected
+      some-test-case-description.ts
+      another-test-case-description.ts
+  ```
+
+Use the _Single-file fixtures_ option.
+
 ### Example Files
 
 **`src/workflow.ts` example:**
 ```ts
 import {
-	getNodeImportCalls,
-	getNodeImportStatements,
-} from '@nodejs/codemod-utils/ast-grep/import-statement';
-import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
+  getModuleDependencies
+} from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import type { SgRoot, Edit } from "@codemod.com/jssg-types/main";
 import type JS from "@codemod.com/jssg-types/langs/javascript";
@@ -64,37 +93,33 @@ import type JS from "@codemod.com/jssg-types/langs/javascript";
  * ...
  */
 export default function transform(root: SgRoot<JS>): string | null {
-	const rootNode = root.root();
-	const edits: Edit[] = [];
+  const rootNode = root.root();
+  const edits: Edit[] = [];
 
-	const allStatementNodes = [
-		...getNodeImportStatements(root, 'api'),
-		...getNodeRequireCalls(root, 'api')
-		...getNodeImportCalls(root, 'api'),
-	];
+  const allStatementNodes = getModuleDependencies(root, 'api'),
 
-	// No imports or requires for 'api', skip transformation
-	if (!allStatementNodes.length) return null;
+  // No imports or requires for 'api', skip transformation
+  if (!allStatementNodes.length) return null;
 
-	for (const statementNode of allStatementNodes) {
-		const bindingPath = resolveBindingPath(statementNode, 'api.fn');
+  for (const statementNode of allStatementNodes) {
+    const bindingPath = resolveBindingPath(statementNode, '$.api.fn');
 
-		// Find all calls to the resolved bindingPath
-		const callNodes = rootNode.findDescendants((node) => {
-			return node.isCallExpression() &&
-				node.getChild('callee')?.getText() === bindingPath;
-		});
+    // Find all calls to the resolved bindingPath
+    const callNodes = rootNode.findDescendants((node) => {
+      return node.isCallExpression() &&
+        node.getChild('callee')?.getText() === bindingPath;
+    });
 
-		for (const callNode of callNodes) {
-			// Perform transformation on callNode
-			// e.g., replace 'api.fn' with 'api.newFn'
-			edits.push(...);
-		}
-	}
+    for (const callNode of callNodes) {
+      // Perform transformation on callNode
+      // e.g., replace 'api.fn' with 'api.newFn'
+      edits.push(...);
+    }
+  }
 
-	if (!edits.length) return null;
+  if (!edits.length) return null;
 
-	return rootNode.commitEdits(edits);
+  return rootNode.commitEdits(edits);
 }
 ```
 
@@ -108,6 +133,7 @@ author: <Your Name>
 license: MIT
 workflow: workflow.yaml
 category: migration
+repository: https://github.com/nodejs/userland-migrations
 
 targets:
   languages:
@@ -166,13 +192,18 @@ Format:
 ```
 
 - **`type`**: The type of change (e.g., `feat`, `fix`, `docs`, `chore`, etc.)
-- **`scope`**: A short, lowercase description of the section of the codebase affected (e.g., `tmpDir-to-tmpdir`, `esm-migration`)
-- **`description`**: A concise summary of the change
+- **`scope`**: A short, description of the section of the codebase affected;
+  - if introducing a migration handling
+    - a deprecation, the deprecation code (e.g. `DEP0000`)
+    - a non-deprecation, such as facilitating adoption of a node API from a 3rd party, `adopt`
+  - if adjusting an existing migration, the migration's name (e.g. `tmpDir-to-tmpdir`)
+- **`description`**: A concise summary of the change, citing relevant APIs (e.g. `jest-to-node-test-runner`)
 
 Examples:
-- `feat(tmpDir-to-tmpdir): add new node.js 18 migration codemod`
-- `fix(esm-migration): correct type checking in ESM migration`
-- `docs(codemod-usage): improve usage examples`
+- ``feat(DEP0022): migrate `tmpDir` to `tmpdir` ``
+- ``fix(`tmpDir-to-tmpdir`): correct type checking in …``
+- ``docs(`tmpDir-to-tmpdir`): correct usage example``
+- `docs(CONTRIBUTING): improve good test examples`
 
 ## Pull Request Process
 
