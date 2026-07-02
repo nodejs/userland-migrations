@@ -187,9 +187,10 @@ function transformThisTimeout(rootNode: SgNode<JS>, EOL: string): Edit[] {
 		.flatMap((call) => {
 			const edits: Edit[] = [];
 			const expr = call.parent();
+			const exprRange = expr.range();
 
-			const start = expr.range().start.index;
-			const end = expr.range().end.index;
+			const start = exprRange.start.index;
+			const end = exprRange.end.index;
 			const lineStart = findLineStart(source, start);
 			const lineEnd = findLineEnd(source, end);
 
@@ -203,10 +204,11 @@ function transformThisTimeout(rootNode: SgNode<JS>, EOL: string): Edit[] {
 			if (!fn) return edits;
 
 			const time = call.getMatch('TIME').text();
+			const fnRange = fn.range();
 
 			edits.push({
-				startPos: fn.range().start.index,
-				endPos: fn.range().start.index,
+				startPos: fnRange.start.index,
+				endPos: fnRange.start.index,
 				insertedText: `{ timeout: ${time} }, `,
 			});
 
