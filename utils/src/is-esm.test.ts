@@ -9,15 +9,26 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import isESM from './is-esm.ts';
-import type { SgRoot } from '@codemod.com/jssg-types/main';
+import type { SgNode, Rule } from '@codemod.com/jssg-types/main';
 import type JS from '@codemod.com/jssg-types/langs/javascript';
 import assert from 'node:assert/strict';
 
-const createMockRoot = (filename, hasImport = false, hasRequire = false) => {
+const createMockRoot = (filename: string, hasImport = false, hasRequire = false) => {
 	return {
-		filename: () => filename,
+		getRoot: () => ({
+			filename: () => filename,
+		}),
+		find: ({ rule }: { rule: Rule }) => {
+			if (rule.kind === 'import_statement') {
+				return hasImport ? ['mock-import-node'] : null;
+			}
+			if (rule.kind === 'call_expression' && rule.has?.regex === 'require') {
+				return hasRequire ? ['mock-require-node'] : null;
+			}
+			return [];
+		},
 		root: () => ({
-			find: ({ rule }) => {
+			find: ({ rule }: { rule: Rule }) => {
 				if (rule.kind === 'import_statement') {
 					return hasImport ? ['mock-import-node'] : null;
 				}
@@ -28,7 +39,7 @@ const createMockRoot = (filename, hasImport = false, hasRequire = false) => {
 			},
 		}),
 		// biome-ignore lint/suspicious/noExplicitAny: it's a mock
-	} as any as SgRoot<JS>;
+	} as any as SgNode<JS>;
 };
 
 describe('isESM', () => {

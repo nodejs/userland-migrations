@@ -190,12 +190,8 @@ function transformThisTimeout(rootNode: SgNode<JS>, EOL: string): Edit[] {
 
 			const start = expr.range().start.index;
 			const end = expr.range().end.index;
-			let lineStart = start;
-			while (lineStart > 0 && source[lineStart - 1] !== EOL) lineStart--;
-
-			let lineEnd = end;
-			while (lineEnd < source.length && source[lineEnd] !== EOL) lineEnd++;
-			if (lineEnd < source.length) lineEnd++;
+			const lineStart = findLineStart(source, start);
+			const lineEnd = findLineEnd(source, end);
 
 			edits.push({
 				startPos: lineStart,
@@ -216,6 +212,28 @@ function transformThisTimeout(rootNode: SgNode<JS>, EOL: string): Edit[] {
 
 			return edits;
 		});
+}
+
+function findLineStart(source: string, index: number) {
+	const lineBreakIndex = source.lastIndexOf('\n', index - 1);
+	return lineBreakIndex === -1 ? 0 : lineBreakIndex + 1;
+}
+
+function findLineEnd(source: string, index: number) {
+	let lineEnd = index;
+	while (lineEnd < source.length && source[lineEnd] !== '\n' && source[lineEnd] !== '\r') {
+		lineEnd++;
+	}
+
+	if (source[lineEnd] === '\r' && source[lineEnd + 1] === '\n') {
+		return lineEnd + 2;
+	}
+
+	if (source[lineEnd] === '\n' || source[lineEnd] === '\r') {
+		return lineEnd + 1;
+	}
+
+	return lineEnd;
 }
 
 function findEnclosingFunction(node: SgNode<JS, Kinds<JS>>) {
