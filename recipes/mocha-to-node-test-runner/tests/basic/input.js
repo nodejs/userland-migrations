@@ -8,3 +8,11 @@ describe('Array', function() {
 		});
 	});
 });
+
+describe('Set', () => {
+	it('should return true when the value is present', () => {
+		const set = new Set([1, 2, 3]);
+		assert.strictEqual(set.has(2), true);
+	});
+});
+

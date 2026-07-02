@@ -1,4 +1,5 @@
 const assert = require('assert');
+
 describe('Skipped Test', () => {
 	it.skip('should not run this test', () => {
 		assert.strictEqual(1 + 1, 3);

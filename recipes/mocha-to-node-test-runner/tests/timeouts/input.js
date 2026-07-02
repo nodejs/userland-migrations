@@ -1,4 +1,5 @@
 const assert = require('assert');
+
 describe('Timeout Test', function() {
 	this.timeout(500);
 
