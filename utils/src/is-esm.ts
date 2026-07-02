@@ -1,7 +1,21 @@
 import { join } from 'node:path';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync, accessSync, constants } from 'node:fs';
 import type JS from '@codemod.com/jssg-types/langs/javascript';
 import type { SgRoot } from '@codemod.com/jssg-types/main';
+
+/**
+ * This api didn't exist on JSSG (behind the scenesn it use llrt)
+ *
+ * @param path name of the file to check for existence
+ */
+const existsSync = (path: string) => {
+	try {
+		accessSync(path, constants.F_OK);
+		return true;
+	} catch {
+		return false;
+	}
+}
 
 export default function isESM(root: SgRoot<JS>): boolean {
 	const filename = root.filename();
