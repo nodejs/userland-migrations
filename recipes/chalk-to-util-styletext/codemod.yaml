@@ -9,6 +9,7 @@ author: Richie McColl
 license: MIT
 workflow: workflow.yaml
 category: migration
+repository: https://github.com/nodejs/userland-migrations
 
 targets:
   languages:
@@ -18,6 +19,7 @@ targets:
 keywords:
   - transformation
   - migration
+  - nodejs
 
 registry:
   access: public

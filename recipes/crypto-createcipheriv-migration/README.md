@@ -4,7 +4,7 @@
 
 ## Why?
 
-Node.js removed `crypto.createCipher()` and `crypto.createDecipher()` in v22.0.0 (DEP0106). The legacy helpers derived keys with MD5 and no salt, and silently reused static IVs. This codemod replaces those calls with the modern, explicit APIs and scaffolds secure key derivation and IV management.
+Node.js removed `crypto.createCipher()` and `crypto.createDecipher()` in v22.0.0 ([DEP0106](https://nodejs.org/api/deprecations.html#DEP0106)). The legacy helpers derived keys with MD5 and no salt, and silently reused static IVs. This codemod replaces those calls with the modern, explicit APIs and scaffolds secure key derivation and IV management.
 
 ## What it does
 
