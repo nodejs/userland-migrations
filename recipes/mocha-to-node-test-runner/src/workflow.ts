@@ -3,13 +3,13 @@ import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-s
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import type { Edit, Kinds, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type JS from '@codemod.com/jssg-types/langs/javascript';
-import { EOL } from 'node:os';
 
 const GLOBAL_IDENTIFIERS = ['describe'];
 const USED_GLOBAL_IDENTIFIERS = ['', '.skip', '.only'];
 
 export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
+	const EOL = rootNode.text().includes('\r\n') ? '\r\n' : '\n';
 
 	const usedGlobalIdentifiers = GLOBAL_IDENTIFIERS.filter((globalIdentifier) =>
 		USED_GLOBAL_IDENTIFIERS.map(
@@ -17,21 +17,21 @@ export default function transform(root: SgRoot<JS>): string | null {
 		).some((pattern) => rootNode.findAll({ rule: { pattern } }).length > 0),
 	);
 
-	if (usedGlobalIdentifiers.length === 0) return null;
+	if (!usedGlobalIdentifiers.length) return null;
 
 	const edits = [
 		transformImport,
 		transformDoneCallbacks,
 		transformThisSkip,
 		transformThisTimeout,
-	].flatMap((transform) => transform(root));
-	if (edits.length === 0) return null;
+	].flatMap((transform) => transform(rootNode, EOL));
+
+	if (!edits.length) return null;
 
 	return rootNode.commitEdits(edits);
 }
 
-function transformImport(root: SgRoot<JS>): Edit[] {
-	const rootNode = root.root();
+function transformImport(rootNode: SgNode<JS>, EOL: string): Edit[] {
 	const mochaGlobalsNodes = rootNode.findAll({
 		constraints: {
 			MOCHA_GLOBAL_FN: {
@@ -64,7 +64,7 @@ function transformImport(root: SgRoot<JS>): Edit[] {
 	// if mocha isn't found, don't try to apply changes
 	if (usedMochaGlobals.size === 0) return [];
 
-	const esm = isESM(root);
+	const esm = isESM(rootNode);
 
 	const existingNodeTestImports = esm
 		? getNodeImportStatements(rootNode.getRoot(), 'test')
@@ -116,9 +116,8 @@ function transformImport(root: SgRoot<JS>): Edit[] {
 	];
 }
 
-function transformDoneCallbacks(root: SgRoot<JS>): Edit[] {
-	return root
-		.root()
+function transformDoneCallbacks(rootNode: SgNode<JS>, EOL: string): Edit[] {
+	return rootNode
 		.findAll({
 			constraints: {
 				DONE: {
@@ -157,9 +156,8 @@ function transformDoneCallbacks(root: SgRoot<JS>): Edit[] {
 		.map((found) => found.getMatch('DONE').replace('t, done'));
 }
 
-function transformThisSkip(root: SgRoot<JS>): Edit[] {
-	return root
-		.root()
+function transformThisSkip(rootNode: SgNode<JS>): Edit[] {
+	return rootNode
 		.findAll({ rule: { pattern: 'this.skip($$$)' } })
 		.flatMap((call) => {
 			const edits: Edit[] = [];
@@ -181,8 +179,7 @@ function transformThisSkip(root: SgRoot<JS>): Edit[] {
 		});
 }
 
-function transformThisTimeout(root: SgRoot<JS>): Edit[] {
-	const rootNode = root.root();
+function transformThisTimeout(rootNode: SgNode<JS>, EOL: string): Edit[] {
 	const source = rootNode.text();
 
 	return rootNode

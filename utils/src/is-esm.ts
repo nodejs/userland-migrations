@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { readFileSync, accessSync, constants } from 'node:fs';
 import type JS from '@codemod.com/jssg-types/langs/javascript';
-import type { SgRoot } from '@codemod.com/jssg-types/main';
+import type { SgNode } from '@codemod.com/jssg-types/main';
 
 /**
  * This api didn't exist on JSSG (behind the scenesn it use llrt)
@@ -17,14 +17,13 @@ const existsSync = (path: string) => {
 	}
 }
 
-export default function isESM(root: SgRoot<JS>): boolean {
-	const filename = root.filename();
+export default function isESM(rootNode: SgNode<JS>): boolean {
+	const filename = rootNode.getRoot().filename();
 
 	if (filename.endsWith('.mjs') || filename.endsWith('.mts')) return true;
 
 	if (filename.endsWith('.cjs') || filename.endsWith('.cts')) return false;
 
-	const rootNode = root.root();
 
 	const usingImport = rootNode.find({
 		rule: {
