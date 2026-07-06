@@ -138,7 +138,8 @@ function getDestructuredNames(
 				if (importedName) {
 					const imported = importedName.text();
 					const local = alias ? alias.text() : imported;
-					names.push({ imported: COMPATIBILITY_MAP[imported] ?? imported, local });
+					const mappedImported = COMPATIBILITY_MAP[imported as keyof typeof COMPATIBILITY_MAP];
+					names.push({ imported: mappedImported ?? imported, local });
 				}
 			}
 		}
@@ -158,13 +159,15 @@ function getDestructuredNames(
 			for (const prop of properties) {
 				if (prop.kind() === 'shorthand_property_identifier_pattern') {
 					const name = prop.text();
-					names.push({ imported: COMPATIBILITY_MAP[name] ?? name, local: name });
+					const mappedImported = COMPATIBILITY_MAP[name as keyof typeof COMPATIBILITY_MAP];
+					names.push({ imported: mappedImported ?? name, local: name });
 				} else if (prop.kind() === 'pair_pattern') {
 					const key = prop.field('key');
 					const value = prop.field('value');
 					if (key && value) {
 						const imported = key.text();
-						names.push({ imported: COMPATIBILITY_MAP[imported] ?? imported, local: value.text() });
+						const mappedImported = COMPATIBILITY_MAP[imported as keyof typeof COMPATIBILITY_MAP];
+						names.push({ imported: mappedImported ?? imported, local: value.text() });
 					}
 				}
 			}
@@ -190,7 +193,7 @@ function extractChainedStyles(node: SgNode<Js>, binding: string): string[] | nul
 
 	if (UNSUPPORTED_APIS.includes(propertyName)) return null;
 
-	const normalizedName = COMPATIBILITY_MAP[propertyName] ?? propertyName;
+	const normalizedName = COMPATIBILITY_MAP[propertyName as keyof typeof COMPATIBILITY_MAP] ?? propertyName;
 
 	if (objectNode.kind() === 'identifier') {
 		if (objectNode.text() !== binding) return null;
