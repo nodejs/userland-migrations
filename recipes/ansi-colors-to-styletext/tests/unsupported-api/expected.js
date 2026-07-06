@@ -1,4 +1,2 @@
-const { styleText } = require('node:util');
+const ac = require('ansi-colors');
 ac.enabled = false;
-
-console.log(styleText('red', 'text'));

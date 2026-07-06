@@ -4,12 +4,12 @@ import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dep
 
 const ANSI_COLORS_BINDING = 'ansi-colors';
 
-const COMPATIBILITY_MAP: Record<string, string> = {
+const COMPATIBILITY_MAP = {
 	gray: 'blackBright',
 	grey: 'blackBright',
 };
 
-const UNSUPPORTED_API_WARNINGS: Record<string, string> = {
+const UNSUPPORTED_API_WARNINGS = {
 	enabled: `util.styleText has no equivalent runtime instance flag. Map this configuration to environment variables instead: set process.env.NO_COLOR='1' or NODE_DISABLE_COLORS='1' before application initialization.`,
 	visible: `util.styleText lacks a visual toggling mechanism and will always return a string wrapper. Please guard the call site explicitly: const out = visible ? styleText('red', msg) : '';`,
 	unstyle: `util.styleText does not expose an ANSI text stripper. Replace with a native regex str.replace(/\\x1b\\[[0-9;]*m/g, '') or install a zero-dependency package like strip-ansi.`,
@@ -22,7 +22,7 @@ const UNSUPPORTED_API_WARNINGS: Record<string, string> = {
 	define: `util.styleText is stateless and does not maintain a style or theme registry. Migrate global configurations to dedicated structural objects mapping keys to arrow functions (e.g., const theme = { error: (m) => styleText(['bold', 'red'], m) }).`,
 };
 
-const UNSUPPORTED_APIS = new Set(Object.keys(UNSUPPORTED_API_WARNINGS));
+const UNSUPPORTED_APIS = Object.keys(UNSUPPORTED_API_WARNINGS);
 
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
@@ -59,23 +59,16 @@ export default function transform(root: SgRoot<Js>): string | null {
 }
 
 /**
- * Normalizes a style name using the compatibility map.
- * e.g. gray -> blackBright
- */
-function normalizeStyle(style: string): string {
-	return COMPATIBILITY_MAP[style] ?? style;
-}
-
-/**
- * Creates the replacement import statement for util.styleText
- * based on the kind of the original import statement.
+ * Builds the replacement import line based on whether the original was ESM, CJS, or dynamic.
  */
 function createImportReplacement(statement: SgNode<Js>): string {
-	if (statement.kind() === 'import_statement') {
+	const kind = statement.kind();
+
+	if (kind === 'import_statement') {
 		return `import { styleText } from 'node:util';`;
 	}
 
-	if (statement.kind() === 'variable_declarator') {
+	if (kind === 'variable_declarator') {
 		if (statement.field('value')?.kind() === 'await_expression') {
 			return `{ styleText } = await import('node:util')`;
 		}
@@ -86,12 +79,12 @@ function createImportReplacement(statement: SgNode<Js>): string {
 }
 
 /**
- * Extracts the default or namespace binding name from an import statement.
- * e.g. import ac from 'ansi-colors' -> 'ac'
- * e.g. const ac = require('ansi-colors') -> 'ac'
+ * Resolves the local binding name for default and namespace imports.
  */
 function getDefaultBinding(statement: SgNode<Js>): string | null {
-	if (statement.kind() === 'import_statement') {
+	const kind = statement.kind();
+
+	if (kind === 'import_statement') {
 		const defaultImport = statement.find({
 			rule: {
 				kind: 'identifier',
@@ -117,7 +110,7 @@ function getDefaultBinding(statement: SgNode<Js>): string | null {
 		return namespaceImport?.text() ?? null;
 	}
 
-	if (statement.kind() === 'variable_declarator') {
+	if (kind === 'variable_declarator') {
 		const nameField = statement.field('name');
 		if (nameField?.kind() === 'identifier') return nameField.text();
 	}
@@ -126,15 +119,15 @@ function getDefaultBinding(statement: SgNode<Js>): string | null {
 }
 
 /**
- * Extracts destructured import names from a statement.
- * Handles both ESM named imports and CommonJS destructured requires.
+ * Collects named import bindings from ESM and CJS destructured statements.
  */
 function getDestructuredNames(
 	statement: SgNode<Js>,
 ): Array<{ imported: string; local: string }> {
 	const names: Array<{ imported: string; local: string }> = [];
+	const kind = statement.kind();
 
-	if (statement.kind() === 'import_statement') {
+	if (kind === 'import_statement') {
 		const namedImports = statement.find({ rule: { kind: 'named_imports' } });
 
 		if (namedImports) {
@@ -145,11 +138,11 @@ function getDestructuredNames(
 				if (importedName) {
 					const imported = importedName.text();
 					const local = alias ? alias.text() : imported;
-					names.push({ imported: normalizeStyle(imported), local });
+					names.push({ imported: COMPATIBILITY_MAP[imported] ?? imported, local });
 				}
 			}
 		}
-	} else if (statement.kind() === 'variable_declarator') {
+	} else if (kind === 'variable_declarator') {
 		const nameField = statement.field('name');
 
 		if (nameField?.kind() === 'object_pattern') {
@@ -165,12 +158,13 @@ function getDestructuredNames(
 			for (const prop of properties) {
 				if (prop.kind() === 'shorthand_property_identifier_pattern') {
 					const name = prop.text();
-					names.push({ imported: normalizeStyle(name), local: name });
+					names.push({ imported: COMPATIBILITY_MAP[name] ?? name, local: name });
 				} else if (prop.kind() === 'pair_pattern') {
 					const key = prop.field('key');
 					const value = prop.field('value');
 					if (key && value) {
-						names.push({ imported: normalizeStyle(key.text()), local: value.text() });
+						const imported = key.text();
+						names.push({ imported: COMPATIBILITY_MAP[imported] ?? imported, local: value.text() });
 					}
 				}
 			}
@@ -181,9 +175,8 @@ function getDestructuredNames(
 }
 
 /**
- * Recursively extracts chained style names from a member expression.
- * e.g. ac.bold.red -> ['bold', 'red']
- * Returns null if the chain does not originate from the expected binding.
+ * Walks a member expression chain and returns the ordered style names,
+ * or null if the chain doesn't start from the expected binding.
  */
 function extractChainedStyles(node: SgNode<Js>, binding: string): string[] | null {
 	const objectNode = node.field('object');
@@ -195,9 +188,9 @@ function extractChainedStyles(node: SgNode<Js>, binding: string): string[] | nul
 
 	const propertyName = propertyNode.text();
 
-	if (UNSUPPORTED_APIS.has(propertyName)) return null;
+	if (UNSUPPORTED_APIS.includes(propertyName)) return null;
 
-	const normalizedName = normalizeStyle(propertyName);
+	const normalizedName = COMPATIBILITY_MAP[propertyName] ?? propertyName;
 
 	if (objectNode.kind() === 'identifier') {
 		if (objectNode.text() !== binding) return null;
@@ -214,8 +207,7 @@ function extractChainedStyles(node: SgNode<Js>, binding: string): string[] | nul
 }
 
 /**
- * Checks for unsupported ansi-colors APIs and emits specific warnings
- * with guidance on how to handle each case manually.
+ * Emits targeted warnings for ansi-colors APIs with no util.styleText equivalent.
  */
 function checkUnsupportedApis(rootNode: SgNode<Js>, binding: string, root: SgRoot<Js>): void {
 	const memberExpressions = rootNode.findAll({
@@ -231,18 +223,17 @@ function checkUnsupportedApis(rootNode: SgNode<Js>, binding: string, root: SgRoo
 		if (propertyNode.kind() !== 'property_identifier') continue;
 
 		const propertyName = propertyNode.text();
-		if (!UNSUPPORTED_APIS.has(propertyName)) continue;
+		if (!UNSUPPORTED_APIS.includes(propertyName)) continue;
 
 		const filename = root.filename();
 		const { start } = memberExpr.range();
-		const message = UNSUPPORTED_API_WARNINGS[propertyName];
+		const message = UNSUPPORTED_API_WARNINGS[propertyName as keyof typeof UNSUPPORTED_API_WARNINGS];
 		console.warn(`${filename}:${start.line}:${start.column}: ${message}`);
 	}
 }
 
 /**
- * Processes destructured imports and replaces each call with styleText.
- * e.g. const { red } = require('ansi-colors'); red('text') -> styleText('red', 'text')
+ * Transforms calls from destructured bindings — red('text') becomes styleText('red', 'text').
  */
 function processDestructuredImports(
 	rootNode: SgNode<Js>,
@@ -267,8 +258,7 @@ function processDestructuredImports(
 }
 
 /**
- * Processes default/namespace imports and replaces chained member calls with styleText.
- * e.g. ac.bold.red('text') -> styleText(['bold', 'red'], 'text')
+ * Transforms chained member calls — ac.bold.red('text') becomes styleText(['bold', 'red'], 'text').
  */
 function processDefaultImports(
 	rootNode: SgNode<Js>,
