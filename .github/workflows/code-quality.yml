@@ -6,7 +6,7 @@ name: Code Quality
 
 on:
   push:
-    branches: ["*"]
+    branches: ["main"]
     paths:
       - "recipes/**/*.js"
       - "recipes/**/*.ts"
@@ -15,7 +15,7 @@ on:
       - "utils/**/*.ts"
       - "utils/package.json"
       - "package.json"
-      - ".github/workflows/ci.yml"
+      - ".github/workflows/code-quality.yml"
   pull_request:
     branches: ["*"]
     paths:
@@ -26,7 +26,7 @@ on:
       - "utils/**/*.ts"
       - "utils/**/package.json"
       - "package.json"
-      - ".github/workflows/ci.yml"
+      - ".github/workflows/code-quality.yml"
     types:
       - opened
       - ready_for_review
@@ -37,39 +37,16 @@ permissions:
   contents: read
 
 jobs:
-  get-matrix:
-    name: Get Node + OS matrix
-    runs-on: ubuntu-latest
-
-    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
-
-    outputs:
-      latest: ${{ steps.set-matrix.outputs.requireds }}
-    steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
-        with:
-          egress-policy: audit
-
-      - uses: ljharb/actions/node/matrix@7f214d8efdbdcefc96ad9689663ef387a195deec # main
-        id: set-matrix
-        with:
-          versionsAsRoot: true
-          type: majors
-          preset: ">= 22" # glob is not backported below 22.x
-
   lint-and-types:
     name: Lint & types
     runs-on: ubuntu-slim
-
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
 
     steps:
-      # FIXME https://github.com/step-security/harden-runner/issues/627
-      # - name: Harden the runner (Audit all outbound calls)
-      #   uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
-      #   with:
-      #     egress-policy: audit
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -83,7 +60,6 @@ jobs:
   test:
     name: Before/After tests
     runs-on: ${{ matrix.os }}
-
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
 
     strategy:
@@ -91,12 +67,12 @@ jobs:
       matrix:
         os:
           - macos-latest
-          - ubuntu-latest
+          - ubuntu-slim
           - windows-latest
 
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
         with:
           egress-policy: audit
 
@@ -106,7 +82,9 @@ jobs:
           persist-credentials: false
           show-progress: false
 
+      # ubuntu-slim already include lts node so we don't need to setup node on ubuntu-slim runner
       - name: Set up Node.js
+        if: ${{ matrix.os != 'ubuntu-slim' }}
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           cache: "npm"
@@ -118,7 +96,7 @@ jobs:
       - name: Run tests related to changes
         shell: bash
         run: >
-          changed_paths=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
+          changed_paths=$(git diff --name-only ${{ github.event.pull_request.base.sha || github.event.before }} ${{ github.sha }})
 
           # run everything?
           if echo "$changed_paths" | grep -qE '^(package\.json|\.github/workflows/ci\.yml|utils/)$'; then
@@ -129,8 +107,8 @@ jobs:
           # run for specific workspace(s)
           npm run test $(
             echo "$changed_paths" \
-            | grep '^recipes/'
-            | cut -d/ -f1,2
-            | sort -u
+            | grep '^recipes/' \
+            | cut -d/ -f1,2 \
+            | sort -u \
             | sed 's/^/--workspace=/'
           )
