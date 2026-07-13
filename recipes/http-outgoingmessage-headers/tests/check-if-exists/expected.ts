@@ -1,26 +1,26 @@
-const http = require('http');
+const http = require('node:http');
 
 const server = http.createServer((req, res) => {
 	res.setHeader('content-type', 'application/json');
 	res.setHeader('x-custom-header', '42');
 
-	if ('x-custom-header' in res._headers) {
+	if ('x-custom-header' in res.getHeaders()) {
 		console.log('exists');
 	}
 
-	if (Object.prototype.hasOwnProperty.call(res._headers, 'x-custom-header')) {
+	if (Object.prototype.hasOwnProperty.call(res.getHeaders(), 'x-custom-header')) {
 		console.log('exists');
 	}
 
-	if (res._headers['x-custom-header'] !== undefined) {
+	if (res.getHeaders()['x-custom-header'] !== undefined) {
 		console.log('exists');
 	}
 
-	if (Object.keys(res._headers).includes('x-custom-header')) {
+	if (Object.keys(res.getHeaders()).includes('x-custom-header')) {
 		console.log('exists');
 	}
 
-	if (Reflect.has(res._headers, 'x-custom-header')) {
+	if (Reflect.has(res.getHeaders(), 'x-custom-header')) {
 		console.log('exists');
 	}
 

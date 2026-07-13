@@ -230,4 +230,22 @@ describe("import-statement", () => {
 		assert.strictEqual(emptyImports.length, 1);
 		assert.strictEqual(getDefaultImportIdentifier(emptyImports[0]), null);
 	});
+
+	it("should ignore type imports", () => {
+		const code = dedent`
+			import fs from "fs";
+			import type fsType from "fs";
+
+			import { join } from "node:path";
+			import type { ParsedPath } from "node:path";
+
+			import type {} from "empty";
+		`;
+
+		const ast = astGrep.parse(astGrep.Lang.TypeScript, code);
+
+		assert.strictEqual(getNodeImportStatements(ast, "fs").length, 1);
+		assert.strictEqual(getNodeImportStatements(ast, "path").length, 1);
+		assert.strictEqual(getNodeImportStatements(ast, "empty").length, 0);
+	});
 });

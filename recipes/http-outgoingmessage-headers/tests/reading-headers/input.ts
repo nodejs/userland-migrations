@@ -1,4 +1,4 @@
-const http = require('http');
+const http = require('node:http');
 
 function handler(req, res) {
 	res.setHeader('content-type', 'application/json');

@@ -1,11 +1,11 @@
-const http = require('http');
+const http = require('node:http');
 
 const server = http.createServer((req, res) => {
 	res.setHeader('content-type', 'application/json');
 	res.setHeader('x-custom-header', '42');
 
 	console.log({
-		createServer: res.getHeaders(),
+		createServer: res._headers,
 	});
 
 	res.end('Hello World');
@@ -13,7 +13,7 @@ const server = http.createServer((req, res) => {
 
 server.on('request', (req, res) => {
 	console.log({
-		serverOnRequest: res.getHeaders(),
+		serverOnRequest: res._headers,
 	});
 });
 
@@ -21,7 +21,7 @@ const event = 'request';
 
 const listener = (req, res) => {
 	console.log({
-		serverOnRequest: res.getHeaders(),
+		serverOnRequest: res._headers,
 	});
 };
 
