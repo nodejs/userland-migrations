@@ -14,7 +14,7 @@ export const getNodeImportStatements = (
 				kind: 'string',
 				has: {
 					kind: 'string_fragment',
-					regex: `(node:)?${nodeModuleName}$`,
+					regex: `^(node:)?${nodeModuleName}$`,
 				},
 			},
 			not: {
@@ -67,7 +67,7 @@ export const getNodeImportCalls = (
 											kind: 'string',
 											has: {
 												kind: 'string_fragment',
-												regex: `(node:)?${nodeModuleName}$`,
+												regex: `^(node:)?${nodeModuleName}$`,
 											},
 										},
 									},
@@ -89,7 +89,7 @@ export const getNodeImportCalls = (
 					kind: 'string',
 					has: {
 						kind: 'string_fragment',
-						regex: `(node:)?${nodeModuleName}$`,
+						regex: `^(node:)?${nodeModuleName}$`,
 					},
 				},
 			},

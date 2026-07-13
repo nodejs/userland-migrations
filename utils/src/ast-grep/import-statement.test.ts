@@ -248,4 +248,24 @@ describe("import-statement", () => {
 		assert.strictEqual(getNodeImportStatements(ast, "path").length, 1);
 		assert.strictEqual(getNodeImportStatements(ast, "empty").length, 0);
 	});
+
+	it("should not partially match module names", () => {
+		const code = dedent`
+			import { describe } from "node:test";
+			import { it } from "test";
+			import { describe as vDescribe } from "vitest";
+			import foo from "@scope/test";
+			import bar from "test/utils";
+		`;
+
+		const ast = astGrep.parse(astGrep.Lang.JavaScript, code);
+
+		const imports = getNodeImportStatements(ast, "test");
+
+		assert.strictEqual(imports.length, 2);
+		assert.deepStrictEqual(
+			imports.map((i) => i.field("source")?.text()),
+			['"node:test"', '"test"'],
+		);
+	});
 });
