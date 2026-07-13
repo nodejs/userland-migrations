@@ -1,11 +1,10 @@
 import type { Rule, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
-import type Ts from '@codemod.com/jssg-types/langs/typescript';
 
 export const getNodeImportStatements = (
-	rootNode: SgRoot<Js | Ts>,
+	rootNode: SgRoot<Js>,
 	nodeModuleName: string,
-): SgNode<Js | Ts>[] =>
+): SgNode<Js>[] =>
 	rootNode.root().findAll({
 		rule: {
 			kind: 'import_statement',
