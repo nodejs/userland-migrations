@@ -259,10 +259,8 @@ describe("import-statement", () => {
 		`;
 
 		const ast = astGrep.parse(astGrep.Lang.JavaScript, code);
-
 		const imports = getNodeImportStatements(ast, "test");
 
-		assert.strictEqual(imports.length, 2);
 		assert.deepStrictEqual(
 			imports.map((i) => i.field("source")?.text()),
 			['"node:test"', '"test"'],
