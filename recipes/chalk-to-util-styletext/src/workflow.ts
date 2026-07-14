@@ -1,4 +1,4 @@
-import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
+https://github.com/nodejs/userland-migrations.gitimport { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import type { Edit, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
