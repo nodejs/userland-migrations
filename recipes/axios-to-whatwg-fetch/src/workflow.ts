@@ -106,7 +106,7 @@ const getObjectPropertyValue = (
 const hasUnsupportedOptions = (
 	configNode: SgNode<Js> | undefined,
 ): { unsupported: boolean; optionName?: string } => {
-	if (!configNode || configNode.kind() !== 'object') {
+	if (!configNode?.is('object')) {
 		return { unsupported: false };
 	}
 

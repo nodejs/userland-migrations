@@ -1,20 +1,9 @@
 {
   "name": "@nodejs/import-assertions-to-attributes",
-  "version": "1.0.0",
-  "description": "Replace `assert` import attribute to the `with` ECMAScript import attribute.",
   "type": "module",
   "scripts": {
-    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests"
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/nodejs/userland-migrations.git",
-    "directory": "recipes/import-assertions-to-attributes",
-    "bugs": "https://github.com/nodejs/userland-migrations/issues"
-  },
-  "author": "Augustin Mauroy",
-  "license": "MIT",
-  "homepage": "https://github.com/nodejs/userland-migrations/tree/main/import-assertions-to-attributes#readme",
   "devDependencies": {
     "@codemod.com/jssg-types": "^1.6.2"
   }

@@ -1,7 +1,5 @@
 {
   "name": "@nodejs/timers-deprecations",
-  "version": "1.0.0",
-  "description": "Migrate deprecated node:timers APIs to public timer functions.",
   "type": "module",
   "scripts": {
     "test": "node --run test:enroll && node --run test:unenroll && node --run test:active && node --run test:unref && node --run test:imports",
@@ -11,15 +9,6 @@
     "test:unref": "npx codemod jssg test -l typescript ./src/unref-active-to-unref.ts ./tests/ --filter unref",
     "test:imports": "npx codemod jssg test -l typescript ./src/cleanup-imports.ts ./tests/ --filter imports"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/nodejs/userland-migrations.git",
-    "directory": "recipes/timers-deprecations",
-    "bugs": "https://github.com/nodejs/userland-migrations/issues"
-  },
-  "author": "Augustin Mauroy",
-  "license": "MIT",
-  "homepage": "https://github.com/nodejs/userland-migrations/tree/main/recipes/timers-deprecations#readme",
   "devDependencies": {
     "@codemod.com/jssg-types": "^1.6.2"
   },
