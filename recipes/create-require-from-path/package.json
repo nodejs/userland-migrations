@@ -1,20 +1,9 @@
 {
   "name": "@nodejs/create-require-from-path",
-  "version": "1.1.2",
-  "description": "Handle DEP0130 via transforming `createRequireFromPath` to `createRequire`.",
   "type": "module",
   "scripts": {
-    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests"
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/nodejs/userland-migrations.git",
-    "directory": "recipes/create-require-from-path",
-    "bugs": "https://github.com/nodejs/userland-migrations/issues"
-  },
-  "author": "Augustin Mauroy",
-  "license": "MIT",
-  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/create-require-from-path/README.md",
   "devDependencies": {
     "@codemod.com/jssg-types": "^1.6.2"
   },

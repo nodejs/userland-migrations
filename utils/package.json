@@ -1,16 +1,12 @@
 {
   "name": "@nodejs/codemod-utils",
-  "version": "0.0.0",
-  "description": "Utilities for Node.js userland migrations.",
+  "type": "module",
   "exports": {
     "./*":"./src/*.ts"
   },
   "scripts": {
     "test": "node --no-warnings --import=./src/codemod-jssg-context.ts --experimental-test-snapshots --experimental-strip-types --import='./src/snapshots.ts' --test --experimental-test-coverage --test-coverage-include='src/**/*' --test-coverage-exclude='**/*.test.ts' './**/*.test.ts'"
   },
-  "author": "Augustin Maurouy",
-  "license": "MIT",
-  "type": "module",
   "devDependencies": {
     "@ast-grep/lang-bash": "^0.0.8",
     "@ast-grep/lang-json": "^0.0.7",

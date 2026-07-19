@@ -1,8 +1,5 @@
 {
   "name": "userland-migrations",
-  "version": "1.0.0",
-  "description": "A collection of migration recipes for userland code.",
-  "type": "module",
   "scripts": {
     "lint:fix": "biome lint --fix ./",
     "lint": "biome lint ./",
@@ -10,21 +7,6 @@
     "test": "npm run test --workspaces",
     "type-check": "tsc --noEmit"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/nodejs/userland-migrations"
-  },
-  "keywords": [
-    "automation",
-    "codemod",
-    "migrations",
-    "node.js"
-  ],
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/nodejs/userland-migrations/issues"
-  },
-  "homepage": "https://nodejs.org/learn/userland-migrations",
   "devDependencies": {
     "@biomejs/biome": "2.5.4",
     "@types/node": "^26.1.1",
