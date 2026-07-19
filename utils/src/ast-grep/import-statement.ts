@@ -13,10 +13,14 @@ export const getNodeImportStatements = (
 				kind: 'string',
 				has: {
 					kind: 'string_fragment',
-					regex: `(node:)?${nodeModuleName}$`,
+					regex: `^(node:)?${nodeModuleName}$`,
 				},
 			},
+			not: {
+				pattern: 'import type $$$IMPORTS from $SOURCE',
+			}
 		},
+
 	});
 
 /**
@@ -62,7 +66,7 @@ export const getNodeImportCalls = (
 											kind: 'string',
 											has: {
 												kind: 'string_fragment',
-												regex: `(node:)?${nodeModuleName}$`,
+												regex: `^(node:)?${nodeModuleName}$`,
 											},
 										},
 									},
@@ -84,7 +88,7 @@ export const getNodeImportCalls = (
 					kind: 'string',
 					has: {
 						kind: 'string_fragment',
-						regex: `(node:)?${nodeModuleName}$`,
+						regex: `^(node:)?${nodeModuleName}$`,
 					},
 				},
 			},
