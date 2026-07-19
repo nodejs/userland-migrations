@@ -6,7 +6,7 @@ name: Workflow Quality
 
 on:
   push:
-    branches: ["*"]
+    branches: ["main"]
     paths:
       - ".github/workflows/*.yml"
       - ".github/scripts/*"
@@ -25,7 +25,6 @@ permissions:
   contents: read
 
 jobs:
-
   run-workflow-script-tests:
     name: Test scripts
     runs-on: ubuntu-slim
@@ -33,11 +32,10 @@ jobs:
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
 
     steps:
-      # FIXME https://github.com/step-security/harden-runner/issues/627
-      # - name: Harden the runner (Audit all outbound calls)
-      #   uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
-      #   with:
-      #     egress-policy: audit
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
