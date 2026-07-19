@@ -1,12 +1,16 @@
-import type { Edit, Range, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
-import type Js from '@codemod.com/jssg-types/langs/javascript';
+import { useMetricAtom } from 'codemod:metrics';
+import type { Edit, Range, SgNode, Codemod } from 'codemod:ast-grep';
+import type Js from 'codemod:ast-grep/langs/javascript';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
-import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
-import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
 import { removeBinding } from '@nodejs/codemod-utils/ast-grep/remove-binding';
 
-export default function transform(root: SgRoot<Js>): string | null {
+
+const migrationMetric = useMetricAtom('buffer-atob-btoa-migrations');
+const filesMetric = useMetricAtom('buffer-atob-btoa-files');
+
+const transform: Codemod<Js> = async (root) => {
 	const rootNode = root.root();
 	const bindingStatementFnTuples: [
 		string,
@@ -29,13 +33,12 @@ export default function transform(root: SgRoot<Js>): string | null {
 		},
 	];
 
-	const statements = [
-		...getNodeRequireCalls(root, 'buffer'),
-		...getNodeImportStatements(root, 'buffer'),
-	];
+	const statements = getModuleDependencies(root, 'buffer');
 
 	// If no statements found, skip transformation
 	if (!statements.length) return null;
+
+	filesMetric.increment({ status: 'has-buffer-import' });
 
 	for (const statement of statements) {
 		for (const update of updates) {
@@ -47,6 +50,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	for (const [binding, statement, fn] of bindingStatementFnTuples) {
 		const result = removeBinding(statement, binding);
+		const fnName = binding.split('.').pop() ?? binding;
 
 		if (result?.edit) edits.push(result.edit);
 		if (result?.lineToRemove) linesToRemove.push(result.lineToRemove);
@@ -79,7 +83,11 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 		for (const call of calls) {
 			const argMatch = call.getMatch('ARG');
-			if (argMatch) edits.push(call.replace(fn(argMatch.text())));
+
+			if (argMatch) {
+				edits.push(call.replace(fn(argMatch.text())));
+				migrationMetric.increment({ fn: fnName });
+			}
 		}
 
 		if (calls.length === otherCalls.length) {
@@ -87,7 +95,14 @@ export default function transform(root: SgRoot<Js>): string | null {
 		}
 	}
 
-	if (!edits.length) return null;
+	if (!edits.length) {
+		filesMetric.increment({ status: 'no-changes' });
+		return null;
+	}
+
+	filesMetric.increment({ status: 'migrated' });
 
 	return removeLines(rootNode.commitEdits(edits), linesToRemove);
 }
+
+export default transform;
