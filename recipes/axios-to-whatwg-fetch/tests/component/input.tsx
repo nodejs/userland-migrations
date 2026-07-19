@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { useEffect, useState } from 'react';
 
 type Todo = { id: number; title: string };
@@ -9,8 +8,9 @@ export function TodoList() {
 	useEffect(() => {
 		let active = true;
 
-		axios
-			.get('/api/todos')
+		fetch('/api/todos')
+	.then(async (res) => Object.assign(res, { data: await res.json() }))
+	.catch(() => null)
 			.then((response) => {
 				if (active) {
 					setTodos(response.data.todos);
