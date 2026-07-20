@@ -7,7 +7,7 @@
     "lint:fix": "biome lint --fix ./",
     "lint": "biome lint ./",
     "pre-commit": "node --run lint:fix; node --run type-check; node --run test",
-    "test": "npm run test --workspaces",
+    "test": "npm run test --workspaces --if-present",
     "type-check": "tsc --noEmit"
   },
   "repository": {
