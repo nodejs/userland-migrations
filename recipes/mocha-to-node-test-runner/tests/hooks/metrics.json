@@ -1,0 +1,18 @@
+{
+  "mocha-to-node-test-files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ],
+  "mocha-to-node-test-imports": [
+    {
+      "cardinality": {
+        "style": "cjs"
+      },
+      "count": 1
+    }
+  ]
+}
