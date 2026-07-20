@@ -1,5 +1,5 @@
-import type { SgRoot, Edit, SgNode, Kinds } from '@codemod.com/jssg-types/main';
-import type JS from '@codemod.com/jssg-types/langs/javascript';
+import type { Codemod, Edit, SgNode, Kinds } from 'codemod:ast-grep';
+import type JS from 'codemod:ast-grep/langs/javascript';
 import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import {
@@ -7,6 +7,7 @@ import {
 	getLineIndent,
 } from '@nodejs/codemod-utils/ast-grep/indent';
 import { EOL } from 'node:os';
+import { useMetricAtom } from 'codemod:metrics';
 
 type QueueEvent = {
 	event: keyof typeof parsers;
@@ -27,10 +28,31 @@ type ExportedValue = {
 };
 const exportedValues: Map<number, ExportedValue> = new Map();
 
+// ---------------------------------------------------------------------------
+// Metrics
+// ---------------------------------------------------------------------------
+// Two atoms total instead of one per event type: each atom renders as one
+// table in the UI, so occurrence-level detail is pushed into tag columns
+// (`stage`, `kind`) rather than multiplied across separate atoms.
+//
+// mock-module-events: every parse/rewrite occurrence.
+//   stage='options-call'   kind='call'                          mock.module() call queued
+//   stage='options-kind'   kind='object'|'identifier'|'call_expression'
+//   stage='default-export' kind='default'
+//   stage='named-export'   kind='identifier-spread'|'pair'
+//   stage='spread-element' kind='spread'
+//   stage='rewrite'        kind='node'                          final node replaced
+//
+// mock-module-files: one row per processed file.
+//   status='migrated'|'no-changes'
+const eventsMetric = useMetricAtom('mock-module-events');
+const filesMetric = useMetricAtom('mock-module-files');
+
 const parsers = {
 	parseOptions: (optionsNode: SgNode<JS, Kinds<JS>>) => {
 		switch (optionsNode.kind()) {
 			case 'object':
+				eventsMetric.increment({ stage: 'options-kind', kind: 'object' });
 				queue.push(
 					{
 						event: 'defaultExport',
@@ -47,12 +69,17 @@ const parsers = {
 				);
 				break;
 			case 'identifier':
+				eventsMetric.increment({ stage: 'options-kind', kind: 'identifier' });
 				queue.push({
 					event: 'resolveVariables',
 					handler: () => parsers.resolveVariables(optionsNode),
 				});
 				break;
 			case 'call_expression':
+				eventsMetric.increment({
+					stage: 'options-kind',
+					kind: 'call_expression',
+				});
 				queue.push({
 					event: 'resolveVariables',
 					handler: () =>
@@ -118,6 +145,8 @@ const parsers = {
 				after: `default: ${defaultExport?.field('value').text()}`,
 			};
 
+			eventsMetric.increment({ stage: 'default-export', kind: 'default' });
+
 			if (!exportedValues.has(node.id())) {
 				exportedValues.set(node.id(), {
 					node,
@@ -162,6 +191,10 @@ const parsers = {
 					before: namedExport,
 					after: `...(${fieldValueNode.text()} || {})`,
 				});
+				eventsMetric.increment({
+					stage: 'named-export',
+					kind: 'identifier-spread',
+				});
 			}
 			for (const namedPair of fieldValueNode.children()) {
 				if (namedPair.is('pair')) {
@@ -169,6 +202,7 @@ const parsers = {
 						before: namedPair,
 						after: namedPair.text(),
 					});
+					eventsMetric.increment({ stage: 'named-export', kind: 'pair' });
 				}
 			}
 		}
@@ -196,12 +230,13 @@ const parsers = {
 					before: spread,
 					after: spread.text(),
 				});
+				eventsMetric.increment({ stage: 'spread-element', kind: 'spread' });
 			}
 		}
 	},
 } as const satisfies Record<string, (node: SgNode<JS, Kinds<JS>>) => void>;
 
-export default function transform(root: SgRoot<JS>): string | null {
+const transform: Codemod<JS> = async (root) => {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 
@@ -236,6 +271,9 @@ export default function transform(root: SgRoot<JS>): string | null {
 
 		if (args.length < 2) continue;
 		const optionsArg = args[1];
+
+		eventsMetric.increment({ stage: 'options-call', kind: 'call' });
+
 		queue.push({
 			event: 'parseOptions',
 			handler: () => parsers.parseOptions(optionsArg),
@@ -273,9 +311,17 @@ export default function transform(root: SgRoot<JS>): string | null {
 		newValue += `${exportsLevel}},${EOL}` + `${indentLevel}}`;
 
 		edits.push(change.node.replace(newValue));
+		eventsMetric.increment({ stage: 'rewrite', kind: 'node' });
 	}
 
-	if (!edits.length) return null;
+	if (!edits.length) {
+		filesMetric.increment({ status: 'no-changes' });
+		return null;
+	}
+
+	filesMetric.increment({ status: 'migrated' });
 
 	return rootNode.commitEdits(edits);
-}
+};
+
+export default transform;
