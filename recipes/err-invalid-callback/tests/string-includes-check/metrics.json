@@ -1,0 +1,18 @@
+{
+  "err-invalid-callback-contexts": [
+    {
+      "cardinality": {
+        "context": "string-method:toString"
+      },
+      "count": 1
+    }
+  ],
+  "err-invalid-callback-files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ]
+}
