@@ -1,0 +1,15 @@
+{
+  "name": "@nodejs/v22-to-v24",
+  "version": "1.0.1",
+  "description": "Handle breaking changes in Node.js v24 by replacing deprecated APIs and updating code to be compatible with the new version.",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/v22-to-v24",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "Augustin Mauroy",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/v22-to-v24/README.md"
+}
