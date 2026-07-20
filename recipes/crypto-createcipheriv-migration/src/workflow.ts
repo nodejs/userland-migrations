@@ -1,9 +1,10 @@
 import { EOL } from 'node:os';
+import { useMetricAtom } from 'codemod:metrics';
+import type { Edit, SgNode, SgRoot } from 'codemod:ast-grep';
+import type Js from 'codemod:ast-grep/langs/javascript';
 import dedent from 'dedent';
 import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
-import type { Edit, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
-import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 type CallKind = 'cipher' | 'decipher';
 
@@ -15,6 +16,10 @@ type CollectParams = {
 	edits: Edit[];
 	seenCallIds: Set<number>;
 };
+
+const callMetric = useMetricAtom('crypto-createcipher-calls');
+const importMetric = useMetricAtom('crypto-createcipher-imports');
+const filesMetric = useMetricAtom('crypto-createcipher-files');
 
 /**
  * Transform deprecated crypto.createCipher()/createDecipher() usage to the
@@ -51,7 +56,12 @@ export default function transform(root: SgRoot<Js>): string | null {
 		});
 	}
 
-	if (!edits.length) return null;
+	if (!edits.length) {
+		filesMetric.increment({ status: 'no-changes' });
+		return null;
+	}
+
+	filesMetric.increment({ status: 'migrated' });
 
 	return rootNode.commitEdits(edits);
 }
@@ -103,6 +113,7 @@ function collectCallEdits({
 			kind,
 		);
 		edits.push(call.replace(replacement));
+		callMetric.increment({ kind, hasOptions: Boolean(optionsText).toString() });
 
 		// Update the corresponding import/require binding if present.
 		// Rename `createCipher`/`createDecipher` -> `createCipheriv`/`createDecipheriv`
@@ -120,6 +131,7 @@ function collectCallEdits({
 			sourceName,
 			targetName,
 			additions,
+			kind,
 		);
 
 		if (explicit) {
@@ -203,6 +215,7 @@ function updateDestructuredStatement(
 	oldName: string,
 	targetName: string,
 	additions: string[],
+	kind: CallKind,
 ): Edit | undefined {
 	const namedImports = statement.find({ rule: { kind: 'named_imports' } });
 	if (namedImports) {
@@ -222,6 +235,9 @@ function updateDestructuredStatement(
 		for (const a of additions) {
 			if (!existingNames.has(a)) entries.push(a);
 		}
+
+		importMetric.increment({ kind, shape: 'named-imports', esm: isEsm.toString() });
+
 		return namedImports.replace(`{ ${entries.join(', ')} }`);
 	}
 
@@ -261,10 +277,10 @@ function updateDestructuredStatement(
 			if (!existingNames.has(a)) entries.push(a);
 		}
 
+		importMetric.increment({ kind, shape: 'object-pattern' });
+
 		return objectPattern.replace(`{ ${entries.join(', ')} }`);
 	}
 
 	return undefined;
 }
-
-
