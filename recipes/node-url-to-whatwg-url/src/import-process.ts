@@ -1,17 +1,20 @@
+import { useMetricAtom } from 'codemod:metrics';
+import type { Codemod, Edit, SgNode, Range } from 'codemod:ast-grep';
+import type JS from 'codemod:ast-grep/langs/javascript';
 import { getNodeImportStatements } from "@nodejs/codemod-utils/ast-grep/import-statement";
 import { getNodeRequireCalls } from "@nodejs/codemod-utils/ast-grep/require-call";
 import { removeLines } from "@nodejs/codemod-utils/ast-grep/remove-lines";
-import type { SgRoot, Edit, SgNode, Range } from "@codemod.com/jssg-types/main";
-import type JS from "@codemod.com/jssg-types/langs/javascript";
+
+
+const unusedEsModuleImportsRemovedMetric = useMetricAtom('unused_es_module_imports_removed');
+const unusedRequireCallsRemovedMetric = useMetricAtom('unused_require_calls_removed');
+const filesMetric = useMetricAtom('url_import_cleanup_files');
 
 // Heuristic: declaration counts as one; any other usage yields > 1
 const isBindingUsed = (rootNode: SgNode<JS>, name: string): boolean =>
 	rootNode.findAll({ rule: { pattern: name } }).length > 1;
 
-/**
- * Clean up unused imports/requires from 'node:url' after transforms using shared utils
- */
-export default function transform(root: SgRoot<JS>): string | null {
+const transform: Codemod<JS> = async (root) => {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
@@ -28,6 +31,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 
 			if (nsId && !isBindingUsed(rootNode, nsId.text())) {
 				linesToRemove.push(imp.range());
+				unusedEsModuleImportsRemovedMetric.increment({ kind: 'namespace-import' });
 				removed = true;
 			}
 
@@ -39,6 +43,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 				const defaultId = clause.find({ rule: { kind: "identifier" } });
 				if (defaultId && !isBindingUsed(rootNode, defaultId.text())) {
 					linesToRemove.push(imp.range());
+					unusedEsModuleImportsRemovedMetric.increment({ kind: 'default-import' });
 					removed = true;
 				}
 				if (removed) continue;
@@ -53,9 +58,11 @@ export default function transform(root: SgRoot<JS>): string | null {
 				}
 				if (keepTexts.length === 0) {
 					linesToRemove.push(imp.range());
+					unusedEsModuleImportsRemovedMetric.increment({ kind: 'named-imports-all' });
 				} else if (keepTexts.length !== specs.length) {
 					const namedImportsNode = clause.find({ rule: { kind: "named_imports" } });
 					if (namedImportsNode) edits.push(namedImportsNode.replace(`{ ${keepTexts.join(", ")} }`));
+					unusedEsModuleImportsRemovedMetric.increment({ kind: 'named-imports-partial' });
 				}
 			}
 		}
@@ -69,7 +76,10 @@ export default function transform(root: SgRoot<JS>): string | null {
 		const hasObjectPattern = decl.find({ rule: { kind: "object_pattern" } });
 
 		if (id && !hasObjectPattern) {
-			if (!isBindingUsed(rootNode, id.text())) linesToRemove.push(decl.parent().range());
+			if (!isBindingUsed(rootNode, id.text())) {
+				linesToRemove.push(decl.parent().range());
+				unusedRequireCallsRemovedMetric.increment({ kind: 'default-require' });
+			}
 			continue;
 		}
 
@@ -85,7 +95,6 @@ export default function transform(root: SgRoot<JS>): string | null {
 
 			for (const pair of pairs) {
 				const aliasId = pair.find({ rule: { kind: "identifier" } });
-
 				if (aliasId) names.push(aliasId.text());
 			}
 
@@ -96,23 +105,26 @@ export default function transform(root: SgRoot<JS>): string | null {
 
 			for (const pair of pairs) {
 				const aliasId = pair.find({ rule: { kind: "identifier" } });
-
 				if (aliasId && isBindingUsed(rootNode, aliasId.text())) usedTexts.push(pair.text());
 			}
 
 			if (usedTexts.length === 0) {
 				linesToRemove.push(decl.parent().range());
+				unusedRequireCallsRemovedMetric.increment({ kind: 'destructured-require-all' });
 			} else if (usedTexts.length !== names.length) {
 				const objPat = decl.find({ rule: { kind: "object_pattern" } });
-
 				if (objPat) edits.push(objPat.replace(`{ ${usedTexts.join(", ")} }`));
+				unusedRequireCallsRemovedMetric.increment({ kind: 'destructured-require-partial' });
 			}
 		}
 	}
 
+	filesMetric.increment({ status: (edits.length || linesToRemove.length) ? 'migrated' : 'no-changes' });
+
 	if (edits.length === 0 && linesToRemove.length === 0) return null;
 
 	const source = rootNode.commitEdits(edits);
-
 	return removeLines(source, linesToRemove);
 };
+
+export default transform;

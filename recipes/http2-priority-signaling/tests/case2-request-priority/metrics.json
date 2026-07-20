@@ -1,0 +1,35 @@
+{
+  "http2-priority-files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ],
+  "http2-priority-options": [
+    {
+      "cardinality": {
+        "removal": "partial-pair",
+        "site": "request"
+      },
+      "count": 1
+    }
+  ],
+  "http2-priority-vars": [
+    {
+      "cardinality": {
+        "kind": "session",
+        "source": "connect-call"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "kind": "stream",
+        "source": "session-request"
+      },
+      "count": 1
+    }
+  ]
+}

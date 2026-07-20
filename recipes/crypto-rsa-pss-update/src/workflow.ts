@@ -1,5 +1,6 @@
-import type { SgRoot, SgNode, Edit } from '@codemod.com/jssg-types/main';
-import type JS from '@codemod.com/jssg-types/langs/javascript';
+import { useMetricAtom } from 'codemod:metrics';
+import type { Codemod, SgRoot, SgNode, Edit } from 'codemod:ast-grep';
+import type JS from 'codemod:ast-grep/langs/javascript';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 
@@ -10,21 +11,8 @@ const HASH_MAPPINGS = {
 	mgf1Hash: 'mgf1HashAlgorithm',
 } as const;
 
-export default function transform(root: SgRoot<JS>): string | null {
-	const rootNode = root.root();
-	const cryptoBindings = getCryptoBindings(root);
-	const allCalls = findCryptoCalls(rootNode, cryptoBindings);
-
-	const allEdits = [
-		...transformRsaPssCalls(rootNode, allCalls),
-		...transformSpreadObjectDeclarations(rootNode, allCalls),
-		...processThisPropertyReferences(rootNode, allCalls),
-		...transformPropertyAssignments(rootNode),
-		...transformVariableHashStrings(rootNode),
-	];
-
-	return allEdits.length ? rootNode.commitEdits(allEdits) : null;
-}
+const propertyMetric = useMetricAtom('crypto-rsa-pss-properties');
+const filesMetric = useMetricAtom('crypto-rsa-pss-files');
 
 function transformRsaPssCalls(
 	rootNode: SgNode<JS>,
@@ -50,7 +38,9 @@ function transformRsaPssCalls(
 		});
 
 		if (directObject) {
-			edits.push(...transformHashPropertiesInObject(directObject));
+			edits.push(
+				...transformHashPropertiesInObject(directObject, 'call-direct-object'),
+			);
 		} else {
 			edits.push(...processOptionsReference(rootNode, optionsMatch));
 		}
@@ -181,7 +171,10 @@ function isRsaPssType(rootNode: SgNode<JS>, typeText: string): boolean {
 	);
 }
 
-function transformHashPropertiesInObject(objectNode: SgNode<JS>): Edit[] {
+function transformHashPropertiesInObject(
+	objectNode: SgNode<JS>,
+	site: string,
+): Edit[] {
 	return objectNode
 		.findAll({ rule: { kind: 'pair' } })
 		.map((pair) => {
@@ -214,6 +207,8 @@ function transformHashPropertiesInObject(objectNode: SgNode<JS>): Edit[] {
 			const value = getText(valueNode);
 			if (!value) return null;
 
+			propertyMetric.increment({ site, key });
+
 			return pair.replace(`${HASH_MAPPINGS[key]}: ${value}`);
 		})
 		.filter(Boolean);
@@ -227,18 +222,24 @@ function processOptionsReference(
 	if (!optionsText) return [];
 
 	if (IDENTIFIER_REGEX.test(optionsText)) {
-		return findAndTransformObjects(rootNode, [
-			`const ${optionsText} = { $$$PROPS }`,
-		]);
+		return findAndTransformObjects(
+			rootNode,
+			[`const ${optionsText} = { $$$PROPS }`],
+			'options-identifier',
+		);
 	}
 
 	if (optionsMatch.find({ rule: { kind: 'call_expression' } })) {
 		const functionName = optionsText.replace(/\(\).*$/, '');
-		return findAndTransformObjects(rootNode, [
-			`function ${functionName}() { return { $$$PROPS } }`,
-			`const ${functionName} = () => ({ $$$PROPS })`,
-			`const ${functionName} = function() { return { $$$PROPS } }`,
-		]);
+		return findAndTransformObjects(
+			rootNode,
+			[
+				`function ${functionName}() { return { $$$PROPS } }`,
+				`const ${functionName} = () => ({ $$$PROPS })`,
+				`const ${functionName} = function() { return { $$$PROPS } }`,
+			],
+			'options-function',
+		);
 	}
 
 	return [];
@@ -255,11 +256,12 @@ function uniqueArray<T>(items: T[]): T[] {
 function findAndTransformObjects(
 	rootNode: SgNode<JS>,
 	patterns: string[],
+	site: string,
 ): Edit[] {
 	return patterns.flatMap((pattern) =>
 		rootNode
 			.findAll({ rule: { pattern } })
-			.flatMap((decl) => transformHashPropertiesInObject(decl)),
+			.flatMap((decl) => transformHashPropertiesInObject(decl, site)),
 	);
 }
 
@@ -279,7 +281,7 @@ function transformSpreadObjectDeclarations(
 	const patterns = spreadNames.map(
 		(spreadName) => `const ${spreadName} = { $$$PROPS }`,
 	);
-	return findAndTransformObjects(rootNode, patterns);
+	return findAndTransformObjects(rootNode, patterns, 'spread-declaration');
 }
 
 function processThisPropertyReferences(
@@ -296,7 +298,7 @@ function processThisPropertyReferences(
 	const patterns = propertyNames.map(
 		(propName) => `this.${propName} = { $$$PROPS }`,
 	);
-	return findAndTransformObjects(rootNode, patterns);
+	return findAndTransformObjects(rootNode, patterns, 'this-property');
 }
 
 function transformAssignmentPattern(
@@ -320,6 +322,10 @@ function transformAssignmentPattern(
 				const valueText = getText(valueMatch);
 
 				if (objectText && valueText) {
+					propertyMetric.increment({
+						site: 'direct-assignment',
+						key: oldProperty,
+					});
 					return assignment.replace(
 						`${objectText}.${newProperty} = ${valueText}`,
 					);
@@ -361,6 +367,34 @@ function findAndTransformVariableDeclarations(
 					],
 				},
 			})
-			.map((decl) => decl.replace(decl.text().replace(from, to))),
+			.map((decl) => {
+				propertyMetric.increment({ site: 'variable-string', key: from });
+				return decl.replace(decl.text().replace(from, to));
+			}),
 	);
 }
+
+const transform: Codemod<JS> = async (root) => {
+	const rootNode = root.root();
+	const cryptoBindings = getCryptoBindings(root);
+	const allCalls = findCryptoCalls(rootNode, cryptoBindings);
+
+	const allEdits = [
+		...transformRsaPssCalls(rootNode, allCalls),
+		...transformSpreadObjectDeclarations(rootNode, allCalls),
+		...processThisPropertyReferences(rootNode, allCalls),
+		...transformPropertyAssignments(rootNode),
+		...transformVariableHashStrings(rootNode),
+	];
+
+	if (!allEdits.length) {
+		filesMetric.increment({ status: 'no-changes' });
+		return null;
+	}
+
+	filesMetric.increment({ status: 'migrated' });
+
+	return rootNode.commitEdits(allEdits);
+}
+
+export default transform;

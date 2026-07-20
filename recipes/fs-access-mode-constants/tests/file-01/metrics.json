@@ -1,0 +1,24 @@
+{
+  "fs-access-constants-files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ],
+  "fs-access-constants-namespace-rewrites": [
+    {
+      "cardinality": {
+        "constant": "F_OK"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "constant": "X_OK"
+      },
+      "count": 1
+    }
+  ]
+}

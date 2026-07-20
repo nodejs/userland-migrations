@@ -1,0 +1,26 @@
+{
+  "crypto-rsa-pss-files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ],
+  "crypto-rsa-pss-properties": [
+    {
+      "cardinality": {
+        "key": "hash",
+        "site": "call-direct-object"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "key": "mgf1Hash",
+        "site": "call-direct-object"
+      },
+      "count": 2
+    }
+  ]
+}

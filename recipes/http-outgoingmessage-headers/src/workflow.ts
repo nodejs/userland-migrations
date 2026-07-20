@@ -1,5 +1,6 @@
-import type { SgRoot, SgNode, Edit, Kinds } from '@codemod.com/jssg-types/main';
-import type Js from '@codemod.com/jssg-types/langs/javascript';
+import { useMetricAtom } from 'codemod:metrics';
+import type { Codemod, Edit, SgNode } from 'codemod:ast-grep';
+import type Js from 'codemod:ast-grep/langs/javascript';
 import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 
@@ -17,7 +18,10 @@ const replaceMap = {
 };
 const queue: QueueEvent[] = [];
 
-function getVariableValue(node: SgNode<Js, Kinds<Js>>) {
+const rewriteMetric = useMetricAtom('http-outgoingmessage-headers-rewrites');
+const filesMetric = useMetricAtom('http-outgoingmessage-headers-files');
+
+function getVariableValue(node: SgNode<Js>) {
 	if (node.is('identifier')) {
 		const definition = node.definition();
 		if (!definition?.node) return;
@@ -199,10 +203,10 @@ const parsers = {
 				});
 				const resProperty = memberExpressionNode.field('property');
 				if (resProperty?.text() in replaceMap) {
-					const edit = resProperty.replace(
-						replaceMap[resProperty.text() as keyof typeof replaceMap],
-					);
+					const propertyName = resProperty.text() as keyof typeof replaceMap;
+					const edit = resProperty.replace(replaceMap[propertyName]);
 					edits.push(edit);
+					rewriteMetric.increment({ property: propertyName });
 				}
 			}
 		}
@@ -211,7 +215,7 @@ const parsers = {
 	},
 };
 
-export default function transform(root: SgRoot<Js>): string | null {
+const transform: Codemod<Js> = async (root) => {
 	const rootNode = root.root();
 	let edits: Edit[] = [];
 
@@ -273,6 +277,14 @@ export default function transform(root: SgRoot<Js>): string | null {
 		queue.pop();
 	}
 
-	if (!edits.length) return null;
+	if (!edits.length) {
+		filesMetric.increment({ status: 'no-changes' });
+		return null;
+	}
+
+	filesMetric.increment({ status: 'migrated' });
+
 	return rootNode.commitEdits(edits);
-}
+};
+
+export default transform;

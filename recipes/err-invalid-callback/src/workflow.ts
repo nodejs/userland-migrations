@@ -1,27 +1,64 @@
-import type { Edit, SgRoot } from '@codemod.com/jssg-types/main';
-import type JS from '@codemod.com/jssg-types/langs/javascript';
+import { useMetricAtom } from 'codemod:metrics';
+import type { Codemod, Edit, SgNode } from 'codemod:ast-grep';
+import type JS from 'codemod:ast-grep/langs/javascript';
 
 const OLD_CODE = 'ERR_INVALID_CALLBACK';
 const NEW_CODE = 'ERR_INVALID_ARG_TYPE';
 
+const contextMetric = useMetricAtom('err-invalid-callback-contexts');
+const filesMetric = useMetricAtom('err-invalid-callback-files');
+
 /**
- * Transform function that replaces references to the deprecated
- * ERR_INVALID_CALLBACK error code with ERR_INVALID_ARG_TYPE.
- *
- * See DEP0159: https://nodejs.org/api/deprecations.html#DEP0159
- *
- * Only matches string literals in error-code-related contexts:
- * - Binary comparisons: err.code === "ERR_INVALID_CALLBACK"
- * - Object properties: { code: "ERR_INVALID_CALLBACK" }
- * - Switch cases: case "ERR_INVALID_CALLBACK":
- * - String matching calls: .includes("ERR_INVALID_CALLBACK")
- *
- * Does NOT match strings used in non-error-code contexts such as
- * console.warn("ERR_INVALID_CALLBACK") or throw new Error("ERR_INVALID_CALLBACK").
- *
- * Deduplicates redundant checks after replacement (e.g., a === "X" || a === "X").
+ * Classify which error-code context matched a given string fragment, for
+ * metrics purposes only. Mirrors the `any` branches in the match rule above.
  */
-export default function transform(root: SgRoot<JS>): string | null {
+function classifyContext(fragment: SgNode<JS>): string {
+	const stringNode = fragment.parent();
+	if (!stringNode) return 'unknown';
+
+	let node = stringNode.parent();
+
+	while (node) {
+		switch (node.kind()) {
+			case 'binary_expression':
+				return 'binary-expression';
+			case 'pair':
+				return 'object-property';
+			case 'switch_case':
+				return 'switch-case';
+			case 'arguments': {
+				const call = node.parent();
+				const fn = call?.find({ rule: { kind: 'member_expression' } });
+				const prop = fn?.find({ rule: { kind: 'property_identifier' } });
+				return prop?.text() ? `string-method:${prop.text()}` : 'string-method';
+			}
+			default:
+				node = node.parent();
+		}
+	}
+
+	return 'unknown';
+}
+
+/**
+ * Remove duplicate operands in || expressions that arise from the replacement.
+ *
+ * After replacing ERR_INVALID_CALLBACK → ERR_INVALID_ARG_TYPE, code that previously
+ * checked for both codes (e.g., `a === "ERR_INVALID_CALLBACK" || a === "ERR_INVALID_ARG_TYPE"`)
+ * will have two identical conditions that should be collapsed into one.
+ *
+ * The regex captures a `<lhs> === <quote>ERR_INVALID_ARG_TYPE<quote>` expression,
+ * then matches `|| <same expression>`. The lhs is captured with [\w.[\]"']+ to
+ * support property access patterns like `err.code`, `err["code"]`, and simple identifiers.
+ */
+function deduplicateBinaryExpressions(code: string): string {
+	return code.replace(
+		/([\w.[\]"']+\s*===\s*["']ERR_INVALID_ARG_TYPE["'])\s*\|\|\s*\n?\s*\1/g,
+		'$1',
+	);
+}
+
+const transform: Codemod<JS> = async (root) => {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 
@@ -61,10 +98,14 @@ export default function transform(root: SgRoot<JS>): string | null {
 	});
 
 	for (const fragment of stringFragments) {
+		contextMetric.increment({ context: classifyContext(fragment) });
 		edits.push(fragment.replace(NEW_CODE));
 	}
 
-	if (!edits.length) return null;
+	if (!edits.length) {
+		filesMetric.increment({ status: 'no-changes' });
+		return null;
+	}
 
 	let result = rootNode.commitEdits(edits);
 
@@ -73,23 +114,9 @@ export default function transform(root: SgRoot<JS>): string | null {
 	// becomes `err.code === "ERR_INVALID_ARG_TYPE"`
 	result = deduplicateBinaryExpressions(result);
 
+	filesMetric.increment({ status: 'migrated' });
+
 	return result;
 }
 
-/**
- * Remove duplicate operands in || expressions that arise from the replacement.
- *
- * After replacing ERR_INVALID_CALLBACK → ERR_INVALID_ARG_TYPE, code that previously
- * checked for both codes (e.g., `a === "ERR_INVALID_CALLBACK" || a === "ERR_INVALID_ARG_TYPE"`)
- * will have two identical conditions that should be collapsed into one.
- *
- * The regex captures a `<lhs> === <quote>ERR_INVALID_ARG_TYPE<quote>` expression,
- * then matches `|| <same expression>`. The lhs is captured with [\w.[\]"']+ to
- * support property access patterns like `err.code`, `err["code"]`, and simple identifiers.
- */
-function deduplicateBinaryExpressions(code: string): string {
-	return code.replace(
-		/([\w.[\]"']+\s*===\s*["']ERR_INVALID_ARG_TYPE["'])\s*\|\|\s*\n?\s*\1/g,
-		'$1',
-	);
-}
+export default transform;

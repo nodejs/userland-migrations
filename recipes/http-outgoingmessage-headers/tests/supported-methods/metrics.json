@@ -1,0 +1,18 @@
+{
+  "http-outgoingmessage-headers-files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ],
+  "http-outgoingmessage-headers-rewrites": [
+    {
+      "cardinality": {
+        "property": "_headers"
+      },
+      "count": 3
+    }
+  ]
+}
