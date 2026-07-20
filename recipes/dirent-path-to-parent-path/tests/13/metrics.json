@@ -1,0 +1,60 @@
+{
+  "fs-dirent-path-bindings": [
+    {
+      "cardinality": {
+        "fn": "$.opendir"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "fn": "$.readdir"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "fn": "$.readdirSync"
+      },
+      "count": 1
+    }
+  ],
+  "fs-dirent-path-dir-arrays": [
+    {
+      "cardinality": {
+        "source": "callback-param"
+      },
+      "count": 1
+    }
+  ],
+  "fs-dirent-path-dir-values": [
+    {
+      "cardinality": {
+        "source": "array-method-destructured"
+      },
+      "count": 1
+    }
+  ],
+  "fs-dirent-path-files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ],
+  "fs-dirent-path-rewrites": [
+    {
+      "cardinality": {
+        "style": "destructured-binding"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "style": "destructured-usage"
+      },
+      "count": 1
+    }
+  ]
+}
