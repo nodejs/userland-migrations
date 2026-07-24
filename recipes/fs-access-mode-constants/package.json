@@ -19,7 +19,7 @@
     "@nodejs/codemod-utils": "*"
   },
   "devDependencies": {
-    "@ast-grep/napi": "^0.44.1",
+    "@ast-grep/napi": "^0.45.0",
     "@codemod.com/jssg-types": "^1.6.2"
   }
 }
