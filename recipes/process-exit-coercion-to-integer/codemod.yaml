@@ -1,0 +1,23 @@
+schema_version: "1.0"
+name: "@nodejs/process-exit-coercion-to-integer"
+version: "1.0.0"
+description: Handle DEP0164 by coercing process.exit(code) and process.exitCode assignments to integer-compatible values.
+author: Kevin Sailema
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - dep0164
+  - process.exit
+  - process.exitCode
+  - migration
+
+registry:
+  access: public
+  visibility: public
