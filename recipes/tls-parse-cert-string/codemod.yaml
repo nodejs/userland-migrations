@@ -1,0 +1,23 @@
+schema_version: "1.0"
+name: "@nodejs/tls-parse-cert-string"
+version: "1.0.0"
+description: Handle DEP0076 by removing tls.parseCertString() usage and suggesting safer alternatives.
+author: Kevin Sailema
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - dep0076
+  - tls
+  - parseCertString
+  - migration
+
+registry:
+  access: public
+  visibility: public
