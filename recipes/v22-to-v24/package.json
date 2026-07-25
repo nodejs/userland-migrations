@@ -3,6 +3,9 @@
   "version": "1.0.1",
   "description": "Handle breaking changes in Node.js v24 by replacing deprecated APIs and updating code to be compatible with the new version.",
   "type": "module",
+  "scripts": {
+    "test": "echo \"no test necessary\""
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nodejs/userland-migrations.git",
