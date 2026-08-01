@@ -12,7 +12,7 @@
     "directory": "recipes/mocha-to-node-test-runner",
     "bugs": "https://github.com/nodejs/userland-migrations/issues"
   },
-  "author": "Richie McColl",
+  "author": "Xavier Stouder",
   "license": "MIT",
   "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/mocha-to-node-test-runner/README.md",
   "devDependencies": {
