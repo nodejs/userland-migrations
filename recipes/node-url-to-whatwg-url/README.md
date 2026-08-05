@@ -28,7 +28,7 @@ See [DEP0116](https://nodejs.org/api/deprecations.html#DEP0116).
 + const hostname = myURL.hostname.replace(/^\[|\]$/, '');
 - const urlHostname = myURL.hostname;
 + const urlHostname = myURL.hostname.replace(/^\[|\]$/, '');
-`````
+```
 
 ### `url.format` to `myUrl.toString()
 
@@ -45,7 +45,7 @@ See [DEP0116](https://nodejs.org/api/deprecations.html#DEP0116).
 -     format: 'json',
 -   },
 - });
-`````
+```
 
 > **Note:** The migration of `url.format` can also be done as `` `${new URL('https://example.com/some/path?page=1&format=json')}` `` which is little bit more efficient. But it may be less readable for some users.
 

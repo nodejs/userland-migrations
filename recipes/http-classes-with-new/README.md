@@ -19,4 +19,4 @@ See [DEP0195](https://nodejs.org/api/deprecations.html#DEP0195).
 + const incoming = new IncomingMessage(socket);
 - const request = ClientRequest(options);
 + const request = new ClientRequest(options);
-`````
+```

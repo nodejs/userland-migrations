@@ -13,7 +13,7 @@ Migrates usage of the legacy APIs `buffer.atob()` and `buffer.btoa()` to the cur
 - const decodedData = buffer.atob(data);
 + const decodedData = Buffer.from(data, 'base64').toString('binary');
   console.log(decodedData); // Outputs: Hello World!
-`````
+```
 
 ### Migrating buffer.btoa(data)
 
@@ -24,7 +24,7 @@ Migrates usage of the legacy APIs `buffer.atob()` and `buffer.btoa()` to the cur
 - const encodedData = buffer.btoa(data);
 + const encodedData = Buffer.from(data, 'binary').toString('base64');
   console.log(encodedData); // Outputs: SGVsbG8gV29ybGQh
-`````
+```
 
 ## REFS
 * [Node.js Documentation: Buffer](https://nodejs.org/api/buffer.html)

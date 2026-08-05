@@ -7,7 +7,7 @@ This migration addresses [`DEP0066`](https://nodejs.org/api/deprecations.html#de
 ### Reading headers
 
 ```diff
-  const http = require('http');
+  const http = require('node:http');
 
   function handler(req, res) {
     res.setHeader('content-type', 'application/json');

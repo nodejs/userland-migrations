@@ -1,0 +1,114 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# For more information see: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow
+
+name: Code Quality
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "recipes/**/*.js"
+      - "recipes/**/*.ts"
+      - "recipes/**/package.json"
+      - "utils/**/*.js"
+      - "utils/**/*.ts"
+      - "utils/package.json"
+      - "package.json"
+      - ".github/workflows/code-quality.yml"
+  pull_request:
+    branches: ["*"]
+    paths:
+      - "recipes/**/*.js"
+      - "recipes/**/*.ts"
+      - "recipes/**/package.json"
+      - "utils/**/*.js"
+      - "utils/**/*.ts"
+      - "utils/**/package.json"
+      - "package.json"
+      - ".github/workflows/code-quality.yml"
+    types:
+      - opened
+      - ready_for_review
+      - reopened
+      - synchronize
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-types:
+    name: Lint & types
+    runs-on: ubuntu-slim
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          show-progress: false
+
+      - run: npm ci
+      - run: node --run lint
+      - run: node --run type-check
+
+  test:
+    name: Before/After tests
+    runs-on: ${{ matrix.os }}
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-slim
+          - windows-latest
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          show-progress: false
+
+      # ubuntu-slim already include lts node so we don't need to setup node on ubuntu-slim runner
+      - name: Set up Node.js
+        if: ${{ matrix.os != 'ubuntu-slim' }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          cache: "npm"
+          check-latest: true
+          node-version-file: ".nvmrc"
+
+      - run: npm ci
+
+      - name: Run tests related to changes
+        shell: bash
+        run: >
+          changed_paths=$(git diff --name-only ${{ github.event.pull_request.base.sha || github.event.before }} ${{ github.sha }})
+
+          # run everything?
+          if echo "$changed_paths" | grep -qE '^(package\.json|\.github/workflows/ci\.yml|utils/)$'; then
+            npm run test --workspaces
+            exit 0
+          fi
+
+          # run for specific workspace(s)
+          npm run test $(
+            echo "$changed_paths" \
+            | grep '^recipes/' \
+            | cut -d/ -f1,2 \
+            | sort -u \
+            | sed 's/^/--workspace=/'
+          )

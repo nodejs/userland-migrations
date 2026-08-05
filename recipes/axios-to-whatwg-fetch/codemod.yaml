@@ -1,0 +1,28 @@
+schema_version: "1.0"
+name: "@nodejs/axios-to-whatwg-fetch"
+version: 1.0.0
+description: Replace `axios` with `fetch`
+author: Bruno Rodrigues
+license: MIT
+workflow: workflow.yaml
+category: migration
+repository: https://github.com/nodejs/userland-migrations
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - nodejs
+
+registry:
+  access: public
+  visibility: public
+
+# needed for removing dependencies
+capabilities:
+  - fs
+  - child_process

@@ -11,4 +11,4 @@ See [DEP0022](https://nodejs.org/docs/latest/api/deprecations.html#dep0022-ostmp
 + import { tmpdir } from 'node:os';
 - const foo = tmpDir()
 + const foo = tmpdir()
-`````
+````

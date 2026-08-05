@@ -11,7 +11,7 @@ See [DEP0059](https://nodejs.org/api/deprecations.html#DEP0059).
 
 - util.log("Hello world");
 + console.log(new Date().toLocaleString(), "Hello world");
-`````
+```
 
 **Before:**
 

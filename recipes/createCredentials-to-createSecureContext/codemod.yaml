@@ -1,11 +1,12 @@
 schema_version: "1.0"
 name: "@nodejs/createCredentials-to-createSecureContext"
-version: "1.0.1"
+version: "1.0.2"
 description: Handle DEP0010 via transforming `crypto.createCredentials` to `tls.createSecureContext`
 author: 0hmx
 license: MIT
 workflow: workflow.yaml
 category: migration
+repository: https://github.com/nodejs/userland-migrations
 
 targets:
   languages:
@@ -15,6 +16,7 @@ targets:
 keywords:
   - transformation
   - migration
+  - nodejs
 
 registry:
   access: public

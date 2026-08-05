@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: PR Quality
+
+on:
+  pull_request:
+    branches: ["main"]
+    types:
+      - edited
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  pull-requests: read
+
+jobs:
+  check-title:
+    name: PR title (Conventional Commit)
+    runs-on: ubuntu-slim
+
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check prefix
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: node .github/scripts/pr-title.ts

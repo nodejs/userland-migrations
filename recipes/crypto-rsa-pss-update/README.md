@@ -23,17 +23,17 @@ The transformation only applies to calls with `'rsa-pss'` as the key type.
 
 ## Examples
 
-**Before**
-
-```js
+```diff
 const crypto = require("node:crypto");
 
 crypto.generateKeyPair(
 	"rsa-pss",
 	{
 		modulusLength: 2048,
-		hash: "sha256",
-		mgf1Hash: "sha1",
+-		hash: "sha256",
+-		mgf1Hash: "sha1",
++		hashAlgorithm: "sha256",
++		mgf1HashAlgorithm: "sha1",
 		saltLength: 32,
 	},
 	(err, publicKey, privateKey) => {
@@ -43,30 +43,7 @@ crypto.generateKeyPair(
 
 crypto.generateKeyPairSync("rsa-pss", {
 	modulusLength: 2048,
-	hash: "sha256",
-});
-```
-
-**After**
-
-```js
-const crypto = require("node:crypto");
-
-crypto.generateKeyPair(
-	"rsa-pss",
-	{
-		modulusLength: 2048,
-		hashAlgorithm: "sha256",
-		mgf1HashAlgorithm: "sha1",
-		saltLength: 32,
-	},
-	(err, publicKey, privateKey) => {
-		// callback
-	},
-);
-
-crypto.generateKeyPairSync("rsa-pss", {
-	modulusLength: 2048,
-	hashAlgorithm: "sha256",
+-	hash: "sha256",
++	hashAlgorithm: "sha256",
 });
 ```

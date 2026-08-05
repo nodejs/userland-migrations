@@ -10,7 +10,7 @@ See [DEP0100](https://nodejs.org/api/deprecations.html#DEP0100).
 + import assert from "node:assert";
 - process.assert(condition, "Assertion failed");
 + assert(condition, "Assertion failed");
-`````
+```
 
 ## Additional Notes
 

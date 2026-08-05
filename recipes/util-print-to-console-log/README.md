@@ -20,20 +20,4 @@ See [DEP0029](https://nodejs.org/api/deprecations.html#DEP0029).
 + console.error("Hello world");
 - util.error("Hello world");
 + console.error("Hello world");
-`````
-
-**Before:**
-
-```js
-const { print, error } = require("node:util");
-
-print("Application started");
-error("Processing request");
-```
-
-After:
-
-```js
-console.log("Application started");
-console.error("Processing request");
 ```
