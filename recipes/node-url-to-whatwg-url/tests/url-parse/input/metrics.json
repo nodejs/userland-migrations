@@ -1,0 +1,64 @@
+{
+  "legacy_url_property_accesses_transformed": [
+    {
+      "cardinality": {
+        "kind": "property-access",
+        "property": "auth"
+      },
+      "count": 10
+    },
+    {
+      "cardinality": {
+        "kind": "property-access",
+        "property": "hostname"
+      },
+      "count": 10
+    },
+    {
+      "cardinality": {
+        "kind": "property-access",
+        "property": "path"
+      },
+      "count": 10
+    }
+  ],
+  "url_destructuring_assignments_updated": [
+    {
+      "cardinality": {
+        "kind": "destructuring-assignment",
+        "property": "auth"
+      },
+      "count": 10
+    },
+    {
+      "cardinality": {
+        "kind": "destructuring-assignment",
+        "property": "hostname"
+      },
+      "count": 10
+    },
+    {
+      "cardinality": {
+        "kind": "destructuring-assignment",
+        "property": "path"
+      },
+      "count": 10
+    }
+  ],
+  "url_migration_files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 10
+    }
+  ],
+  "url_parse_calls_replaced": [
+    {
+      "cardinality": {
+        "kind": "parse-call-replacement"
+      },
+      "count": 10
+    }
+  ]
+}

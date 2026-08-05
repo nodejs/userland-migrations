@@ -1,8 +1,8 @@
-import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
-import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
+import { useMetricAtom } from 'codemod:metrics';
+import type { Codemod, Edit, SgNode } from 'codemod:ast-grep';
+import type JS from 'codemod:ast-grep/langs/javascript';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
-import type { SgRoot, Edit, SgNode } from '@codemod.com/jssg-types/main';
-import type JS from '@codemod.com/jssg-types/langs/javascript';
 
 type V = { literal: true; text: string } | { literal: false; code: string };
 
@@ -29,10 +29,12 @@ const handledProps: (keyof UrlState)[] = [
 	'hash',
 ];
 
-// Escape sequences for template literals
 const ESCAPE_BACKTICK = /`/g;
 const ESCAPE_BACKSLASH_DOLLAR = /\\\$/g;
 const ESCAPE_DOLLAR_CURLY = /\$\{/g;
+
+const formatCallsTransformedMetric = useMetricAtom('url_format_calls_transformed');
+const filesMetric = useMetricAtom('url_format_migration_files');
 
 const isHandledProp = (key: string): key is (typeof handledProps)[number] => {
 	return handledProps.includes(key as (typeof handledProps)[number]);
@@ -297,32 +299,20 @@ function urlFormatToUrlToString(callNode: SgNode<JS>[], edits: Edit[]): void {
 		const hadSemi = /;\s*$/.test(call.text());
 		const replacement = `new URL(${finalExpr}).toString()${hadSemi ? ';' : ''}`;
 		edits.push(call.replace(replacement));
+		formatCallsTransformedMetric.increment({ kind: 'format-call-transformation' });
 	}
 }
 
-/**
- * Transforms `url.format` usage to `new URL().toString()`.
- *
- * See https://nodejs.org/api/deprecations.html#DEP0116
- *
- * Handle:
- * 1. `url.format(options)` → `new URL().toString()`
- * 2. `format(options)` → `new URL().toString()`
- * if imported with aliases
- * 2. `foo.format(options)` → `new URL().toString()`
- * 3. `foo(options)` → `new URL().toString()`
- */
-export default function transform(root: SgRoot<JS>): string | null {
+const transform: Codemod<JS> = async (root) => {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 
-	const requiresImports = [
-		...getNodeImportStatements(root, 'url'),
-		...getNodeRequireCalls(root, 'url'),
-	];
+	const requiresImports = getModuleDependencies(root, 'url');
 
-	// No imports/requires from 'url' found, exit early
-	if (!requiresImports.length) return null;
+	if (!requiresImports.length) {
+		filesMetric.increment({ status: 'no-changes' });
+		return null;
+	}
 
 	const parseCallPatterns = new Set<string>();
 
@@ -337,7 +327,11 @@ export default function transform(root: SgRoot<JS>): string | null {
 		if (calls.length) urlFormatToUrlToString(calls, edits);
 	}
 
+	filesMetric.increment({ status: edits.length ? 'migrated' : 'no-changes' });
+
 	if (!edits.length) return null;
 
 	return rootNode.commitEdits(edits);
 }
+
+export default transform;

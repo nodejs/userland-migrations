@@ -1,0 +1,25 @@
+{
+  "crypto-createcredentials-files": [
+    {
+      "cardinality": {
+        "status": "has-crypto-import"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ],
+  "crypto-createcredentials-imports": [
+    {
+      "cardinality": {
+        "shape": "named-aliased",
+        "source": "static-import"
+      },
+      "count": 1
+    }
+  ]
+}

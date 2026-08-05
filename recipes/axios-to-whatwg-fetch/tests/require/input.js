@@ -1,7 +1,8 @@
-const axios = require('axios');
 
 function fetchAllTodos() {
-    return axios.get('https://dummyjson.com/todos');
+    return fetch('https://dummyjson.com/todos')
+	.then(async (res) => Object.assign(res, { data: await res.json() }))
+	.catch(() => null);
 }
 
 module.exports = { fetchAllTodos };

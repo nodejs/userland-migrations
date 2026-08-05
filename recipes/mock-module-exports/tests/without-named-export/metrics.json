@@ -1,0 +1,40 @@
+{
+  "mock-module-events": [
+    {
+      "cardinality": {
+        "kind": "call",
+        "stage": "options-call"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "kind": "default",
+        "stage": "default-export"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "kind": "node",
+        "stage": "rewrite"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "kind": "object",
+        "stage": "options-kind"
+      },
+      "count": 1
+    }
+  ],
+  "mock-module-files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ]
+}

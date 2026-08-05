@@ -1,22 +1,25 @@
 import { EOL } from 'node:os';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
-import {
-	getNodeImportCalls,
-	getNodeImportStatements,
-} from '@nodejs/codemod-utils/ast-grep/import-statement';
+import { useMetricAtom } from 'codemod:metrics';
+import type { Codemod, SgRoot, Edit, SgNode } from 'codemod:ast-grep';
+import type Js from 'codemod:ast-grep/langs/javascript';
+import { getNodeImportCalls, getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
-import type { SgRoot, Edit, SgNode } from '@codemod.com/jssg-types/main';
-import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 type SourceHandler = (statement: SgNode<Js>, rootNode: SgRoot<Js>) => Edit[];
 
-type SourceTuple = [SgNode<Js>[], SourceHandler];
+type SourceTuple = [SgNode<Js>[], SourceHandler, SourceKind];
+type SourceKind = 'require' | 'static-import' | 'dynamic-import';
 
 const newImportFunction = 'createSecureContext';
 const newImportModule = 'node:tls';
 const oldFunctionName = 'createCredentials';
 const oldImportModule = 'node:crypto';
 const newNamespace = 'tls';
+
+const importMetric = useMetricAtom('crypto-createcredentials-imports');
+const usageMetric = useMetricAtom('crypto-createcredentials-usages');
+const filesMetric = useMetricAtom('crypto-createcredentials-files');
 
 function replaceUsagesForResolvedPath(
 	rootNode: SgRoot<Js>,
@@ -39,10 +42,14 @@ function replaceUsagesForResolvedPath(
 			},
 		});
 
-		return usages
+		const edits = usages
 			.map((u) => u.field('function'))
 			.filter((f): f is SgNode<Js> => Boolean(f))
 			.map((f) => f.replace(`${newNamespace}.${newImportFunction}`));
+
+		if (edits.length) usageMetric.increment({ kind: 'member-expression', count: edits.length.toString() });
+
+		return edits;
 	}
 
 	// Destructured identifier usage
@@ -59,10 +66,14 @@ function replaceUsagesForResolvedPath(
 			},
 		});
 
-		return usages
+		const edits = usages
 			.map((usage) => usage.field('function'))
 			.filter((id): id is SgNode<Js> => Boolean(id))
 			.map((id) => id.replace(newImportFunction));
+
+		if (edits.length) usageMetric.increment({ kind: 'identifier', count: edits.length.toString() });
+
+		return edits;
 	}
 
 	// Aliased destructured identifier => keep usages intact
@@ -82,6 +93,7 @@ function handleRequire(statement: SgNode<Js>, rootNode: SgRoot<Js>): Edit[] {
 
 	if (idNode.kind() === 'identifier') {
 		// Namespace require: replace import and usages
+		importMetric.increment({ source: 'require', shape: 'namespace' });
 		return [
 			...usageEdits,
 			declaration.replace(
@@ -113,6 +125,11 @@ function handleRequire(statement: SgNode<Js>, rootNode: SgRoot<Js>): Edit[] {
 			? `{ ${newImportFunction}: ${resolved} }`
 			: `{ ${newImportFunction} }`;
 		const newImportStatement = `const ${newImportSpecifier} = require('${newImportModule}');`;
+
+		importMetric.increment({
+			source: 'require',
+			shape: isAliased ? 'named-aliased' : 'named',
+		});
 
 		if (otherSpecifiers.length > 0) {
 			const othersText = otherSpecifiers.map((s) => s.text()).join(', ');
@@ -146,6 +163,7 @@ function handleStaticImport(
 
 	// Namespace imports: import * as ns from '...'
 	if (content.kind() === 'namespace_import') {
+		importMetric.increment({ source: 'static-import', shape: 'namespace' });
 		return [
 			...usageEdits,
 			statement.replace(
@@ -168,6 +186,11 @@ function handleStaticImport(
 			? `{ ${newImportFunction} as ${resolved} }`
 			: `{ ${newImportFunction} }`;
 		const newStmt = `import ${newSpec} from '${newImportModule}';`;
+
+		importMetric.increment({
+			source: 'static-import',
+			shape: isAliased ? 'named-aliased' : 'named',
+		});
 
 		return [
 			...usageEdits,
@@ -200,6 +223,7 @@ function handleDynamicImport(
 
 	// Case 1: `const ns = await import(...)`
 	if (idNode?.kind() === 'identifier') {
+		importMetric.increment({ source: 'dynamic-import', shape: 'namespace' });
 		return [
 			...usageEdits,
 			declaration.replace(
@@ -232,6 +256,11 @@ function handleDynamicImport(
 			: `{ ${newImportFunction} }`;
 		const newImportStmt = `const ${newImportSpecifier} = await import('${newImportModule}');`;
 
+		importMetric.increment({
+			source: 'dynamic-import',
+			shape: isAliased ? 'named-aliased' : 'named',
+		});
+
 		return [
 			...usageEdits,
 			otherSpecifiers.length
@@ -245,18 +274,22 @@ function handleDynamicImport(
 	return [];
 }
 
-export default function transform(root: SgRoot<Js>): string | null {
+const transform: Codemod<Js> = async (root) => {
 	const rootNode = root.root();
 	const allEdits: Edit[] = [];
 	const sources: SourceTuple[] = [
-		[getNodeRequireCalls(root, 'crypto'), handleRequire],
-		[getNodeImportStatements(root, 'crypto'), handleStaticImport],
-		[getNodeImportCalls(root, 'crypto'), handleDynamicImport],
+		[getNodeRequireCalls(root, 'crypto'), handleRequire, 'require'],
+		[getNodeImportStatements(root, 'crypto'), handleStaticImport, 'static-import'],
+		[getNodeImportCalls(root, 'crypto'), handleDynamicImport, 'dynamic-import'],
 	];
+
+	let sawSource = false;
 
 	for (const [nodes, handler] of sources) {
 		// if no nodes found, skip to next source type
 		if (!nodes.length) continue;
+
+		sawSource = true;
 
 		for (const node of nodes) {
 			const edits = handler(node, root);
@@ -267,7 +300,16 @@ export default function transform(root: SgRoot<Js>): string | null {
 		}
 	}
 
-	if (!allEdits.length) return null;
+	if (sawSource) filesMetric.increment({ status: 'has-crypto-import' });
+
+	if (!allEdits.length) {
+		filesMetric.increment({ status: 'no-changes' });
+		return null;
+	}
+
+	filesMetric.increment({ status: 'migrated' });
 
 	return rootNode.commitEdits(allEdits);
 }
+
+export default transform;

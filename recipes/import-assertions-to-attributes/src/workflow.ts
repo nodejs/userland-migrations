@@ -1,18 +1,11 @@
-import type { SgRoot, Edit } from '@codemod.com/jssg-types/main';
-import type JS from "@codemod.com/jssg-types/langs/javascript";
+import { useMetricAtom } from 'codemod:metrics';
+import type { Codemod, Edit } from 'codemod:ast-grep';
+import type JS from "codemod:ast-grep/langs/javascript";
 
-/**
- * Transform function that converts import assertions to import attributes
- *
- * Handles:
- * 1. import { something } from './module.json' assert { type: 'json' };
- * 2. import('./module.json', { assert: { type: 'json' } })
- *
- * Converts them to:
- * 1. import { something } from './module.json' with { type: 'json' };
- * 2. import('./module.json', { with: { type: 'json' } })
- */
-export default async function transform(root: SgRoot<JS>): Promise<string> {
+const rewriteMetric = useMetricAtom('import-assert-to-with-rewrites');
+const filesMetric = useMetricAtom('import-assert-to-with-files');
+
+const transform: Codemod<JS> = async (root) => {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 
@@ -25,12 +18,14 @@ export default async function transform(root: SgRoot<JS>): Promise<string> {
 
 	for (const importNode of importStatements) {
 		// Replace 'assert' with 'with' in the import statement
-		importNode.children().forEach((child) => {
+		const childrens = importNode.children();
+
+		for (const child of childrens) {
 			if (child.kind() === 'assert' && child.text() === 'assert') {
-				//return child.replace('with');
 				edits.push(child.replace('with'));
+				rewriteMetric.increment({ kind: 'static-import-attribute' });
 			}
-		});
+		}
 	}
 
 	// Handle dynamic import call expressions with assert attributes
@@ -57,7 +52,12 @@ export default async function transform(root: SgRoot<JS>): Promise<string> {
 
 	for (const assertNode of assertIdentifiers) {
 		edits.push(assertNode.replace('with'));
+		rewriteMetric.increment({ kind: 'dynamic-import-assert' });
 	}
+
+	filesMetric.increment({ status: edits.length ? 'migrated' : 'no-changes' });
 
 	return rootNode.commitEdits(edits);
 }
+
+export default transform;

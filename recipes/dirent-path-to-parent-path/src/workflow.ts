@@ -1,8 +1,9 @@
+import { useMetricAtom } from 'codemod:metrics';
+import type { Codemod, Edit, Range, SgNode } from 'codemod:ast-grep';
+import type Js from 'codemod:ast-grep/langs/javascript';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
 import { getScope } from '@nodejs/codemod-utils/ast-grep/get-scope';
-import type { Edit, Range, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
-import type Js from '@codemod.com/jssg-types/langs/javascript';
 import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 
 type BindingToReplace = {
@@ -37,11 +38,13 @@ const handledFn = ['$.readdir', '$.readdirSync', '$.opendir'];
 
 const handledModules = ['fs', 'fs/promises'];
 
-/*
- * Transforms `dirent.path` usage to `dirent.parentPath`.
- *
- */
-export default function transform(root: SgRoot<Js>): string | null {
+const bindingMetric = useMetricAtom('fs-dirent-path-bindings');
+const dirArrayMetric = useMetricAtom('fs-dirent-path-dir-arrays');
+const dirValueMetric = useMetricAtom('fs-dirent-path-dir-values');
+const rewriteMetric = useMetricAtom('fs-dirent-path-rewrites');
+const filesMetric = useMetricAtom('fs-dirent-path-files');
+
+const transform: Codemod<Js> = async (root) => {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
@@ -62,6 +65,8 @@ export default function transform(root: SgRoot<Js>): string | null {
 			const bind = resolveBindingPath(node, fn);
 
 			if (!bind) continue;
+
+			bindingMetric.increment({ fn });
 
 			bindsToReplace.push({
 				node,
@@ -114,6 +119,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 		for (const match of matches) {
 			dirArrays.push({ node: match, scope: getScope(match) });
+			dirArrayMetric.increment({ source: 'variable-declarator' });
 		}
 
 		const functionCalls = rootNode.findAll<'call_expression'>({
@@ -154,6 +160,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 				if (fnParams.length === 2) {
 					dirArrays.push({ node: fnParams[1], scope: arrowFn.field('body') });
+					dirArrayMetric.increment({ source: 'callback-param' });
 				}
 			}
 		}
@@ -186,6 +193,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 				node: leftBind,
 				scope: forOfBody,
 			});
+			dirValueMetric.increment({ source: 'for-in' });
 		}
 
 		const forScenarios = dirArray.scope.findAll<'for_statement'>({
@@ -211,6 +219,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 							node: parent as SgNode<Js, 'subscript_expression'>,
 							scope: forScenario,
 						});
+						dirValueMetric.increment({ source: 'for-subscript-member' });
 					}
 					if (parent.parent().kind() === 'variable_declarator') {
 						const dirVar = (
@@ -221,6 +230,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 							node: dirVar,
 							scope: forScenario,
 						});
+						dirValueMetric.increment({ source: 'for-subscript-declarator' });
 					}
 				}
 			}
@@ -266,6 +276,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 						node: param,
 						scope: fnBody,
 					});
+					dirValueMetric.increment({ source: 'array-method-param' });
 				}
 
 				const paramDestructured = parameters?.find<'object_pattern'>({
@@ -279,6 +290,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 						node: paramDestructured,
 						scope: fnBody,
 					});
+					dirValueMetric.increment({ source: 'array-method-destructured' });
 				}
 			}
 		}
@@ -294,6 +306,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 		for (const uses of pathUses) {
 			edits.push(uses.field('property').replace('parentPath'));
+			rewriteMetric.increment({ style: 'member-expression' });
 		}
 	}
 
@@ -308,6 +321,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 		if (pathBind) {
 			edits.push(pathBind.replace('parentPath'));
+			rewriteMetric.increment({ style: 'destructured-binding' });
 
 			const pathUses = dirDestructuredValue.scope.findAll<'member_expression'>({
 				rule: {
@@ -318,13 +332,21 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 			for (const pahtUse of pathUses) {
 				edits.push(pahtUse.replace('parentPath'));
+				rewriteMetric.increment({ style: 'destructured-usage' });
 			}
 		}
 	}
 
-	if (!edits.length) return;
+	if (!edits.length) {
+		filesMetric.increment({ status: 'no-changes' });
+		return;
+	}
+
+	filesMetric.increment({ status: 'migrated' });
 
 	const sourceCode = rootNode.commitEdits(edits);
 
 	return removeLines(sourceCode, linesToRemove);
 }
+
+export default transform;

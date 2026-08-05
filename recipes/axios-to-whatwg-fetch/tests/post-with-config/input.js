@@ -1,15 +1,14 @@
-import axios from 'axios';
 const base = 'https://dummyjson.com/todos/add';
 
-const createdTodo = await axios.post(
-	base,
-	{
-		todo: 'Use DummyJSON in the project',
-		completed: false,
-		userId: 5,
-	},
-	{
-		headers: { 'Content-Type': 'application/json' },
-	},
-);
+const createdTodo = await fetch(base, {
+	method: "POST",
+	headers: { 'Content-Type': 'application/json' },
+	body: JSON.stringify({
+			todo: 'Use DummyJSON in the project',
+			completed: false,
+			userId: 5,
+		})
+})
+	.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
+	.catch(() => null);
 console.log('\nPOST /todos/add ->', createdTodo);

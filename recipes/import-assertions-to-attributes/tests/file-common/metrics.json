@@ -1,0 +1,18 @@
+{
+  "import-assert-to-with-files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ],
+  "import-assert-to-with-rewrites": [
+    {
+      "cardinality": {
+        "kind": "dynamic-import-assert"
+      },
+      "count": 1
+    }
+  ]
+}

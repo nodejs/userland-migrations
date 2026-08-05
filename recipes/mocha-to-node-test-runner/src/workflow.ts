@@ -1,35 +1,25 @@
+import type { Codemod, Edit, Kinds, SgNode } from 'codemod:ast-grep';
+import type JS from 'codemod:ast-grep/langs/javascript';
 import isESM from '@nodejs/codemod-utils/is-esm';
 import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
-import type { Edit, Kinds, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
-import type JS from '@codemod.com/jssg-types/langs/javascript';
+import { useMetricAtom } from 'codemod:metrics';
 
 const GLOBAL_IDENTIFIERS = ['describe'];
 const USED_GLOBAL_IDENTIFIERS = ['', '.skip', '.only'];
 
-export default function transform(root: SgRoot<JS>): string | null {
-	const rootNode = root.root();
-	const EOL = rootNode.text().includes('\r\n') ? '\r\n' : '\n';
+// ---------------------------------------------------------------------------
+// Metrics
+// ---------------------------------------------------------------------------
+// Tracks the node:test import inserted (by module style), each done-callback
+// signature rewritten, each `this.skip()` / `this.timeout()` conversion, and
+// a per-file migration summary.
 
-	const usedGlobalIdentifiers = GLOBAL_IDENTIFIERS.filter((globalIdentifier) =>
-		USED_GLOBAL_IDENTIFIERS.map(
-			(suffix) => `${globalIdentifier}${suffix}($$$)`,
-		).some((pattern) => rootNode.findAll({ rule: { pattern } }).length > 0),
-	);
-
-	if (!usedGlobalIdentifiers.length) return null;
-
-	const edits = [
-		transformImport,
-		transformDoneCallbacks,
-		transformThisSkip,
-		transformThisTimeout,
-	].flatMap((transform) => transform(rootNode, EOL));
-
-	if (!edits.length) return null;
-
-	return rootNode.commitEdits(edits);
-}
+const importMetric = useMetricAtom('mocha-to-node-test-imports');
+const doneCallbackMetric = useMetricAtom('mocha-to-node-test-done-callbacks');
+const thisSkipMetric = useMetricAtom('mocha-to-node-test-this-skip');
+const thisTimeoutMetric = useMetricAtom('mocha-to-node-test-this-timeout');
+const filesMetric = useMetricAtom('mocha-to-node-test-files');
 
 function transformImport(rootNode: SgNode<JS>, EOL: string): Edit[] {
 	const mochaGlobalsNodes = rootNode.findAll({
@@ -76,6 +66,8 @@ function transformImport(rootNode: SgNode<JS>, EOL: string): Edit[] {
 	const insertedText = esm
 		? `${EOL}import { ${imports} } from 'node:test';`
 		: `${EOL}const { ${imports} } = require('node:test');`;
+
+	importMetric.increment({ style: esm ? 'esm' : 'cjs' });
 
 	if (esm) {
 		const importStatements = rootNode.findAll({
@@ -153,7 +145,11 @@ function transformDoneCallbacks(rootNode: SgNode<JS>, EOL: string): Edit[] {
 				],
 			},
 		})
-		.map((found) => found.getMatch('DONE').replace('t, done'));
+		.map((found) => {
+			const callee = found.getMatch('CALLEE')?.text();
+			doneCallbackMetric.increment({ callee: callee ?? 'unknown' });
+			return found.getMatch('DONE').replace('t, done');
+		});
 }
 
 function transformThisSkip(rootNode: SgNode<JS>): Edit[] {
@@ -174,6 +170,8 @@ function transformThisSkip(rootNode: SgNode<JS>): Edit[] {
 			if (!params) return edits;
 
 			edits.push(...addTParameter(params));
+
+			if (edits.length) thisSkipMetric.increment({});
 
 			return edits;
 		});
@@ -201,7 +199,10 @@ function transformThisTimeout(rootNode: SgNode<JS>, EOL: string): Edit[] {
 			});
 
 			const fn = findEnclosingFunction(call);
-			if (!fn) return edits;
+			if (!fn) {
+				thisTimeoutMetric.increment({ appliedToEnclosingFn: false });
+				return edits;
+			}
 
 			const time = call.getMatch('TIME').text();
 			const fnRange = fn.range();
@@ -211,6 +212,8 @@ function transformThisTimeout(rootNode: SgNode<JS>, EOL: string): Edit[] {
 				endPos: fnRange.start.index,
 				insertedText: `{ timeout: ${time} }, `,
 			});
+
+			thisTimeoutMetric.increment({ appliedToEnclosingFn: "true" });
 
 			return edits;
 		});
@@ -265,3 +268,34 @@ function addTParameter(parameters: SgNode<JS, Kinds<JS>>): Edit[] {
 
 	return edits;
 }
+
+const transform: Codemod<JS> = async (root) => {
+	const rootNode = root.root();
+	const EOL = rootNode.text().includes('\r\n') ? '\r\n' : '\n';
+
+	const usedGlobalIdentifiers = GLOBAL_IDENTIFIERS.filter((globalIdentifier) =>
+		USED_GLOBAL_IDENTIFIERS.map(
+			(suffix) => `${globalIdentifier}${suffix}($$$)`,
+		).some((pattern) => rootNode.findAll({ rule: { pattern } }).length > 0),
+	);
+
+	if (!usedGlobalIdentifiers.length) return null;
+
+	const edits = [
+		transformImport,
+		transformDoneCallbacks,
+		transformThisSkip,
+		transformThisTimeout,
+	].flatMap((transform) => transform(rootNode, EOL));
+
+	if (!edits.length) {
+		filesMetric.increment({ status: 'no-changes' });
+		return null;
+	}
+
+	filesMetric.increment({ status: 'migrated' });
+
+	return rootNode.commitEdits(edits);
+}
+
+export default transform;

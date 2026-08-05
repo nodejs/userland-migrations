@@ -1,0 +1,53 @@
+{
+  "fs-access-constants-bindings": [
+    {
+      "cardinality": {
+        "constant": "F_OK",
+        "shape": "object-pattern"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "constant": "R_OK",
+        "shape": "object-pattern"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "constant": "W_OK",
+        "shape": "object-pattern"
+      },
+      "count": 1
+    }
+  ],
+  "fs-access-constants-files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ],
+  "fs-access-constants-local-rewrites": [
+    {
+      "cardinality": {
+        "local": "F_OK"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "local": "R_OK"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "local": "W_OK"
+      },
+      "count": 1
+    }
+  ]
+}

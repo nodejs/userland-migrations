@@ -1,0 +1,34 @@
+{
+  "crypto-createcredentials-files": [
+    {
+      "cardinality": {
+        "status": "has-crypto-import"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ],
+  "crypto-createcredentials-imports": [
+    {
+      "cardinality": {
+        "shape": "namespace",
+        "source": "require"
+      },
+      "count": 1
+    }
+  ],
+  "crypto-createcredentials-usages": [
+    {
+      "cardinality": {
+        "count": "1",
+        "kind": "member-expression"
+      },
+      "count": 1
+    }
+  ]
+}

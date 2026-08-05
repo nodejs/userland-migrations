@@ -1,0 +1,26 @@
+{
+  "axios-to-fetch-files": [
+    {
+      "cardinality": {
+        "status": "has-axios-import"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "status": "skipped-unsupported-options"
+      },
+      "count": 1
+    }
+  ],
+  "axios-to-fetch-skipped": [
+    {
+      "cardinality": {
+        "method": "get",
+        "option": "paramsSerializer",
+        "reason": "unsupported-option"
+      },
+      "count": 1
+    }
+  ]
+}

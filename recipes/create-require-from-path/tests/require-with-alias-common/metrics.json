@@ -1,0 +1,19 @@
+{
+  "create-require-from-path-files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ],
+  "create-require-from-path-migrations": [
+    {
+      "cardinality": {
+        "kind": "renamed-alias",
+        "source": "cjs"
+      },
+      "count": 1
+    }
+  ]
+}

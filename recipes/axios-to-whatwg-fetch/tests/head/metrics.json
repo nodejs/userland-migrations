@@ -1,0 +1,24 @@
+{
+  "axios-to-fetch-files": [
+    {
+      "cardinality": {
+        "status": "has-axios-import"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ],
+  "axios-to-fetch-migrations": [
+    {
+      "cardinality": {
+        "method": "head"
+      },
+      "count": 1
+    }
+  ]
+}

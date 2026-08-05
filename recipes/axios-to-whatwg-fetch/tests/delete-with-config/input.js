@@ -1,6 +1,8 @@
-import axios from 'axios';
 
-const deletedTodo = await axios.delete('https://dummyjson.com/todos/1', {
-	headers: { 'Content-Type': 'application/json' },
-});
+const deletedTodo = await fetch('https://dummyjson.com/todos/1', {
+	method: "DELETE",
+	headers: { 'Content-Type': 'application/json' }
+})
+	.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
+	.catch(() => null);
 console.log('\nDELETE /todos1/1 ->', deletedTodo);

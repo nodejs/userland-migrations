@@ -1,0 +1,10 @@
+{
+  "fs-truncate-fd-files": [
+    {
+      "cardinality": {
+        "status": "no-changes"
+      },
+      "count": 1
+    }
+  ]
+}

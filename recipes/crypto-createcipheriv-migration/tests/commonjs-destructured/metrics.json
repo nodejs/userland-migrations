@@ -1,0 +1,28 @@
+{
+  "crypto-createcipher-calls": [
+    {
+      "cardinality": {
+        "hasOptions": "false",
+        "kind": "cipher"
+      },
+      "count": 1
+    }
+  ],
+  "crypto-createcipher-files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ],
+  "crypto-createcipher-imports": [
+    {
+      "cardinality": {
+        "kind": "cipher",
+        "shape": "object-pattern"
+      },
+      "count": 1
+    }
+  ]
+}

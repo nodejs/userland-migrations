@@ -1,0 +1,19 @@
+{
+  "crypto-createcipher-calls": [
+    {
+      "cardinality": {
+        "hasOptions": "true",
+        "kind": "cipher"
+      },
+      "count": 1
+    }
+  ],
+  "crypto-createcipher-files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ]
+}

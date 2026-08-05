@@ -1,0 +1,48 @@
+{
+  "http-classes-with-new-calls": [
+    {
+      "cardinality": {
+        "class": "Agent"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "class": "ClientRequest"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "class": "IncomingMessage"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "class": "OutgoingMessage"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "class": "Server"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "class": "ServerResponse"
+      },
+      "count": 1
+    }
+  ],
+  "http-classes-with-new-files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ]
+}

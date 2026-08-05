@@ -1,0 +1,34 @@
+{
+  "fs-access-constants-bindings": [
+    {
+      "cardinality": {
+        "constant": "F_OK",
+        "shape": "named-imports"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "constant": "R_OK",
+        "shape": "named-imports"
+      },
+      "count": 1
+    }
+  ],
+  "fs-access-constants-files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ],
+  "fs-access-constants-local-rewrites": [
+    {
+      "cardinality": {
+        "local": "F_OK"
+      },
+      "count": 1
+    }
+  ]
+}

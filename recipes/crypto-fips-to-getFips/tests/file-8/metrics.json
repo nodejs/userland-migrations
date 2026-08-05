@@ -1,0 +1,34 @@
+{
+  "crypto-fips-bindings": [
+    {
+      "cardinality": {
+        "type": "destructured"
+      },
+      "count": 1
+    }
+  ],
+  "crypto-fips-files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ],
+  "crypto-fips-usages": [
+    {
+      "cardinality": {
+        "kind": "read",
+        "style": "destructured"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "kind": "write",
+        "style": "destructured"
+      },
+      "count": 1
+    }
+  ]
+}

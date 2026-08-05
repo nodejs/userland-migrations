@@ -1,12 +1,22 @@
-import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
-import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
+import { useMetricAtom } from 'codemod:metrics';
+import type { Codemod, Edit } from 'codemod:ast-grep';
+import type JS from 'codemod:ast-grep/langs/javascript';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
-import type { SgRoot, Edit } from '@codemod.com/jssg-types/main';
-import type JS from '@codemod.com/jssg-types/langs/javascript';
+
 
 const VALID_VARIABLE_NAME_REGEX = /^[$A-Z_a-z][$\w]*$/;
 const DESTRUCTURING_ASSIGNMENT_REGEX = /^[^{]+{\s*[^}]+\s*}\s*=\s*/;
 const HOSTNAME_BRACKETS_REGEX = /^\[|\]$/;
+
+const parseCallsReplacedMetric = useMetricAtom('url_parse_calls_replaced');
+const legacyPropertyAccessesMetric = useMetricAtom(
+	'legacy_url_property_accesses_transformed',
+);
+const destructuringAssignmentsMetric = useMetricAtom(
+	'url_destructuring_assignments_updated',
+);
+const filesMetric = useMetricAtom('url_migration_files');
 
 const fieldsToReplace = [
 	{
@@ -46,35 +56,23 @@ const fieldsToReplace = [
 		},
 	},
 ];
-/**
- * Transforms `url.parse` usage to `new URL()`.
- *
- * See https://nodejs.org/api/deprecations.html#DEP0116 for more details.
- *
- * Handle:
- * 1. `url.parse(urlString)` → `new URL(urlString)`
- * 2. `parse(urlString)` → `new URL(urlString)`
- * if imported with aliases
- * 2. `foo.parse(urlString)` → `new URL(urlString)`
- * 3. `foo(urlString)` → `new URL(urlString)`
- */
-export default function transform(root: SgRoot<JS>): string | null {
+
+const transform: Codemod<JS> = async (root) => {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 
-	const importsAndRequires = [
-		...getNodeImportStatements(root, 'url'),
-		...getNodeRequireCalls(root, 'url'),
-	];
+	const importsAndRequires = getModuleDependencies(root, 'url');
 
-	if (!importsAndRequires.length) return null;
+	if (!importsAndRequires.length) {
+		filesMetric.increment({ status: 'no-changes' });
+		return null;
+	}
 
 	// 1) Replace parse calls with new URL() using binding-aware patterns
 	const parseCallPatterns = new Set<string>();
 
 	for (const node of importsAndRequires) {
 		const binding = resolveBindingPath(node, '$.parse');
-
 		if (binding) parseCallPatterns.add(`${binding}($ARG)`);
 	}
 
@@ -102,7 +100,6 @@ export default function transform(root: SgRoot<JS>): string | null {
 	}
 
 	// 1.b) Replace parse calls with new URL()
-	//      Also, for declarations using `var`, upgrade to `let` while keeping `const` as-is.
 	for (const pattern of parseCallPatterns) {
 		const calls = rootNode.findAll({ rule: { pattern } });
 
@@ -111,15 +108,12 @@ export default function transform(root: SgRoot<JS>): string | null {
 			if (!arg) continue;
 
 			edits.push(call.replace(`new URL(${arg.text()})`));
+			parseCallsReplacedMetric.increment({ kind: 'parse-call-replacement' });
 		}
 	}
 
 	// 2) Transform legacy properties on URL object
-	//    - auth => `${obj.username}:${obj.password}`
-	//    - path => `${obj.pathname}${obj.search}`
-	//    - hostname => obj.hostname.replace(/^[\[|\]]$/, '')  (strip square brackets)
-
-	for (const { key, replaceFn } of fieldsToReplace) {
+	for (const { key } of fieldsToReplace) {
 		// 2.a) Handle property access for identifiers that originate from parse(...)
 		for (const varName of parseResultVars) {
 			const propertyAccesses = rootNode.findAll({
@@ -136,6 +130,10 @@ export default function transform(root: SgRoot<JS>): string | null {
 					replacement = `${varName}.hostname.replace(/^\\[|\\]$/, '')`;
 				}
 				edits.push(node.replace(replacement));
+				legacyPropertyAccessesMetric.increment({
+					kind: 'property-access',
+					property: key,
+				});
 			}
 
 			// destructuring for identifiers without looping kinds
@@ -156,8 +154,14 @@ export default function transform(root: SgRoot<JS>): string | null {
 					: text.trimStart().startsWith('const ')
 						? 'const'
 						: 'let';
-				const replacement = replaceFn(varName, hadSemi, declKind);
+				const replacement = fieldsToReplace
+					.find((f) => f.key === key)!
+					.replaceFn(varName, hadSemi, declKind);
 				edits.push(node.replace(replacement));
+				destructuringAssignmentsMetric.increment({
+					kind: 'destructuring-assignment',
+					property: key,
+				});
 			}
 		}
 
@@ -168,7 +172,6 @@ export default function transform(root: SgRoot<JS>): string | null {
 				rule: { pattern: `${pattern}.${key}` },
 			});
 			for (const node of directAccesses) {
-				// Reconstruct base as the matched expression before .key
 				const baseExpr = node.text().replace(new RegExp(`\\.${key}$`), '');
 				let replacement = '';
 
@@ -181,9 +184,13 @@ export default function transform(root: SgRoot<JS>): string | null {
 				}
 
 				edits.push(node.replace(replacement));
+				legacyPropertyAccessesMetric.increment({
+					kind: 'direct-property-access',
+					property: key,
+				});
 			}
 
-			// direct destructuring from parse(...), cover all kinds in a single query
+			// direct destructuring from parse(...)
 			const directDestructures = rootNode.findAll({
 				rule: {
 					any: [
@@ -205,8 +212,14 @@ export default function transform(root: SgRoot<JS>): string | null {
 					: text.trimStart().startsWith('const ')
 						? 'const'
 						: 'let';
-				const replacement = replaceFn(rhsText, hadSemi, declKind);
+				const replacement = fieldsToReplace
+					.find((f) => f.key === key)!
+					.replaceFn(rhsText, hadSemi, declKind);
 				edits.push(node.replace(replacement));
+				destructuringAssignmentsMetric.increment({
+					kind: 'direct-destructuring',
+					property: key,
+				});
 			}
 		}
 
@@ -228,9 +241,13 @@ export default function transform(root: SgRoot<JS>): string | null {
 				replacement = `${baseExpr}.hostname.replace(/^\\[|\\]$/, '')`;
 			}
 			edits.push(node.replace(replacement));
+			legacyPropertyAccessesMetric.increment({
+				kind: 'new-url-property-access',
+				property: key,
+			});
 		}
 
-		// destructuring from new URL, single query for all kinds
+		// destructuring from new URL
 		const newURLDestructures = rootNode.findAll({
 			rule: {
 				any: [
@@ -250,12 +267,22 @@ export default function transform(root: SgRoot<JS>): string | null {
 				: text.trimStart().startsWith('const ')
 					? 'const'
 					: 'let';
-			const replacement = replaceFn(rhsText, hadSemi, declKind);
+			const replacement = fieldsToReplace
+				.find((f) => f.key === key)!
+				.replaceFn(rhsText, hadSemi, declKind);
 			edits.push(node.replace(replacement));
+			destructuringAssignmentsMetric.increment({
+				kind: 'new-url-destructuring',
+				property: key,
+			});
 		}
 	}
+
+	filesMetric.increment({ status: edits.length ? 'migrated' : 'no-changes' });
 
 	if (!edits.length) return null;
 
 	return rootNode.commitEdits(edits);
-}
+};
+
+export default transform;

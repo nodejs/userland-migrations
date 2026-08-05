@@ -1,8 +1,9 @@
+import { useMetricAtom } from 'codemod:metrics';
+import type { Codemod, Edit, SgNode } from 'codemod:ast-grep';
+import type JS from 'codemod:ast-grep/langs/javascript';
 import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
-import type { SgRoot, Edit, SgNode } from '@codemod.com/jssg-types/main';
-import type JS from '@codemod.com/jssg-types/langs/javascript';
 
 /**
  * Classes of the http module
@@ -16,6 +17,9 @@ const CLASS_NAMES = [
 	'ServerResponse',
 ];
 
+const callMetric = useMetricAtom('http-classes-with-new-calls');
+const filesMetric = useMetricAtom('http-classes-with-new-files');
+
 /**
  * Transform function that converts deprecated node:http classes to use the `new` keyword
  *
@@ -27,7 +31,7 @@ const CLASS_NAMES = [
  * 5. `http.Server()` → `new http.Server()`
  * 6. `http.ServerResponse() → `new http.ServerResponse()`
  */
-export default function transform(root: SgRoot<JS>): string | null {
+const transform: Codemod<JS> = async (root) => {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 
@@ -37,7 +41,10 @@ export default function transform(root: SgRoot<JS>): string | null {
 	];
 
 	// if no imports are present it means that we don't need to process the file
-	if (!allStatementNodes.length) return null;
+	if (!allStatementNodes.length) {
+		filesMetric.increment({ status: 'no-changes' });
+		return null;
+	}
 
 	const classes = new Set<string>(getHttpClassBasePaths(allStatementNodes));
 
@@ -51,13 +58,21 @@ export default function transform(root: SgRoot<JS>): string | null {
 
 		for (const clsWithoutNew of classesWithoutNew) {
 			edits.push(clsWithoutNew.replace(`new ${clsWithoutNew.text()}`));
+			// Extract just the class name from the resolved path (e.g. "http.Agent" → "Agent")
+			const className = cls.split('.').at(-1) ?? cls;
+			callMetric.increment({ class: className });
 		}
 	}
 
-	if (edits.length === 0) return null;
+	if (edits.length === 0) {
+		filesMetric.increment({ status: 'no-changes' });
+		return null;
+	}
+
+	filesMetric.increment({ status: 'migrated' });
 
 	return rootNode.commitEdits(edits);
-}
+};
 
 /**
  * Get the base path of the http classes
@@ -75,3 +90,5 @@ function* getHttpClassBasePaths(statements: SgNode<JS>[]) {
 		}
 	}
 }
+
+export default transform;

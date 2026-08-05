@@ -1,0 +1,18 @@
+{
+  "url_format_calls_transformed": [
+    {
+      "cardinality": {
+        "kind": "format-call-transformation"
+      },
+      "count": 11
+    }
+  ],
+  "url_format_migration_files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 10
+    }
+  ]
+}

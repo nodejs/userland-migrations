@@ -1,0 +1,18 @@
+{
+  "fs-truncate-fd-calls": [
+    {
+      "cardinality": {
+        "fn": "truncateSync"
+      },
+      "count": 1
+    }
+  ],
+  "fs-truncate-fd-files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ]
+}

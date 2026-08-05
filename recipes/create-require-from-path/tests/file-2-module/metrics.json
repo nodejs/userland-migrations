@@ -1,0 +1,24 @@
+{
+  "create-require-from-path-files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ],
+  "create-require-from-path-migrations": [
+    {
+      "cardinality": {
+        "kind": "function-call"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "kind": "import-named"
+      },
+      "count": 1
+    }
+  ]
+}

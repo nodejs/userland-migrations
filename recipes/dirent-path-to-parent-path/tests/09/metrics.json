@@ -1,0 +1,42 @@
+{
+  "fs-dirent-path-bindings": [
+    {
+      "cardinality": {
+        "fn": "$.readdir"
+      },
+      "count": 1
+    }
+  ],
+  "fs-dirent-path-dir-arrays": [
+    {
+      "cardinality": {
+        "source": "variable-declarator"
+      },
+      "count": 1
+    }
+  ],
+  "fs-dirent-path-dir-values": [
+    {
+      "cardinality": {
+        "source": "for-subscript-member"
+      },
+      "count": 1
+    }
+  ],
+  "fs-dirent-path-files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ],
+  "fs-dirent-path-rewrites": [
+    {
+      "cardinality": {
+        "style": "member-expression"
+      },
+      "count": 1
+    }
+  ]
+}

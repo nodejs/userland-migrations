@@ -1,16 +1,18 @@
 import { EOL } from 'node:os';
+import { useMetricAtom } from 'codemod:metrics';
+import type {
+  Edit,
+  Range,
+  Rule,
+  SgNode,
+  SgRoot,
+  Codemod
+} from 'codemod:ast-grep';
+import type Js from 'codemod:ast-grep/langs/javascript';
 import dedent from 'dedent';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { removeBinding } from '@nodejs/codemod-utils/ast-grep/remove-binding';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
-import type {
-	Edit,
-	Range,
-	Rule,
-	SgNode,
-	SgRoot,
-} from '@codemod.com/jssg-types/main';
-import type Js from '@codemod.com/jssg-types/langs/javascript';
 import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 
 type BindingToReplace = {
@@ -42,53 +44,46 @@ type AxiosMethodUpdateConfig = {
 	optionalOptionsArg?: boolean;
 };
 
-const formatLocation = ({
-	root,
-	node,
-}: {
-	root: SgRoot<Js>;
-	node: SgNode<Js>;
-}) => {
-	const { line, column } = node.range().start;
-	return `${root.filename()}:${line + 1}:${column + 1}`;
+const migrationMetric = useMetricAtom('axios-to-fetch-migrations');
+const skippedMetric = useMetricAtom('axios-to-fetch-skipped');
+const filesMetric = useMetricAtom('axios-to-fetch-files');
+
+const formatLocation = (root: SgRoot<Js>, node: SgNode<Js>) => {
+  const { line, column } = node.range().start;
+  return `${root.filename()}:${line + 1}:${column + 1}`;
 };
 
 const warnWithLocation = (
-	context: WarningContext,
-	message: string,
-	node?: SgNode<Js>,
+  context: WarningContext,
+  message: string,
+  node?: SgNode<Js>,
 ) => {
-	const location = formatLocation({
-		root: context.root,
-		node: node ?? context.match,
-	});
-	console.warn(`[Codemod] ${message} (at ${location})`);
+  const location = formatLocation(context.root, node ?? context.match);
+  console.warn(`[Codemod] ${message} (at ${location})`);
 };
 
 const UNSUPPORTED_CONFIG_OPTIONS = [
-	'beforeRedirect',
-	'cancelToken',
-	'decompress',
-	'httpAgent',
-	'httpsAgent',
-	'maxBodyLength',
-	'maxContentLength',
-	'maxRedirects',
-	'paramsSerializer',
-	'signal',
-	'socketPath',
-	'timeout',
-	'transformRequest',
-	'transformResponse',
-	'validateStatus',
-	'withCredentials',
+  'beforeRedirect',
+  'cancelToken',
+  'decompress',
+  'httpAgent',
+  'httpsAgent',
+  'maxBodyLength',
+  'maxContentLength',
+  'maxRedirects',
+  'paramsSerializer',
+  'signal',
+  'socketPath',
+  'timeout',
+  'transformRequest',
+  'transformResponse',
+  'validateStatus',
+  'withCredentials',
 ] as const;
 
-const getObjectPropertyValue = (
-	objectNode: SgNode<Js>,
-	propertyName: string,
-) => {
+const getObjectPropertyValue = ( objectNode: SgNode<Js>, propertyName: string ) => {
 	if (objectNode.kind() !== 'object') return undefined;
+
 	const pair = objectNode.find({
 		rule: {
 			kind: 'pair',
@@ -103,9 +98,8 @@ const getObjectPropertyValue = (
 	return pair?.field('value');
 };
 
-const hasUnsupportedOptions = (
-	configNode: SgNode<Js> | undefined,
-): { unsupported: boolean; optionName?: string } => {
+const hasUnsupportedOptions =
+	(configNode: SgNode<Js> | undefined ): { unsupported: boolean; optionName?: string } => {
 	if (!configNode || configNode.kind() !== 'object') {
 		return { unsupported: false };
 	}
@@ -120,10 +114,8 @@ const hasUnsupportedOptions = (
 	return { unsupported: false };
 };
 
-const getBodyExpression = (
-	bodyNode: SgNode<Js>,
-	payloadKind: NonNullable<CreateOptionsType['payloadKind']>,
-) => {
+const getBodyExpression =
+(bodyNode: SgNode<Js>, payloadKind: NonNullable<CreateOptionsType['payloadKind']> ) => {
 	const source = bodyNode.text();
 	const trimmed = source.trim();
 	if (!trimmed || trimmed === 'undefined' || trimmed === 'null') return null;
@@ -159,9 +151,9 @@ const getFormBodyExpression = (
 
 	return dedent`
 		(() => {
-			const value = ${source};
-			if (value instanceof FormData || value instanceof URLSearchParams) return value;
-			return new URLSearchParams(value);
+		const value = ${source};
+		if (value instanceof FormData || value instanceof URLSearchParams) return value;
+		return new URLSearchParams(value);
 		})()
 	`;
 };
@@ -179,25 +171,28 @@ const createAxiosMethodUpdate = ({
 	replaceFn: (args: SgNode<Js>[], context: WarningContext) => {
 		const url = args[0];
 		if (!url) {
-			warnWithLocation(context, `Missing URL in axios.${name}. Skipping.`);
-			return '';
+		warnWithLocation(context, `Missing URL in axios.${name}. Skipping.`);
+		skippedMetric.increment({ method: name, reason: 'missing-url' });
+		return '';
 		}
 
 		const options = createOptions({
-			oldOptions: args[oldOptionsIndex],
-			method,
-			bodyNode: bodyIndex === undefined ? undefined : (args[bodyIndex] ?? null),
-			payloadKind,
+		oldOptions: args[oldOptionsIndex],
+		method,
+		bodyNode: bodyIndex === undefined ? undefined : (args[bodyIndex] ?? null),
+		payloadKind,
 		});
 
 		const fetchCall = optionalOptionsArg
-			? `fetch(${url.text()}${options ? `, ${options}` : ''})`
-			: `fetch(${url.text()}, ${options})`;
+		? `fetch(${url.text()}${options ? `, ${options}` : ''})`
+		: `fetch(${url.text()}, ${options})`;
+
+		migrationMetric.increment({ method: name });
 
 		return dedent.withOptions({ alignValues: true })`
-			${fetchCall}
-				.then(async (${responseAlias}) => Object.assign(${responseAlias}, { data: await ${responseAlias}.json() }))
-				.catch(() => null)
+		${fetchCall}
+			.then(async (${responseAlias}) => Object.assign(${responseAlias}, { data: await ${responseAlias}.json() }))
+			.catch(() => null)
 		`;
 	},
 });
@@ -257,51 +252,56 @@ const baseUpdates = [
 	{
 		oldBind: '$.request',
 		replaceFn: (args, context) => {
-			const config = args[0];
-			if (!config) {
-				warnWithLocation(
-					context,
-					'Missing config object in axios.request. Skipping.',
-				);
-				return '';
-			}
+		const config = args[0];
+		if (!config) {
+			warnWithLocation(
+			context,
+			'Missing config object in axios.request. Skipping.',
+			);
+			skippedMetric.increment({ method: 'request', reason: 'missing-config' });
+			return '';
+		}
 
-			if (config.kind() !== 'object') {
-				warnWithLocation(
-					context,
-					'Unsupported axios.request configuration shape. Skipping migration.',
-					config,
-				);
-				return '';
-			}
+		if (config.kind() !== 'object') {
+			warnWithLocation(
+			context,
+			'Unsupported axios.request configuration shape. Skipping migration.',
+			config,
+			);
+			skippedMetric.increment({ method: 'request', reason: 'unsupported-shape' });
+			return '';
+		}
 
-			const urlNode = getObjectPropertyValue(config, 'url');
-			if (!urlNode) {
-				warnWithLocation(
-					context,
-					'Missing URL in axios.request config. Skipping migration.',
-					config,
-				);
-				return '';
-			}
-			const url = urlNode.text();
+		const urlNode = getObjectPropertyValue(config, 'url');
+		if (!urlNode) {
+			warnWithLocation(
+			context,
+			'Missing URL in axios.request config. Skipping migration.',
+			config,
+			);
+			skippedMetric.increment({ method: 'request', reason: 'missing-url' });
+			return '';
+		}
+		const url = urlNode.text();
 
-			const methodNode = getObjectPropertyValue(config, 'method');
+		const methodNode = getObjectPropertyValue(config, 'method');
 
-			const method = methodNode.child(1)?.text().toUpperCase();
+		const method = methodNode.child(1)?.text().toUpperCase();
 
-			const options = createOptions({
-				oldOptions: config,
-				method: method ?? 'GET', // axios.request's default is GET
-				bodyNode: getObjectPropertyValue(config, 'data') ?? null,
-				payloadKind: 'json',
-			});
+		const options = createOptions({
+			oldOptions: config,
+			method: method ?? 'GET', // axios.request's default is GET
+			bodyNode: getObjectPropertyValue(config, 'data') ?? null,
+			payloadKind: 'json',
+		});
 
-			return dedent.withOptions({ alignValues: true })`
-				fetch(${url}${options ? `, ${options}` : ''})
-					.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
-					.catch(() => null)
-	`;
+		migrationMetric.increment({ method: 'request', httpMethod: method ?? 'GET' });
+
+		return dedent.withOptions({ alignValues: true })`
+			fetch(${url}${options ? `, ${options}` : ''})
+			.then(async (resp) => Object.assign(resp, { data: await resp.json() }))
+			.catch(() => null)
+		`;
 		},
 	},
 ] satisfies {
@@ -311,20 +311,20 @@ const baseUpdates = [
 }[];
 
 const updates = baseUpdates.flatMap((update) => {
-	const bindings = [update.oldBind];
-	if (
-		// supportDefaultAccess is optional on some update items, so guard access
-		(!('supportDefaultAccess' in update) ||
-			update.supportDefaultAccess !== false) &&
-		!update.oldBind.includes('.default.')
-	) {
-		bindings.push(update.oldBind.replace('$.', '$.default.'));
-	}
+  const bindings = [update.oldBind];
+  if (
+    // supportDefaultAccess is optional on some update items, so guard access
+    (!('supportDefaultAccess' in update) ||
+      update.supportDefaultAccess !== false) &&
+    !update.oldBind.includes('.default.')
+  ) {
+    bindings.push(update.oldBind.replace('$.', '$.default.'));
+  }
 
-	return bindings.map((binding) => ({
-		oldBind: binding,
-		replaceFn: update.replaceFn,
-	}));
+  return bindings.map((binding) => ({
+    oldBind: binding,
+    replaceFn: update.replaceFn,
+  }));
 });
 
 /**
@@ -348,13 +348,13 @@ const createOptions = ({
 
 	const headers = oldOptions?.find({
 		rule: {
-			kind: 'object',
+		kind: 'object',
 			inside: {
 				kind: 'pair',
 				has: {
-					kind: 'property_identifier',
-					field: 'key',
-					regex: 'headers',
+				kind: 'property_identifier',
+				field: 'key',
+				regex: 'headers',
 				},
 			},
 		},
@@ -374,12 +374,12 @@ const createOptions = ({
 	if (bodyNode) {
 		const bodyExpression = getBodyExpression(bodyNode, payloadKind);
 		if (bodyExpression) {
-			// Indent multi-line body expressions properly
-			const indentedBody = bodyExpression
-				.split(EOL)
-				.map((line, i) => (i === 0 ? line : `\t${line}`))
-				.join(EOL);
-			optionParts.push(`\tbody: ${indentedBody}`);
+		// Indent multi-line body expressions properly
+		const indentedBody = bodyExpression
+			.split(EOL)
+			.map((line, i) => (i === 0 ? line : `\t${line}`))
+			.join(EOL);
+		optionParts.push(`\tbody: ${indentedBody}`);
 		}
 	}
 
@@ -406,7 +406,7 @@ const checkForUnsupportedOptions = (
 ): boolean => {
 	for (const bind of bindsToReplace) {
 		const matches = rootNode.findAll({
-			rule: bind.rule,
+		rule: bind.rule,
 		});
 
 		for (const match of matches) {
@@ -418,12 +418,17 @@ const checkForUnsupportedOptions = (
 				const config = args[0];
 				const unsupported = hasUnsupportedOptions(config);
 				if (unsupported.unsupported) {
-					warnWithLocation(
-						{ root, match },
-						`Unsupported axios configuration option '${unsupported.optionName}' detected in axios.request. Skipping migration to preserve functionality.`,
-						config,
-					);
-					return true;
+				warnWithLocation(
+					{ root, match },
+					`Unsupported axios configuration option '${unsupported.optionName}' detected in axios.request. Skipping migration to preserve functionality.`,
+					config,
+				);
+				skippedMetric.increment({
+					method: 'request',
+					reason: 'unsupported-option',
+					option: unsupported.optionName ?? 'unknown',
+				});
+				return true;
 				}
 			} else {
 				// For other methods (get, post, put, patch, delete, head, options)
@@ -449,21 +454,21 @@ const checkForUnsupportedOptions = (
 						`Unsupported axios configuration option '${unsupported.optionName}' detected in axios.${methodName}. Skipping migration to preserve functionality.`,
 						config,
 					);
+					skippedMetric.increment({
+						method: methodName ?? 'unknown',
+						reason: 'unsupported-option',
+						option: unsupported.optionName ?? 'unknown',
+					});
 					return true;
 				}
 			}
 		}
 	}
+
 	return false;
 };
 
-/**
- * Transforms the AST root by replacing axios bindings with Fetch API calls.
- *
- * @param {SgRoot<Js>} root - The root of the AST to transform.
- * @returns {string | null} The transformed source code or null if no changes were made.
- */
-export default function transform(root: SgRoot<Js>): string | null {
+const codemod:  Codemod<Js> = async (root: SgRoot<Js>,) => {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
@@ -473,6 +478,8 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	if (!importRequireStatement.length) return null;
 
+	filesMetric.increment({ status: 'has-axios-import' });
+
 	for (const node of importRequireStatement) {
 		for (const update of updates) {
 			const bind = resolveBindingPath(node, update.oldBind);
@@ -480,9 +487,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 			if (!bind) continue;
 
 			bindsToReplace.push({
-				rule: {
-					pattern: `${bind}($$$ARG)`,
-				},
+				rule: { pattern: `${bind}($$$ARG)` },
 				node,
 				binding: bind,
 				replaceFn: update.replaceFn,
@@ -496,13 +501,13 @@ export default function transform(root: SgRoot<Js>): string | null {
 			{ root, match: rootNode },
 			'One or more axios calls in this file use unsupported configuration options. Skipping migration to preserve functionality.',
 		);
+		filesMetric.increment({ status: 'skipped-unsupported-options' });
+
 		return null;
 	}
 
 	for (const bind of bindsToReplace) {
-		const matches = rootNode.findAll({
-			rule: bind.rule,
-		});
+		const matches = rootNode.findAll({ rule: bind.rule });
 
 		for (const match of matches) {
 			const argsAndCommaas = match.getMultipleMatches('ARG');
@@ -523,9 +528,16 @@ export default function transform(root: SgRoot<Js>): string | null {
 		}
 	}
 
-	if (!edits.length) return null;
+	if (!edits.length) {
+		filesMetric.increment({ status: 'no-changes' });
+		return null;
+	}
+
+	filesMetric.increment({ status: 'migrated' });
 
 	const sourceCode = rootNode.commitEdits(edits);
 
 	return removeLines(sourceCode, linesToRemove);
 }
+
+export default codemod;

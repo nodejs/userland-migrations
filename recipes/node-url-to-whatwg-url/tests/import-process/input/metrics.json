@@ -1,0 +1,50 @@
+{
+  "unused_es_module_imports_removed": [
+    {
+      "cardinality": {
+        "kind": "default-import"
+      },
+      "count": 2
+    },
+    {
+      "cardinality": {
+        "kind": "named-imports-partial"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "kind": "namespace-import"
+      },
+      "count": 1
+    }
+  ],
+  "unused_require_calls_removed": [
+    {
+      "cardinality": {
+        "kind": "default-require"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "kind": "destructured-require-all"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "kind": "destructured-require-partial"
+      },
+      "count": 1
+    }
+  ],
+  "url_import_cleanup_files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 7
+    }
+  ]
+}

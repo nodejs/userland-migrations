@@ -1,108 +1,15 @@
-import type { Edit, Range, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
-import type Js from '@codemod.com/jssg-types/langs/javascript';
+import { useMetricAtom } from 'codemod:metrics';
+import type { Codemod, Edit, Range, SgNode } from 'codemod:ast-grep';
+import type Js from 'codemod:ast-grep/langs/javascript';
 import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
 import { getScope } from '@nodejs/codemod-utils/ast-grep/get-scope';
 
-/*
- * Transforms HTTP/2 priority-related options and methods.
- *
- * Steps:
- *
- * 1. Find all http2 imports and require calls
- * 2. Find and remove priority property from connect() options
- * 3. Find and remove priority property from request() options
- * 4. Find and remove complete stream.priority() calls
- * 5. Find and remove priority property from settings() options
- */
-export default function transform(root: SgRoot<Js>): string | null {
-	const rootNode = root.root();
-	const edits: Edit[] = [];
-	const linesToRemove: Range[] = [];
-
-	const http2Statements = getModuleDependencies(root, 'http2');
-
-	// If no imports, nothing to do
-	if (!http2Statements.length) return null;
-
-	// Resolve all local callee names for http2.connect (handles namespace, default, named, alias, require/import)
-	const connectCallees = new Set<string>();
-	const sessionVars: { name: string; decl: SgNode<Js>; scope: SgNode<Js> }[] =
-		[];
-
-	for (const stmt of http2Statements) {
-		if (stmt.kind() === 'expression_statement') {
-			const binding = stmt.field('name');
-			if (binding) {
-				sessionVars.push({
-					name: binding.text(),
-					decl: stmt,
-					scope: getScope(stmt),
-				});
-			}
-		} else {
-			const resolved = resolveBindingPath(stmt, '$.connect');
-			if (resolved) connectCallees.add(resolved);
-		}
-	}
-
-	// Discover session variables created via http2.connect or destructured connect calls by
-	// locating call expressions and climbing to the variable declarator.
-	const connectCalls: SgNode<Js>[] = [
-		...rootNode.findAll({ rule: { pattern: '$HTTP2.connect($$$_ARGS)' } }),
-		// Also include direct calls when `connect` is imported as a named binding or alias (e.g., `connect(...)` or `bar(...)`).
-		...Array.from(connectCallees).flatMap((callee) => {
-			// If callee already includes a dot (e.g., http2.connect), the pattern above already matched it.
-			if (callee.includes('.')) return [] as SgNode<Js>[];
-			return rootNode.findAll({ rule: { pattern: `${callee}($$$_ARGS)` } });
-		}),
-	];
-
-	for (const call of connectCalls) {
-		const variableDeclarator = call.find<'variable_declarator'>({
-			rule: {
-				inside: {
-					kind: 'variable_declarator',
-					stopBy: 'end',
-				},
-			},
-		});
-		const variable = variableDeclarator?.field('name');
-		if (!variable) continue;
-
-		sessionVars.push({
-			name: variable.text(),
-			decl: variableDeclarator,
-			scope: getScope(variableDeclarator),
-		});
-	}
-
-	// Case 1: Remove priority object from http2.connect() options (direct call sites)
-	edits.push(...removeConnectPriority(rootNode));
-
-	// Case 2: Remove priority from session.request() options scoped to discovered session vars + chained connect().request.
-	edits.push(...removeRequestPriority(rootNode, sessionVars));
-
-	// Determine stream variables created from session.request() or connect().request().
-	const streamVars = collectStreamVars(rootNode, sessionVars);
-
-	// Case 3: Remove entire stream.priority() calls only for:
-	//   - chained request().priority()
-	//   - variables assigned from session.request/connect().request
-	const result3 = removePriorityMethodCalls(rootNode, streamVars);
-	edits.push(...result3.edits);
-	linesToRemove.push(...result3.linesToRemove);
-
-	// Case 4: Remove priority property from session.settings() options scoped to session vars + chained connect().settings.
-	edits.push(...removeSettingsPriority(rootNode, sessionVars));
-
-	if (!edits.length && !linesToRemove.length) return null;
-
-	const sourceCode = rootNode.commitEdits(edits);
-
-	return removeLines(sourceCode, linesToRemove);
-}
+const varMetric = useMetricAtom('http2-priority-vars');
+const optionMetric = useMetricAtom('http2-priority-options');
+const methodCallMetric = useMetricAtom('http2-priority-method-calls');
+const filesMetric = useMetricAtom('http2-priority-files');
 
 /**
  * Remove priority property from http2.connect() call options
@@ -136,9 +43,10 @@ function removeConnectPriority(rootNode: SgNode<Js>): Edit[] {
 			if (allPriority && hasPriority) {
 				// Remove the entire object argument from the call using AST ranges
 				edits.push(buildDeletionEdit(obj));
+				optionMetric.increment({ site: 'connect', removal: 'whole-object' });
 			} else if (hasPriority) {
 				// Object has other properties, so just remove priority pair(s)
-				edits.push(...removePriorityPairFromObject(obj));
+				edits.push(...removePriorityPairFromObject(obj, 'connect'));
 			}
 		}
 	}
@@ -197,7 +105,7 @@ function removeRequestPriority(
 			}
 
 			if (!allPriority || !hasPriority) {
-				edits.push(...removePriorityPairFromObject(obj));
+				edits.push(...removePriorityPairFromObject(obj, 'request'));
 			}
 		}
 	}
@@ -224,7 +132,10 @@ function removePriorityMethodCalls(
 		},
 	});
 
-	const safeCalls = new Set<SgNode<Js>>([...chained, ...chainedConnect]);
+	const safeCalls = new Map<SgNode<Js>, string>();
+	for (const c of chained) safeCalls.set(c, 'chained-request-priority');
+	for (const c of chainedConnect)
+		safeCalls.set(c, 'chained-connect-request-priority');
 
 	// Priority on identified stream variable names within their scope.
 	for (const stream of streamVars) {
@@ -239,11 +150,11 @@ function removePriorityMethodCalls(
 			},
 		});
 
-		for (const c of calls) safeCalls.add(c);
+		for (const c of calls) safeCalls.set(c, 'stream-variable');
 	}
 
 	// Remove expression statements containing safe priority calls.
-	for (const call of safeCalls) {
+	for (const [call, source] of safeCalls) {
 		let node: SgNode<Js> | undefined = call;
 
 		while (node) {
@@ -251,6 +162,7 @@ function removePriorityMethodCalls(
 
 			if (parent?.kind() === 'expression_statement') {
 				linesToRemove.push(parent.range());
+				methodCallMetric.increment({ source });
 				break;
 			}
 			node = parent;
@@ -307,7 +219,7 @@ function removeSettingsPriority(
 			}
 
 			if (!allPriority || !hasPriority) {
-				edits.push(...removePriorityPairFromObject(obj));
+				edits.push(...removePriorityPairFromObject(obj, 'settings'));
 			}
 		}
 	}
@@ -340,6 +252,7 @@ function collectStreamVars(
 		for (const d of decls) {
 			const nameNode = d.field('name');
 			streamVars.push({ name: nameNode.text(), scope: getScope(d) });
+			varMetric.increment({ kind: 'stream', source: 'session-request' });
 		}
 	}
 	// From connect().request(...) chained assignments.
@@ -366,6 +279,7 @@ function collectStreamVars(
 		if (chainMatch) {
 			const nameNode = d.field('name');
 			streamVars.push({ name: nameNode.text(), scope: getScope(d) });
+			varMetric.increment({ kind: 'stream', source: 'chained-connect-request' });
 		}
 	}
 	return streamVars;
@@ -374,7 +288,10 @@ function collectStreamVars(
 /**
  * Find and remove priority pair from an object, handling commas properly
  */
-function removePriorityPairFromObject(obj: SgNode<Js>): Edit[] {
+function removePriorityPairFromObject(
+	obj: SgNode<Js>,
+	site: 'connect' | 'request' | 'settings',
+): Edit[] {
 	const edits: Edit[] = [];
 
 	const pairs = obj.findAll({ rule: { kind: 'pair' } });
@@ -394,6 +311,7 @@ function removePriorityPairFromObject(obj: SgNode<Js>): Edit[] {
 	// If all pairs are priority, remove the entire object
 	if (priorityPairs.length === pairs.length) {
 		edits.push(buildDeletionEdit(obj));
+		optionMetric.increment({ site, removal: 'whole-object' });
 
 		return edits;
 	}
@@ -402,6 +320,7 @@ function removePriorityPairFromObject(obj: SgNode<Js>): Edit[] {
 	// Build deletion edits for each pair, preferring to include an adjacent comma.
 	for (const pair of priorityPairs) {
 		edits.push(buildDeletionEdit(pair));
+		optionMetric.increment({ site, removal: 'partial-pair' });
 	}
 
 	return edits;
@@ -435,3 +354,100 @@ function buildDeletionEdit(node: SgNode<Js>): Edit {
 
 	return { startPos: start, endPos: end, insertedText: '' };
 }
+
+const transform: Codemod<Js> = async  (root) => {
+	const rootNode = root.root();
+	const edits: Edit[] = [];
+	const linesToRemove: Range[] = [];
+
+	const http2Statements = getModuleDependencies(root, 'http2');
+
+	// If no imports, nothing to do
+	if (!http2Statements.length) return null;
+
+	// Resolve all local callee names for http2.connect (handles namespace, default, named, alias, require/import)
+	const connectCallees = new Set<string>();
+	const sessionVars: { name: string; decl: SgNode<Js>; scope: SgNode<Js> }[] =
+		[];
+
+	for (const stmt of http2Statements) {
+		if (stmt.kind() === 'expression_statement') {
+			const binding = stmt.field('name');
+			if (binding) {
+				sessionVars.push({
+					name: binding.text(),
+					decl: stmt,
+					scope: getScope(stmt),
+				});
+				varMetric.increment({ kind: 'session', source: 'expression-statement' });
+			}
+		} else {
+			const resolved = resolveBindingPath(stmt, '$.connect');
+			if (resolved) connectCallees.add(resolved);
+		}
+	}
+
+	// Discover session variables created via http2.connect or destructured connect calls by
+	// locating call expressions and climbing to the variable declarator.
+	const connectCalls: SgNode<Js>[] = [
+		...rootNode.findAll({ rule: { pattern: '$HTTP2.connect($$$_ARGS)' } }),
+		// Also include direct calls when `connect` is imported as a named binding or alias (e.g., `connect(...)` or `bar(...)`).
+		...Array.from(connectCallees).flatMap((callee) => {
+			// If callee already includes a dot (e.g., http2.connect), the pattern above already matched it.
+			if (callee.includes('.')) return [] as SgNode<Js>[];
+			return rootNode.findAll({ rule: { pattern: `${callee}($$$_ARGS)` } });
+		}),
+	];
+
+	for (const call of connectCalls) {
+		const variableDeclarator = call.find<'variable_declarator'>({
+			rule: {
+				inside: {
+					kind: 'variable_declarator',
+					stopBy: 'end',
+				},
+			},
+		});
+		const variable = variableDeclarator?.field('name');
+		if (!variable) continue;
+
+		sessionVars.push({
+			name: variable.text(),
+			decl: variableDeclarator,
+			scope: getScope(variableDeclarator),
+		});
+		varMetric.increment({ kind: 'session', source: 'connect-call' });
+	}
+
+	// Case 1: Remove priority object from http2.connect() options (direct call sites)
+	edits.push(...removeConnectPriority(rootNode));
+
+	// Case 2: Remove priority from session.request() options scoped to discovered session vars + chained connect().request.
+	edits.push(...removeRequestPriority(rootNode, sessionVars));
+
+	// Determine stream variables created from session.request() or connect().request().
+	const streamVars = collectStreamVars(rootNode, sessionVars);
+
+	// Case 3: Remove entire stream.priority() calls only for:
+	//   - chained request().priority()
+	//   - variables assigned from session.request/connect().request
+	const result3 = removePriorityMethodCalls(rootNode, streamVars);
+	edits.push(...result3.edits);
+	linesToRemove.push(...result3.linesToRemove);
+
+	// Case 4: Remove priority property from session.settings() options scoped to session vars + chained connect().settings.
+	edits.push(...removeSettingsPriority(rootNode, sessionVars));
+
+	if (!edits.length && !linesToRemove.length) {
+		filesMetric.increment({ status: 'no-changes' });
+		return null;
+	}
+
+	filesMetric.increment({ status: 'migrated' });
+
+	const sourceCode = rootNode.commitEdits(edits);
+
+	return removeLines(sourceCode, linesToRemove);
+}
+
+export default transform;

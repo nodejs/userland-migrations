@@ -1,7 +1,11 @@
+import type { Codemod, Edit } from 'codemod:ast-grep';
+import type JS from 'codemod:ast-grep/langs/javascript';
+import { useMetricAtom } from 'codemod:metrics';
 import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
-import type { SgRoot, Edit } from '@codemod.com/jssg-types/main';
-import type JS from '@codemod.com/jssg-types/langs/javascript';
+
+const migrationMetric = useMetricAtom('create-require-from-path-migrations');
+const filesMetric = useMetricAtom('create-require-from-path-files');
 
 /**
  * Transform function that updates code to replace deprecated `createRequireFromPath` usage
@@ -21,7 +25,7 @@ import type JS from '@codemod.com/jssg-types/langs/javascript';
  *
  * 3. Preserves original variable names and declaration types.
  */
-export default function transform(root: SgRoot<JS>): string | null {
+const transform: Codemod<JS> = async (root) => {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 
@@ -45,6 +49,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 					'createRequire',
 				);
 				edits.push(objectPattern.replace(newText));
+				migrationMetric.increment({ kind: 'require-destructure' });
 			}
 		}
 	}
@@ -68,6 +73,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 					'createRequire',
 				);
 				edits.push(namedImports.replace(newText));
+				migrationMetric.increment({ kind: 'import-named' });
 			}
 		}
 	}
@@ -131,6 +137,10 @@ export default function transform(root: SgRoot<JS>): string | null {
 			});
 
 			edits.push(key.replace('createRequire'));
+			migrationMetric.increment({
+				kind: 'renamed-alias',
+				source: rename.kind() === 'import_specifier' ? 'esm' : 'cjs',
+			});
 		}
 	}
 
@@ -147,10 +157,18 @@ export default function transform(root: SgRoot<JS>): string | null {
 			const arg = argMatch.text();
 			const replacement = `createRequire(${arg})`;
 			edits.push(call.replace(replacement));
+			migrationMetric.increment({ kind: 'function-call' });
 		}
 	}
 
-	if (!edits.length) return null;
+	if (!edits.length) {
+		filesMetric.increment({ status: 'no-changes' });
+		return null;
+	}
+
+	filesMetric.increment({ status: 'migrated' });
 
 	return rootNode.commitEdits(edits);
 }
+
+export default transform;

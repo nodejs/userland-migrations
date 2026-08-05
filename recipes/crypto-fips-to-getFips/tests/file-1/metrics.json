@@ -1,0 +1,27 @@
+{
+  "crypto-fips-bindings": [
+    {
+      "cardinality": {
+        "type": "namespace"
+      },
+      "count": 1
+    }
+  ],
+  "crypto-fips-files": [
+    {
+      "cardinality": {
+        "status": "migrated"
+      },
+      "count": 1
+    }
+  ],
+  "crypto-fips-usages": [
+    {
+      "cardinality": {
+        "kind": "read",
+        "style": "namespace"
+      },
+      "count": 1
+    }
+  ]
+}

@@ -1,8 +1,9 @@
+import { useMetricAtom } from 'codemod:metrics';
+import type { Codemod, Edit, SgNode } from 'codemod:ast-grep';
+import type Js from 'codemod:ast-grep/langs/javascript';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { updateBinding } from '@nodejs/codemod-utils/ast-grep/update-binding';
-import type { Edit, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
-import type Js from '@codemod.com/jssg-types/langs/javascript';
 
 const PATTERN_SET = ['F_OK', 'R_OK', 'W_OK', 'X_OK'];
 
@@ -20,45 +21,10 @@ type RemovedBinding = {
 	local: string;
 };
 
-export default function transform(root: SgRoot<Js>): string | null {
-	const rootNode = root.root();
-	const edits: Edit[] = [];
-	const localBindings = new Map<string, string>();
-	const namespaceBindings = new Map<string, string>();
-
-	const depStatements = getModuleDependencies(root, 'fs');
-
-	if (!depStatements) return null;
-
-	for (const statement of depStatements) {
-		const promisesBinding = resolveBindingPath(statement, '$.promises');
-		const rewritten = rewriteBindings(statement, promisesBinding);
-		edits.push(...rewritten.edits);
-
-		for (const mapping of rewritten.mappings) {
-			localBindings.set(mapping.local, mapping.replacement);
-		}
-
-		for (const pattern of PATTERN_SET) {
-			const resolved = resolveBindingPath(statement, `$.${pattern}`);
-			if (!resolved?.includes('.') || resolved.includes('.constants.')) {
-				continue;
-			}
-
-			namespaceBindings.set(
-				resolved,
-				resolved.replace(`.${pattern}`, `.constants.${pattern}`),
-			);
-		}
-	}
-
-	applyNamespaceReplacements(rootNode, edits, namespaceBindings);
-	applyLocalReplacements(rootNode, edits, localBindings);
-
-	if (!edits.length) return null;
-
-	return rootNode.commitEdits(edits);
-}
+const bindingMetric = useMetricAtom('fs-access-constants-bindings');
+const namespaceMetric = useMetricAtom('fs-access-constants-namespace-rewrites');
+const localMetric = useMetricAtom('fs-access-constants-local-rewrites');
+const filesMetric = useMetricAtom('fs-access-constants-files');
 
 function rewriteBindings(
 	statement: SgNode<Js>,
@@ -123,6 +89,7 @@ function rewriteObjectPattern(
 				imported: name,
 				local: name,
 			});
+			bindingMetric.increment({ shape: 'object-pattern', constant: name });
 		} else {
 			kept.push(name);
 		}
@@ -133,6 +100,10 @@ function rewriteObjectPattern(
 			removed.push({
 				imported: binding.imported,
 				local: binding.local,
+			});
+			bindingMetric.increment({
+				shape: 'object-pattern',
+				constant: binding.imported,
 			});
 		} else {
 			kept.push(binding.text);
@@ -169,6 +140,7 @@ export function rewriteNamedImports(
 				imported,
 				local,
 			});
+			bindingMetric.increment({ shape: 'named-imports', constant: imported });
 		} else {
 			kept.push(specifier.text());
 		}
@@ -190,9 +162,11 @@ export function applyNamespaceReplacements(
 ): void {
 	for (const [path, replacement] of replacements) {
 		const nodes = rootNode.findAll({ rule: { pattern: path } });
+		const constant = path.split('.').pop() ?? path;
 
 		for (const node of nodes) {
 			edits.push(node.replace(replacement));
+			namespaceMetric.increment({ constant });
 		}
 	}
 }
@@ -219,6 +193,7 @@ export function applyLocalReplacements(
 			}
 
 			edits.push(identifier.replace(replacement));
+			localMetric.increment({ local });
 		}
 	}
 }
@@ -268,3 +243,50 @@ export function rewriteCollectedBindings({
 export function escapeRegExp(text: string): string {
 	return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+const transform: Codemod<Js> = async (root) => {
+	const rootNode = root.root();
+	const edits: Edit[] = [];
+	const localBindings = new Map<string, string>();
+	const namespaceBindings = new Map<string, string>();
+
+	const depStatements = getModuleDependencies(root, 'fs');
+
+	if (!depStatements) return null;
+
+	for (const statement of depStatements) {
+		const promisesBinding = resolveBindingPath(statement, '$.promises');
+		const rewritten = rewriteBindings(statement, promisesBinding);
+		edits.push(...rewritten.edits);
+
+		for (const mapping of rewritten.mappings) {
+			localBindings.set(mapping.local, mapping.replacement);
+		}
+
+		for (const pattern of PATTERN_SET) {
+			const resolved = resolveBindingPath(statement, `$.${pattern}`);
+			if (!resolved?.includes('.') || resolved.includes('.constants.')) {
+				continue;
+			}
+
+			namespaceBindings.set(
+				resolved,
+				resolved.replace(`.${pattern}`, `.constants.${pattern}`),
+			);
+		}
+	}
+
+	applyNamespaceReplacements(rootNode, edits, namespaceBindings);
+	applyLocalReplacements(rootNode, edits, localBindings);
+
+	if (!edits.length) {
+		filesMetric.increment({ status: 'no-changes' });
+		return null;
+	}
+
+	filesMetric.increment({ status: 'migrated' });
+
+	return rootNode.commitEdits(edits);
+}
+
+export default transform;

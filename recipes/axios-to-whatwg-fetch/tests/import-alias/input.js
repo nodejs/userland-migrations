@@ -1,7 +1,8 @@
-import ax from 'axios';
 
 async function loadTodo() {
-    const response = await ax.get('/todos/1');
+    const response = await fetch('/todos/1')
+	.then(async (res) => Object.assign(res, { data: await res.json() }))
+	.catch(() => null);
     return response.data;
 }
 
