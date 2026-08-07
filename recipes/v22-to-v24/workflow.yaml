@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/codemod-com/codemod/refs/heads/main/schemas/workflow.json
+
+version: "1"
+
+nodes:
+  - id: apply-transforms
+    name: Apply AST Transformations
+    type: automatic
+    steps:
+      - name: Run `@nodejs/dirent-path-to-parent-path` from Codemod Registry
+        codemod:
+          source: "@nodejs/dirent-path-to-parent-path"
+      - name: Run `@nodejs/fs-access-mode-constants` from Codemod Registry
+        codemod:
+          source: "@nodejs/fs-access-mode-constants"
+      - name: Run `@nodejs/fs-truncate-fd-deprecation` from Codemod Registry
+        codemod:
+          source: "@nodejs/fs-truncate-fd-deprecation"
+      - name: Run `@nodejs/http-outgoingmessage-headers` from Codemod Registry
+        codemod:
+          source: "@nodejs/http-outgoingmessage-headers"
+      - name: Run `@nodejs/http2-priority-signaling` from Codemod Registry
+        codemod:
+          source: "@nodejs/http2-priority-signaling"
+      - name: Run `@nodejs/timers-deprecations` from Codemod Registry
+        codemod:
+          source: "@nodejs/timers-deprecations"
+      - name: Run `@nodejs/tls-create-secure-pair-to-tls-socket` from Codemod Registry
+        codemod:
+          source: "@nodejs/tls-create-secure-pair-to-tls-socket"
+      - name: Run `@nodejs/util-is` from Codemod Registry
+        codemod:
+          source: "@nodejs/util-is"
+      - name: Run `util-log-to-console-log` from Codemod Registry
+        codemod:
+          source: "@nodejs/util-log-to-console-log"
