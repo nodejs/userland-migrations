@@ -3,7 +3,7 @@
   "type": "module",
   "scripts": {
     "test": "npx codemod jssg test -l typescript ./src/workflow.ts",
-    "test:update-snapshots": "npx codemod jssg test --update-snapshots -l typescript ./src/workflow.ts ./ "
+    "test:update-snapshots": "npx codemod jssg test --update-snapshots -l typescript ./src/workflow.ts"
   },
   "devDependencies": {
     "@codemod.com/jssg-types": "^1.6.2"

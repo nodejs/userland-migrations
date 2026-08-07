@@ -2,7 +2,7 @@
   "name": "@nodejs/fs-access-mode-constants",
   "type": "module",
   "scripts": {
-    "test": "npx codemod jssg test --allow-fs -l typescript ./src/workflow.ts ./tests"
+    "test": "npx codemod jssg test --allow-fs -l typescript ./src/workflow.ts"
   },
   "dependencies": {
     "@nodejs/codemod-utils": "*"

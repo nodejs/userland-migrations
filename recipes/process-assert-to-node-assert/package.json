@@ -2,7 +2,7 @@
   "name": "@nodejs/process-assert-to-node-assert",
   "type": "module",
   "scripts": {
-    "test": "npx codemod jssg test -l typescript --ignore-whitespace ./src/workflow.ts ./tests"
+    "test": "npx codemod jssg test -l typescript --ignore-whitespace ./src/workflow.ts"
   },
   "devDependencies": {
     "@codemod.com/jssg-types": "^1.6.2"
