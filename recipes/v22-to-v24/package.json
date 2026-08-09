@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/v22-to-v24",
-  "version": "1.0.2",
+  "version": "1.0.1",
   "description": "Handle breaking changes in Node.js v24 by replacing deprecated APIs and updating code to be compatible with the new version.",
   "type": "module",
   "scripts": {

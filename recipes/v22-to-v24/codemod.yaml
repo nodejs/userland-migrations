@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: "@nodejs/v22-to-v24"
-version: "0.0.2"
+version: "0.0.1"
 description: Handle breaking changes in Node.js v24 by replacing deprecated APIs and updating code to be compatible with the new version.
 author: Augustin Mauroy
 license: MIT

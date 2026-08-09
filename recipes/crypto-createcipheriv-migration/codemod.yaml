@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: "@nodejs/crypto-createcipheriv-migration"
-version: 1.0.1
+version: 1.0.0
 description: Replace removed `crypto.createCipher()`/`createDecipher()` with `crypto.createCipheriv()`/`createDecipheriv()` and secure key derivation (DEP0106)
 author: Augustin Mauroy
 license: MIT

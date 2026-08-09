@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/dirent-path-to-parent-path",
-  "version": "1.0.2",
+  "version": "1.0.1",
   "description": "Handle DEP0178 via transforming `dirent.path` to `dirent.parentPath`",
   "type": "module",
   "scripts": {
