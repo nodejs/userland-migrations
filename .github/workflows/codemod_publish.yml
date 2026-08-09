@@ -11,15 +11,21 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to publish (format: v1.0.0@codemod-name)"
-        required: true
+        description: "Tag to publish (format: v1.0.0@codemod-name); ignored if sync_only"
+        required: false
         type: string
+      # For documentation-only changes, which warrant no version bump.
+      sync_only:
+        description: "Sync READMEs to nodejs/learn without publishing a codemod"
+        default: false
+        type: boolean
 
 permissions: read-all
 
 jobs:
   validate-and-publish:
     name: Validate and Publish Codemod
+    if: ${{ !inputs.sync_only }}
     runs-on: ubuntu-latest
 
     permissions:
@@ -139,3 +145,12 @@ jobs:
 
           ✅ Codemod has been successfully published to the registry!
           EOF
+
+  refresh-learn:
+    name: Sync nodejs/learn
+    needs: validate-and-publish
+    # Runs on its own when sync_only skipped the publish job above.
+    if: ${{ !cancelled() && (inputs.sync_only || needs.validate-and-publish.result == 'success') }}
+    uses: ./.github/workflows/refresh-learn.yml
+    secrets:
+      LEARN_REPO_TOKEN: ${{ secrets.LEARN_REPO_TOKEN }}
