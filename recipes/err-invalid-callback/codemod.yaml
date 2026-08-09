@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: "@nodejs/err-invalid-callback"
-version: "1.0.0"
+version: "1.0.1"
 description: Handle DEP0159 by replacing ERR_INVALID_CALLBACK with ERR_INVALID_ARG_TYPE.
 author: Stanley Shen
 license: MIT

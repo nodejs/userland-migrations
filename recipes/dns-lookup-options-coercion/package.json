@@ -1,6 +1,6 @@
 {
 	"name": "@nodejs/dns-lookup-options-coercion",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "Handle DEP0153 by converting literal dns.lookup option values to their proper types",
 	"type": "module",
 	"scripts": {

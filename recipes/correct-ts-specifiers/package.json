@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/correct-ts-specifiers",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Replace erroneous 'js' or omitted file extensions of import specifiers in TypeScript files.",
   "type": "module",
   "main": "./src/workflow.ts",

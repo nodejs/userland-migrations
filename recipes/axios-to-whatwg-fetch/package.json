@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/axios-to-whatwg-fetch",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Replace `axios` with `fetch`",
   "type": "module",
   "scripts": {

@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/repl-builtin-modules",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Handle DEP0191 via transforming `repl.builtinModules` usage to `module.builtinModules`.",
   "type": "module",
   "scripts": {

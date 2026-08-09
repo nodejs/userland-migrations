@@ -1,6 +1,6 @@
 {
   "name": "@nodejs/crypto-createcipheriv-migration",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Migrate deprecated crypto.createCipher()/createDecipher() (DEP0106) to crypto.createCipheriv()/createDecipheriv() with secure key derivation.",
   "type": "module",
   "scripts": {

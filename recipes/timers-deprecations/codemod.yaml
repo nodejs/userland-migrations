@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: "@nodejs/timers-deprecations"
-version: 1.0.0
+version: 1.0.1
 description: Migrate deprecated node:timers APIs to public timer functions.
 author: Augustin Mauroy
 license: MIT
