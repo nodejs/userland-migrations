@@ -20,6 +20,7 @@ type StyleCall = {
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
+
 	const statements = [
 		...getModuleDependencies(root, kleurBinding).map((statement) => ({
 			moduleName: kleurBinding,
@@ -65,24 +66,17 @@ export default function transform(root: SgRoot<Js>): string | null {
 	return rootNode.commitEdits(edits);
 }
 
-const COMPAT_MAP: Record<string, string> = {
-	overline: 'overlined',
-};
-
-const UNSUPPORTED_METHODS = new Set(['$', 'enabled']);
-
-/**
- * Maps kleur method names that have a different util.styleText spelling.
- */
 function mapStyle(style: string): string {
-	return COMPAT_MAP[style] || style;
+  if (style === 'overline') return 'overlined'
+
+  return style
 }
 
-/**
- * Returns whether a kleur method needs manual migration.
- */
+
 function isUnsupportedMethod(method: string): boolean {
-	return UNSUPPORTED_METHODS.has(method);
+  if(method === '$' || method === 'enabled') return true
+
+  return false
 }
 
 /**
