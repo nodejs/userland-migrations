@@ -37,3 +37,5 @@ This recipe migrates from the external `kleur` package to Node.js built-in `util
 ## Limitations
 
 - Manual migration is required for `kleur.enabled`, `$` from `kleur/colors`, and other APIs that are not direct style functions
+
+<!-- sync_to_learn: true -->
