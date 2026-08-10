@@ -2,20 +2,34 @@
 
 This recipe migrates from the external `ansi-colors` package to Node.js's built-in `util.styleText` API. It transforms ansi-colors method calls to use the native Node.js styling functionality.
 
+## Usage
+
+Run this codemod with:
+
+```sh
+npx codemod @nodejs/ansi-colors-to-styletext
+```
+
 ## Examples
 
 ```diff
 - import ac from 'ansi-colors';
-+ import { styleText } from 'node:util';
++ import { styleText, stripVTControlCharacters } from 'node:util';
+
 - console.log(ac.red('Error message'));
 + console.log(styleText('red', 'Error message'));
+
 - console.log(ac.green('Success message'));
 + console.log(styleText('green', 'Success message'));
+
+- console.log(ac.unstyle(ac.bold.blue('Info message')));
++ console.log(stripVTControlCharacters(styleText(['bold', 'blue'], 'Info message')));
 ```
 
 ```diff
 - const ac = require('ansi-colors');
 + const { styleText } = require('node:util');
+
 - console.log(ac.bold.red('Critical error'));
 + console.log(styleText(['bold', 'red'], 'Critical error'));
 ```
@@ -23,8 +37,10 @@ This recipe migrates from the external `ansi-colors` package to Node.js's built-
 ```diff
 - const { red, blue } = require('ansi-colors');
 + const { styleText } = require('node:util');
+
 - console.log(red('Error'));
 + console.log(styleText('red', 'Error'));
+
 - console.log(blue('Info'));
 + console.log(styleText('blue', 'Info'));
 ```
@@ -40,3 +56,5 @@ This recipe migrates from the external `ansi-colors` package to Node.js's built-
 - **Runtime toggles** like `ac.enabled = false` require manual intervention
 - **Custom themes and aliases** need to be rewritten as plain objects
 - **Dynamic imports with `.then()`** are not transformed and require manual migration
+
+<!-- sync_to_learn: true -->
