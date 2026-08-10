@@ -230,4 +230,40 @@ describe("import-statement", () => {
 		assert.strictEqual(emptyImports.length, 1);
 		assert.strictEqual(getDefaultImportIdentifier(emptyImports[0]), null);
 	});
+
+	it("should ignore type imports", () => {
+		const code = dedent`
+			import fs from "fs";
+			import type fsType from "fs";
+
+			import { join } from "node:path";
+			import type { ParsedPath } from "node:path";
+
+			import type {} from "empty";
+		`;
+
+		const ast = astGrep.parse(astGrep.Lang.TypeScript, code);
+
+		assert.strictEqual(getNodeImportStatements(ast, "fs").length, 1);
+		assert.strictEqual(getNodeImportStatements(ast, "path").length, 1);
+		assert.strictEqual(getNodeImportStatements(ast, "empty").length, 0);
+	});
+
+	it("should not partially match module names", () => {
+		const code = dedent`
+			import { describe } from "node:test";
+			import { it } from "test";
+			import { describe as vDescribe } from "vitest";
+			import foo from "@scope/test";
+			import bar from "test/utils";
+		`;
+
+		const ast = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const imports = getNodeImportStatements(ast, "test");
+
+		assert.deepStrictEqual(
+			imports.map((i) => i.field("source")?.text()),
+			['"node:test"', '"test"'],
+		);
+	});
 });
