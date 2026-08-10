@@ -1,0 +1,24 @@
+schema_version: "1.0"
+name: "@nodejs/dns-lookup-options-coercion"
+version: "1.0.0"
+description: Handle DEP0153 by converting literal dns.lookup option values to their proper types.
+author: Herrtian
+license: MIT
+workflow: workflow.yaml
+category: migration
+repository: https://github.com/nodejs/userland-migrations
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - nodejs
+  - dns
+
+registry:
+  access: public
+  visibility: public

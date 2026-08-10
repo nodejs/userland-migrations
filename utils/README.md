@@ -282,3 +282,5 @@ import { removeNodeJsArgs } from '@nodejs/codemod-utils/ast-grep/package-json';
 
 const edits = removeNodeJsArgs(packageJsonAst, ['--inspect']);
 ```
+
+<!-- sync_to_learn: false -->

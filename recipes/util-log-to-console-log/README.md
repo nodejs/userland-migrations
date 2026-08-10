@@ -1,30 +1,54 @@
-# `util.log` DEP0059
+---
+authors: brunocroh
+---
 
-This recipe transforms the usage of `util.log()` to use `console.log()`.
+# DEP0059: `util.log()` to `console.log()`
 
-See [DEP0059](https://nodejs.org/api/deprecations.html#DEP0059).
+Replaces the deprecated `util.log(message)` with `console.log(new Date().toLocaleString(), message)`, preserving the timestamp prefix that `util.log` appended automatically. The `util` import is removed when it becomes unused after the transformation.
 
-## Example
+## Usage
+
+Run this codemod with:
+
+```sh
+npx codemod @nodejs/util-log-to-console-log
+```
+
+## Examples
+
+### Example 1
+
+Namespace `require` — the import is removed:
 
 ```diff
-- const util = require("node:util");
-
-- util.log("Hello world");
-+ console.log(new Date().toLocaleString(), "Hello world");
+-const util = require("node:util");
+-
+-util.log("Hello world");
++console.log(new Date().toLocaleString(), "Hello world");
 ```
 
-**Before:**
+### Example 2
 
-```js
-const { log } = require("node:util");
+Destructured named import — the import is removed:
 
-log("Application started");
-log("Processing request");
+```diff
+-const { log } = require("node:util");
+-
+-log("Application started");
+-log("Processing request");
++console.log(new Date().toLocaleString(), "Application started");
++console.log(new Date().toLocaleString(), "Processing request");
 ```
 
-After:
+### Example 3
 
-```js
-console.log(new Date().toLocaleString(), "Application started");
-console.log(new Date().toLocaleString(), "Processing request");
+Named ESM import — the import is removed:
+
+```diff
+-import { log } from "node:util";
+-
+-log("Server listening on port 3000");
++console.log(new Date().toLocaleString(), "Server listening on port 3000");
 ```
+
+<!-- sync_to_learn: false -->

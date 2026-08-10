@@ -1,142 +1,161 @@
-# Axios to WHATWG Fetch Codemod
+---
+authors: brunocroh, AugustinMauroy
+---
 
-## Description
+# Axios to WHATWG Fetch
 
-This codemod transforms code using Axios to leverage the WHATWG Fetch API, which is now natively available in Node.js. By replacing Axios with Fetch, you can reduce dependencies, mitigate risks, and improve performance.
+Migrates code from the [Axios](https://axios-http.com) HTTP client to the [WHATWG Fetch](https://fetch.spec.whatwg.org) API that is natively available in Node.js as the global [`fetch`](https://nodejs.org/docs/latest/api/globals.html#fetch), reducing dependencies and improving performance. It rewrites every Axios request helper — `axios.request()`, `axios.get()`, `axios.delete()`, `axios.head()`, `axios.options()`, `axios.post()`, `axios.put()`, `axios.patch()`, `axios.postForm()`, `axios.putForm()`, and `axios.patchForm()` — and recognizes default ESM imports, aliased imports, CommonJS `require()` calls, and dynamic `import()`. Once all call sites are converted, it also removes the `axios` and `@types/axios` entries from `package.json`.
 
-## Supported Transformations
+## Usage
 
-The codemod supports the following Axios methods and converts them to their Fetch equivalents:
+Run this codemod with:
 
-- `axios.request(config)`
-- `axios.get(url[, config])`
-- `axios.delete(url[, config])`
-- `axios.head(url[, config])`
-- `axios.options(url[, config])`
-- `axios.post(url[, data[, config]])`
-- `axios.put(url[, data[, config]])`
-- `axios.patch(url[, data[, config]])`
-- `axios.postForm(url[, data[, config]])`
-- `axios.putForm(url[, data[, config]])`
-- `axios.patchForm(url[, data[, config]])`
-- `axios.request(config)`
-
-### Examples
-
-#### GET Request
-
-```diff
- const base = 'https://dummyjson.com/todos';
-
-- const all = await axios.get(base);
-+ const all = await fetch(base).then(async (res) => Object.assign(res, { data: await res.json() })).catch(() => null);
-	console.log('\nGET /todos ->', all.status);
-	console.log(`Preview: ${all.data.todos.length} todos`);
+```sh
+npx codemod @nodejs/axios-to-whatwg-fetch
 ```
 
-#### POST Request
+## Examples
+
+### GET request
+
+A plain `axios.get()` becomes a `fetch()` call with a shim that keeps the `response.data` property working.
 
 ```diff
- const base = 'https://dummyjson.com/todos';
+-import axios from "axios";
+ const base = "https://dummyjson.com/todos";
 
-- const created = await axios.post(
--     `${base}/add`, {
--         todo: 'Use DummyJSON in the project',
--         completed: false,
--         userId: 5,
--     }, {
--         headers: { 'Content-Type': 'application/json' }
--     }
-- );
-+ const created = await fetch(`${base}/add`, {
-+     method: 'POST',
-+     headers: { 'Content-Type': 'application/json' },
-+     body: JSON.stringify({
-+         todo: 'Use DummyJSON in the project',
-+         completed: false,
-+         userId: 5,
-+     }),
-+ }).then(async (res) => Object.assign(res, { data: await res.json() }));
-	console.log('\nPOST /todos/add ->', created.status);
-	console.log('Preview:', created.data?.id ? `created id ${created.data.id}` : JSON.stringify(created.data).slice(0,200));
+-const all = await axios.get(base);
++const all = await fetch(base)
++  .then(async (res) => Object.assign(res, { data: await res.json() }))
++  .catch(() => null);
+ console.log("\nGET /todos ->", all.status);
+ console.log(`Preview: ${all.data.todos.length} todos`);
 ```
 
-	#### POST Form Request
+### POST request with a JSON body
 
-	```diff
-	 const formEndpoint = '/submit';
-
-	- const created = await axios.postForm(formEndpoint, {
-	-     title: 'Form Demo',
-	-     completed: false,
-	- });
-	+ const created = await fetch(formEndpoint, {
-	+     method: 'POST',
-	+     body: new URLSearchParams({
-	+         title: 'Form Demo',
-	+         completed: false,
-	+     }),
-	+ }).then(async (res) => Object.assign(res, { data: await res.json() }));
-	 console.log('Preview:', created.data);
-	```
-
-#### PUT Request
+The `data` argument of `axios.post()` is serialized with `JSON.stringify()` and passed as the `body` option.
 
 ```diff
- const base = 'https://dummyjson.com/todos';
+-import axios from 'axios';
+ const base = 'https://dummyjson.com/todos/add';
 
-- const updatedPut = await axios.put(
--     `${base}/1`,
--     { completed: false },
--     { headers: { 'Content-Type': 'application/json' } }
-- );
-+ const updatedPut = await fetch(`${base}/1`, {
-+     method: 'PUT',
-+     headers: { 'Content-Type': 'application/json' },
-+     body: JSON.stringify({ completed: false }),
-+ }).then(async (res) => Object.assign(res, { data: await res.json() }));
-	console.log('\nPUT /todos/1 ->', updatedPut.status);
-	console.log('Preview:', updatedPut.data?.completed !== undefined ? `completed=${updatedPut.data.completed}` : JSON.stringify(updatedPut.data).slice(0,200));
+-const todoCreated = await axios.post(base, {
+-  todo: 'Use DummyJSON in the project',
+-  completed: false,
+-  userId: 5,
+-});
++const todoCreated = await fetch(base, {
++  method: "POST",
++  body: JSON.stringify({
++    todo: 'Use DummyJSON in the project',
++    completed: false,
++    userId: 5,
++  })
++})
++  .then(async (resp) => Object.assign(resp, { data: await resp.json() }))
++  .catch(() => null);
+ console.log('\nPOST /todos ->', todoCreated);
 ```
 
-#### DELETE Request
+### Form submission
+
+`axios.postForm()` (and the `putForm`/`patchForm` variants) send the payload as `URLSearchParams`.
 
 ```diff
- const base = 'https://dummyjson.com/todos';
+-import axios from 'axios';
+ const base = 'https://dummyjson.com/forms';
 
-- const deleted = await axios.delete(`${base}/1`);
-+ const deleted = await fetch(`${base}/1`, { method: 'DELETE' })
-+ .then(async (res) => Object.assign(res, { data: await res.json() }));
-	console.log('\nDELETE /todos/1 ->', deleted.status);
-	console.log('Preview:', deleted.data ? JSON.stringify(deleted.data).slice(0,200) : typeof deleted.data);
+-const created = await axios.postForm(`${base}/submit`, {
+-    title: 'Form Demo',
+-    completed: false,
+-});
++const created = await fetch(`${base}/submit`, {
++  method: "POST",
++  body: new URLSearchParams({
++      title: 'Form Demo',
++      completed: false,
++  })
++})
++  .then(async (resp) => Object.assign(resp, { data: await resp.json() }))
++  .catch(() => null);
+ console.log(created);
 ```
 
-#### `request` axios Method
+### `axios.request()` with a config object
+
+The `url`, `method`, and `data` properties of the config object are mapped onto the `fetch()` call.
 
 ```diff
- const base = 'https://dummyjson.com/todos';
+-import axios from 'axios';
+-
+ const base = 'https://dummyjson.com/todos/1';
 
-- const customRequest = await axios.request({
--     url: `${base}/1`,
--     method: 'PATCH',
--     headers: { 'Content-Type': 'application/json' },
--     data: { completed: true },
-- });
-+ const customRequest = await fetch(`${base}/1`, {
-+     method: 'PATCH',
-+     headers: { 'Content-Type': 'application/json' },
-+     body: JSON.stringify({ completed: true }),
-+ }).then(async (res) => Object.assign(res, { data: await res.json() }));
- console.log('\nPATCH /todos/1 ->', customRequest.status);
- console.log('Preview:', customRequest.data?.completed !== undefined ? `completed=${customRequest.data.completed}` : JSON.stringify(customRequest.data).slice(0,200));
+-const customRequest = await axios.request({
+-  url: base,
+-  method: 'PATCH',
+-  data: {
+-    todo: 'Updated todo',
+-    completed: true,
+-  },
+-});
++const customRequest = await fetch(base, {
++  method: "PATCH",
++  body: JSON.stringify({
++      todo: 'Updated todo',
++      completed: true,
++    })
++})
++  .then(async (resp) => Object.assign(resp, { data: await resp.json() }))
++  .catch(() => null);
+ console.log('\nREQUEST /todos/1 ->', customRequest);
 ```
 
-## Unsupported APIs
+### CommonJS `require()`
 
-The codemod does not yet cover Axios features outside of direct request helpers, such as interceptors, cancel tokens, or instance configuration from `axios.create()`.
+CommonJS modules are handled the same way, and the now-unused `require('axios')` binding is removed.
 
-## References
+```diff
+-const axios = require('axios');
 
-- [Fetch Spec](https://fetch.spec.whatwg.org)
-- [Axios Documentation](https://axios-http.com)
-- [Node.js Documentation](https://nodejs.org/docs/latest/api/globals.html#fetch)
+ function fetchAllTodos() {
+-    return axios.get('https://dummyjson.com/todos');
++    return fetch('https://dummyjson.com/todos')
++  .then(async (res) => Object.assign(res, { data: await res.json() }))
++  .catch(() => null);
+ }
+
+ module.exports = { fetchAllTodos };
+```
+
+## Notes
+
+- A `fetch` response exposes its payload through `res.json()` rather than a `data` property, so each converted call is followed by `.then(async (res) => Object.assign(res, { data: await res.json() }))` to keep existing `response.data` accesses working.
+- Converted calls end with `.catch(() => null)`, so a failed request resolves to `null` instead of rejecting. Also note that unlike Axios, `fetch` does not reject on HTTP error statuses (4xx/5xx), so error-handling code built around Axios rejections should be reviewed manually.
+- Safety first: if any Axios call in a file uses an unsupported configuration option, the entire file is left untouched and a warning with the source location is printed, preserving the original behavior.
+- After the transformation, the codemod detects your package manager and removes the `axios` and `@types/axios` dependencies from `package.json`.
+
+### Limitations
+
+The codemod skips files whose Axios calls use any of the following configuration options, because they have no direct `fetch` equivalent:
+
+- `beforeRedirect`
+- `cancelToken`
+- `decompress`
+- `httpAgent`
+- `httpsAgent`
+- `maxBodyLength`
+- `maxContentLength`
+- `maxRedirects`
+- `paramsSerializer`
+- `signal`
+- `socketPath`
+- `timeout`
+- `transformRequest`
+- `transformResponse`
+- `validateStatus`
+- `withCredentials`
+
+It also does not cover Axios features outside of the direct request helpers, such as interceptors, cancel tokens, or instance configuration created with `axios.create()`.
+
+<!-- sync_to_learn: true -->
