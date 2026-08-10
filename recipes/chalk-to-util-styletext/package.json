@@ -7,7 +7,7 @@
         "test:remove-dependencies": "npx codemod jssg test -l json ./src/remove-dependencies.ts ./tests/remove-dependencies --allow-child-process --allow-fs --strictness cst"
     },
     "devDependencies": {
-        "@codemod.com/jssg-types": "^1.6.2"
+        "@codemod.com/jssg-types": "^1.6.3"
     },
     "dependencies": {
         "@nodejs/codemod-utils": "*"

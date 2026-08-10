@@ -10,7 +10,7 @@
     "test:imports": "npx codemod jssg test -l typescript ./src/cleanup-imports.ts ./tests/ --filter imports"
   },
   "devDependencies": {
-    "@codemod.com/jssg-types": "^1.6.2"
+    "@codemod.com/jssg-types": "^1.6.3"
   },
   "dependencies": {
     "@nodejs/codemod-utils": "*"

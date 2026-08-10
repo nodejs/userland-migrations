@@ -30,7 +30,7 @@ Each codemod resides in its own directory under `recipes/` and should include:
 
 | File | Purpose |
 |------|---------|
-| `README.md` | Description, purpose, and usage instructions |
+| `README.md` | Description, purpose, and usage instructions — must follow the [README writing guide](./docs/writing-a-readme.md), as it is published as an article on [nodejs.org/learn](https://nodejs.org/learn) |
 | `package.json` | Package manifest |
 | `src/workflow.ts` | Main entry point using the `jssg` codemod API |
 | `codemod.yml` | Codemod manifest file |

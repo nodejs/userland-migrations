@@ -5,6 +5,6 @@
     "test": "npx codemod jssg test -l typescript ./src/workflow.ts"
   },
   "devDependencies": {
-    "@codemod.com/jssg-types": "^1.6.2"
+    "@codemod.com/jssg-types": "^1.6.3"
   }
 }
