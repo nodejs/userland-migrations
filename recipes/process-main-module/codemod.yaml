@@ -1,11 +1,12 @@
 schema_version: "1.0"
 name: "@nodejs/process-main-module"
-version: "1.0.2"
+version: "1.0.3"
 description: Handle DEP0138 via transforming `process.mainModule` to `require.main`.
 author: Bruno Rodrigues
 license: MIT
 workflow: workflow.yaml
 category: migration
+repository: https://github.com/nodejs/userland-migrations
 
 targets:
   languages:
@@ -15,6 +16,7 @@ targets:
 keywords:
   - transformation
   - migration
+  - nodejs
 
 registry:
   access: public

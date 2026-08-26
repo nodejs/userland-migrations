@@ -1,11 +1,12 @@
 schema_version: "1.0"
 name: "@nodejs/repl-builtin-modules"
-version: "1.0.1"
+version: "1.0.2"
 description: Handle DEP0191 via transforming `repl.builtinModules` usage to `module.builtinModules`.
 author: Augustin Mauroy
 license: MIT
 workflow: workflow.yaml
 category: migration
+repository: https://github.com/nodejs/userland-migrations
 
 targets:
   languages:
@@ -16,6 +17,7 @@ keywords:
   - transformation
   - migration
   - deprecation
+  - nodejs
 
 registry:
   access: public

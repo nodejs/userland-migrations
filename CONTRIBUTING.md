@@ -30,7 +30,7 @@ Each codemod resides in its own directory under `recipes/` and should include:
 
 | File | Purpose |
 |------|---------|
-| `README.md` | Description, purpose, and usage instructions |
+| `README.md` | Description, purpose, and usage instructions — must follow the [README writing guide](./docs/writing-a-readme.md), as it is published as an article on [nodejs.org/learn](https://nodejs.org/learn) |
 | `package.json` | Package manifest |
 | `src/workflow.ts` | Main entry point using the `jssg` codemod API |
 | `codemod.yml` | Codemod manifest file |
@@ -133,6 +133,7 @@ author: <Your Name>
 license: MIT
 workflow: workflow.yaml
 category: migration
+repository: https://github.com/nodejs/userland-migrations
 
 targets:
   languages:
@@ -191,13 +192,18 @@ Format:
 ```
 
 - **`type`**: The type of change (e.g., `feat`, `fix`, `docs`, `chore`, etc.)
-- **`scope`**: A short, lowercase description of the section of the codebase affected (e.g., `tmpDir-to-tmpdir`, `esm-migration`)
-- **`description`**: A concise summary of the change
+- **`scope`**: A short, description of the section of the codebase affected;
+  - if introducing a migration handling
+    - a deprecation, the deprecation code (e.g. `DEP0000`)
+    - a non-deprecation, such as facilitating adoption of a node API from a 3rd party, `adopt`
+  - if adjusting an existing migration, the migration's name (e.g. `tmpDir-to-tmpdir`)
+- **`description`**: A concise summary of the change, citing relevant APIs (e.g. `jest-to-node-test-runner`)
 
 Examples:
-- `feat(tmpDir-to-tmpdir): add new node.js 18 migration codemod`
-- `fix(esm-migration): correct type checking in ESM migration`
-- `docs(codemod-usage): improve usage examples`
+- ``feat(DEP0022): migrate `tmpDir` to `tmpdir` ``
+- ``fix(`tmpDir-to-tmpdir`): correct type checking in …``
+- ``docs(`tmpDir-to-tmpdir`): correct usage example``
+- `docs(CONTRIBUTING): improve good test examples`
 
 ## Pull Request Process
 

@@ -1,11 +1,12 @@
 schema_version: "1.0"
 name: "@nodejs/mock-module-exports"
-version: 1.0.0
+version: 1.0.1
 description: "Handle mock.module exports deprecation"
 author: Bruno Rodrigues
 license: MIT
 workflow: workflow.yaml
 category: migration
+repository: https://github.com/nodejs/userland-migrations
 
 targets:
   languages:
@@ -15,6 +16,7 @@ targets:
 keywords:
   - transformation
   - migration
+  - nodejs
 
 registry:
   access: public

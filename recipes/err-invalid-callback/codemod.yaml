@@ -6,6 +6,7 @@ author: Stanley Shen
 license: MIT
 workflow: workflow.yaml
 category: migration
+repository: https://github.com/nodejs/userland-migrations
 
 targets:
   languages:
@@ -17,6 +18,7 @@ keywords:
   - migration
   - errors
   - DEP0159
+  - nodejs
 
 registry:
   access: public
