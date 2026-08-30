@@ -10,4 +10,4 @@ export const SUPPORTED_PREFIXES = [
 	'test',
 ] as const;
 
-export const SCOPE_RGX = new RegExp(`^(${SUPPORTED_PREFIXES.join('|')})\\([\\w\\-\\d]*\\)\\: `);
+export const SCOPE_RGX = new RegExp(`^(${SUPPORTED_PREFIXES.join('|')})\\(\\S[^)]*\\): [^\\n]*$`);

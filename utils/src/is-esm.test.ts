@@ -174,5 +174,13 @@ describe('isESM', () => {
 
 			assert.strictEqual(result, false);
 		});
+
+		it('should return false when package.json is invalid JSON', async () => {
+			writeFileSync(join(tempDir, 'package.json'), '{ invalid json }');
+
+			const mockRoot = createMockRoot('test.js', false, false);
+			const result = isESM(mockRoot);
+			assert.strictEqual(result, false);
+		});
 	});
 });

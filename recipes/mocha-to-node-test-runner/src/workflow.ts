@@ -116,7 +116,7 @@ function transformImport(rootNode: SgNode<JS>, EOL: string): Edit[] {
 	];
 }
 
-function transformDoneCallbacks(rootNode: SgNode<JS>, EOL: string): Edit[] {
+function transformDoneCallbacks(rootNode: SgNode<JS>): Edit[] {
 	return rootNode
 		.findAll({
 			constraints: {
@@ -179,7 +179,7 @@ function transformThisSkip(rootNode: SgNode<JS>): Edit[] {
 		});
 }
 
-function transformThisTimeout(rootNode: SgNode<JS>, EOL: string): Edit[] {
+function transformThisTimeout(rootNode: SgNode<JS>): Edit[] {
 	const source = rootNode.text();
 
 	return rootNode
