@@ -8,7 +8,7 @@
     "@nodejs/codemod-utils": "*"
   },
   "devDependencies": {
-    "@ast-grep/napi": "^0.45.2",
+    "@ast-grep/napi": "^0.45.3",
     "@codemod.com/jssg-types": "^1.6.3"
   }
 }
