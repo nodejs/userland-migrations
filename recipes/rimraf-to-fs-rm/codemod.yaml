@@ -1,0 +1,24 @@
+schema_version: "1.0"
+name: "@nodejs/rimraf-to-fs-rm"
+version: "1.0.0"
+description: Migrate literal rimraf deletes to Node.js fs.rm APIs
+author: Herrtian
+license: MIT
+workflow: workflow.yaml
+category: migration
+repository: https://github.com/nodejs/userland-migrations
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - nodejs
+  - rimraf
+
+registry:
+  access: public
+  visibility: public
