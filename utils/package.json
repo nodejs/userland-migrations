@@ -10,7 +10,7 @@
   "devDependencies": {
     "@ast-grep/lang-bash": "^0.0.8",
     "@ast-grep/lang-json": "^0.0.7",
-    "@ast-grep/napi": "^0.45.2",
+    "@ast-grep/napi": "^0.45.3",
     "@codemod.com/jssg-types": "^1.6.3",
     "dedent": "^1.7.2"
   }
