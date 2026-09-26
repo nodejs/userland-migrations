@@ -9,6 +9,50 @@ const COMPATIBILITY_MAP = {
 	grey: 'blackBright',
 };
 
+// Shared ansi-colors and util.styleText formats; gray/grey are normalized above.
+const SUPPORTED_STYLES = new Set([
+	'reset',
+	'bold',
+	'dim',
+	'italic',
+	'underline',
+	'inverse',
+	'hidden',
+	'strikethrough',
+	'black',
+	'red',
+	'green',
+	'yellow',
+	'blue',
+	'magenta',
+	'cyan',
+	'white',
+	'blackBright',
+	'redBright',
+	'greenBright',
+	'yellowBright',
+	'blueBright',
+	'magentaBright',
+	'cyanBright',
+	'whiteBright',
+	'bgBlack',
+	'bgRed',
+	'bgGreen',
+	'bgYellow',
+	'bgBlue',
+	'bgMagenta',
+	'bgCyan',
+	'bgWhite',
+	'bgBlackBright',
+	'bgRedBright',
+	'bgGreenBright',
+	'bgYellowBright',
+	'bgBlueBright',
+	'bgMagentaBright',
+	'bgCyanBright',
+	'bgWhiteBright',
+]);
+
 const API_REPLACEMENTS = {
 	unstyle: 'stripVTControlCharacters',
 };
@@ -351,6 +395,11 @@ function processDestructuredImports(
 	edits: Edit[],
 	requiredApis: Set<RequiredApi>,
 ): void {
+	// Replacing this import would also remove unsupported bindings. Leave it intact.
+	if (destructuredNames.some(({ imported }) =>
+		!SUPPORTED_STYLES.has(imported) && !Object.hasOwn(API_REPLACEMENTS, imported)
+	)) return;
+
 	for (const { local, imported } of destructuredNames) {
 		const replacement = API_REPLACEMENTS[
 			imported as keyof typeof API_REPLACEMENTS
