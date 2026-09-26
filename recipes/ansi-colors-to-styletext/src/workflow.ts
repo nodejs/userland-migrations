@@ -322,6 +322,8 @@ function extractChainedStyles(
 			propertyName as keyof typeof COMPATIBILITY_MAP
 		] ?? propertyName;
 
+	if (!SUPPORTED_STYLES.has(normalizedName)) return null;
+
 	if (objectNode.kind() === 'identifier') {
 		if (objectNode.text() !== binding) return null;
 
@@ -691,6 +693,19 @@ function processDefaultImports(
 	edits: Edit[],
 	requiredApis: Set<RequiredApi>,
 ): void {
+	// Keep the original binding when any property chain needs manual migration.
+	for (const member of rootNode.findAll({ rule: { kind: 'member_expression' } })) {
+		let base = member;
+		while (base.kind() === 'member_expression') base = base.field('object');
+		if (base.kind() !== 'identifier' || base.text() !== binding) continue;
+		if (extractChainedStyles(member, binding)) continue;
+		if (
+			member.field('object')?.kind() === 'identifier' &&
+			Object.hasOwn(API_REPLACEMENTS, member.field('property')?.text() ?? '')
+		) continue;
+		return;
+	}
+
 	const calls = rootNode
 		.findAll({
 			rule: {
