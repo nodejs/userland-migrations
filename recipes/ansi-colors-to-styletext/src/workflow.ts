@@ -72,6 +72,7 @@ const UNSUPPORTED_API_WARNINGS = {
 const UNSUPPORTED_APIS = Object.keys(UNSUPPORTED_API_WARNINGS);
 
 type RequiredApi = 'styleText' | 'stripVTControlCharacters';
+type BindingMatcher = (node: SgNode<Js>) => boolean;
 
 /**
  * Main codemod entry point.
@@ -87,18 +88,27 @@ export default function transform(root: SgRoot<Js>): string | null {
 	for (const statement of statements) {
 		const initialEditCount = edits.length;
 		const destructuredNames = getDestructuredNames(statement);
+		const isFromStatement: BindingMatcher = (node) => {
+			const definition = node.definition({ resolveExternal: false });
+			return definition !== null &&
+				definition.root.filename() === root.filename() &&
+				rangeContains(statement.range(), definition.node.range());
+		};
 
 		if (destructuredNames.length > 0) {
 			processDestructuredImports(
 				rootNode,
 				destructuredNames,
+				isFromStatement,
 				edits,
 				requiredApis,
 			);
 		} else {
-			const binding = getDefaultBinding(statement);
+			const name = getDefaultBinding(statement);
 
-			if (binding) {
+			if (name) {
+				const binding: BindingMatcher = (node) =>
+					node.text() === name && isFromStatement(node);
 				checkUnsupportedApis(rootNode, binding, root);
 
 				processDefaultImports(
@@ -295,7 +305,7 @@ function getDestructuredNames(
  */
 function extractChainedStyles(
 	node: SgNode<Js>,
-	binding: string,
+	binding: BindingMatcher,
 ): string[] | null {
 	const objectNode = node.field('object');
 	const propertyNode = node.field('property');
@@ -325,7 +335,7 @@ function extractChainedStyles(
 	if (!SUPPORTED_STYLES.has(normalizedName)) return null;
 
 	if (objectNode.kind() === 'identifier') {
-		if (objectNode.text() !== binding) return null;
+		if (!binding(objectNode)) return null;
 
 		return [normalizedName];
 	}
@@ -346,7 +356,7 @@ function extractChainedStyles(
  */
 function checkUnsupportedApis(
 	rootNode: SgNode<Js>,
-	binding: string,
+	binding: BindingMatcher,
 	root: SgRoot<Js>,
 ): void {
 	const memberExpressions = rootNode.findAll({
@@ -358,7 +368,7 @@ function checkUnsupportedApis(
 		const propertyNode = memberExpr.field('property');
 
 		if (!objectNode || !propertyNode) continue;
-		if (objectNode.text() !== binding) continue;
+		if (!binding(objectNode)) continue;
 		if (propertyNode.kind() !== 'property_identifier') continue;
 
 		const propertyName = propertyNode.text();
@@ -394,6 +404,7 @@ function checkUnsupportedApis(
 function processDestructuredImports(
 	rootNode: SgNode<Js>,
 	destructuredNames: Array<{ imported: string; local: string }>,
+	isFromStatement: BindingMatcher,
 	edits: Edit[],
 	requiredApis: Set<RequiredApi>,
 ): void {
@@ -419,6 +430,7 @@ function processDestructuredImports(
 			const openingParen = call.field('arguments')?.child(0);
 
 			if (!functionNode || openingParen?.text() !== '(') continue;
+			if (!isFromStatement(functionNode)) continue;
 
 			if (replacement) {
 				requiredApis.add(replacement as RequiredApi);
@@ -458,7 +470,7 @@ type CallTransformation = {
  */
 function getCallTransformation(
 	call: SgNode<Js>,
-	binding: string,
+	binding: BindingMatcher,
 ): CallTransformation | null {
 	const functionNode = call.field('function');
 
@@ -473,7 +485,7 @@ function getCallTransformation(
 		propertyNode?.kind() === 'property_identifier' &&
 		propertyNode.text() in API_REPLACEMENTS &&
 		objectNode?.kind() === 'identifier' &&
-		objectNode.text() === binding
+		binding(objectNode)
 	) {
 		const replacement =
 			API_REPLACEMENTS[
@@ -585,7 +597,7 @@ function getOutermostCalls(
  */
 function getOutermostNestedCalls(
 	args: SgNode<Js>,
-	binding: string,
+	binding: BindingMatcher,
 ): SgNode<Js>[] {
 	const candidates = args.findAll({
 		rule: { kind: 'call_expression' },
@@ -612,7 +624,7 @@ function getOutermostNestedCalls(
  */
 function transformNestedArguments(
 	args: SgNode<Js>,
-	binding: string,
+	binding: BindingMatcher,
 	requiredApis: Set<RequiredApi>,
 ): string {
 	const nestedCalls = getOutermostNestedCalls(args, binding);
@@ -633,7 +645,7 @@ function transformNestedArguments(
  */
 function transformCallExpression(
 	call: SgNode<Js>,
-	binding: string,
+	binding: BindingMatcher,
 	requiredApis: Set<RequiredApi>,
 ): string {
 	const transformation = getCallTransformation(
@@ -689,7 +701,7 @@ function transformCallExpression(
  */
 function processDefaultImports(
 	rootNode: SgNode<Js>,
-	binding: string,
+	binding: BindingMatcher,
 	edits: Edit[],
 	requiredApis: Set<RequiredApi>,
 ): void {
@@ -697,7 +709,7 @@ function processDefaultImports(
 	for (const member of rootNode.findAll({ rule: { kind: 'member_expression' } })) {
 		let base = member;
 		while (base.kind() === 'member_expression') base = base.field('object');
-		if (base.kind() !== 'identifier' || base.text() !== binding) continue;
+		if (base.kind() !== 'identifier' || !binding(base)) continue;
 		if (extractChainedStyles(member, binding)) continue;
 		if (
 			member.field('object')?.kind() === 'identifier' &&

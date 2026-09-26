@@ -23,6 +23,7 @@ nodes:
           exclude:
             - "**/node_modules/**"
           language: typescript
+          semantic_analysis: file
 
   - id: remove-dependencies
     name: Remove ansi-colors dependency
