@@ -364,30 +364,19 @@ function processDestructuredImports(
 		});
 
 		for (const call of calls) {
-			const args = call.field('arguments');
+			const functionNode = call.field('function');
+			const openingParen = call.field('arguments')?.child(0);
 
-			if (!args) continue;
-
-			const textArg = args.text().slice(1, -1);
+			if (!functionNode || openingParen?.text() !== '(') continue;
 
 			if (replacement) {
-				requiredApis.add(
-					replacement as RequiredApi,
-				);
-
-				edits.push(
-					call.replace(
-						`${replacement}(${textArg})`,
-					),
-				);
+				requiredApis.add(replacement as RequiredApi);
+				edits.push(functionNode.replace(replacement));
 			} else {
 				requiredApis.add('styleText');
-
-				edits.push(
-					call.replace(
-						`styleText('${imported}', ${textArg})`,
-					),
-				);
+				// Leave argument expressions intact so nested calls have disjoint edits.
+				edits.push(functionNode.replace('styleText'));
+				edits.push(openingParen.replace(`('${imported}', `));
 			}
 		}
 	}
@@ -575,63 +564,13 @@ function transformNestedArguments(
 	binding: string,
 	requiredApis: Set<RequiredApi>,
 ): string {
-	let text = args.text().slice(1, -1);
-
-	const nestedCalls = getOutermostNestedCalls(
-		args,
-		binding,
+	const nestedCalls = getOutermostNestedCalls(args, binding);
+	const edits = nestedCalls.map(call =>
+		call.replace(transformCallExpression(call, binding, requiredApis)),
 	);
 
-	if (!nestedCalls.length) {
-		return text;
-	}
-
-	/**
-	 * `args.text()` and the nested call texts are both sourced from the
-	 * same original AST, so processing the calls in source order lets us
-	 * safely replace repeated nested expressions as well.
-	 */
-	nestedCalls.sort((a, b) => {
-		const aRange = a.range();
-		const bRange = b.range();
-
-		if (aRange.start.line !== bRange.start.line) {
-			return aRange.start.line - bRange.start.line;
-		}
-
-		return aRange.start.column - bRange.start.column;
-	});
-
-	let searchFrom = 0;
-
-	for (const nestedCall of nestedCalls) {
-		const originalText = nestedCall.text();
-		const transformedText = transformCallExpression(
-			nestedCall,
-			binding,
-			requiredApis,
-		);
-
-		if (transformedText === originalText) continue;
-
-		const index = text.indexOf(
-			originalText,
-			searchFrom,
-		);
-
-		if (index === -1) continue;
-
-		text =
-			text.slice(0, index) +
-			transformedText +
-			text.slice(index + originalText.length);
-
-		searchFrom =
-			index +
-			transformedText.length;
-	}
-
-	return text;
+	// Apply AST ranges instead of searching for matching text in strings or comments.
+	return args.commitEdits(edits).slice(1, -1);
 }
 
 /**
