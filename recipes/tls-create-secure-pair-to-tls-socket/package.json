@@ -8,6 +8,7 @@
         "@codemod.com/jssg-types": "^1.6.3"
     },
     "dependencies": {
+        "@jssg/utils": "^0.0.9",
         "@nodejs/codemod-utils": "*"
     }
 }
