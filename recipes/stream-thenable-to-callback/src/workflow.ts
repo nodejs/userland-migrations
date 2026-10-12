@@ -582,7 +582,7 @@ function removeToken(token: SgNode<Js>, source: string): Replacement {
 }
 
 //replace Promise return type with void
-function replacePromiseReturnType(returnType: SgNode<Js>,): Replacement | null {
+function replacePromiseReturnType(returnType: SgNode<Js>): Replacement | null {
 	const text = returnType.text();
 
 	if (!/^(:\s*)?Promise\s*</.test(text)) return null;
@@ -594,7 +594,7 @@ function replacePromiseReturnType(returnType: SgNode<Js>,): Replacement | null {
 }
 
 //apply replacements from the end so ranges stay valid
-function applyReplacements(fn: SgNode<Js>, reps: Replacement[],): string {
+function applyReplacements(fn: SgNode<Js>, reps: Replacement[]): string {
 	const base = rangeOf(fn).start;
 	let text = fn.text();
 

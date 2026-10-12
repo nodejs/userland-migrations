@@ -7,3 +7,10 @@ const stream = new Writable({
 		callback();
 	},
 });
+
+const stream2 = new Writable({
+	"write": async (chunk, encoding, callback) => {
+		await save(chunk);
+		callback();
+	},
+});

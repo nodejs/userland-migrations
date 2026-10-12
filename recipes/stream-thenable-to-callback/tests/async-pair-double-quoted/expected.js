@@ -8,3 +8,11 @@ const stream = new Writable({
 			.catch(err => callback(err));
 	},
 });
+
+const stream2 = new Writable({
+	"write": (chunk, encoding, callback) => {
+		save(chunk)
+			.then(() => callback())
+			.catch(err => callback(err));
+	},
+});
