@@ -259,7 +259,7 @@ function transformStream({ fn, name }: StreamFunction, context: FileContext): Ed
 
 	if (!finalCall) return null;
 
-	const errorName = catchParam ?? 'err';
+	const errorName = catchParam ?? (callbackName === 'err' ? 'error' : 'err');
 	const errorHandler = isRead
 		? `this.destroy(${errorName})`
 		: `${callbackName}(${errorName})`;
