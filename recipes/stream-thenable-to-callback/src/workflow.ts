@@ -510,13 +510,12 @@ function referencesAny(node: SgNode<Js>, names: string[]): boolean {
 function getArrowParameter(step: Step, consumer: SgNode<Js>): string {
 	if (!step.name) return '()';
 
-	if (!referencesAny(consumer, getBoundNames(step.name))) {
-		return '()';
-	}
-
 	if (step.name.is('identifier')) {
+		if (!referencesAny(consumer, getBoundNames(step.name))) return '()';
+
 		return step.name.text();
 	}
+	// Destructuring can run getters, iterators and defaults even for unused bindings.
 	return `(${step.name.text()})`;
 }
 
