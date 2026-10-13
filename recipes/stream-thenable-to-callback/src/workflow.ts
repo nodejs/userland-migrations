@@ -43,6 +43,7 @@ const NEVER_THENABLE_KINDS = new Set([
 const ARROW_BODY_NEEDS_PARENS = new Set(['object', 'sequence_expression']);
 
 type StreamFunction = { fn: SgNode<Js>; name: string; };
+type StreamBindings = Map<string, SgNode<Js>[]>;
 
 type Step = {
 	statement: SgNode<Js>;
@@ -83,8 +84,8 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 
 	// Leverage the utils to find exactly what node:stream exposes here
-	const streamNames = getStreamClassNames(root);
-	if (!streamNames.size) return null;
+	const streamBindings = getStreamClassBindings(root);
+	if (!streamBindings.size) return null;
 
 	const source = rootNode.text();
 	const context: FileContext = {
@@ -95,7 +96,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const edits: Edit[] = [];
 	const edited: Array<[number, number]> = [];
 
-	for (const target of findStreamFunctions(rootNode, streamNames)) {
+	for (const target of findStreamFunctions(rootNode, streamBindings)) {
 		const { start, end } = rangeOf(target.fn);
 
 		if (edited.some(([s, e]) => start < e && s < end)) continue;
@@ -113,21 +114,53 @@ export default function transform(root: SgRoot<Js>): string | null {
 }
 
 //find stream classes only
-function getStreamClassNames(root: SgRoot<Js>): Set<string> {
-	const names = new Set<string>();
+function getStreamClassBindings(root: SgRoot<Js>): StreamBindings {
+	const bindings: StreamBindings = new Map();
 
 	for (const statement of getModuleDependencies(root, 'stream')) {
+		let declaration = statement;
+		if (statement.is('expression_statement')) {
+			// Dynamic import bindings belong to the callback parameters, not its body.
+			const callback = statement.find({
+				rule: { any: [{ kind: 'arrow_function' }, { kind: 'function_expression' }] },
+			});
+			declaration = callback?.field('parameter') ?? callback?.field('parameters');
+			if (!declaration) continue;
+		}
+
 		for (const className of STREAM_CLASSES) {
 			const localPath = resolveBindingPath(statement, `$.${className}`);
-			if (localPath) names.add(localPath);
+			if (!localPath) continue;
+
+			const declarations = bindings.get(localPath) ?? [];
+			declarations.push(declaration);
+			bindings.set(localPath, declarations);
 		}
 	}
 
-	return names;
+	return bindings;
+}
+
+function isStreamConstructor(node: SgNode<Js>, bindings: StreamBindings): boolean {
+	const declarations = bindings.get(withoutSpaces(node.text()));
+	if (!declarations) return false;
+
+	let binding = node;
+	while (binding.is('member_expression')) binding = binding.field('object');
+	if (!binding.is('identifier')) return false;
+
+	const definition = binding.definition({ resolveExternal: false });
+	if (!definition || definition.root.filename() !== node.getRoot().filename()) return false;
+
+	const definitionRange = rangeOf(definition.node);
+	return declarations.some((declaration) => {
+		const { start, end } = rangeOf(declaration);
+		return start <= definitionRange.start && definitionRange.end <= end;
+	});
 }
 
 //find methods in the stream classes
-function findStreamFunctions(rootNode: SgNode<Js>, streamNames: Set<string>): StreamFunction[] {
+function findStreamFunctions(rootNode: SgNode<Js>, streamBindings: StreamBindings): StreamFunction[] {
 	const found: StreamFunction[] = [];
 	const methods = rootNode.findAll({ rule: { kind: 'method_definition' } });
 
@@ -135,11 +168,11 @@ function findStreamFunctions(rootNode: SgNode<Js>, streamNames: Set<string>): St
 		const name = method.field('name')?.text();
 		if (!name) continue;
 
-		if (CLASS_METHODS.has(name) && extendsStream(method, streamNames)) {
+		if (CLASS_METHODS.has(name) && extendsStream(method, streamBindings)) {
 			found.push({ fn: method, name });
 		} else if (
 			OPTION_METHODS.has(name) &&
-			isStreamOptionsMember(method, streamNames)
+			isStreamOptionsMember(method, streamBindings)
 		) {
 			found.push({ fn: method, name });
 		}
@@ -157,7 +190,7 @@ function findStreamFunctions(rootNode: SgNode<Js>, streamNames: Set<string>): St
 		if (
 			OPTION_METHODS.has(name) &&
 			FUNCTION_VALUE_KINDS.has(value.kind()) &&
-			isStreamOptionsMember(pair, streamNames)
+			isStreamOptionsMember(pair, streamBindings)
 		) {
 			found.push({ fn: value, name });
 		}
@@ -167,7 +200,7 @@ function findStreamFunctions(rootNode: SgNode<Js>, streamNames: Set<string>): St
 }
 
 //check if a class method belongs to a class that extends one of stream classes
-function extendsStream(member: SgNode<Js>, streamNames: Set<string>): boolean {
+function extendsStream(member: SgNode<Js>, streamBindings: StreamBindings): boolean {
 	const classBody = member.parent();
 	if (!classBody?.is('class_body')) return false;
 
@@ -180,11 +213,11 @@ function extendsStream(member: SgNode<Js>, streamNames: Set<string>): boolean {
 	const parts = heritage.children().filter((c) => !c.is('extends'));
 	const superclass = parts[parts.length - 1];
 
-	return !!superclass && streamNames.has(withoutSpaces(superclass.text()));
+	return !!superclass && isStreamConstructor(superclass, streamBindings);
 }
 
 // Checks if an object method property belongs to options passed
-function isStreamOptionsMember(member: SgNode<Js>, streamNames: Set<string>): boolean {
+function isStreamOptionsMember(member: SgNode<Js>, streamBindings: StreamBindings): boolean {
 	const object = member.parent();
 	if (!object?.is('object')) return false;
 
@@ -197,7 +230,7 @@ function isStreamOptionsMember(member: SgNode<Js>, streamNames: Set<string>): bo
 	const ctor = newExpression.field('constructor');
 	if (!ctor) return false;
 
-	return streamNames.has(withoutSpaces(ctor.text()));
+	return isStreamConstructor(ctor, streamBindings);
 }
 
 //main transromation is done here.
