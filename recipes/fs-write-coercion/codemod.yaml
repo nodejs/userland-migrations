@@ -1,0 +1,23 @@
+schema_version: "1.0"
+name: "@nodejs/fs-write-coercion"
+version: "1.0.0"
+description: Handle DEP0162 by adding explicit String() conversion for objects passed to fs write functions.
+author: Stanley Shen
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - fs
+  - DEP0162
+
+registry:
+  access: public
+  visibility: public
