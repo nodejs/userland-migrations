@@ -1,0 +1,24 @@
+{
+  "name": "@nodejs/process-config-mutations-to-separate-config",
+  "version": "1.0.0",
+  "description": "Handle DEP0150 by migrating or commenting out mutations to process.config",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts ./tests/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/process-config-mutations-to-separate-config",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "Yijun Gao",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/process-config-mutations-to-separate-config/README.md",
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.6.0"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
+  }
+}
