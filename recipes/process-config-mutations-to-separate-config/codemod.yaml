@@ -1,0 +1,23 @@
+schema_version: "1.0"
+name: "@nodejs/process-config-mutations-to-separate-config"
+version: "1.0.0"
+description: Handle DEP0150 by migrating or commenting out mutations to process.config.
+author: "Yijun Gao"
+license: MIT
+workflow: workflow.yaml
+category: migration
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - process.config
+  - DEP0150
+
+registry:
+  access: public
+  visibility: public
