@@ -1,4 +1,4 @@
-import { DatabaseSync, type StatementSync } from 'node:sqlite';
+import { DatabaseSync, StatementSync } from 'node:sqlite';
 import * as sqlite from 'node:sqlite';
 import type * as other from './types.js';
 

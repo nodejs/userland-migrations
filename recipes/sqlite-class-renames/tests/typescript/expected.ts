@@ -1,4 +1,4 @@
-import { Database, type Statement } from 'node:sqlite';
+import { Database, Statement } from 'node:sqlite';
 import * as sqlite from 'node:sqlite';
 import type * as other from './types.js';
 

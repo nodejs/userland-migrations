@@ -6,6 +6,8 @@ import type {
 	SgRoot,
 } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
+import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 
 /**
  * Deprecated `node:sqlite` class names (DEP0210, DEP0211) and their
@@ -27,14 +29,6 @@ const REQUIRE_CALL: Rule<Js> = {
 	kind: 'call_expression',
 	all: [
 		{ has: { field: 'function', kind: 'identifier', regex: '^require$' } },
-		{ has: { field: 'arguments', has: SQLITE_SOURCE } },
-	],
-};
-
-const IMPORT_CALL: Rule<Js> = {
-	kind: 'call_expression',
-	all: [
-		{ has: { field: 'function', kind: 'import' } },
 		{ has: { field: 'arguments', has: SQLITE_SOURCE } },
 	],
 };
@@ -116,25 +110,17 @@ type Context = {
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 
-	const imports = rootNode.findAll({
-		rule: {
-			kind: 'import_statement',
-			has: { field: 'source', ...SQLITE_SOURCE },
-		},
-	});
+	// The shared helpers also match the third-party `sqlite` package, so keep
+	// only statements that load the `node:sqlite` built-in.
+	const statements = getModuleDependencies(root, 'sqlite').filter((statement) =>
+		statement.find({
+			rule: { kind: 'string_fragment', regex: '^node:sqlite$' },
+		}),
+	);
 	const reExports = rootNode.findAll({
 		rule: {
 			kind: 'export_statement',
 			has: { field: 'source', ...SQLITE_SOURCE },
-		},
-	});
-	const declarators = rootNode.findAll({
-		rule: {
-			kind: 'variable_declarator',
-			has: {
-				field: 'value',
-				any: [REQUIRE_CALL, { kind: 'await_expression', has: IMPORT_CALL }],
-			},
 		},
 	});
 	const directAccesses = rootNode.findAll({
@@ -150,21 +136,34 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const ctx: Context = {
 		rootNode,
 		edits: [],
-		ownRanges: [...imports, ...reExports, ...declarators].map((node) =>
-			node.range(),
-		),
+		ownRanges: [...statements, ...reExports].map((node) => node.range()),
 	};
+	const namespaces = new Map<string, SgNode<Js>>();
 
-	for (const statement of imports) {
-		migrateImportStatement(root, ctx, statement);
+	for (const statement of statements) {
+		// `require('node:sqlite').DatabaseSync` is handled by `directAccesses`.
+		if (statement.field('value')?.kind() === 'member_expression') continue;
+
+		for (const [oldName, newName] of RENAMES) {
+			const binding = resolveBindingPath(statement, `$.${oldName}`);
+			if (!binding) continue;
+
+			const [local, member] = binding.split('.');
+
+			if (member) {
+				namespaces.set(local, statement);
+			} else {
+				migrateNamedBinding(ctx, statement, oldName, newName, local);
+			}
+		}
+	}
+
+	for (const [namespace, statement] of namespaces) {
+		migrateNamespace(root, ctx, namespace, statement);
 	}
 
 	for (const statement of reExports) {
 		migrateReExport(ctx, statement);
-	}
-
-	for (const declarator of declarators) {
-		migrateDeclarator(root, ctx, declarator);
 	}
 
 	for (const access of directAccesses) {
@@ -177,59 +176,52 @@ export default function transform(root: SgRoot<Js>): string | null {
 }
 
 /**
- * `import { DatabaseSync } from 'node:sqlite'`,
- * `import * as sqlite from 'node:sqlite'`, and
- * `import sqlite from 'node:sqlite'`.
+ * Renames one destructured or named binding, for example
+ * `import { DatabaseSync } from 'node:sqlite'` or
+ * `const { DatabaseSync: DB } = require('node:sqlite')`.
+ *
+ * Only the imported name is edited, so other bindings in the same statement
+ * stay untouched.
  */
-function migrateImportStatement(
-	root: SgRoot<Js>,
+function migrateNamedBinding(
 	ctx: Context,
 	statement: SgNode<Js>,
+	oldName: string,
+	newName: string,
+	local: string,
 ): void {
-	const clause = statement.find({ rule: { kind: 'import_clause' } });
-	if (!clause) return;
+	const imported = statement.find({
+		rule: {
+			regex: `^${oldName}$`,
+			any: [
+				{
+					kind: 'identifier',
+					inside: { kind: 'import_specifier', field: 'name' },
+				},
+				{
+					kind: 'property_identifier',
+					inside: { kind: 'pair_pattern', field: 'key' },
+				},
+				{ kind: 'shorthand_property_identifier_pattern' },
+			],
+		},
+	});
+	if (!imported) return;
 
-	for (const child of clause.children()) {
-		switch (child.kind()) {
-			case 'identifier':
-				migrateNamespace(root, ctx, child);
-				break;
-			case 'namespace_import': {
-				const local = child.find({ rule: { kind: 'identifier' } });
-				if (local) migrateNamespace(root, ctx, local);
-				break;
-			}
-			case 'named_imports':
-				for (const specifier of child.findAll({
-					rule: { kind: 'import_specifier' },
-				})) {
-					migrateImportSpecifier(ctx, specifier);
-				}
-				break;
-		}
-	}
-}
-
-function migrateImportSpecifier(ctx: Context, specifier: SgNode<Js>): void {
-	const name = specifier.field('name');
-	if (!name) return;
-
-	const oldName = name.text();
-	const newName = RENAMES.get(oldName);
-	if (!newName) return;
-
-	if (specifier.field('alias')) {
-		ctx.edits.push(name.replace(newName));
+	if (local !== oldName || canRenameBinding(ctx, oldName, newName)) {
+		ctx.edits.push(imported.replace(newName));
+		if (local === oldName) renameReferences(ctx, oldName, newName);
 		return;
 	}
 
-	if (canRenameBinding(ctx, oldName, newName)) {
-		ctx.edits.push(name.replace(newName));
-		renameReferences(ctx, oldName, newName);
-		return;
-	}
-
-	ctx.edits.push(name.replace(`${newName} as ${oldName}`));
+	// Keep the old local name so no other code has to change.
+	ctx.edits.push(
+		imported.replace(
+			imported.kind() === 'shorthand_property_identifier_pattern'
+				? `${newName}: ${oldName}`
+				: `${newName} as ${oldName}`,
+		),
+	);
 }
 
 /**
@@ -256,66 +248,19 @@ function migrateReExport(ctx: Context, statement: SgNode<Js>): void {
 }
 
 /**
- * `const { DatabaseSync } = require('node:sqlite')`,
- * `const sqlite = require('node:sqlite')`, and the same forms with
- * `await import('node:sqlite')`.
- */
-function migrateDeclarator(
-	root: SgRoot<Js>,
-	ctx: Context,
-	declarator: SgNode<Js>,
-): void {
-	const name = declarator.field('name');
-	if (!name) return;
-
-	if (name.kind() === 'identifier') {
-		migrateNamespace(root, ctx, name);
-		return;
-	}
-
-	if (name.kind() !== 'object_pattern') return;
-
-	for (const entry of name.children()) {
-		if (entry.kind() === 'pair_pattern') {
-			const key = entry.field('key');
-			const newName = key && RENAMES.get(key.text());
-
-			if (key?.kind() === 'property_identifier' && newName) {
-				ctx.edits.push(key.replace(newName));
-			}
-			continue;
-		}
-
-		if (entry.kind() !== 'shorthand_property_identifier_pattern') continue;
-
-		const oldName = entry.text();
-		const newName = RENAMES.get(oldName);
-		if (!newName) continue;
-
-		if (canRenameBinding(ctx, oldName, newName)) {
-			ctx.edits.push(entry.replace(newName));
-			renameReferences(ctx, oldName, newName);
-		} else {
-			ctx.edits.push(entry.replace(`${newName}: ${oldName}`));
-		}
-	}
-}
-
-/**
  * Renames `sqlite.DatabaseSync` (value or TypeScript type) for a binding that
  * holds the whole `node:sqlite` module.
  */
 function migrateNamespace(
 	root: SgRoot<Js>,
 	ctx: Context,
-	local: SgNode<Js>,
+	namespace: string,
+	statement: SgNode<Js>,
 ): void {
-	const namespace = local.text();
-
 	if (findNames(ctx, namespace).some(isBindingPosition)) {
 		warn(
 			root,
-			local,
+			statement,
 			`\`${namespace}\` is redeclared in this file; review \`${namespace}.DatabaseSync\` and \`${namespace}.StatementSync\` manually (DEP0210, DEP0211).`,
 		);
 		return;
