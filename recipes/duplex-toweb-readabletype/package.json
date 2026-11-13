@@ -1,0 +1,24 @@
+{
+	"name": "@nodejs/duplex-toweb-readabletype",
+	"version": "1.0.0",
+	"description": "Handle DEP0201 by renaming the `type` option of Duplex.toWeb() to `readableType`",
+	"type": "module",
+	"scripts": {
+		"test": "npx codemod jssg test -l typescript ./src/workflow.ts"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/nodejs/userland-migrations.git",
+		"directory": "recipes/duplex-toweb-readabletype",
+		"bugs": "https://github.com/nodejs/userland-migrations/issues"
+	},
+	"author": "FrustratedBoy420",
+	"license": "MIT",
+	"homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/duplex-toweb-readabletype/README.md",
+	"devDependencies": {
+		"@codemod.com/jssg-types": "^1.6.3"
+	},
+	"dependencies": {
+		"@nodejs/codemod-utils": "*"
+	}
+}
