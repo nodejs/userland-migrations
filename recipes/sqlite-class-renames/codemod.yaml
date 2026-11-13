@@ -1,0 +1,24 @@
+schema_version: "1.0"
+name: "@nodejs/sqlite-class-renames"
+version: "1.0.0"
+description: Handle DEP0210 and DEP0211 by renaming node:sqlite DatabaseSync and StatementSync to Database and Statement.
+author: FrustratedBoy420
+license: MIT
+workflow: workflow.yaml
+category: migration
+repository: https://github.com/nodejs/userland-migrations
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - nodejs
+  - sqlite
+
+registry:
+  access: public
+  visibility: public
