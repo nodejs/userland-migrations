@@ -142,7 +142,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	for (const statement of statements) {
 		// `require('node:sqlite').DatabaseSync` is handled by `directAccesses`.
-		if (statement.field('value')?.kind() === 'member_expression') continue;
+		if (statement.field('value')?.is('member_expression')) continue;
 
 		for (const [oldName, newName] of RENAMES) {
 			const binding = resolveBindingPath(statement, `$.${oldName}`);
@@ -217,7 +217,7 @@ function migrateNamedBinding(
 	// Keep the old local name so no other code has to change.
 	ctx.edits.push(
 		imported.replace(
-			imported.kind() === 'shorthand_property_identifier_pattern'
+			imported.is('shorthand_property_identifier_pattern')
 				? `${newName}: ${oldName}`
 				: `${newName} as ${oldName}`,
 		),
@@ -330,14 +330,14 @@ function renameReferences(
 	newName: string,
 ): void {
 	for (const node of findNames(ctx, oldName)) {
-		if (node.kind() === 'shorthand_property_identifier') {
+		if (node.is('shorthand_property_identifier')) {
 			ctx.edits.push(node.replace(`${oldName}: ${newName}`));
 			continue;
 		}
 
 		const parent = node.parent();
 
-		if (parent?.kind() === 'export_specifier') {
+		if (parent?.is('export_specifier')) {
 			// `export { X as DatabaseSync }`: the alias is a public name.
 			if (isField(parent, 'alias', node)) continue;
 
@@ -373,7 +373,7 @@ function findNames(ctx: Context, name: string): SgNode<Js>[] {
 function isQualifiedTypeName(node: SgNode<Js>): boolean {
 	const parent = node.parent();
 
-	return parent?.kind() === NESTED_TYPE_KIND && isField(parent, 'name', node);
+	return parent?.is(NESTED_TYPE_KIND) && isField(parent, 'name', node);
 }
 
 /**
@@ -382,7 +382,7 @@ function isQualifiedTypeName(node: SgNode<Js>): boolean {
  * treated as bindings too, because they must never be renamed.
  */
 function isBindingPosition(node: SgNode<Js>): boolean {
-	if (node.kind() === 'shorthand_property_identifier_pattern') return true;
+	if (node.is('shorthand_property_identifier_pattern')) return true;
 
 	const parent = node.parent();
 	if (!parent) return false;
