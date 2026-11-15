@@ -1,3 +1,8 @@
+import { readFileSync } from "node:fs";
+import { builtinModules } from "node:module";
+import { dirname, extname, resolve as resolvePath } from "node:path";
+import { fileURLToPath } from "node:url";
+import { parse } from "codemod:ast-grep";
 import { getModuleDependencies } from "@nodejs/codemod-utils/ast-grep/module-dependencies";
 import { resolveBindingPath } from "@nodejs/codemod-utils/ast-grep/resolve-binding-path";
 import type { Edit, SgNode, SgRoot } from "@codemod.com/jssg-types/main";
@@ -19,6 +24,9 @@ const FUNCTION_KINDS = [
 	"method_definition",
 ];
 const PUNCTUATION = ["(", ")", ",", "{", "}", ";"];
+const RESERVED_WORDS = new Set(
+	"await break case catch class const continue debugger default delete do else enum export extends false finally for function if import in instanceof new null return super switch this throw true try typeof var void while with yield let static implements interface package private protected public arguments eval async of".split(" "),
+);
 
 /**
  * Migrates asynchronous customization hooks (`module.register()`, DEP0205) to
@@ -27,16 +35,15 @@ const PUNCTUATION = ["(", ")", ",", "{", "}", ";"];
  * The codemod is conservative: it rewrites a file only when it can show that
  * the result behaves the same, and otherwise leaves the file untouched.
  *
- * 1. Registration files: `register('./hooks.mjs', import.meta.url)` becomes
- *    `registerHooks(hooks)`, with the hooks module imported (or required) as a
- *    namespace. Only calls with a string-literal specifier, a parent URL that
- *    is the current file, and no options are converted. If any `register()`
- *    call in the file cannot be converted, none are.
- *
- * 2. Hooks modules: `async` `resolve` and `load` hooks whose only asynchronous
+ * 1. Hooks modules: `async` `resolve` and `load` hooks whose only asynchronous
  *    work is `await nextResolve(...)` / `await nextLoad(...)` lose the `async`
- *    keyword and the `await`s. Files that also export `initialize` or
- *    `globalPreload`, or that do any other asynchronous work, are skipped.
+ *    keyword and the `await`s. A file is only treated as a hooks module when it
+ *    exports `resolve` and/or `load` functions that call their third argument.
+ *
+ * 2. Registration files: `register('./hooks.mjs', import.meta.url)` becomes
+ *    `registerHooks(hooks)`, with the hooks module imported (or required). The
+ *    hooks file is read and must pass the same checks as in (1): if it cannot
+ *    be found, or cannot be migrated, the registration is left alone.
  */
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
@@ -51,292 +58,105 @@ export default function transform(root: SgRoot<Js>): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// Registration files
-// ---------------------------------------------------------------------------
-
-type ParsedCall = { call: Node; specifier: string; quote: string };
-
-function transformRegistrations(root: SgRoot<Js>): Edit[] {
-	const rootNode = root.root();
-	const edits: Edit[] = [];
-
-	// Don't touch files that already use (or shadow) `registerHooks`.
-	if (identifiersNamed(rootNode, "registerHooks").length) return [];
-
-	const statements = getModuleDependencies(root, "module").filter(
-		(statement) =>
-			["import_statement", "variable_declarator"].includes(
-				statement.kind().toString(),
-			),
-	);
-	if (!statements.length) return [];
-
-	const esm = isEsm(rootNode);
-	const names = new Map<string, string>();
-	const imports: string[] = [];
-	let converted = 0;
-
-	for (const statement of statements) {
-		const bindingPath = resolveBindingPath(statement, "$.register");
-		if (!bindingPath) continue;
-
-		const calls = rootNode.findAll({
-			rule: {
-				kind: "call_expression",
-				has: { field: "function", regex: `^${escapeRegExp(bindingPath)}$` },
-			},
-		});
-		if (!calls.length) continue;
-
-		const parsed: ParsedCall[] = [];
-		for (const call of calls) {
-			const result = parseRegisterCall(call, esm);
-			if (!result) return []; // One unsupported call: leave the file alone.
-			parsed.push(result);
-		}
-
-		const bindingEdits = renameBinding(rootNode, statement, bindingPath, calls);
-		if (!bindingEdits) return [];
-		edits.push(...bindingEdits);
-
-		for (const { call, specifier, quote } of parsed) {
-			const callee = call.field("function") as Node;
-			const newCallee = bindingEdits.calleeName ?? callee.text();
-			let argument: string;
-
-			if (esm) {
-				let name = names.get(specifier);
-				if (!name) {
-					name = uniqueName(rootNode, specifier, [...names.values()]);
-					names.set(specifier, name);
-					imports.push(`import * as ${name} from ${quote}${specifier}${quote};`);
-				}
-				argument = name;
-			} else {
-				argument = `require(${quote}${specifier}${quote})`;
-			}
-
-			edits.push(call.replace(`${newCallee}(${argument})`));
-			converted++;
-		}
-	}
-
-	if (!converted) return [];
-
-	if (imports.length) {
-		const lastImport = rootNode
-			.findAll({ rule: { kind: "import_statement" } })
-			.at(-1);
-		if (!lastImport) return [];
-		const end = lastImport.range().end.index;
-		edits.push({
-			startPos: end,
-			endPos: end,
-			insertedText: `\n${imports.join("\n")}`,
-		});
-	}
-
-	return edits;
-}
-
-/**
- * Accepts `register('./x.mjs', import.meta.url)` and
- * `register(new URL('./x.mjs', import.meta.url))`, as well as the CommonJS
- * `pathToFileURL(__filename)` equivalents. Anything else (variables, template
- * literals, `data`, `transferList`, a different parent URL) is rejected.
- */
-function parseRegisterCall(call: Node, esm: boolean): ParsedCall | null {
-	// In ESM the hooks module is imported at the top of the file, so the call
-	// itself must be at the top level too.
-	const statement = call.parent();
-	if (esm) {
-		if (!statement?.is("expression_statement")) return null;
-		if (!statement.parent()?.is("program")) return null;
-	}
-
-	const args = argumentNodes(call);
-	if (args.length < 1 || args.length > 2) return null;
-
-	const [first, second] = args as [Node, Node | undefined];
-	let literal: Node | null = null;
-	let needsParent = true;
-
-	if (first.is("string")) {
-		literal = first;
-	} else if (first.is("new_expression")) {
-		// new URL('./x.mjs', import.meta.url)
-		const callee = first.field("constructor");
-		const urlArgs = argumentNodes(first);
-		if (
-			callee?.text() === "URL" &&
-			urlArgs.length === 2 &&
-			urlArgs[0]?.is("string") &&
-			urlArgs[1]?.text() === "import.meta.url"
-		) {
-			literal = urlArgs[0];
-			needsParent = false;
-		}
-	}
-	if (!literal) return null;
-
-	if (second) {
-		if (!isCurrentFileUrl(second.text())) return null;
-	} else if (needsParent) {
-		return null;
-	}
-
-	const text = literal.text();
-	const quote = text[0] as string;
-	const specifier = text.slice(1, -1);
-	if (!specifier || specifier.includes("\\") || specifier.includes(quote)) {
-		return null;
-	}
-	if (/^[a-z][a-z0-9+.-]*:/i.test(specifier)) {
-		// Only `file:` URLs, and only where `import` can load them.
-		if (!esm || !specifier.startsWith("file:")) return null;
-	}
-
-	return { call, specifier, quote };
-}
-
-function isCurrentFileUrl(text: string): boolean {
-	return (
-		text === "import.meta.url" ||
-		/^(?:\w+\.)?pathToFileURL\(\s*__filename\s*\)(?:\.href)?$/.test(text)
-	);
-}
-
-type BindingEdits = Edit[] & { calleeName?: string };
-
-/**
- * Renames the `register` binding to `registerHooks` in the import/require
- * statement. Returns undefined when `register` is used for anything but the
- * calls being converted.
- */
-function renameBinding(
-	rootNode: Node,
-	statement: Node,
-	bindingPath: string,
-	calls: Node[],
-): BindingEdits | undefined {
-	const edits: BindingEdits = [];
-
-	// `mod.register(...)`: only the property changes.
-	if (bindingPath.includes(".")) {
-		const parts = bindingPath.split(".");
-		parts[parts.length - 1] = "registerHooks";
-		edits.calleeName = parts.join(".");
-		return edits;
-	}
-
-	const local = bindingPath;
-	const references = identifiersNamed(rootNode, local);
-	// The calls, plus the binding itself.
-	if (references.length !== calls.length + 1) return undefined;
-
-	if (statement.is("import_statement")) {
-		const specifier = statement.find({
-			rule: {
-				kind: "import_specifier",
-				has: { field: "name", kind: "identifier", regex: "^register$" },
-			},
-		});
-		if (!specifier) return undefined;
-		const alias = specifier.field("alias");
-		const name = specifier.field("name") as Node;
-		edits.push(name.replace("registerHooks"));
-		if (!alias) edits.calleeName = "registerHooks";
-		return edits;
-	}
-
-	// const { register } = require('node:module')
-	// const { register: reg } = require('node:module')
-	const shorthand = statement.find({
-		rule: {
-			kind: "shorthand_property_identifier_pattern",
-			regex: "^register$",
-		},
-	});
-	if (shorthand) {
-		edits.push(shorthand.replace("registerHooks"));
-		edits.calleeName = "registerHooks";
-		return edits;
-	}
-
-	const pair = statement.find({
-		rule: {
-			kind: "pair_pattern",
-			has: { field: "key", kind: "property_identifier", regex: "^register$" },
-		},
-	});
-	const key = pair?.field("key");
-	if (key && pair?.field("value")?.text() === local) {
-		edits.push(key.replace("registerHooks"));
-		return edits;
-	}
-
-	return undefined;
-}
-
-// ---------------------------------------------------------------------------
 // Hooks modules
 // ---------------------------------------------------------------------------
 
-function transformHooksModule(rootNode: Node): Edit[] {
-	const hooks = new Map<string, Node>();
+type Verdict =
+	| { kind: "none" } // Not a hooks module.
+	| { kind: "unsupported" } // A hooks module that cannot be migrated safely.
+	| { kind: "ready"; edits: Edit[]; format: "esm" | "cjs" };
 
-	for (const name of UNSUPPORTED_EXPORTS) {
-		if (findExport(rootNode, name)) return [];
-	}
+function transformHooksModule(rootNode: Node): Edit[] {
+	const verdict = analyzeHooksModule(rootNode);
+	return verdict.kind === "ready" ? verdict.edits : [];
+}
+
+/**
+ * Decides whether a module is a hooks module whose hooks can be made
+ * synchronous, and if so returns the edits that do it (none if the hooks are
+ * already synchronous).
+ */
+function analyzeHooksModule(rootNode: Node): Verdict {
+	const hooks = new Map<string, Node>();
 
 	for (const name of HOOK_NAMES) {
 		const found = findExport(rootNode, name);
 		if (found === null) continue;
-		// Exported, but not something we can inspect: leave the file alone.
-		if (found === "unknown") return [];
+		// Exported, but not something we can inspect.
+		if (found === "unknown") return { kind: "unsupported" };
 		hooks.set(name, found);
 	}
-	if (!hooks.size) return [];
+	if (!hooks.size) return { kind: "none" };
+
+	for (const name of UNSUPPORTED_EXPORTS) {
+		if (findExport(rootNode, name) !== null) return { kind: "unsupported" };
+	}
 
 	const asyncNames = asyncFunctionNames(rootNode);
+	const risky = riskyBindings(rootNode);
 	const edits: Edit[] = [];
 
 	for (const fn of hooks.values()) {
-		const fnEdits = convertHook(fn, asyncNames);
-		if (!fnEdits) return [];
+		const fnEdits = convertHook(fn, asyncNames, risky);
+		if (!fnEdits) return { kind: "unsupported" };
 		edits.push(...fnEdits);
 	}
 
-	return edits;
+	const format = rootNode.find({ rule: { kind: "export_statement" } })
+		? "esm"
+		: "cjs";
+	return { kind: "ready", edits, format };
 }
 
 /** Returns the edits that make a hook synchronous, or null if it cannot be. */
-function convertHook(fn: Node, asyncNames: Set<string>): Edit[] | null {
-	const asyncKeyword = fn.children().find((child) => child.kind() === "async");
-	// Already synchronous (or not a function we recognize): nothing to do.
-	if (!asyncKeyword) return [];
-
-	const body = fn.field("body") as Node | null;
-	if (!body) return null;
+function convertHook(
+	fn: Node,
+	asyncNames: Set<string>,
+	risky: Set<string>,
+): Edit[] | null {
 	if (fn.is("generator_function_declaration") || fn.is("generator_function")) {
 		return null;
 	}
 
-	const next = nextParameterName(fn);
+	const body = fn.field("body") as Node | null;
+	if (!body) return null;
 	const bodyText = body.text();
+	const signature = fn.text().slice(0, body.range().start.index - fn.range().start.index);
 
-	// Anything asynchronous that is not `await next(...)`.
+	// `registerHooks()` hooks are synchronous, whatever they are declared as: a
+	// hook that hands back a promise can't be migrated by this codemod.
+	if (/\bPromise\b/.test(signature)) return null;
+	if (/\bPromise\b|\.(then|catch|finally)\s*\(|\bimport\s*\(/.test(bodyText)) {
+		return null;
+	}
 	if (/\bfor\s+await\b/.test(bodyText)) return null;
-	if (/\bPromise\b|\.then\s*\(|\bimport\s*\(/.test(bodyText)) return null;
 	for (const name of asyncNames) {
 		if (new RegExp(`\\b${escapeRegExp(name)}\\b`).test(bodyText)) return null;
 	}
+	if (callsRiskyBinding(body, risky)) return null;
 
-	const awaits = body.findAll({ rule: { kind: "await_expression" } });
-	if (awaits.length && !next) return null;
+	const asyncKeyword = fn.children().find((child) => child.kind() === "async");
+	const next = nextParameterName(fn);
+
+	// Evidence that this really is a hook: it calls its third argument.
+	if (!next) return null;
+	const nextReferences = identifiersNamed(body, next);
+	if (!nextReferences.length) return null;
+	for (const reference of nextReferences) {
+		const parent = reference.parent();
+		const isCall =
+			parent?.is("call_expression") &&
+			parent.field("function")?.range().start.index ===
+				reference.range().start.index;
+		// `next` may only be called, never passed around or stored.
+		if (!isCall) return null;
+	}
+
+	// Already synchronous: nothing to change.
+	if (!asyncKeyword) return [];
 
 	const edits: Edit[] = [];
-	for (const expression of awaits) {
+	for (const expression of body.findAll({ rule: { kind: "await_expression" } })) {
 		const argument = expression.children().find((c) => c.kind() !== "await");
 		if (argument?.kind() !== "call_expression") return null;
 		if (argument.field("function")?.text() !== next) return null;
@@ -346,18 +166,6 @@ function convertHook(fn: Node, asyncNames: Set<string>): Edit[] | null {
 			.find((ancestor) => FUNCTION_KINDS.includes(ancestor.kind().toString()));
 		if (owner?.range().start.index !== fn.range().start.index) return null;
 		edits.push(expression.replace(argument.text()));
-	}
-
-	// `next` may only be called, never passed around or stored.
-	if (next) {
-		for (const reference of identifiersNamed(body, next)) {
-			const parent = reference.parent();
-			const isCall =
-				parent?.is("call_expression") &&
-				parent.field("function")?.range().start.index ===
-					reference.range().start.index;
-			if (!isCall) return null;
-		}
 	}
 
 	const after = asyncKeyword.next();
@@ -463,7 +271,7 @@ function findExport(rootNode: Node, name: string): Node | "unknown" | null {
 function localFunction(rootNode: Node, name: string): Node | "unknown" {
 	for (let statement of rootNode.children()) {
 		if (statement.is("export_statement")) {
-			statement = statement.field("declaration") ?? statement;
+			statement = (statement.field("declaration") as Node | null) ?? statement;
 		}
 		if (statement.is("function_declaration")) {
 			if (statement.field("name")?.text() === name) return statement;
@@ -508,6 +316,355 @@ function asyncFunctionNames(rootNode: Node): Set<string> {
 	return names;
 }
 
+/**
+ * Bindings that come from outside this file and might hand back a promise:
+ * anything imported from a package or another file, and anything from a
+ * `promises` submodule of a builtin (`node:fs/promises`). Calling one from a hook means the codemod cannot tell
+ * whether the hook is really synchronous.
+ */
+function riskyBindings(rootNode: Node): Set<string> {
+	const risky = new Set<string>();
+	const isRisky = (source: string) => {
+		const bare = source.replace(/^node:/, "");
+		return !builtinModules.includes(bare) || bare.endsWith("/promises");
+	};
+
+	for (const statement of rootNode.findAll({ rule: { kind: "import_statement" } })) {
+		const source = statement.field("source")?.text().slice(1, -1) ?? "";
+		if (!isRisky(source)) continue;
+		for (const identifier of statement
+			.find({ rule: { kind: "import_clause" } })
+			?.findAll({ rule: { kind: "identifier" } }) ?? []) {
+			// For `{ a as b }` both names are listed, which only over-approximates.
+			risky.add(identifier.text());
+		}
+	}
+
+	for (const declarator of rootNode.findAll({
+		rule: { kind: "variable_declarator" },
+	})) {
+		const value = declarator.field("value");
+		if (!value?.is("call_expression")) continue;
+		if (value.field("function")?.text() !== "require") continue;
+		const argument = argumentNodes(value)[0];
+		if (!argument?.is("string")) continue;
+		if (!isRisky(argument.text().slice(1, -1))) continue;
+		for (const identifier of declarator
+			.field("name")
+			?.findAll({ rule: { any: [{ kind: "identifier" }, { kind: "shorthand_property_identifier_pattern" }] } }) ?? []) {
+			risky.add(identifier.text());
+		}
+		const name = declarator.field("name");
+		if (name?.is("identifier")) risky.add(name.text());
+	}
+
+	return risky;
+}
+
+function callsRiskyBinding(body: Node, risky: Set<string>): boolean {
+	if (!risky.size) return false;
+	return body.findAll({ rule: { kind: "call_expression" } }).some((call) => {
+		let callee: Node | null = call.field("function");
+		// Walk to the leftmost identifier of `a.b.c()`.
+		while (callee && !callee.is("identifier")) {
+			if (callee.is("member_expression")) callee = callee.field("object");
+			else if (callee.is("call_expression")) callee = callee.field("function");
+			else return false;
+		}
+		return callee ? risky.has(callee.text()) : false;
+	});
+}
+
+// ---------------------------------------------------------------------------
+// Registration files
+// ---------------------------------------------------------------------------
+
+type ParsedCall = { call: Node; specifier: string; quote: string };
+
+function transformRegistrations(root: SgRoot<Js>): Edit[] {
+	const rootNode = root.root();
+	const edits: Edit[] = [];
+
+	// Don't touch files that already use (or shadow) `registerHooks`.
+	if (identifiersNamed(rootNode, "registerHooks").length) return [];
+
+	const statements = getModuleDependencies(root, "module").filter((statement) =>
+		["import_statement", "variable_declarator"].includes(
+			statement.kind().toString(),
+		),
+	);
+	if (!statements.length) return [];
+
+	const esm = isEsm(rootNode);
+	const names = new Map<string, string>();
+	const imports: string[] = [];
+	let converted = 0;
+
+	for (const statement of statements) {
+		const bindingPath = resolveBindingPath(statement, "$.register");
+		if (!bindingPath) continue;
+
+		const calls = rootNode.findAll({
+			rule: {
+				kind: "call_expression",
+				has: { field: "function", regex: `^${escapeRegExp(bindingPath)}$` },
+			},
+		});
+
+		const bindingEdits = renameBinding(rootNode, statement, bindingPath, calls);
+		if (!bindingEdits) return [];
+		if (!calls.length) continue;
+
+		const parsed: ParsedCall[] = [];
+		for (const call of calls) {
+			const result = parseRegisterCall(call, esm);
+			if (!result) return []; // One unsupported call: leave the file alone.
+			parsed.push(result);
+		}
+		edits.push(...bindingEdits);
+
+		for (const { call, specifier, quote } of parsed) {
+			// The hooks file has to exist, and has to be migratable too.
+			const target = inspectHooksFile(root.filename(), specifier);
+			if (!target) return [];
+
+			const callee = call.field("function") as Node;
+			const newCallee = bindingEdits.calleeName ?? callee.text();
+			let argument: string;
+
+			if (esm) {
+				let name = names.get(specifier);
+				if (!name) {
+					name = uniqueName(rootNode, specifier, [...names.values()]);
+					names.set(specifier, name);
+					// A CommonJS hooks file is imported by its default export: the
+					// namespace of a CommonJS module only has the exports that
+					// Node.js can detect statically.
+					const binding = target.format === "cjs" ? name : `* as ${name}`;
+					imports.push(`import ${binding} from ${quote}${specifier}${quote}`);
+				}
+				argument = name;
+			} else {
+				argument = `require(${quote}${specifier}${quote})`;
+			}
+
+			edits.push(call.replace(`${newCallee}(${argument})`));
+			converted++;
+		}
+	}
+
+	if (!converted) return [];
+
+	if (imports.length) {
+		const lastImport = rootNode
+			.findAll({ rule: { kind: "import_statement" } })
+			.at(-1);
+		if (!lastImport) return [];
+		const semicolon = lastImport.text().trimEnd().endsWith(";") ? ";" : "";
+		const end = lastImport.range().end.index;
+		edits.push({
+			startPos: end,
+			endPos: end,
+			insertedText: `\n${imports.map((line) => line + semicolon).join("\n")}`,
+		});
+	}
+
+	return edits;
+}
+
+/**
+ * Reads the file that `register()` is pointed at and checks that its hooks can
+ * be migrated (or already are). Only relative paths and `file:` URLs are
+ * followed; a package name cannot be inspected, so it is never converted.
+ */
+function inspectHooksFile(
+	from: string,
+	specifier: string,
+): { format: "esm" | "cjs" } | null {
+	let path: string;
+	if (specifier.startsWith("file:")) {
+		try {
+			path = fileURLToPath(specifier);
+		} catch {
+			return null;
+		}
+	} else if (/^\.{1,2}\//.test(specifier)) {
+		path = resolvePath(dirname(from), specifier);
+	} else {
+		return null;
+	}
+	// The workflow never touches `node_modules`, so a hooks file in there would
+	// be left asynchronous.
+	if (/[\\/]node_modules[\\/]/.test(path)) return null;
+
+	let source: string;
+	try {
+		// Throws if the file is missing or is a directory.
+		source = readFileSync(path, "utf8");
+	} catch {
+		return null;
+	}
+
+	const language = [".jsx", ".tsx"].includes(extname(path)) ? "tsx" : "typescript";
+	let hooksRoot: SgRoot<Js>;
+	try {
+		hooksRoot = parse<Js>(language, source) as unknown as SgRoot<Js>;
+	} catch {
+		return null;
+	}
+
+	const verdict = analyzeHooksModule(hooksRoot.root());
+	return verdict.kind === "ready" ? { format: verdict.format } : null;
+}
+
+/**
+ * Accepts `register('./x.mjs', import.meta.url)` and
+ * `register(new URL('./x.mjs', import.meta.url))`, as well as the CommonJS
+ * `pathToFileURL(__filename)` equivalents. Anything else (variables, template
+ * literals, `data`, `transferList`, a different parent URL) is rejected.
+ */
+function parseRegisterCall(call: Node, esm: boolean): ParsedCall | null {
+	// `register?.(...)` and `mod?.register(...)` are feature detection: the code
+	// is written for Node.js versions that may not have `registerHooks()`.
+	if (call.text().startsWith(`${call.field("function")?.text()}?.`)) return null;
+
+	// In ESM the hooks module is imported at the top of the file, so the call
+	// itself must be at the top level too.
+	const statement = call.parent();
+	if (esm) {
+		if (!statement?.is("expression_statement")) return null;
+		if (!statement.parent()?.is("program")) return null;
+	}
+
+	const args = argumentNodes(call);
+	if (args.length < 1 || args.length > 2) return null;
+
+	const [first, second] = args as [Node, Node | undefined];
+	let literal: Node | null = null;
+	let needsParent = true;
+
+	if (first.is("string")) {
+		literal = first;
+	} else if (first.is("new_expression")) {
+		// new URL('./x.mjs', import.meta.url)
+		const callee = first.field("constructor");
+		const urlArgs = argumentNodes(first);
+		if (
+			callee?.text() === "URL" &&
+			urlArgs.length === 2 &&
+			urlArgs[0]?.is("string") &&
+			urlArgs[1]?.text() === "import.meta.url"
+		) {
+			literal = urlArgs[0];
+			needsParent = false;
+		}
+	}
+	if (!literal) return null;
+
+	if (second) {
+		if (!isCurrentFileUrl(second.text())) return null;
+	} else if (needsParent) {
+		return null;
+	}
+
+	const text = literal.text();
+	const quote = text[0] as string;
+	const specifier = text.slice(1, -1);
+	if (!specifier || specifier.includes("\\") || specifier.includes(quote)) {
+		return null;
+	}
+	if (/^[a-z][a-z0-9+.-]*:/i.test(specifier)) {
+		// Only `file:` URLs, and only where `import` can load them.
+		if (!esm || !specifier.startsWith("file:")) return null;
+	}
+
+	return { call, specifier, quote };
+}
+
+function isCurrentFileUrl(text: string): boolean {
+	return (
+		text === "import.meta.url" ||
+		/^(?:\w+\.)?pathToFileURL\(\s*__filename\s*\)(?:\.href)?$/.test(text)
+	);
+}
+
+type BindingEdits = Edit[] & { calleeName?: string };
+
+/**
+ * Renames the `register` binding to `registerHooks` in the import/require
+ * statement. Returns undefined when `register` is used for anything but the
+ * calls being converted.
+ */
+function renameBinding(
+	rootNode: Node,
+	statement: Node,
+	bindingPath: string,
+	calls: Node[],
+): BindingEdits | undefined {
+	const edits: BindingEdits = [];
+
+	// `mod.register(...)`: only the property changes, but every mention of
+	// `mod.register` must be one of those calls.
+	if (bindingPath.includes(".")) {
+		const mentions = rootNode.findAll({
+			rule: { kind: "member_expression", regex: `^${escapeRegExp(bindingPath)}$` },
+		});
+		if (mentions.length !== calls.length) return undefined;
+		const parts = bindingPath.split(".");
+		parts[parts.length - 1] = "registerHooks";
+		edits.calleeName = parts.join(".");
+		return edits;
+	}
+
+	const local = bindingPath;
+	const references = identifiersNamed(rootNode, local);
+	// The calls, plus the binding itself.
+	if (references.length !== calls.length + 1) return undefined;
+
+	if (statement.is("import_statement")) {
+		const specifier = statement.find({
+			rule: {
+				kind: "import_specifier",
+				has: { field: "name", kind: "identifier", regex: "^register$" },
+			},
+		});
+		if (!specifier) return undefined;
+		const alias = specifier.field("alias");
+		const name = specifier.field("name") as Node;
+		edits.push(name.replace("registerHooks"));
+		if (!alias) edits.calleeName = "registerHooks";
+		return edits;
+	}
+
+	// const { register } = require('node:module')
+	// const { register: reg } = require('node:module')
+	const shorthand = statement.find({
+		rule: {
+			kind: "shorthand_property_identifier_pattern",
+			regex: "^register$",
+		},
+	});
+	if (shorthand) {
+		edits.push(shorthand.replace("registerHooks"));
+		edits.calleeName = "registerHooks";
+		return edits;
+	}
+
+	const pair = statement.find({
+		rule: {
+			kind: "pair_pattern",
+			has: { field: "key", kind: "property_identifier", regex: "^register$" },
+		},
+	});
+	const key = pair?.field("key");
+	if (key && pair?.field("value")?.text() === local) {
+		edits.push(key.replace("registerHooks"));
+		return edits;
+	}
+
+	return undefined;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -546,14 +703,15 @@ function isEsm(rootNode: Node): boolean {
 
 /** `./my-hooks.mjs` -> `myHooks`, made unique within the file. */
 function uniqueName(rootNode: Node, specifier: string, taken: string[]): string {
-	const base = specifier.split("/").pop()?.replace(/\.[cm]?[jt]s$/, "") ?? "";
+	const base = specifier.split("/").pop()?.replace(/\.[cm]?[jt]sx?$/, "") ?? "";
 	let name = base
 		.replace(/[^a-zA-Z0-9_$]+(.)?/g, (_, char: string | undefined) =>
 			char ? char.toUpperCase() : "",
 		)
 		.replace(/^[^a-zA-Z_$]+/, "");
 	if (!name) name = "hooks";
-	name = name[0]?.toLowerCase() + name.slice(1);
+	name = (name[0] as string).toLowerCase() + name.slice(1);
+	if (RESERVED_WORDS.has(name)) name = `${name}Hooks`;
 
 	const used = (candidate: string) =>
 		taken.includes(candidate) || identifiersNamed(rootNode, candidate).length > 0;

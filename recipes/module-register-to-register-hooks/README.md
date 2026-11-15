@@ -70,18 +70,22 @@ The hooks themselves: `async` is dropped, and so is `await` on the `next*` funct
 
 ## Notes
 
-- `register()` calls and hooks modules are migrated independently, so the codemod works whether you run it on a whole project or on a single file.
-- Registered hooks now run on the same thread as the application, so the hooks file is loaded before the code that follows the `registerHooks()` call. The hooks module's own dependencies are not affected by its own hooks, the same as before.
-- In CommonJS files the hooks module is loaded with `require()`. If the hooks file is an ES module, it must not use top-level `await`, and your Node.js version must support `require(esm)`.
-- The codemod does not change how Node.js is launched. If you use `--experimental-loader` or `--loader` (also removed by DEP0205), move the registration into a file that calls `registerHooks()` and load it with `--import` or `--require`.
+- **Run it on the whole project.** The codemod migrates two kinds of files, `register()` call sites and hooks modules, and a call site is only converted if the hooks file it points to can be converted too. Running on both together (the default) keeps them in step. If you run it on the call site alone, the hooks file stays asynchronous and `registerHooks()` will reject it.
+- **Hooks files are read.** For each `register()` call the codemod reads the file it points at and applies the same checks as it does to a hooks module. The file must exist and must be a relative path or a `file:` URL: a package name cannot be inspected, so those registrations are left alone.
+- **How hooks are recognised.** A file is treated as a hooks module only if it exports `resolve` and/or `load` functions that call their third argument (`nextResolve` / `nextLoad`). Other exports named `load` or `resolve` are never touched.
+- **Same thread, same order.** Registered hooks now run on the main thread, and the hooks module is loaded before the code that follows `registerHooks()`. The hooks module's own dependencies are not affected by its own hooks, the same as before.
+- **Node.js versions.** `registerHooks()` is available from Node.js 22.15.0 and 23.5.0. Code that still has to run on older versions needs a version check, and the codemod does not add one.
+- **CommonJS.** In CommonJS files the hooks module is loaded with `require()`: an ES module hooks file must not use top-level `await`, and your Node.js version must support `require(esm)`. In ES modules, a CommonJS hooks file is imported by its default export, because Node.js can only see some named exports of a CommonJS module.
+- **Launch flags.** The codemod does not change how Node.js is launched. If you use `--experimental-loader` or `--loader` (also removed by DEP0205), move the registration into a file that calls `registerHooks()` and load it with `--import` or `--require`.
 
 ### Limitations
 
-The codemod skips a file, and logs nothing, in these cases. Migrate them by hand:
+The codemod leaves a file as it is, and says nothing, when it cannot be sure the result behaves the same. Migrate those by hand:
 
-- `register()` is passed `data` or `transferList`, or the hooks module exports `initialize()` or `globalPreload()`. `registerHooks()` has no equivalent: hooks run in the application thread, so they can share state directly.
-- A hook does asynchronous work other than awaiting `nextResolve()` or `nextLoad()`, for example reading a file with `fs/promises`, calling `fetch()`, or awaiting a helper. `registerHooks()` hooks must be synchronous: use the synchronous equivalents (`readFileSync()`), or, if the work cannot be made synchronous, use [`module-register-ponyfill`](https://github.com/joyeecheung/module-register-ponyfill) or [`everysync`](https://github.com/mcollina/everysync) to keep the asynchronous hooks off-thread.
-- The specifier passed to `register()` is not a string literal (or `new URL("…", import.meta.url)`), the parent URL is not the current file, or the call is not at the top level of an ES module.
-- A file contains more than one `register()` call and at least one of them cannot be converted: none of that file's calls are changed.
-- A hooks module exports its hooks through a pattern other than a direct `export`, `export { … }`, `exports.x =`, or `module.exports = { … }`.
-- Hooks that pass `nextResolve` or `nextLoad` around instead of calling it directly.
+- **State and data.** `register()` is passed `data` or `transferList`, or the hooks module exports `initialize()` or `globalPreload()`. `registerHooks()` has no equivalent: hooks run in the application thread, so they can share state directly.
+- **Real asynchronous work.** A hook does asynchronous work other than awaiting `nextResolve()` or `nextLoad()`: reading a file with `fs/promises`, calling `fetch()`, awaiting or returning the result of an async helper, or using `.then()` / `.catch()`. `registerHooks()` hooks must be synchronous. Use the synchronous equivalents (`readFileSync()`), or, if the work cannot be made synchronous, keep the asynchronous hooks off-thread with [`module-register-ponyfill`](https://github.com/joyeecheung/module-register-ponyfill) or [`everysync`](https://github.com/mcollina/everysync).
+- **Imported helpers.** A hook calls a function imported from another file or package. The codemod cannot tell whether it returns a promise. Built-in modules other than `*/promises` are fine.
+- **Types.** A hook is annotated as returning a `Promise`. Remove the annotation (and the `Promise` in the `next` parameter type) and run the codemod again.
+- **Dynamic registrations.** The specifier is not a string literal (or `new URL("…", import.meta.url)`), the parent URL is not the current file, the result of `register()` is used, the call is not at the top level of an ES module, or it is feature-detected (`module.register?.()`, `if (module.register)`). If a file has more than one `register()` call and any of them cannot be converted, none are.
+- **Hooks shapes.** A hooks module exports its hooks through a pattern other than a direct `export`, `export { … }`, `exports.x =`, or `module.exports = { … }`, or passes `nextResolve` / `nextLoad` around instead of calling it directly.
+- **Worker threads.** Hooks registered with `register()` also applied to worker threads, and hooks registered with `registerHooks()` do not. The codemod cannot see whether your application relies on that, so check applications that create `Worker`s.

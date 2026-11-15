@@ -1,6 +1,8 @@
 schema_version: "1.0"
 name: "@nodejs/module-register-to-register-hooks"
 version: "1.0.0"
+capabilities:
+  - fs
 description: Handle DEP0205 by migrating `module.register()` and asynchronous customization hooks to `module.registerHooks()`.
 author: Geoffrey Booth
 license: MIT
