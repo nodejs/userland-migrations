@@ -41,4 +41,3 @@ nodes:
           capabilities:
             - child_process
             - fs
-
