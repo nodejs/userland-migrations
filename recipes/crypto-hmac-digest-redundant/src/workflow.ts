@@ -22,17 +22,18 @@ const BRANCH_KINDS = [
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const cryptoDeps = getModuleDependencies(root, 'crypto');
-	if (cryptoDeps.length === 0) return null;
+	if (!cryptoDeps.length) return null;
 
 	const createHmacCallees = new Set<string>();
 	for (const dep of cryptoDeps) {
+
 		const resolved = resolveBindingPath(dep, '$.createHmac');
 		if (resolved) {
 			createHmacCallees.add(resolved);
 		}
 	}
 
-	if (createHmacCallees.size === 0) return null;
+	if (!createHmacCallees.size) return null;
 
 	const linesToRemove: Range[] = [];
 	const declarators = rootNode.findAll({
@@ -44,8 +45,8 @@ export default function transform(root: SgRoot<Js>): string | null {
 		const valueNode = decl.field('value');
 
 		if (
-			nameNode?.kind() !== 'identifier' ||
-			valueNode?.kind() !== 'call_expression'
+			!nameNode?.is('identifier') ||
+			!valueNode?.is('call_expression')
 		) {
 			continue;
 		}
@@ -69,7 +70,7 @@ export default function transform(root: SgRoot<Js>): string | null {
 		}
 	}
 
-	if (linesToRemove.length === 0) return null;
+	if (!linesToRemove.length) return null;
 
 	return removeLines(rootNode.text(), linesToRemove);
 }
@@ -86,11 +87,11 @@ function isSafeHmac(
 
 	for (const assign of assignments) {
 		const left = assign.field('left');
-		if (left?.kind() === 'identifier' && left.text() === hmacName) {
+		if (left?.is('identifier') && left.text() === hmacName) {
 			return false;
 		}
 		if (
-			left?.kind() === 'member_expression' &&
+			left?.is('member_expression') &&
 			left.field('object')?.text() === hmacName
 		) {
 			return false;
@@ -120,7 +121,7 @@ function isSafeHmac(
 
 		const parent = id.parent();
 		if (
-			parent?.kind() === 'member_expression' &&
+			parent?.is('member_expression') &&
 			parent.field('object')?.id() === id.id()
 		) {
 			const prop = parent.field('property')?.text();
