@@ -1,0 +1,25 @@
+schema_version: "1.0"
+name: "@nodejs/crypto-hmac-digest-redundant"
+version: "1.0.0"
+description: Handle DEP0206 by removing redundant, argument-free Hmac.digest() calls on finalized instances.
+author: Vishal Raj
+license: MIT
+workflow: workflow.yaml
+category: migration
+repository: https://github.com/nodejs/userland-migrations
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - nodejs
+  - DEP0206
+  - crypto
+
+registry:
+  access: public
+  visibility: public
