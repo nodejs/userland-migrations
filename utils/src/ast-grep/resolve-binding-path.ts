@@ -60,49 +60,11 @@ export function resolveBindingPath(node: SgNode<Js>, path: string) {
 	}
 }
 
-function resolveBindingPathRequire(node: SgNode<Js>, path: string) {
+function resolveBindingFromPattern(
+	activeNode: SgNode<Js>,
+	path: string,
+): string | undefined {
 	const pathArr = path.split('.');
-	let activeNode = node;
-	const rootKind = node.kind();
-
-	if (rootKind === 'lexical_declaration') {
-		activeNode = activeNode.find({
-			rule: {
-				kind: 'variable_declarator',
-			},
-		});
-	}
-
-	const propertyAccesses = activeNode.findAll({
-		rule: {
-			kind: 'property_identifier',
-			inside: {
-				kind: 'member_expression',
-			},
-		},
-	});
-
-	if (propertyAccesses.length) {
-		const pathArr = path.split('.');
-		const newPath = ['$'];
-		let i = 0;
-
-		for (; i < propertyAccesses.length; i++) {
-			// pathArr[i+1] to skip the first element (which is $) that was used for binding replacement
-			if (propertyAccesses[i]?.text() !== pathArr[i + 1]) {
-				return undefined;
-			}
-		}
-
-		// Get the remaining path that was not used in propertyAccesses
-		path = newPath.concat(pathArr.splice(i + 1)).join('.');
-	}
-
-	activeNode = activeNode.child(0);
-
-	if (activeNode?.kind() === 'identifier') {
-		return path.replace('$', activeNode.text());
-	}
 
 	const namedImports = activeNode.findAll({
 		rule: {
@@ -154,6 +116,142 @@ function resolveBindingPathRequire(node: SgNode<Js>, path: string) {
 			return newPath.replace(oldName, newNameNode?.text());
 		}
 	}
+
+	return undefined;
+}
+
+function extractMemberFromThenCallback(
+	thenCall: SgNode<Js>,
+): { type: 'module' } | { type: 'property'; name: string } | null {
+	const callback = thenCall.field('arguments')?.child(1);
+	if (!callback) return null;
+
+	let param: SgNode<Js> | null | undefined =
+		callback.field('parameter') || callback.field('parameters');
+	if (param?.is('formal_parameters')) {
+		param = param.child(1);
+	}
+	if (param?.is('required_parameter')) {
+		param = param.child(0);
+	}
+	if (!param) return null;
+
+	let body = callback.field('body');
+	if (body?.is('block_statement')) {
+		const ret = body.find({ rule: { kind: 'return_statement' } });
+		if (ret) {
+			body = ret.child(1);
+		}
+	}
+	if (!body) return null;
+
+	const bodyText = body.text();
+
+	if (param.is('identifier') && bodyText === param.text()) {
+		return { type: 'module' };
+	}
+
+	if (param.is('identifier') && body.is('member_expression')) {
+		const obj = body.field('object');
+		const prop = body.field('property');
+		if (obj?.text() === param.text() && prop) {
+			return { type: 'property', name: prop.text() };
+		}
+	}
+
+	if (param.is('object_pattern')) {
+		const shorthands = param.findAll({
+			rule: { kind: 'shorthand_property_identifier_pattern' },
+		});
+		for (const sh of shorthands) {
+			if (sh.text() === bodyText) {
+				return { type: 'property', name: sh.text() };
+			}
+		}
+
+		const pairs = param.findAll({ rule: { kind: 'pair_pattern' } });
+		for (const pair of pairs) {
+			const key = pair.field('key');
+			const val = pair.field('value');
+			if (val?.text() === bodyText && key) {
+				return { type: 'property', name: key.text() };
+			}
+		}
+	}
+
+	return null;
+}
+
+function resolveBindingPathRequire(node: SgNode<Js>, path: string) {
+	const pathArr = path.split('.');
+	let activeNode = node;
+	const rootKind = node.kind();
+
+	if (rootKind === 'lexical_declaration') {
+		activeNode = activeNode.find({
+			rule: {
+				kind: 'variable_declarator',
+			},
+		});
+	}
+
+	const thenCall = activeNode.find({
+		rule: {
+			pattern: '$A.then($$$B)',
+		},
+	});
+
+	if (thenCall) {
+		const extracted = extractMemberFromThenCallback(thenCall);
+		if (extracted) {
+			if (extracted.type === 'property') {
+				if (pathArr[1] !== extracted.name) {
+					return undefined;
+				}
+				const nameNode = activeNode.child(0);
+				if (!nameNode) return undefined;
+				const remaining = pathArr.slice(2);
+				if (remaining.length > 0) {
+					return `${nameNode.text()}.${remaining.join('.')}`;
+				}
+				return nameNode.text();
+			}
+		}
+	}
+
+	if (!thenCall) {
+		const propertyAccesses = activeNode.findAll({
+			rule: {
+				kind: 'property_identifier',
+				inside: {
+					kind: 'member_expression',
+				},
+			},
+		});
+
+		if (propertyAccesses.length) {
+			const newPath = ['$'];
+			let i = 0;
+
+			for (; i < propertyAccesses.length; i++) {
+				// pathArr[i+1] to skip the first element (which is $) that was used for binding replacement
+				if (propertyAccesses[i]?.text() !== pathArr[i + 1]) {
+					return undefined;
+				}
+			}
+
+			// Get the remaining path that was not used in propertyAccesses
+			path = newPath.concat(pathArr.splice(i + 1)).join('.');
+		}
+	}
+
+	activeNode = activeNode.child(0);
+
+	if (activeNode?.kind() === 'identifier') {
+		return path.replace('$', activeNode.text());
+	}
+
+	return resolveBindingFromPattern(activeNode, path);
 }
 
 function resolveBindingPathImport(node: SgNode<Js>, path: string) {
@@ -280,15 +378,25 @@ function resolveBindingPathImportCallback(node: SgNode<Js>, path: string) {
 
 	if (!callbackArgs) return;
 
-	let args =
+	let args: SgNode<Js> | null | undefined =
 		callbackArgs.field('parameter') || callbackArgs.field('parameters');
 
-	if (args.is('formal_parameters')) {
-		args = args.child(1) as SgNode<Js, 'identifier'>;
+	if (args?.is('formal_parameters')) {
+		args = args.child(1);
 	}
 
-	if (args.is('identifier') || args.is('required_parameter')) {
+	if (args?.is('required_parameter')) {
+		args = args.child(0);
+	}
+
+	if (!args) return;
+
+	if (args.is('identifier')) {
 		return path.replace('$', args.text());
+	}
+
+	if (args.is('object_pattern')) {
+		return resolveBindingFromPattern(args, path);
 	}
 
 	return undefined;

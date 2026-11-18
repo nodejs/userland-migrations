@@ -35,50 +35,6 @@ export const getNodeImportCalls = (
 	rootNode: SgRoot<Js>,
 	nodeModuleName: string,
 ): SgNode<Js>[] => {
-	const nodes = rootNode.root().findAll({
-		rule: {
-			kind: 'variable_declarator',
-			all: [
-				{
-					has: {
-						field: 'name',
-						any: [{ kind: 'object_pattern' }, { kind: 'identifier' }],
-					},
-				},
-				{
-					has: {
-						field: 'value',
-						kind: 'await_expression',
-						has: {
-							kind: 'call_expression',
-							all: [
-								{
-									has: {
-										field: 'function',
-										kind: 'import',
-									},
-								},
-								{
-									has: {
-										field: 'arguments',
-										kind: 'arguments',
-										has: {
-											kind: 'string',
-											has: {
-												kind: 'string_fragment',
-												regex: `^(node:)?${nodeModuleName}$`,
-											},
-										},
-									},
-								},
-							],
-						},
-					},
-				},
-			],
-		},
-	});
-
 	const variableDeclarator = rootNode.root().findAll({
 		rule: {
 			kind: 'identifier',
@@ -134,29 +90,46 @@ export const getNodeImportCalls = (
 		},
 	});
 
+	const nodes: SgNode<Js>[] = [];
+	const seen = new Set<string>();
+
 	for (const node of dynamicImports) {
-		let parentNode = node.parent();
-		// iterate through all chained methods until reaching the expression_statement
-		// that marks the beginning of the import line
-		while (parentNode && parentNode.kind() !== 'expression_statement') {
-			parentNode = parentNode.parent();
-		}
-
-		// if it is a valid import add to list of nodes that will be retuned
-		if (parentNode?.kind() === 'expression_statement') {
-			const thenBlock = parentNode.find({
-				rule: {
-					kind: 'member_expression',
-					has: {
-						kind: 'property_identifier',
-						regex: 'then',
-					},
-				},
-			});
-
-			if (thenBlock !== null) {
-				nodes.push(parentNode);
+		let curr: SgNode<Js> | null = node.parent();
+		while (curr && curr.kind() !== 'program') {
+			const kind = curr.kind();
+			if (kind === 'variable_declarator') {
+				const val = curr.field('value');
+				if (val && val.kind() === 'await_expression') {
+					const range = curr.range();
+					const key = `${range.start.index}-${range.end.index}`;
+					if (!seen.has(key)) {
+						seen.add(key);
+						nodes.push(curr);
+					}
+				}
+				break;
 			}
+			if (kind === 'expression_statement') {
+				const thenBlock = curr.find({
+					rule: {
+						kind: 'member_expression',
+						has: {
+							kind: 'property_identifier',
+							regex: 'then',
+						},
+					},
+				});
+				if (thenBlock !== null) {
+					const range = curr.range();
+					const key = `${range.start.index}-${range.end.index}`;
+					if (!seen.has(key)) {
+						seen.add(key);
+						nodes.push(curr);
+					}
+				}
+				break;
+			}
+			curr = curr.parent();
 		}
 	}
 
