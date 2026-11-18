@@ -1,0 +1,24 @@
+{
+	"name": "@nodejs/sqlite-class-renames",
+	"version": "1.0.0",
+	"description": "Handle DEP0210 and DEP0211 by renaming node:sqlite DatabaseSync and StatementSync to Database and Statement",
+	"type": "module",
+	"scripts": {
+		"test": "npx codemod jssg test -l typescript ./src/workflow.ts"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/nodejs/userland-migrations.git",
+		"directory": "recipes/sqlite-class-renames",
+		"bugs": "https://github.com/nodejs/userland-migrations/issues"
+	},
+	"author": "FrustratedBoy420",
+	"license": "MIT",
+	"homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/sqlite-class-renames/README.md",
+	"devDependencies": {
+		"@codemod.com/jssg-types": "^1.6.3"
+	},
+	"dependencies": {
+		"@nodejs/codemod-utils": "*"
+	}
+}
