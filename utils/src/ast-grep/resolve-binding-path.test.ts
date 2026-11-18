@@ -487,4 +487,128 @@ describe('resolve-binding-path', () => {
 
 		assert.strictEqual(bindingPath, 'tls.createSecurePair');
 	});
+
+	it('should resolve binding when used with await import().then() extracting property via destructuring', () => {
+		const code = dedent`
+			const urlParse = await import('node:url').then(({ parse }) => parse);
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const requireStatement = (rootNode.root() as SgNode<Js>).find({
+			rule: {
+				kind: 'variable_declarator',
+			},
+		});
+
+		const bindingPath = resolveBindingPath(
+			requireStatement!,
+			'$.parse',
+		);
+
+		assert.strictEqual(bindingPath, 'urlParse');
+	});
+
+	it('should resolve binding when used with await import().then() extracting property via renamed destructuring', () => {
+		const code = dedent`
+			const urlParse = await import('node:url').then(({ parse: p }) => p);
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const requireStatement = (rootNode.root() as SgNode<Js>).find({
+			rule: {
+				kind: 'variable_declarator',
+			},
+		});
+
+		const bindingPath = resolveBindingPath(
+			requireStatement!,
+			'$.parse',
+		);
+
+		assert.strictEqual(bindingPath, 'urlParse');
+	});
+
+	it('should resolve binding when used with await import().then() extracting property via member expression', () => {
+		const code = dedent`
+			const urlParse = await import('node:url').then(m => m.parse);
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const requireStatement = (rootNode.root() as SgNode<Js>).find({
+			rule: {
+				kind: 'variable_declarator',
+			},
+		});
+
+		const bindingPath = resolveBindingPath(
+			requireStatement!,
+			'$.parse',
+		);
+
+		assert.strictEqual(bindingPath, 'urlParse');
+	});
+
+	it('should resolve as undefined when await import().then() extracted different property', () => {
+		const code = dedent`
+			const urlParse = await import('node:url').then(({ parse }) => parse);
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const requireStatement = (rootNode.root() as SgNode<Js>).find({
+			rule: {
+				kind: 'variable_declarator',
+			},
+		});
+
+		const bindingPath = resolveBindingPath(
+			requireStatement!,
+			'$.format',
+		);
+
+		assert.strictEqual(bindingPath, undefined);
+	});
+
+	it('should resolve binding when used with import().then() with destructured parameter', () => {
+		const code = dedent`
+			import('node:url').then(({ parse }) => {
+				const myURL = parse('https://example.com');
+			});
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const importStatement = (rootNode.root() as SgNode<Js>).find({
+			rule: {
+				kind: 'expression_statement',
+			},
+		});
+
+		const bindingPath = resolveBindingPath(
+			importStatement!,
+			'$.parse',
+		);
+
+		assert.strictEqual(bindingPath, 'parse');
+	});
+
+	it('should resolve binding when used with import().then() with renamed destructured parameter', () => {
+		const code = dedent`
+			import('node:url').then(({ parse: urlParse }) => {
+				const myURL = urlParse('https://example.com');
+			});
+		`;
+
+		const rootNode = astGrep.parse(astGrep.Lang.JavaScript, code);
+		const importStatement = (rootNode.root() as SgNode<Js>).find({
+			rule: {
+				kind: 'expression_statement',
+			},
+		});
+
+		const bindingPath = resolveBindingPath(
+			importStatement!,
+			'$.parse',
+		);
+
+		assert.strictEqual(bindingPath, 'urlParse');
+	});
 });
