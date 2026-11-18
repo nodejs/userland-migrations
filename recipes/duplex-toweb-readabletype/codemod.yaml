@@ -1,0 +1,24 @@
+schema_version: "1.0"
+name: "@nodejs/duplex-toweb-readabletype"
+version: "1.0.0"
+description: Handle DEP0201 by renaming the `type` option of Duplex.toWeb() to `readableType`.
+author: FrustratedBoy420
+license: MIT
+workflow: workflow.yaml
+category: migration
+repository: https://github.com/nodejs/userland-migrations
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - nodejs
+  - stream
+
+registry:
+  access: public
+  visibility: public
