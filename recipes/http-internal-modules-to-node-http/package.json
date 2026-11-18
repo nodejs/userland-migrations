@@ -1,0 +1,24 @@
+{
+  "name": "@nodejs/http-internal-modules-to-node-http",
+  "version": "1.0.0",
+  "description": "Handle DEP0199 by migrating internal HTTP modules (_http_*) to node:http",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodejs/userland-migrations.git",
+    "directory": "recipes/http-internal-modules-to-node-http",
+    "bugs": "https://github.com/nodejs/userland-migrations/issues"
+  },
+  "author": "Vishal Raj",
+  "license": "MIT",
+  "homepage": "https://github.com/nodejs/userland-migrations/blob/main/recipes/http-internal-modules-to-node-http/README.md",
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.6.3"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
+  }
+}
