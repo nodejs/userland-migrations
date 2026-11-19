@@ -5,7 +5,10 @@ import type {
 	SgRoot,
 } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
-import { getNodeImportStatements, getNodeImportCalls } from '@nodejs/codemod-utils/ast-grep/import-statement';
+import {
+	getNodeImportStatements,
+	getNodeImportCalls,
+} from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import { removeLines } from '@nodejs/codemod-utils/ast-grep/remove-lines';
 
@@ -35,7 +38,7 @@ function getInternalModuleName(specifier: string): string | null {
 }
 
 function getUnquotedText(node: SgNode<Js>): string {
-	return node.text().replace(/^['"`]|['"`]$/g, '');
+	return node.find({ rule: { kind: 'string_fragment' } })?.text() ?? '';
 }
 
 function warn(root: SgRoot<Js>, node: SgNode<Js>, message: string): void {
@@ -57,7 +60,6 @@ type ImportStatementInfo = {
 	sourceNode: SgNode<Js>;
 	rawSource: string;
 	internalMod: string;
-	isTypeOnly: boolean;
 	supported: SpecifierInfo[];
 	unsupported: SpecifierInfo[];
 };
@@ -69,28 +71,32 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 	const linesToRemove: Range[] = [];
+	const nl = rootNode.text().includes('\r\n') ? '\r\n' : '\n';
 
 	// Warn on excluded modules like _http_common
-	const allStrings = rootNode.findAll({ rule: { kind: 'string' } });
-	for (const str of allStrings) {
-		const unquoted = getUnquotedText(str);
-		if (unquoted.replace(/^node:/, '') === '_http_common') {
-			warn(
-				root,
-				str,
-				'_http_common internals such as HTTPParser are excluded from migration to node:http (DEP0199)',
-			);
-		}
+	const allCommons = rootNode.findAll({
+		rule: {
+			kind: 'string_fragment',
+			regex: '^(node:)?_http_common$',
+		},
+	});
+	for (const frag of allCommons) {
+		const str = frag.parent() ?? frag;
+		warn(
+			root,
+			str,
+			'_http_common internals such as HTTPParser are excluded from migration to node:http (DEP0199)',
+		);
 	}
 
 	// 1. Process ESM import statements using getNodeImportStatements utility
-	processImportStatements(root, rootNode, edits, linesToRemove);
+	processImportStatements(root, rootNode, edits, linesToRemove, nl);
 
 	// 2. Process ESM export statements (re-exports)
 	processExportStatements(root, rootNode, edits);
 
 	// 3. Process CommonJS require calls using getNodeRequireCalls utility
-	processRequireCalls(root, rootNode, edits);
+	processRequireCalls(root, rootNode, edits, nl);
 
 	// 4. Process dynamic import(...) calls using getNodeImportCalls utility
 	processDynamicImports(root, rootNode, edits);
@@ -117,58 +123,22 @@ export default function transform(root: SgRoot<Js>): string | null {
  */
 function processImportStatements(
 	root: SgRoot<Js>,
-	rootNode: SgNode<Js>,
+	_rootNode: SgNode<Js>,
 	edits: Edit[],
 	linesToRemove: Range[],
+	nl: string,
 ): void {
-	// Find pre-existing node:http imports using the workspace utility and type import matching
-	const existingHttpStmts = [
-		...getNodeImportStatements(root, 'http'),
-		...rootNode.findAll({
-			rule: {
-				kind: 'import_statement',
-				has: {
-					field: 'source',
-					kind: 'string',
-					has: {
-						kind: 'string_fragment',
-						regex: '^(node:)?http$',
-					},
-				},
-				pattern: 'import type $$$IMPORTS from $SOURCE',
-			},
-		}),
-	];
-	const existingHttpImports: {
-		statement: SgNode<Js>;
-		isTypeOnly: boolean;
-		namedImports: SgNode<Js> | null;
-	}[] = existingHttpStmts.map((stmt) => ({
+	const existingHttpStmts = getNodeImportStatements(root, 'http');
+
+	const existingHttpImports = existingHttpStmts.map((stmt) => ({
 		statement: stmt,
-		isTypeOnly: stmt.text().startsWith('import type'),
 		namedImports: stmt.find({ rule: { kind: 'named_imports' } }),
 	}));
 
 	const internalImports: ImportStatementInfo[] = [];
 
 	for (const mod of TARGET_MODULES) {
-		const statements = [
-			...getNodeImportStatements(root, mod),
-			...rootNode.findAll({
-				rule: {
-					kind: 'import_statement',
-					has: {
-						field: 'source',
-						kind: 'string',
-						has: {
-							kind: 'string_fragment',
-							regex: `^(node:)?${mod}$`,
-						},
-					},
-					pattern: 'import type $$$IMPORTS from $SOURCE',
-				},
-			}),
-		];
+		const statements = getNodeImportStatements(root, mod);
 
 		for (const stmt of statements) {
 			const sourceNode = stmt.field('source');
@@ -199,7 +169,6 @@ function processImportStatements(
 				continue;
 			}
 
-			const isTypeOnly = stmt.text().startsWith('import type');
 			const supported: SpecifierInfo[] = [];
 			const unsupported: SpecifierInfo[] = [];
 
@@ -237,7 +206,6 @@ function processImportStatements(
 					sourceNode,
 					rawSource,
 					internalMod,
-					isTypeOnly,
 					supported,
 					unsupported,
 				});
@@ -247,40 +215,28 @@ function processImportStatements(
 
 	if (internalImports.length === 0) return;
 
-	// Group internal imports by type-only status
-	const valueInternal = internalImports.filter((i) => !i.isTypeOnly);
-	const typeInternal = internalImports.filter((i) => i.isTypeOnly);
-
-	consolidateImportsGroup(
-		valueInternal,
-		existingHttpImports.find((e) => !e.isTypeOnly),
+	consolidateImports(
+		internalImports,
+		existingHttpImports[0],
 		edits,
 		linesToRemove,
-	);
-
-	consolidateImportsGroup(
-		typeInternal,
-		existingHttpImports.find((e) => e.isTypeOnly),
-		edits,
-		linesToRemove,
+		nl,
 	);
 }
 
-function consolidateImportsGroup(
+function consolidateImports(
 	imports: ImportStatementInfo[],
 	existingHttp:
 		| {
 				statement: SgNode<Js>;
-				isTypeOnly: boolean;
 				namedImports: SgNode<Js> | null;
 		  }
 		| undefined,
 	edits: Edit[],
 	linesToRemove: Range[],
+	nl: string,
 ): void {
-	if (imports.length === 0) return;
-
-	// Case 1: Consolidate into pre-existing node:http import
+	// Case 1: An existing node:http import already exists
 	if (existingHttp?.namedImports) {
 		const existingNamedText = existingHttp.namedImports.text();
 		const existingSpecs = existingNamedText
@@ -370,16 +326,15 @@ function consolidateImportsGroup(
 		}
 	} else {
 		const remaining = first.unsupported.map((u) => u.text).join(', ');
-		const typePrefix = first.isTypeOnly ? 'type ' : '';
 		const firstSource = first.sourceNode.text();
-		const newStmt = `import ${typePrefix}{ ${remaining} } from ${firstSource};\nimport ${typePrefix}{ ${consolidatedSpecs.join(', ')} } from 'node:http';`;
+		const newStmt = `import { ${remaining} } from ${firstSource};${nl}import { ${consolidatedSpecs.join(', ')} } from 'node:http';`;
 		edits.push(first.statement.replace(newStmt));
 	}
 }
 
 /**
  * Handle ESM export statements (re-exports):
- * - export { IncomingMessage } from '_http_incoming';
+ * - export { Server } from '_http_server';
  */
 function processExportStatements(
 	root: SgRoot<Js>,
@@ -401,45 +356,33 @@ function processExportStatements(
 		const specifiers = stmt.findAll({ rule: { kind: 'export_specifier' } });
 		if (specifiers.length === 0) continue;
 
-		const supported: SpecifierInfo[] = [];
-		const unsupported: SpecifierInfo[] = [];
+		const supportedNames: string[] = [];
+		const unsupportedNames: string[] = [];
 
 		for (const spec of specifiers) {
 			const nameNode = spec.field('name');
-			const aliasNode = spec.field('alias');
-			const imported = nameNode ? nameNode.text() : spec.text();
-			const local = aliasNode ? aliasNode.text() : imported;
+			const exportedName = nameNode ? nameNode.text() : spec.text();
 
-			if (MODULE_EXPORTS[internalMod].has(imported)) {
-				supported.push({
-					node: spec,
-					text: spec.text(),
-					imported,
-					local,
-				});
+			if (MODULE_EXPORTS[internalMod].has(exportedName)) {
+				supportedNames.push(spec.text());
 			} else {
-				unsupported.push({
-					node: spec,
-					text: spec.text(),
-					imported,
-					local,
-				});
+				unsupportedNames.push(spec.text());
 				warn(
 					root,
 					spec,
-					`Internal-only re-export '${imported}' from '${rawSource}' cannot be migrated to 'node:http' (DEP0199)`,
+					`Internal-only export '${exportedName}' from '${rawSource}' cannot be re-exported from 'node:http' (DEP0199)`,
 				);
 			}
 		}
 
-		if (supported.length > 0 && unsupported.length === 0) {
+		if (supportedNames.length > 0 && unsupportedNames.length === 0) {
 			edits.push(sourceNode.replace("'node:http'"));
-		} else if (supported.length > 0 && unsupported.length > 0) {
-			const remaining = unsupported.map((u) => u.text).join(', ');
-			const supText = supported.map((s) => s.text).join(', ');
-			const sourceText = sourceNode.text();
-			const newStmt = `export { ${remaining} } from ${sourceText};\nexport { ${supText} } from 'node:http';`;
-			edits.push(stmt.replace(newStmt));
+		} else if (supportedNames.length > 0 && unsupportedNames.length > 0) {
+			warn(
+				root,
+				stmt,
+				`Export statement from '${rawSource}' contains mixed public and internal-only exports; review manually (DEP0199)`,
+			);
 		}
 	}
 }
@@ -453,69 +396,48 @@ function processExportStatements(
  */
 function processRequireCalls(
 	root: SgRoot<Js>,
-	rootNode: SgNode<Js>,
+	_rootNode: SgNode<Js>,
 	edits: Edit[],
+	nl: string,
 ): void {
-	// Member expressions: const Server = require('_http_server').Server;
-	const memberRequires = rootNode.findAll({
-		rule: {
-			kind: 'member_expression',
-			all: [
-				{
-					has: {
-						field: 'object',
-						kind: 'call_expression',
-						all: [
-							{
-								has: {
-									field: 'function',
-									kind: 'identifier',
-									regex: '^require$',
-								},
-							},
-						],
-					},
-				},
-			],
-		},
-	});
-
-	for (const expr of memberRequires) {
-		const call = expr.field('object');
-		const stringArg = call?.field('arguments')?.find({ rule: { kind: 'string' } });
-		if (!stringArg) continue;
-
-		const rawSource = getUnquotedText(stringArg);
-		const internalMod = getInternalModuleName(rawSource);
-		if (!internalMod) continue;
-
-		const prop = expr.field('property');
-		if (prop && MODULE_EXPORTS[internalMod].has(prop.text())) {
-			edits.push(stringArg.replace("'node:http'"));
-		} else {
-			warn(
-				root,
-				prop || expr,
-				`Unknown/internal property '${prop?.text()}' on '${rawSource}' is skipped; review manually (DEP0199)`,
-			);
-		}
-	}
-
-	// Use getNodeRequireCalls from local workspace utility for variable declarations
 	for (const mod of TARGET_MODULES) {
 		const declarators = getNodeRequireCalls(root, mod);
 
 		for (const declarator of declarators) {
-			// Skip declarators whose value is a member_expression (handled above)
-			if (declarator.field('value')?.is('member_expression')) continue;
+			const value = declarator.field('value');
+			if (!value) continue;
 
-			const call = declarator.find({
-				rule: {
-					kind: 'call_expression',
-					has: { field: 'function', regex: '^require$' },
-				},
-			});
-			const stringArg = call?.field('arguments')?.find({ rule: { kind: 'string' } });
+			// Member expressions: const Server = require('_http_server').Server;
+			if (value.is('member_expression')) {
+				const call = value.find({ rule: { kind: 'call_expression' } });
+				const stringArg = call?.find({ rule: { kind: 'string' } });
+				if (!stringArg) continue;
+
+				const prop = value.field('property');
+				const propName = prop?.text() || '';
+
+				if (MODULE_EXPORTS[mod].has(propName)) {
+					edits.push(stringArg.replace("'node:http'"));
+				} else {
+					warn(
+						root,
+						prop || value,
+						`Unknown/internal property '${propName}' on '${getUnquotedText(stringArg)}' is skipped; review manually (DEP0199)`,
+					);
+				}
+				continue;
+			}
+
+			// Call expressions with destructuring: const { Server } = require('_http_server');
+			const call = value.is('call_expression')
+				? value
+				: value.find({
+						rule: {
+							kind: 'call_expression',
+							has: { field: 'function', regex: '^require$' },
+						},
+					});
+			const stringArg = call?.find({ rule: { kind: 'string' } });
 			if (!stringArg) continue;
 
 			const rawSource = getUnquotedText(stringArg);
@@ -567,8 +489,8 @@ function processRequireCalls(
 					unsupportedNames.length > 0
 				) {
 					const declParent = declarator.parent();
-					const kind = declParent?.kind() === 'lexical_declaration' ? 'const' : 'var';
-					const newDecl = `${kind} { ${unsupportedNames.join(', ')} } = require(${stringArg.text()});\n${kind} { ${supportedNames.join(', ')} } = require('node:http');`;
+					const kind = declParent?.is('lexical_declaration') ? 'const' : 'var';
+					const newDecl = `${kind} { ${unsupportedNames.join(', ')} } = require(${stringArg.text()});${nl}${kind} { ${supportedNames.join(', ')} } = require('node:http');`;
 					if (declParent) {
 						edits.push(declParent.replace(newDecl));
 					}
@@ -590,7 +512,7 @@ function processRequireCalls(
  * Handle dynamic import(...) calls:
  * - Uses getNodeImportCalls from @nodejs/codemod-utils for target modules
  * - Handles: const { Server } = await import('_http_server');
- * - Handles: import('_http_agent').then(m => m.Agent);
+ * - Handles: import('_http_server').then(m => m.createServer);
  */
 function processDynamicImports(
 	root: SgRoot<Js>,
@@ -598,7 +520,6 @@ function processDynamicImports(
 	edits: Edit[],
 ): void {
 	for (const mod of TARGET_MODULES) {
-		// Declarators with await import(mod)
 		const declarators = getNodeImportCalls(root, mod);
 
 		for (const declarator of declarators) {
@@ -654,7 +575,7 @@ function processDynamicImports(
 		if (!objectCall?.is('call_expression')) continue;
 
 		const importFn = objectCall.field('function');
-		if (importFn?.kind() !== 'import') continue;
+		if (!importFn?.is('import')) continue;
 
 		const stringArg = objectCall.field('arguments')?.find({ rule: { kind: 'string' } });
 		if (!stringArg) continue;
