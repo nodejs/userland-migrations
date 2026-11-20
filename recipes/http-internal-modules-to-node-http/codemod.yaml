@@ -1,0 +1,25 @@
+schema_version: "1.0"
+name: "@nodejs/http-internal-modules-to-node-http"
+version: "1.0.0"
+description: "Handle DEP0199 by migrating internal HTTP module imports (_http_*) to node:http."
+author: Vishal Raj
+license: MIT
+workflow: workflow.yaml
+category: migration
+repository: https://github.com/nodejs/userland-migrations
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - nodejs
+  - http
+  - dep0199
+
+registry:
+  access: public
+  visibility: public
