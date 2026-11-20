@@ -37,10 +37,6 @@ function getInternalModuleName(specifier: string): string | null {
 	return null;
 }
 
-function getUnquotedText(node: SgNode<Js>): string {
-	return node.find({ rule: { kind: 'string_fragment' } })?.text() ?? '';
-}
-
 function warn(root: SgRoot<Js>, node: SgNode<Js>, message: string): void {
 	const { start } = node.range();
 	console.warn(
@@ -144,7 +140,8 @@ function processImportStatements(
 			const sourceNode = stmt.field('source');
 			if (!sourceNode) continue;
 
-			const rawSource = getUnquotedText(sourceNode);
+			const rawSource =
+				sourceNode.find({ rule: { kind: 'string_fragment' } })?.text() ?? '';
 			const internalMod = getInternalModuleName(rawSource);
 			if (!internalMod) continue;
 
@@ -349,7 +346,8 @@ function processExportStatements(
 		const sourceNode = stmt.field('source');
 		if (!sourceNode) continue;
 
-		const rawSource = getUnquotedText(sourceNode);
+		const rawSource =
+			sourceNode.find({ rule: { kind: 'string_fragment' } })?.text() ?? '';
 		const internalMod = getInternalModuleName(rawSource);
 		if (!internalMod) continue;
 
@@ -422,7 +420,7 @@ function processRequireCalls(
 					warn(
 						root,
 						prop || value,
-						`Unknown/internal property '${propName}' on '${getUnquotedText(stringArg)}' is skipped; review manually (DEP0199)`,
+						`Unknown/internal property '${propName}' on '${stringArg.find({ rule: { kind: 'string_fragment' } })?.text() ?? ''}' is skipped; review manually (DEP0199)`,
 					);
 				}
 				continue;
@@ -440,7 +438,8 @@ function processRequireCalls(
 			const stringArg = call?.find({ rule: { kind: 'string' } });
 			if (!stringArg) continue;
 
-			const rawSource = getUnquotedText(stringArg);
+			const rawSource =
+				stringArg.find({ rule: { kind: 'string_fragment' } })?.text() ?? '';
 			const namePattern = declarator.field('name');
 
 			if (namePattern?.is('object_pattern')) {
@@ -580,7 +579,8 @@ function processDynamicImports(
 		const stringArg = objectCall.field('arguments')?.find({ rule: { kind: 'string' } });
 		if (!stringArg) continue;
 
-		const rawSource = getUnquotedText(stringArg);
+		const rawSource =
+			stringArg.find({ rule: { kind: 'string_fragment' } })?.text() ?? '';
 		const internalMod = getInternalModuleName(rawSource);
 		if (!internalMod) continue;
 
