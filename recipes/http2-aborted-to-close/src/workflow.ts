@@ -1,4 +1,4 @@
-import type { Edit, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
+import type { Edit, Rule, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
@@ -37,28 +37,27 @@ import {
  * Everything it skips is reported with `console.warn` for manual review.
  */
 
-const LISTENER_METHODS = new Set([
-	'on',
-	'once',
-	'addListener',
-	'prependListener',
-	'prependOnceListener',
-]);
+/** Methods that register a listener. */
+const LISTENER_METHODS =
+	'^(on|once|addListener|prependListener|prependOnceListener)$';
 
-const LISTENER_QUERY_METHODS = new Set([
-	'off',
-	'removeListener',
-	'removeAllListeners',
-	'listeners',
-	'rawListeners',
-	'listenerCount',
-]);
+/** Methods whose result changes if an `'aborted'` listener is moved. */
+const LISTENER_QUERY_METHODS =
+	'^(off|removeListener|removeAllListeners|listeners|rawListeners|listenerCount)$';
 
-const FUNCTION_KINDS = new Set([
-	'arrow_function',
-	'function_expression',
-	'function',
-]);
+const INLINE_FUNCTION: Rule<Js> = {
+	any: [{ kind: 'arrow_function' }, { kind: 'function_expression' }],
+};
+
+/** A string literal whose content is exactly `value`. */
+const stringLiteral = (value: string): Rule<Js> => ({
+	kind: 'string',
+	has: { kind: 'string_fragment', regex: `^${value}$` },
+});
+
+/** Regex that matches exactly one of `names`. */
+const exactly = (names: Iterable<string>) =>
+	`^(${[...names].map((name) => name.replace(/[.$]/g, '\\$&')).join('|')})$`;
 
 type StreamBinding = { name: string; scope: SgNode<Js> };
 
@@ -96,23 +95,27 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const indentUnit = detectIndentUnit(source);
 
 	for (const { name, scope } of streams) {
-		const calls = scope.findAll({
-			rule: { pattern: `${name}.$METHOD($$$ARGS)` },
+		const listeners = scope.findAll({
+			rule: { pattern: `${name}.$METHOD($EVENT, $LISTENER)` },
+			constraints: {
+				METHOD: { regex: LISTENER_METHODS },
+				EVENT: stringLiteral('aborted'),
+			},
 		});
 
-		const abortedCalls = calls.filter((call) => {
-			const args = getArguments(call);
-			return args.length > 0 && stringValue(args[0]) === 'aborted';
+		const hasListenerQuery = !!scope.find({
+			rule: {
+				pattern: `${name}.$METHOD($$$ARGS)`,
+				// The event is the first argument; `removeAllListeners` may have no other.
+				has: {
+					field: 'arguments',
+					has: { nthChild: 1, ...stringLiteral('aborted') },
+				},
+			},
+			constraints: { METHOD: { regex: LISTENER_QUERY_METHODS } },
 		});
 
-		const hasListenerQuery = abortedCalls.some((call) =>
-			LISTENER_QUERY_METHODS.has(methodName(call) ?? ''),
-		);
-
-		for (const call of abortedCalls) {
-			const method = methodName(call) ?? '';
-			if (!LISTENER_METHODS.has(method)) continue;
-
+		for (const call of listeners) {
 			if (hasListenerQuery) {
 				warn(
 					`'aborted' listeners of \`${name}\` are removed, counted or listed elsewhere; review this listener manually`,
@@ -121,13 +124,11 @@ export default function transform(root: SgRoot<Js>): string | null {
 				continue;
 			}
 
-			const [event, listener] = getArguments(call);
-			const parent = call.parent();
+			const listener = call.getMatch('LISTENER');
 			if (
-				!listener ||
-				!FUNCTION_KINDS.has(listener.kind()) ||
-				countParameters(listener) !== 0 ||
-				parent?.kind() !== 'expression_statement'
+				!listener?.matches({ rule: INLINE_FUNCTION }) ||
+				parameterNodes(listener).length !== 0 ||
+				!call.parent()?.is('expression_statement')
 			) {
 				warn(
 					`only inline 'aborted' listeners with no parameters are migrated; review this listener on \`${name}\` manually`,
@@ -137,10 +138,12 @@ export default function transform(root: SgRoot<Js>): string | null {
 			}
 
 			const body = listener.field('body');
-			if (!body) continue;
+			const fragment = call
+				.getMatch('EVENT')
+				?.find({ rule: { kind: 'string_fragment' } });
+			if (!body || !fragment) continue;
 
-			const quote = event.text()[0];
-			edits.push(event.replace(`${quote}close${quote}`));
+			edits.push(fragment.replace('close'));
 
 			const baseIndent = getLineIndent(source, call.range().start.index);
 			edits.push(body.replace(wrapBody(body, name, baseIndent, indentUnit)));
@@ -156,7 +159,6 @@ export default function transform(root: SgRoot<Js>): string | null {
 		}
 	}
 
-	if (!edits.length) return null;
 	return rootNode.commitEdits(edits);
 }
 
@@ -170,35 +172,33 @@ function findServerStreams(
 ): StreamBinding[] {
 	if (!factories.size) return [];
 
-	const factoryCalls = rootNode
-		.findAll({ rule: { kind: 'call_expression' } })
-		.filter((call) => factories.has(call.field('function')?.text() ?? ''));
+	const factoryCall: Rule<Js> = {
+		any: [...factories].map((factory) => ({ pattern: `${factory}($$$ARGS)` })),
+	};
 
-	const serverNames = new Set<string>();
-	for (const call of factoryCalls) {
-		const name = declaredName(call);
-		if (name) serverNames.add(name);
-	}
+	// `const server = createServer()`
+	const serverNames = declaredNames(rootNode, factoryCall);
+
+	// `server.on('stream', ...)` or `createServer().on('stream', ...)`
+	const server: Rule<Js> = serverNames.size
+		? {
+				any: [{ kind: 'identifier', regex: exactly(serverNames) }, factoryCall],
+			}
+		: factoryCall;
 
 	const streams: StreamBinding[] = [];
 	for (const call of rootNode.findAll({
 		rule: { pattern: '$SERVER.$METHOD($EVENT, $LISTENER)' },
+		constraints: {
+			SERVER: server,
+			METHOD: { regex: LISTENER_METHODS },
+			EVENT: stringLiteral('stream'),
+			LISTENER: INLINE_FUNCTION,
+		},
 	})) {
-		if (!LISTENER_METHODS.has(methodName(call) ?? '')) continue;
-
-		const [event, listener] = getArguments(call);
-		if (stringValue(event) !== 'stream') continue;
-
-		const server = call.field('function')?.field('object');
-		if (!server) continue;
-		const isServer =
-			(server.kind() === 'identifier' && serverNames.has(server.text())) ||
-			(server.kind() === 'call_expression' &&
-				factoryCalls.some((factory) => factory.id() === server.id()));
-		if (!isServer || !FUNCTION_KINDS.has(listener.kind())) continue;
-
-		const name = firstParameterName(listener);
-		const body = listener.field('body');
+		const listener = call.getMatch('LISTENER');
+		const name = listener && firstParameterName(listener);
+		const body = listener?.field('body');
 		if (name && body) streams.push({ name, scope: body });
 	}
 	return streams;
@@ -214,57 +214,47 @@ function findClientStreams(
 ): StreamBinding[] {
 	if (!connectCallees.size) return [];
 
-	const sessionNames = new Set<string>();
-	for (const call of rootNode.findAll({ rule: { kind: 'call_expression' } })) {
-		if (!connectCallees.has(call.field('function')?.text() ?? '')) continue;
-		const name = declaredName(call);
-		if (name) sessionNames.add(name);
-	}
+	const sessionNames = declaredNames(rootNode, {
+		any: [...connectCallees].map((callee) => ({
+			pattern: `${callee}($$$ARGS)`,
+		})),
+	});
+	if (!sessionNames.size) return [];
 
-	const streams: StreamBinding[] = [];
-	for (const call of rootNode.findAll({
-		rule: { pattern: '$SESSION.request($$$ARGS)' },
+	return rootNode
+		.findAll({
+			rule: {
+				kind: 'variable_declarator',
+				all: [
+					{ has: { field: 'name', kind: 'identifier' } },
+					{ has: { field: 'value', pattern: '$SESSION.request($$$ARGS)' } },
+				],
+			},
+			constraints: { SESSION: { regex: exactly(sessionNames) } },
+		})
+		.map((declarator) => ({
+			name: declarator.field('name')?.text() ?? '',
+			scope: getScope(declarator),
+		}))
+		.filter(({ name }) => name);
+}
+
+/** Names declared as `const name = <value>`, where `<value>` matches `value`. */
+function declaredNames(rootNode: SgNode<Js>, value: Rule<Js>): Set<string> {
+	const names = new Set<string>();
+	for (const declarator of rootNode.findAll({
+		rule: {
+			kind: 'variable_declarator',
+			all: [
+				{ has: { field: 'name', kind: 'identifier' } },
+				{ has: { field: 'value', ...value } },
+			],
+		},
 	})) {
-		const session = call.field('function')?.field('object');
-		if (!session || !sessionNames.has(session.text())) continue;
-
-		const declarator = call.parent();
-		if (declarator?.kind() !== 'variable_declarator') continue;
-		const name = declarator.field('name');
-		if (name?.kind() !== 'identifier') continue;
-
-		streams.push({ name: name.text(), scope: getScope(declarator) });
+		const name = declarator.field('name')?.text();
+		if (name) names.add(name);
 	}
-	return streams;
-}
-
-/** `x` in `const x = <call>`, or undefined. */
-function declaredName(call: SgNode<Js>): string | undefined {
-	const declarator = call.parent();
-	if (declarator?.kind() !== 'variable_declarator') return undefined;
-	const name = declarator.field('name');
-	return name?.kind() === 'identifier' ? name.text() : undefined;
-}
-
-function methodName(call: SgNode<Js>): string | undefined {
-	const callee = call.field('function');
-	if (callee?.kind() !== 'member_expression') return undefined;
-	return callee.field('property')?.text();
-}
-
-function getArguments(call: SgNode<Js>): SgNode<Js>[] {
-	return (
-		call
-			.field('arguments')
-			?.children()
-			.filter((child) => child.isNamed() && child.kind() !== 'comment') ?? []
-	);
-}
-
-/** The value of a plain string literal, or undefined. */
-function stringValue(node: SgNode<Js> | undefined): string | undefined {
-	if (node?.kind() !== 'string') return undefined;
-	return node.text().slice(1, -1);
+	return names;
 }
 
 function parameterNodes(fn: SgNode<Js>): SgNode<Js>[] {
@@ -275,23 +265,18 @@ function parameterNodes(fn: SgNode<Js>): SgNode<Js>[] {
 		fn
 			.field('parameters')
 			?.children()
-			.filter((child) => child.isNamed() && child.kind() !== 'comment') ?? []
+			.filter((child) => child.isNamed() && !child.is('comment')) ?? []
 	);
-}
-
-function countParameters(fn: SgNode<Js>): number {
-	return parameterNodes(fn).length;
 }
 
 function firstParameterName(fn: SgNode<Js>): string | undefined {
 	let param = parameterNodes(fn)[0];
 	// TypeScript wraps parameters: `required_parameter` > `pattern`.
-	if (param?.kind() === 'required_parameter') {
+	if (param?.is('required_parameter')) {
 		param = param.field('pattern') ?? param;
 	}
-	return param?.kind() === 'identifier' ? param.text() : undefined;
+	return param?.is('identifier') ? param.text() : undefined;
 }
-
 /**
  * The listener body wrapped in `if (!<name>.writableFinished) { ... }`, as a
  * block. An expression body becomes one statement in the new block.
@@ -305,7 +290,7 @@ function wrapBody(
 	const inner = `${baseIndent}${unit}${unit}`;
 	let statements: string[];
 
-	if (body.kind() === 'statement_block') {
+	if (body.is('statement_block')) {
 		const content = body.text().slice(1, -1);
 		if (content.includes('\n')) {
 			const lines = content.split(/\r?\n/);
