@@ -1,0 +1,23 @@
+schema_version: "1.0"
+name: "@nodejs/stream-thenable-to-callback"
+version: 1.0.0
+description: "Replace async stream implementation methods with callbacks (DEP0157)."
+author: Harshal_25
+license: MIT
+workflow: workflow.yaml
+category: migration
+repository: https://github.com/nodejs/userland-migrations
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - nodejs
+
+registry:
+  access: public
+  visibility: public
