@@ -182,6 +182,30 @@ describe("import-statement", () => {
 		assert.strictEqual(moduleCalls.length, 0, "functions that aren't import shouldn't be caught");
 	});
 
+	it("should catch thenable dynamic import assigned with await", () => {
+		const code = dedent`
+			const urlParse = await import('node:url').then(({ parse }) => parse);
+		`;
+		const ast = astGrep.parse(astGrep.Lang.JavaScript, code);
+
+		const moduleCalls = getNodeImportCalls(ast, "url");
+		assert.strictEqual(moduleCalls.length, 1);
+		assert.strictEqual(moduleCalls[0].kind(), "variable_declarator");
+	});
+
+	it("should catch thenable dynamic import with destructuring callback parameter", () => {
+		const code = dedent`
+			import('node:url').then(({ parse: urlParse }) => {
+				const myURL = urlParse('https://example.com');
+			});
+		`;
+		const ast = astGrep.parse(astGrep.Lang.JavaScript, code);
+
+		const moduleCalls = getNodeImportCalls(ast, "url");
+		assert.strictEqual(moduleCalls.length, 1);
+		assert.strictEqual(moduleCalls[0].kind(), "expression_statement");
+	});
+
 	it("should handle getDefaultImportIdentifier", () => {
 		const code = dedent`
             import fs from 'fs';

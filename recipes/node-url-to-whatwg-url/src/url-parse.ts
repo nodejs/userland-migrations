@@ -1,5 +1,4 @@
-import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
-import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
+import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
 import type { SgRoot, Edit } from '@codemod.com/jssg-types/main';
 import type JS from '@codemod.com/jssg-types/langs/javascript';
@@ -62,10 +61,7 @@ export default function transform(root: SgRoot<JS>): string | null {
 	const rootNode = root.root();
 	const edits: Edit[] = [];
 
-	const importsAndRequires = [
-		...getNodeImportStatements(root, 'url'),
-		...getNodeRequireCalls(root, 'url'),
-	];
+	const importsAndRequires = getModuleDependencies(root, 'url');
 
 	if (!importsAndRequires.length) return null;
 
