@@ -1,13 +1,13 @@
 const url = require('node:url');
 
-const myURL = new URL('/path?query=string#hash');
+const myURL = url.parse('/path?query=string#hash');
 
-const auth = `${myURL.username}:${myURL.password}`;
-const urlAuth = `${myURL.username}:${myURL.password}`;
+const { auth } = myURL;
+const urlAuth = myURL.auth;
 
-const path = `${myURL.pathname}${myURL.search}`;
-const urlPath = `${myURL.pathname}${myURL.search}`;
+const { path } = myURL;
+const urlPath = myURL.path;
 
-const hostname = myURL.hostname.replace(/^\[|\]$/, '');
-const urlHostname = myURL.hostname.replace(/^\[|\]$/, '');
+const { hostname } = myURL;
+const urlHostname = myURL.hostname;
 

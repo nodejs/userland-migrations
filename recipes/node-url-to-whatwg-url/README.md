@@ -66,6 +66,8 @@ npx codemod @nodejs/node-url-to-whatwg-url
 
 ### Limitations
 
+`url.parse()` accepts relative URLs such as `'/path?query=string'`, but `new URL()` throws on them unless it gets a base URL. When `url.parse()` is called with a string literal that has no scheme (for example `'/path'` or `'//example.com'`), the codemod leaves that call unchanged and prints a warning with its location, so you can migrate it by hand, for example with `new URL(input, base)`. Calls whose argument is not a literal are still transformed, so check them if they may receive relative URLs.
+
 `url.format()` reconstruction from an object argument relies on static analysis of the object's properties. Complex cases — such as objects with many computed or dynamic properties — may not be fully transformed and could require manual review.
 
 <!-- sync_to_learn: false -->

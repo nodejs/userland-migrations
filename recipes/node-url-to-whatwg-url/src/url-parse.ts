@@ -1,12 +1,44 @@
 import { getNodeImportStatements } from '@nodejs/codemod-utils/ast-grep/import-statement';
 import { getNodeRequireCalls } from '@nodejs/codemod-utils/ast-grep/require-call';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
-import type { SgRoot, Edit } from '@codemod.com/jssg-types/main';
+import type { SgRoot, SgNode, Edit } from '@codemod.com/jssg-types/main';
 import type JS from '@codemod.com/jssg-types/langs/javascript';
 
 const VALID_VARIABLE_NAME_REGEX = /^[$A-Z_a-z][$\w]*$/;
 const DESTRUCTURING_ASSIGNMENT_REGEX = /^[^{]+{\s*[^}]+\s*}\s*=\s*/;
 const HOSTNAME_BRACKETS_REGEX = /^\[|\]$/;
+// A URL scheme such as `https:` or `file:`. `new URL()` throws without one.
+const URL_SCHEME_REGEX = /^[a-z][\d+.a-z-]*:/i;
+
+/**
+ * Whether `arg` is a string literal (or a template literal with no
+ * substitutions) that holds a URL without a scheme, such as `'/path?x=1'` or
+ * `'//example.com'`. `url.parse()` accepts these, but `new URL()` throws on
+ * them, so such calls are left unchanged.
+ *
+ * See https://github.com/nodejs/userland-migrations/issues/249
+ */
+function isRelativeUrlLiteral(arg: SgNode<JS>): boolean {
+	const isPlainString =
+		arg.is('string') ||
+		(arg.is('template_string') &&
+			!arg.find({ rule: { kind: 'template_substitution' } }));
+
+	if (!isPlainString) return false;
+
+	return !URL_SCHEME_REGEX.test(arg.text().slice(1, -1));
+}
+
+/**
+ * Warns that a `url.parse()` call with a relative URL was left unchanged.
+ */
+function warnRelativeUrl(root: SgRoot<JS>, call: SgNode<JS>): void {
+	const { line, column } = call.range().start;
+
+	console.warn(
+		`[Codemod] url.parse() called with a relative URL was left unchanged, because new URL() cannot parse it without a base URL. Migrate it by hand, for example with new URL(input, base). (at ${root.filename()}:${line + 1}:${column + 1})`,
+	);
+}
 
 const fieldsToReplace = [
 	{
@@ -96,6 +128,9 @@ export default function transform(root: SgRoot<JS>): string | null {
 		for (const m of matches) {
 			const obj = m.getMatch('OBJ');
 			if (!obj) continue;
+			// The result of a relative url.parse() stays a legacy Url object.
+			const arg = m.getMatch('ARG');
+			if (arg && isRelativeUrlLiteral(arg)) continue;
 			const name = obj.text();
 			if (VALID_VARIABLE_NAME_REGEX.test(name)) parseResultVars.add(name);
 		}
@@ -109,6 +144,11 @@ export default function transform(root: SgRoot<JS>): string | null {
 		for (const call of calls) {
 			const arg = call.getMatch('ARG');
 			if (!arg) continue;
+
+			if (isRelativeUrlLiteral(arg)) {
+				warnRelativeUrl(root, call);
+				continue;
+			}
 
 			edits.push(call.replace(`new URL(${arg.text()})`));
 		}
@@ -168,6 +208,9 @@ export default function transform(root: SgRoot<JS>): string | null {
 				rule: { pattern: `${pattern}.${key}` },
 			});
 			for (const node of directAccesses) {
+				const arg = node.getMatch('ARG');
+				if (arg && isRelativeUrlLiteral(arg)) continue;
+
 				// Reconstruct base as the matched expression before .key
 				const baseExpr = node.text().replace(new RegExp(`\\.${key}$`), '');
 				let replacement = '';
@@ -195,6 +238,9 @@ export default function transform(root: SgRoot<JS>): string | null {
 			});
 
 			for (const node of directDestructures) {
+				const arg = node.getMatch('ARG');
+				if (arg && isRelativeUrlLiteral(arg)) continue;
+
 				const text = node.text();
 				const hadSemi = /;\s*$/.test(text);
 				const rhsText = text.replace(DESTRUCTURING_ASSIGNMENT_REGEX, '');
