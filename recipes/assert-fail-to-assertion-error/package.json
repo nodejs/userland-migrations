@@ -1,0 +1,13 @@
+{
+  "name": "@nodejs/assert-fail-to-assertion-error",
+  "type": "module",
+  "scripts": {
+    "test": "npx codemod jssg test -l typescript ./src/workflow.ts"
+  },
+  "dependencies": {
+    "@nodejs/codemod-utils": "*"
+  },
+  "devDependencies": {
+    "@codemod.com/jssg-types": "^1.6.3"
+  }
+}

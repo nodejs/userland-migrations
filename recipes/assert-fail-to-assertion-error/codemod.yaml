@@ -1,0 +1,23 @@
+schema_version: "1.0"
+name: "@nodejs/assert-fail-to-assertion-error"
+version: "1.0.0"
+description: Handle DEP0094 by turning `assert.fail()` calls with more than one argument into `throw new AssertionError({ ... })`.
+author: FrustratedBoy420
+license: MIT
+workflow: workflow.yaml
+category: migration
+repository: https://github.com/nodejs/userland-migrations
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - nodejs
+
+registry:
+  access: public
+  visibility: public
