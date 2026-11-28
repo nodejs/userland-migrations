@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Preserve the line endings exercised by this regression fixture.
+recipes/http2-aborted-to-close/tests/case21-preserve-unicode-crlf/*.js -text whitespace=cr-at-eol

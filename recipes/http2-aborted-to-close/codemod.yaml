@@ -1,0 +1,25 @@
+schema_version: "1.0"
+name: "@nodejs/http2-aborted-to-close"
+version: 1.0.0
+description: Handle DEP0207 by moving HTTP/2 stream "aborted" listeners to "close" with a writableFinished check.
+author: FrustratedBoy420
+license: MIT
+workflow: workflow.yaml
+category: migration
+repository: https://github.com/nodejs/userland-migrations
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - http2
+  - deprecation
+  - nodejs
+
+registry:
+  access: public
+  visibility: public
