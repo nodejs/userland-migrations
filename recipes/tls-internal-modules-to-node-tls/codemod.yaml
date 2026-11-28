@@ -1,0 +1,25 @@
+schema_version: "1.0"
+name: "@nodejs/tls-internal-modules-to-node-tls"
+version: "1.0.0"
+description: "Handle DEP0192 by migrating internal TLS module imports (_tls_common, _tls_wrap) to node:tls."
+author: Vishal Raj
+license: MIT
+workflow: workflow.yaml
+category: migration
+repository: https://github.com/nodejs/userland-migrations
+
+targets:
+  languages:
+    - javascript
+    - typescript
+
+keywords:
+  - transformation
+  - migration
+  - nodejs
+  - tls
+  - dep0192
+
+registry:
+  access: public
+  visibility: public
