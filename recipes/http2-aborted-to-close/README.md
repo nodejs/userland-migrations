@@ -21,10 +21,14 @@ npx codemod @nodejs/http2-aborted-to-close
 
 An inline `'aborted'` listener with no parameters on a stream it can resolve becomes a `'close'` listener whose body only runs when `writableFinished` is false. It works with `on`, `once`, `addListener`, `prependListener` and `prependOnceListener`.
 
+The generated listener returns early when the writable side has finished. This keeps the original body and multiline strings intact, preserves returned promises, and allows nested listeners to migrate in the same pass. Explicit return types include `undefined` where needed for the early return.
+
 Streams it resolves, from `http2` or `node:http2` through `require()` or `import` (default, namespace, named and aliased):
 
 - the first parameter of a `'stream'` listener on a server from `createServer()` or `createSecureServer()`;
 - a variable holding `session.request(...)`, where `session` comes from `connect()`.
+
+Bindings are resolved within the file, so unrelated variables with the same name are left unchanged.
 
 ### Server stream
 
@@ -34,11 +38,9 @@ Streams it resolves, from `http2` or `node:http2` through `require()` or `import
  const server = http2.createServer();
  server.on('stream', (stream) => {
 -  stream.on('aborted', () => {
--    recordIncompleteResponse();
 +  stream.on('close', () => {
-+    if (!stream.writableFinished) {
-+      recordIncompleteResponse();
-+    }
++    if (stream.writableFinished) return;
+     recordIncompleteResponse();
    });
  });
 ```
@@ -50,9 +52,8 @@ Streams it resolves, from `http2` or `node:http2` through `require()` or `import
  const req = client.request({ ':path': '/' });
 -req.on('aborted', () => cleanup(req));
 +req.on('close', () => {
-+  if (!req.writableFinished) {
-+    cleanup(req);
-+  }
++  if (req.writableFinished) return;
++  return cleanup(req);
 +});
 ```
 
@@ -62,6 +63,7 @@ These cases are left unchanged and reported with a warning that gives the file, 
 
 - `.aborted` property reads such as `if (stream.aborted)`. Replace them with `destroyed`, `writableFinished` or `readableEnded`, whichever matches what the code means.
 - Listeners passed by name (`stream.on('aborted', onAborted)`) or with parameters.
+- Listeners that shadow the stream name in their own scope, or have a type predicate or an async return type other than an explicit `Promise<T>` that needs manual review.
 - Every `'aborted'` listener of a stream whose `'aborted'` listeners are also removed, counted or listed (`off`, `removeListener`, `removeAllListeners`, `listeners`, `rawListeners`, `listenerCount`).
 
 It does not touch:

@@ -2,7 +2,6 @@ import type { Edit, Rule, SgNode, SgRoot } from '@codemod.com/jssg-types/main';
 import type Js from '@codemod.com/jssg-types/langs/javascript';
 import { getModuleDependencies } from '@nodejs/codemod-utils/ast-grep/module-dependencies';
 import { resolveBindingPath } from '@nodejs/codemod-utils/ast-grep/resolve-binding-path';
-import { getScope } from '@nodejs/codemod-utils/ast-grep/get-scope';
 import {
 	detectIndentUnit,
 	getLineIndent,
@@ -18,7 +17,7 @@ import {
  *
  * to
  *
- *   stream.on('close', () => { if (!stream.writableFinished) { body } })
+ *   stream.on('close', () => { if (stream.writableFinished) return; body })
  *
  * `'close'` and `writableFinished` are not an exact synonym of `'aborted'`
  * (timing and the cases that fire the handler differ), so the scope is narrow:
@@ -55,11 +54,8 @@ const stringLiteral = (value: string): Rule<Js> => ({
 	has: { kind: 'string_fragment', regex: `^${value}$` },
 });
 
-/** Regex that matches exactly one of `names`. */
-const exactly = (names: Iterable<string>) =>
-	`^(${[...names].map((name) => name.replace(/[.$]/g, '\\$&')).join('|')})$`;
-
-type StreamBinding = { name: string; scope: SgNode<Js> };
+type Factory = { path: string; declaration: SgNode<Js> };
+type StreamBinding = { name: string; declaration: SgNode<Js> };
 
 export default function transform(root: SgRoot<Js>): string | null {
 	const rootNode = root.root();
@@ -69,15 +65,21 @@ export default function transform(root: SgRoot<Js>): string | null {
 	const http2Statements = getModuleDependencies(root, 'http2');
 	if (!http2Statements.length) return null;
 
-	const serverFactories = new Set<string>();
-	const connectCallees = new Set<string>();
+	const serverFactories: Factory[] = [];
+	const connectCallees: Factory[] = [];
 	for (const stmt of http2Statements) {
+		// Side-effect imports have no binding to resolve.
+		if (
+			stmt.is('import_statement') &&
+			!stmt.find({ rule: { kind: 'import_clause' } })
+		)
+			continue;
 		for (const path of ['$.createServer', '$.createSecureServer']) {
 			const resolved = resolveBindingPath(stmt, path);
-			if (resolved) serverFactories.add(resolved);
+			if (resolved) addFactory(serverFactories, stmt, resolved);
 		}
 		const connect = resolveBindingPath(stmt, '$.connect');
-		if (connect) connectCallees.add(connect);
+		if (connect) addFactory(connectCallees, stmt, connect);
 	}
 
 	const streams: StreamBinding[] = [
@@ -94,26 +96,32 @@ export default function transform(root: SgRoot<Js>): string | null {
 
 	const indentUnit = detectIndentUnit(source);
 
-	for (const { name, scope } of streams) {
-		const listeners = scope.findAll({
-			rule: { pattern: `${name}.$METHOD($EVENT, $LISTENER)` },
-			constraints: {
-				METHOD: { regex: LISTENER_METHODS },
-				EVENT: stringLiteral('aborted'),
-			},
-		});
-
-		const hasListenerQuery = !!scope.find({
-			rule: {
-				pattern: `${name}.$METHOD($$$ARGS)`,
-				// The event is the first argument; `removeAllListeners` may have no other.
-				has: {
-					field: 'arguments',
-					has: { nthChild: 1, ...stringLiteral('aborted') },
+	for (const { name, declaration } of streams) {
+		const belongsToStream = (node: SgNode<Js>) =>
+			sameBinding(node.getMatch('STREAM'), declaration);
+		const listeners = rootNode
+			.findAll({
+				rule: { pattern: '$STREAM.$METHOD($EVENT, $LISTENER)' },
+				constraints: {
+					METHOD: { regex: LISTENER_METHODS },
+					EVENT: stringLiteral('aborted'),
 				},
-			},
-			constraints: { METHOD: { regex: LISTENER_QUERY_METHODS } },
-		});
+			})
+			.filter(belongsToStream);
+
+		const hasListenerQuery = rootNode
+			.findAll({
+				rule: {
+					pattern: '$STREAM.$METHOD($$$ARGS)',
+					// The event is the first argument; `removeAllListeners` may have no other.
+					has: {
+						field: 'arguments',
+						has: { nthChild: 1, ...stringLiteral('aborted') },
+					},
+				},
+				constraints: { METHOD: { regex: LISTENER_QUERY_METHODS } },
+			})
+			.some(belongsToStream);
 
 		for (const call of listeners) {
 			if (hasListenerQuery) {
@@ -143,15 +151,33 @@ export default function transform(root: SgRoot<Js>): string | null {
 				?.find({ rule: { kind: 'string_fragment' } });
 			if (!body || !fragment) continue;
 
+			if (shadowsGuard(listener, name)) {
+				warn(
+					`this listener shadows \`${name}\`; review its writableFinished check manually`,
+					call,
+				);
+				continue;
+			}
+			const returnTypeEdit = widenReturnType(listener);
+			if (returnTypeEdit === false) {
+				warn(
+					'this listener has a return type that needs manual review before adding an early return',
+					call,
+				);
+				continue;
+			}
+			if (returnTypeEdit) edits.push(returnTypeEdit);
 			edits.push(fragment.replace('close'));
 
 			const baseIndent = getLineIndent(source, call.range().start.index);
-			edits.push(body.replace(wrapBody(body, name, baseIndent, indentUnit)));
+			edits.push(...guardBody(body, name, baseIndent, indentUnit));
 		}
 
-		for (const read of scope.findAll({
-			rule: { pattern: `${name}.aborted` },
-		})) {
+		for (const read of rootNode
+			.findAll({
+				rule: { pattern: '$STREAM.aborted' },
+			})
+			.filter(belongsToStream)) {
 			warn(
 				`\`${name}.aborted\` is deprecated and was not rewritten; choose \`destroyed\`, \`writableFinished\` or \`readableEnded\` for what this code means`,
 				read,
@@ -168,38 +194,30 @@ export default function transform(root: SgRoot<Js>): string | null {
  */
 function findServerStreams(
 	rootNode: SgNode<Js>,
-	factories: Set<string>,
+	factories: Factory[],
 ): StreamBinding[] {
-	if (!factories.size) return [];
-
-	const factoryCall: Rule<Js> = {
-		any: [...factories].map((factory) => ({ pattern: `${factory}($$$ARGS)` })),
-	};
-
-	// `const server = createServer()`
-	const serverNames = declaredNames(rootNode, factoryCall);
-
-	// `server.on('stream', ...)` or `createServer().on('stream', ...)`
-	const server: Rule<Js> = serverNames.size
-		? {
-				any: [{ kind: 'identifier', regex: exactly(serverNames) }, factoryCall],
-			}
-		: factoryCall;
+	const servers = declaredBindings(rootNode, (value) =>
+		isFactoryCall(value, factories),
+	);
 
 	const streams: StreamBinding[] = [];
 	for (const call of rootNode.findAll({
 		rule: { pattern: '$SERVER.$METHOD($EVENT, $LISTENER)' },
 		constraints: {
-			SERVER: server,
 			METHOD: { regex: LISTENER_METHODS },
 			EVENT: stringLiteral('stream'),
 			LISTENER: INLINE_FUNCTION,
 		},
 	})) {
+		const server = call.getMatch('SERVER');
+		if (
+			!isFactoryCall(server, factories) &&
+			!servers.some((binding) => sameBinding(server, binding.declaration))
+		)
+			continue;
 		const listener = call.getMatch('LISTENER');
-		const name = listener && firstParameterName(listener);
-		const body = listener?.field('body');
-		if (name && body) streams.push({ name, scope: body });
+		const declaration = listener && firstParameter(listener);
+		if (declaration) streams.push({ name: declaration.text(), declaration });
 	}
 	return streams;
 }
@@ -210,51 +228,94 @@ function findServerStreams(
  */
 function findClientStreams(
 	rootNode: SgNode<Js>,
-	connectCallees: Set<string>,
+	connectCallees: Factory[],
 ): StreamBinding[] {
-	if (!connectCallees.size) return [];
-
-	const sessionNames = declaredNames(rootNode, {
-		any: [...connectCallees].map((callee) => ({
-			pattern: `${callee}($$$ARGS)`,
-		})),
+	const sessions = declaredBindings(rootNode, (value) =>
+		isFactoryCall(value, connectCallees),
+	);
+	return declaredBindings(rootNode, (value) => {
+		const request = value.find({
+			rule: { pattern: '$SESSION.request($$$ARGS)' },
+		});
+		return (
+			request?.id() === value.id() &&
+			sessions.some((binding) =>
+				sameBinding(request.getMatch('SESSION'), binding.declaration),
+			)
+		);
 	});
-	if (!sessionNames.size) return [];
-
-	return rootNode
-		.findAll({
-			rule: {
-				kind: 'variable_declarator',
-				all: [
-					{ has: { field: 'name', kind: 'identifier' } },
-					{ has: { field: 'value', pattern: '$SESSION.request($$$ARGS)' } },
-				],
-			},
-			constraints: { SESSION: { regex: exactly(sessionNames) } },
-		})
-		.map((declarator) => ({
-			name: declarator.field('name')?.text() ?? '',
-			scope: getScope(declarator),
-		}))
-		.filter(({ name }) => name);
 }
 
-/** Names declared as `const name = <value>`, where `<value>` matches `value`. */
-function declaredNames(rootNode: SgNode<Js>, value: Rule<Js>): Set<string> {
-	const names = new Set<string>();
+/** Keep declaration identity instead of collecting names across unrelated scopes. */
+function declaredBindings(
+	rootNode: SgNode<Js>,
+	matchesValue: (node: SgNode<Js>) => boolean,
+): StreamBinding[] {
+	const bindings: StreamBinding[] = [];
 	for (const declarator of rootNode.findAll({
 		rule: {
 			kind: 'variable_declarator',
-			all: [
-				{ has: { field: 'name', kind: 'identifier' } },
-				{ has: { field: 'value', ...value } },
-			],
+			has: { field: 'name', kind: 'identifier' },
 		},
 	})) {
-		const name = declarator.field('name')?.text();
-		if (name) names.add(name);
+		const declaration = declarator.field('name');
+		const value = declarator.field('value');
+		if (declaration && value && matchesValue(value))
+			bindings.push({ name: declaration.text(), declaration });
 	}
-	return names;
+	return bindings;
+}
+
+function sameBinding(
+	reference: SgNode<Js> | null,
+	declaration: SgNode<Js>,
+): boolean {
+	if (!reference?.is('identifier') || reference.text() !== declaration.text())
+		return false;
+	const actual = reference.definition({ resolveExternal: false });
+	// Definitions may point at the identifier, a typed parameter, or an import specifier.
+	return (
+		!!actual &&
+		actual.root.filename() === declaration.getRoot().filename() &&
+		actual.node.range().start.index <= declaration.range().start.index &&
+		actual.node.range().end.index >= declaration.range().end.index
+	);
+}
+
+function addFactory(factories: Factory[], statement: SgNode<Js>, path: string) {
+	const name = path.split('.')[0];
+	const declaration = statement
+		.findAll({
+			rule: {
+				any: [
+					{ kind: 'identifier' },
+					{ kind: 'shorthand_property_identifier_pattern' },
+				],
+			},
+		})
+		.find(
+			(node) =>
+				node.text() === name &&
+				// In `import { createServer as createServer }`, select the local alias.
+				(!node.parent()?.is('import_specifier') ||
+					!node.parent()?.field('alias') ||
+					node.parent()?.field('alias')?.id() === node.id()) &&
+				node.definition({ resolveExternal: false }),
+		);
+	if (declaration) factories.push({ path, declaration });
+}
+
+function isFactoryCall(node: SgNode<Js> | null, factories: Factory[]): boolean {
+	if (!node?.is('call_expression')) return false;
+	const callee = node.field('function');
+	let reference: SgNode<Js> | null = callee;
+	while (reference?.is('member_expression'))
+		reference = reference.field('object');
+	return factories.some(
+		(factory) =>
+			node.matches({ rule: { pattern: `${factory.path}($$$ARGS)` } }) &&
+			sameBinding(reference, factory.declaration),
+	);
 }
 
 function parameterNodes(fn: SgNode<Js>): SgNode<Js>[] {
@@ -269,46 +330,146 @@ function parameterNodes(fn: SgNode<Js>): SgNode<Js>[] {
 	);
 }
 
-function firstParameterName(fn: SgNode<Js>): string | undefined {
+function firstParameter(fn: SgNode<Js>): SgNode<Js> | undefined {
 	let param = parameterNodes(fn)[0];
 	// TypeScript wraps parameters: `required_parameter` > `pattern`.
 	if (param?.is('required_parameter')) {
 		param = param.field('pattern') ?? param;
 	}
-	return param?.is('identifier') ? param.text() : undefined;
+	return param?.is('identifier') ? param : undefined;
 }
-/**
- * The listener body wrapped in `if (!<name>.writableFinished) { ... }`, as a
- * block. An expression body becomes one statement in the new block.
- */
-function wrapBody(
+
+/** The inserted reference must still refer to the stream inside the callback. */
+function shadowsGuard(listener: SgNode<Js>, name: string): boolean {
+	if (listener.field('name')?.text() === name) return true;
+	const body = listener.field('body');
+	const functionScope: Rule<Js> = {
+		any: [
+			INLINE_FUNCTION,
+			{ kind: 'function_declaration' },
+			{ kind: 'generator_function' },
+			{ kind: 'generator_function_declaration' },
+			{ kind: 'method_definition' },
+		],
+	};
+	return body
+		.findAll({
+			rule: {
+				any: [
+					{ kind: 'variable_declarator' },
+					{ kind: 'function_declaration' },
+					{ kind: 'generator_function_declaration' },
+					{ kind: 'class_declaration' },
+				],
+			},
+		})
+		.some((declaration) => {
+			const pattern = declaration.field('name');
+			if (
+				pattern?.text() !== name &&
+				!pattern
+					?.findAll({
+						rule: {
+							any: [
+								{ kind: 'identifier' },
+								{ kind: 'shorthand_property_identifier_pattern' },
+							],
+						},
+					})
+					.some((node) => node.text() === name)
+			)
+				return false;
+			const hoisted =
+				declaration.parent()?.is('variable_declaration') ||
+				declaration.is('function_declaration') ||
+				declaration.is('generator_function_declaration');
+			const scope = declaration.ancestors().find(
+				(ancestor) =>
+					ancestor.matches({ rule: functionScope }) ||
+					(!hoisted &&
+						ancestor.matches({
+							rule: {
+								any: [
+									{ kind: 'statement_block' },
+									{ kind: 'for_statement' },
+									{ kind: 'for_in_statement' },
+									{ kind: 'switch_body' },
+								],
+							},
+						})),
+			);
+			return scope?.id() === listener.id() || scope?.id() === body.id();
+		});
+}
+
+/** The guard adds a path returning undefined; keep explicit callback types valid. */
+function widenReturnType(listener: SgNode<Js>): Edit | false | undefined {
+	const annotation = listener.field('return_type');
+	if (!annotation) return;
+	if (!annotation.is('type_annotation')) return false;
+	const type = annotation.text().slice(1).trim();
+	if (['void', 'undefined', 'any', 'unknown'].includes(type)) return;
+	if (!listener.children().some((node) => node.is('async'))) {
+		return annotation.replace(`: (${type}) | undefined`);
+	}
+	const promise = /^Promise<([\s\S]+)>$/.exec(type);
+	if (!promise) return false;
+	if (['void', 'undefined', 'any', 'unknown'].includes(promise[1].trim()))
+		return;
+	return annotation.replace(`: Promise<(${promise[1]}) | undefined>`);
+}
+
+/** Insert a guard without moving existing code or replacing nested listener bodies. */
+function guardBody(
 	body: SgNode<Js>,
 	name: string,
 	baseIndent: string,
 	unit: string,
-): string {
-	const inner = `${baseIndent}${unit}${unit}`;
-	let statements: string[];
-
+): Edit[] {
+	const guard = `if (${name}.writableFinished) return;`;
+	const { start, end } = body.range();
 	if (body.is('statement_block')) {
-		const content = body.text().slice(1, -1);
-		if (content.includes('\n')) {
-			const lines = content.split(/\r?\n/);
-			if (!lines[0].trim()) lines.shift();
-			if (lines.length && !lines[lines.length - 1].trim()) lines.pop();
-			statements = lines.map((line) => (line.trim() ? unit + line : ''));
-		} else {
-			statements = content.trim() ? [inner + content.trim()] : [];
+		let position = start.index + 1;
+		let separator = '';
+		// Leave directive prologues (such as 'use strict') at the start of the function.
+		for (const statement of body
+			.children()
+			.filter((node) => node.isNamed() && !node.is('comment'))) {
+			if (
+				!statement.is('expression_statement') ||
+				!statement
+					.children()
+					.find((node) => node.isNamed())
+					?.is('string')
+			)
+				break;
+			position = statement.range().end.index;
+			separator = statement.text().trimEnd().endsWith(';') ? '' : ';';
 		}
-	} else {
-		statements = [`${inner}${body.text()};`];
+		const newline = body.text().includes('\r\n') ? '\r\n' : '\n';
+		const prefix = body.text().includes('\n')
+			? `${newline}${baseIndent}${unit}`
+			: ' ';
+		const next = body.text()[position - start.index];
+		const suffix = /\s/.test(next) ? '' : prefix;
+		return [
+			{
+				startPos: position,
+				endPos: position,
+				insertedText: `${separator}${prefix}${guard}${suffix}`,
+			},
+		];
 	}
-
 	return [
-		'{',
-		`${baseIndent}${unit}if (!${name}.writableFinished) {`,
-		...statements,
-		`${baseIndent}${unit}}`,
-		`${baseIndent}}`,
-	].join('\n');
+		{
+			startPos: start.index,
+			endPos: start.index,
+			insertedText: `{\n${baseIndent}${unit}${guard}\n${baseIndent}${unit}return `,
+		},
+		{
+			startPos: end.index,
+			endPos: end.index,
+			insertedText: `;\n${baseIndent}}`,
+		},
+	];
 }
